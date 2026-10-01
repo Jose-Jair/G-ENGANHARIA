@@ -13,12 +13,16 @@ export interface ScoreCalculationResult {
   qtdContratosAtivos: number
   mediaMesesVigencia: number
   aderenciaPercent?: number
+  posicaoNaBase?: number
+  totalEmpresasBase?: number
+  explicacao?: string
   detalhes: {
     pontosValor: number // 50%
     pontosVigencia: number // 30%
     pontosQtd: number // 20%
     indiceComposto: number
     percentualAcumuladoPareto?: number
+    regraAplicada?: string
   }
 }
 
@@ -165,18 +169,50 @@ export const scoreCurvaService = {
           : ((index + 1) / comIndices.length) * 100
 
       let curva: CurvaABC = 'C'
-      // Pareto: A até 80%, B de 80 a 95%, C restante
-      if (item.indiceComposto > 0) {
-        if (percAcumulado <= 80 || (index === 0 && item.indiceComposto > 0)) {
+      let regraAplicada = ''
+
+      // Regras de piso e Pareto com base pequena:
+      // - A maior empresa (index === 0) com contrato/índice > 0 é SEMPRE Curva A (piso da maior empresa)
+      // - Se base tiver 1 empresa com contrato: Curva A
+      // - Se base tiver 2 empresas: 1ª = A, 2ª = B (se tiver contrato) ou C (se zero)
+      // - Se base tiver 3 empresas: 1ª = A, 2ª = B, 3ª = C
+      // - Se base >= 4 empresas: Pareto tradicional (A <= 80%, B 80%-95%, C > 95%), sempre garantindo index 0 como A
+      const totalEmpresas = comIndices.length
+
+      if (item.indiceComposto > 0 || item.met.totalValorAtivo > 0) {
+        if (index === 0) {
           curva = 'A'
-        } else if (percAcumulado <= 95) {
+          regraAplicada = 'Maior índice da base (regra de piso: top 1 é sempre Curva A)'
+        } else if (totalEmpresas <= 2) {
           curva = 'B'
+          regraAplicada = 'Segunda maior empresa em base pequena (regra de piso: Curva B)'
+        } else if (totalEmpresas === 3) {
+          if (index === 1) {
+            curva = 'B'
+            regraAplicada = 'Distribuição Pareto em base pequena (2ª posição = Curva B)'
+          } else {
+            curva = 'C'
+            regraAplicada = 'Distribuição Pareto em base pequena (3ª posição = Curva C)'
+          }
         } else {
-          curva = 'C'
+          // Base >= 4 empresas: Pareto acumulado
+          if (percAcumulado <= 80) {
+            curva = 'A'
+            regraAplicada = `Pareto: até 80% do acumulado da base (${Math.round(percAcumulado)}%)`
+          } else if (percAcumulado <= 95) {
+            curva = 'B'
+            regraAplicada = `Pareto: faixa entre 80% e 95% do acumulado (${Math.round(percAcumulado)}%)`
+          } else {
+            curva = 'C'
+            regraAplicada = `Pareto: cauda longa acima de 95% do acumulado (${Math.round(percAcumulado)}%)`
+          }
         }
       } else {
         curva = 'C'
+        regraAplicada = 'Sem contratos ativos ou índice composto zero'
       }
+
+      const explicacao = `Classificada na Curva ${curva} com Índice Composto ${Math.round(item.indiceComposto)}/100 (posição ${index + 1} de ${totalEmpresas} na base). Critérios: 50% Valor (${item.pontosValor} pts), 30% Vigência (${item.pontosVigencia} pts), 20% Volume (${item.pontosQtd} pts). ${regraAplicada}.`
 
       resultados.set(item.id, {
         score: Math.round(item.indiceComposto),
@@ -184,12 +220,16 @@ export const scoreCurvaService = {
         totalValorAtivo: item.met.totalValorAtivo,
         qtdContratosAtivos: item.met.qtdContratosAtivos,
         mediaMesesVigencia: item.met.mediaMesesVigencia,
+        posicaoNaBase: index + 1,
+        totalEmpresasBase: totalEmpresas,
+        explicacao,
         detalhes: {
           pontosValor: item.pontosValor,
           pontosVigencia: item.pontosVigencia,
           pontosQtd: item.pontosQtd,
           indiceComposto: item.indiceComposto,
           percentualAcumuladoPareto: Math.round(percAcumulado * 10) / 10,
+          regraAplicada,
         },
       })
     })
@@ -200,23 +240,44 @@ export const scoreCurvaService = {
   /**
    * Cálculo pontual para uma empresa isolada (compatibilidade e visualização individual)
    */
-  calcular(contratos: ContratoRecord[] = [], _cnae?: string): ScoreCalculationResult {
+  calcular(
+    contratos: ContratoRecord[] = [],
+    _cnae?: string,
+    contextoBase?: { posicao?: number; total?: number },
+  ): ScoreCalculationResult {
     const hoje = new Date()
     const met = extrairMetricasContratosAtivos(contratos, hoje)
     const calculo = calcularIndiceCompostoItem(met)
 
-    // Classificação de referência quando sem a base inteira:
-    // A: índice composto >= 70 ou contratos ativos > 3M
-    // B: índice composto entre 30 e 70 ou contratos ativos > 500k
-    // C: restante
+    // Regra de piso quando avaliada individualmente:
+    // Se possui contratos ativos vigentes, a empresa nunca cai em C arbitrariamente se for a única ou principal.
+    // Piso: com contrato ativo >= R$ 1,00, no mínimo Curva A (se for única na base) ou calculada por faixas generosas
     let curva: CurvaABC = 'C'
-    if (calculo.indiceComposto >= 60 || met.totalValorAtivo >= 5000000) {
-      curva = 'A'
-    } else if (calculo.indiceComposto >= 25 || met.totalValorAtivo >= 1000000) {
-      curva = 'B'
-    } else {
+    let regra = ''
+
+    if (met.qtdContratosAtivos === 0 || met.totalValorAtivo === 0) {
       curva = 'C'
+      regra = 'Sem contratos ativos vigentes cadastrados'
+    } else if (contextoBase && contextoBase.total && contextoBase.total <= 1) {
+      // Regra de piso expressa: única empresa com contrato ativo é sempre A
+      curva = 'A'
+      regra = 'Única empresa com contrato ativo na base (regra de piso: Curva A garantida)'
+    } else if (calculo.indiceComposto >= 40 || met.totalValorAtivo >= 1000000) {
+      curva = 'A'
+      regra = 'Alto índice composto ou valor contratual expressivo (>= R$ 1M)'
+    } else if (calculo.indiceComposto >= 15 || met.totalValorAtivo >= 200000) {
+      curva = 'B'
+      regra = 'Médio índice composto ou valor contratual intermediário'
+    } else {
+      // Mesmo com valor menor, se tiver contratos ativos relevantes e for uma base pequena (ou única analisada isoladamente)
+      curva = 'B'
+      regra =
+        'Empresa com contrato ativo em análise pontual (piso mínimo B para empresas contratadas)'
     }
+
+    const pos = contextoBase?.posicao ?? 1
+    const tot = contextoBase?.total ?? 1
+    const explicacao = `Classificada na Curva ${curva} com Índice Composto ${Math.round(calculo.indiceComposto)}/100 (posição ${pos} de ${tot}). Critérios: 50% Valor (${calculo.pontosValor} pts), 30% Vigência (${calculo.pontosVigencia} pts), 20% Volume (${calculo.pontosQtd} pts). ${regra}.`
 
     return {
       score: Math.round(calculo.indiceComposto),
@@ -224,11 +285,15 @@ export const scoreCurvaService = {
       totalValorAtivo: met.totalValorAtivo,
       qtdContratosAtivos: met.qtdContratosAtivos,
       mediaMesesVigencia: met.mediaMesesVigencia,
+      posicaoNaBase: pos,
+      totalEmpresasBase: tot,
+      explicacao,
       detalhes: {
         pontosValor: calculo.pontosValor,
         pontosVigencia: calculo.pontosVigencia,
         pontosQtd: calculo.pontosQtd,
         indiceComposto: calculo.indiceComposto,
+        regraAplicada: regra,
       },
     }
   },

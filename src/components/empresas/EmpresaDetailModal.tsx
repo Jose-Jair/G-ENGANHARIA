@@ -12,7 +12,9 @@ import { contratosService } from '@/services/contratos'
 import { contatosService } from '@/services/contatos'
 import { empresaTimelineService } from '@/services/empresaTimeline'
 import { brasilApiService } from '@/services/brasilApi'
-import { cleanCnpj, formatCnpj, isValidCnpj, cleanPhoneForWa } from '@/lib/cnpj'
+import { cleanCnpj, formatCnpj, isValidCnpj, cleanPhoneForWa, formatPhoneBr } from '@/lib/cnpj'
+import { scoreCurvaService } from '@/services/scoreCurva'
+import { TelefoneEmpresaItem } from '@/types'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
 import { EmpresaContratosTab } from './EmpresaContratosTab'
 import { EmpresaContatosTab } from './EmpresaContatosTab'
@@ -53,6 +55,10 @@ import {
   ArrowRight,
   ShieldAlert,
   CalendarCheck,
+  PhoneCall,
+  Trash2,
+  Plus,
+  Info,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -64,17 +70,25 @@ interface EmpresaDetailModalProps {
   diasAlerta?: number
   readOnly?: boolean
   onSuccess: () => void
+  onCreatedEmpresaSelect?: (empresa: EmpresaRecord) => void
 }
 
 export function EmpresaDetailModal({
   open,
   onOpenChange,
-  empresa,
+  empresa: initialEmpresa,
   users = [],
   diasAlerta = 5,
   readOnly = false,
   onSuccess,
 }: EmpresaDetailModalProps) {
+  const [currentEmpresa, setCurrentEmpresa] = useState<EmpresaRecord | null>(initialEmpresa)
+
+  useEffect(() => {
+    setCurrentEmpresa(initialEmpresa)
+  }, [initialEmpresa])
+
+  const empresa = currentEmpresa
   const { toast } = useToast()
 
   const [activeTab, setActiveTab] = useState<
@@ -105,6 +119,7 @@ export function EmpresaDetailModal({
   const [municipio, setMunicipio] = useState('')
   const [email, setEmail] = useState('')
   const [telefone, setTelefone] = useState('')
+  const [telefones, setTelefones] = useState<import('@/types').TelefoneEmpresaItem[]>([])
   const [instagram, setInstagram] = useState('')
   const [linkedin, setLinkedin] = useState('')
   const [site, setSite] = useState('')
@@ -113,6 +128,16 @@ export function EmpresaDetailModal({
   const [responsavel, setResponsavel] = useState('')
   const [status, setStatus] = useState<EmpresaRecord['status']>('ativa')
   const [observacoes, setObservacoes] = useState('')
+
+  // Explicação detalhada da Curva ABC
+  const [explicacaoCurva, setExplicacaoCurva] = useState<string>('')
+  const [scoreCalculado, setScoreCalculado] = useState<number>(0)
+
+  // Estado para adicionar novo telefone na lista
+  const [novoTelefoneNumero, setNovoTelefoneNumero] = useState('')
+  const [novoTelefoneTipo, setNovoTelefoneTipo] =
+    useState<import('@/types').TipoTelefoneEmpresa>('celular')
+  const [novoTelefoneDesc, setNovoTelefoneDesc] = useState('')
 
   // Detecção dos 3 Cenários
   const [cenarioDetectado, setCenarioDetectado] = useState<CenarioEntrada>('nova')
@@ -144,11 +169,29 @@ export function EmpresaDetailModal({
       setMunicipio(empresa.municipio || '')
       setEmail(empresa.email || '')
       setTelefone(empresa.telefone || '')
+
+      // Múltiplos telefones: carregar do JSON ou inicializar com o telefone principal
+      if (Array.isArray(empresa.telefones) && empresa.telefones.length > 0) {
+        setTelefones(empresa.telefones)
+      } else if (empresa.telefone) {
+        setTelefones([
+          {
+            id: 'tel_1',
+            numero: empresa.telefone,
+            tipo: 'celular',
+            ramalOuDescricao: 'Principal',
+          },
+        ])
+      } else {
+        setTelefones([])
+      }
+
       setInstagram(empresa.instagram || '')
       setLinkedin(empresa.linkedin || '')
       setSite(empresa.site || '')
       setEtapaFunil(empresa.etapa_funil || 'identificada')
       setCurva(empresa.curva || 'C')
+      setScoreCalculado(empresa.score || 0)
       setResponsavel(empresa.responsavel || '')
       setStatus(empresa.status || 'ativa')
       setObservacoes(empresa.observacoes || '')
@@ -168,11 +211,17 @@ export function EmpresaDetailModal({
       setMunicipio('')
       setEmail('')
       setTelefone('')
+      setTelefones([])
+      setNovoTelefoneNumero('')
+      setNovoTelefoneTipo('celular')
+      setNovoTelefoneDesc('')
       setInstagram('')
       setLinkedin('')
       setSite('')
       setEtapaFunil('identificada')
       setCurva('C')
+      setScoreCalculado(0)
+      setExplicacaoCurva('')
       setResponsavel(users[0]?.id || '')
       setStatus('ativa')
       setObservacoes('')
@@ -200,6 +249,38 @@ export function EmpresaDetailModal({
       setMotivosInativacao(motsInat)
       setMotivosCancelamento(motsCanc)
 
+      // Apurar Curva ABC e explicação com a base atual
+      try {
+        const todasEmpresas = await empresasService.list()
+        const todosContratos = await contratosService.listAll()
+        const contratosMap = new Map<string, ContratoRecord[]>()
+        todosContratos.forEach((c) => {
+          if (!contratosMap.has(c.empresa)) contratosMap.set(c.empresa, [])
+          contratosMap.get(c.empresa)!.push(c)
+        })
+        const classificacao = scoreCurvaService.classificarBaseEmpresas(todasEmpresas, contratosMap)
+        const res = classificacao.get(empId)
+        if (res) {
+          setCurva(res.curva)
+          setScoreCalculado(res.score)
+          setExplicacaoCurva(res.explicacao || '')
+          // Se mudou curva no cálculo, sincroniza no banco
+          if (empresa && (empresa.curva !== res.curva || empresa.score !== res.score)) {
+            empresasService.update(empId, { curva: res.curva, score: res.score }).catch(() => {})
+          }
+        } else {
+          const calcIsolado = scoreCurvaService.calcular(cts, empresa?.cnae)
+          setCurva(calcIsolado.curva)
+          setScoreCalculado(calcIsolado.score)
+          setExplicacaoCurva(calcIsolado.explicacao || '')
+        }
+      } catch (e) {
+        const calcIsolado = scoreCurvaService.calcular(cts, empresa?.cnae)
+        setCurva(calcIsolado.curva)
+        setScoreCalculado(calcIsolado.score)
+        setExplicacaoCurva(calcIsolado.explicacao || '')
+      }
+
       const calc = toquesService.calcularStatusToques(tqs, diasAlerta || 5)
       setToquesCalculados(calc)
 
@@ -214,6 +295,43 @@ export function EmpresaDetailModal({
       console.error('Erro ao carregar dados relacionados:', err)
     } finally {
       setLoadingTimeline(false)
+    }
+  }
+
+  // Funções para gerenciar múltiplos telefones
+  const handleAdicionarTelefone = () => {
+    if (!novoTelefoneNumero.trim()) {
+      toast({
+        title: 'Número obrigatório',
+        description: 'Digite o número do telefone com DDD.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const item: TelefoneEmpresaItem = {
+      id: `tel_${Date.now()}`,
+      numero: novoTelefoneNumero.trim(),
+      tipo: novoTelefoneTipo,
+      ramalOuDescricao: novoTelefoneDesc.trim() || undefined,
+    }
+
+    const atualizados = [...telefones, item]
+    setTelefones(atualizados)
+    // Se ainda não tiver telefone geral, define este
+    if (!telefone) {
+      setTelefone(item.numero)
+    }
+    setNovoTelefoneNumero('')
+    setNovoTelefoneDesc('')
+    setNovoTelefoneTipo('celular')
+  }
+
+  const handleRemoverTelefone = (id: string) => {
+    const atualizados = telefones.filter((t) => t.id !== id)
+    setTelefones(atualizados)
+    if (telefone && !atualizados.some((t) => t.numero === telefone)) {
+      setTelefone(atualizados[0]?.numero || '')
     }
   }
 
@@ -270,29 +388,64 @@ export function EmpresaDetailModal({
   }
 
   const consultarApiReceita = async (rawCnpj: string) => {
+    if (!rawCnpj || rawCnpj.length !== 14) return
     setConsultandoCnpj(true)
     setAvisoApi(null)
     try {
       const data = await brasilApiService.consultarCnpj(rawCnpj)
 
-      // Preencher campos automaticamente mantendo-os editáveis
-      if (data.razao_social) setRazaoSocial(data.razao_social)
-      if (data.nome_fantasia) setNomeFantasia(data.nome_fantasia)
-      if (data.situacao_cadastral) setSituacaoCadastral(data.situacao_cadastral)
+      if (!data) {
+        throw new Error('Resposta vazia da BrasilAPI')
+      }
+
+      // Preencher campos com segurança absoluta contra undefined
+      if (data.razao_social) setRazaoSocial(String(data.razao_social).trim())
+      if (data.nome_fantasia) setNomeFantasia(String(data.nome_fantasia).trim())
+      if (data.situacao_cadastral)
+        setSituacaoCadastral(String(data.situacao_cadastral).toUpperCase().trim())
       if (data.cnae_fiscal_descricao) {
         setCnae(`${data.cnae_fiscal || ''} - ${data.cnae_fiscal_descricao}`)
       }
-      if (data.porte) setPorte(data.porte)
-      if (data.uf) setUf(data.uf)
-      if (data.municipio) setMunicipio(data.municipio)
-      if (data.email) setEmail(data.email.toLowerCase())
-      if (data.ddd_telefone_1) setTelefone(data.ddd_telefone_1)
+      if (data.porte) setPorte(String(data.porte).trim())
+      if (data.uf) setUf(String(data.uf).toUpperCase().trim())
+      if (data.municipio) setMunicipio(String(data.municipio).trim())
+      if (data.email) setEmail(String(data.email).toLowerCase().trim())
+
+      const telsEncontrados: TelefoneEmpresaItem[] = []
+      if (data.ddd_telefone_1) {
+        const formatted1 = formatPhoneBr(String(data.ddd_telefone_1))
+        setTelefone(formatted1)
+        telsEncontrados.push({
+          id: `tel_api_1_${Date.now()}`,
+          numero: formatted1,
+          tipo: 'fixo',
+          ramalOuDescricao: 'Receita Federal 1',
+        })
+      }
+      if (data.ddd_telefone_2) {
+        const formatted2 = formatPhoneBr(String(data.ddd_telefone_2))
+        telsEncontrados.push({
+          id: `tel_api_2_${Date.now()}`,
+          numero: formatted2,
+          tipo: 'fixo',
+          ramalOuDescricao: 'Receita Federal 2',
+        })
+      }
+
+      if (telsEncontrados.length > 0) {
+        setTelefones((prev) => {
+          const jaExistem = new Set(prev.map((t) => cleanPhoneForWa(t.numero)))
+          const novos = telsEncontrados.filter((t) => !jaExistem.has(cleanPhoneForWa(t.numero)))
+          return [...prev, ...novos]
+        })
+      }
 
       toast({
         title: 'Dados sincronizados via BrasilAPI',
-        description: 'Razão social, situação cadastral, CNAE, porte e endereço preenchidos.',
+        description: 'Razão social, situação cadastral e endereço preenchidos.',
       })
     } catch (err: unknown) {
+      console.warn('Erro ao consultar BrasilAPI:', err)
       const msg = err instanceof Error ? err.message : 'Falha na consulta'
       setAvisoApi(
         `Não foi possível consultar os dados automaticamente (${msg}) — preencha manualmente.`,
@@ -341,6 +494,8 @@ export function EmpresaDetailModal({
 
     setSubmitting(true)
     try {
+      const telPrincipal = telefone.trim() || telefones[0]?.numero || ''
+
       const payload: CreateEmpresaData = {
         razao_social: razaoSocial.trim(),
         nome_fantasia: nomeFantasia.trim(),
@@ -351,12 +506,14 @@ export function EmpresaDetailModal({
         uf: uf.trim().toUpperCase(),
         municipio: municipio.trim(),
         email: email.trim().toLowerCase(),
-        telefone: telefone.trim(),
+        telefone: telPrincipal,
+        telefones,
         instagram: instagram.trim(),
         linkedin: linkedin.trim(),
         site: site.trim(),
         etapa_funil: etapaFunil,
         curva,
+        score: scoreCalculado,
         responsavel: responsavel || undefined,
         status,
         observacoes: observacoes.trim(),
@@ -365,21 +522,31 @@ export function EmpresaDetailModal({
       if (empresa) {
         await empresasService.update(empresa.id, payload)
         toast({
-          title: 'Empresa atualizada',
-          description: 'Dados cadastrais salvos com sucesso.',
+          title: 'Empresa atualizada com sucesso',
+          description: 'Os dados cadastrais foram salvos no sistema.',
         })
+        onSuccess()
+        onOpenChange(false)
       } else {
         // Cenário 1: Nova empresa -> etapa_funil = "identificada"
         payload.etapa_funil = 'identificada'
         const created = await empresasService.create(payload)
         toast({
-          title: 'Empresa cadastrada',
-          description: 'Nova empresa cadastrada na etapa Identificada.',
+          title: 'Empresa cadastrada com sucesso',
+          description:
+            'Redirecionando para a ficha completa para inclusão de contratos e contatos.',
         })
+        onSuccess()
+        // Item 9: Ao salvar empresa nova, redireciona para a ficha completa dela abrindo a aba contratos
+        setCurrentEmpresa(created)
+        setCenarioDetectado('cadastrada')
+        setEmpresaExistenteDetectada(created)
+        if (onCreatedEmpresaSelect) {
+          onCreatedEmpresaSelect(created)
+        }
+        loadSubData(created.id)
+        setActiveTab('contratos')
       }
-
-      onSuccess()
-      onOpenChange(false)
     } catch (err: unknown) {
       toast({
         title: 'Erro ao salvar empresa',
@@ -476,15 +643,14 @@ export function EmpresaDetailModal({
             {/* Botões de Ação Rápida de Contato no Cabeçalho (aparecem somente se preenchidos) */}
             {empresa && (
               <div className="flex items-center gap-1.5 shrink-0">
-                {email && (
-                  <a
-                    href={`mailto:${email}?subject=Intermediação Técnica de Contratos - ${razaoSocial}`}
-                    className="p-2 rounded-md bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 hover:text-blue-600 transition-colors shadow-xs"
-                    title={`Enviar e-mail para ${email}`}
-                  >
-                    <Mail className="w-4 h-4" />
-                  </a>
-                )}
+                {/* Item 11: Botão Enviar e-mail com mailto:grupomais.sae@gmail.com */}
+                <a
+                  href="mailto:grupomais.sae@gmail.com"
+                  className="p-2 rounded-md bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 hover:text-blue-600 transition-colors shadow-xs"
+                  title="Enviar e-mail oficial (grupomais.sae@gmail.com)"
+                >
+                  <Mail className="w-4 h-4" />
+                </a>
 
                 {telefone && (
                   <button
@@ -717,30 +883,6 @@ export function EmpresaDetailModal({
                     />
                   </div>
 
-                  {/* CNAE */}
-                  <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="empCnae">CNAE Principal</Label>
-                    <Input
-                      id="empCnae"
-                      placeholder="Ex: 42.11-1-01 - Construção de rodovias"
-                      value={cnae}
-                      onChange={(e) => setCnae(e.target.value)}
-                      disabled={readOnly}
-                    />
-                  </div>
-
-                  {/* Porte */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="empPorte">Porte da Empresa</Label>
-                    <Input
-                      id="empPorte"
-                      placeholder="Ex: DEMAIS, MEDIO, ME, EPP"
-                      value={porte}
-                      onChange={(e) => setPorte(e.target.value)}
-                      disabled={readOnly}
-                    />
-                  </div>
-
                   {/* Município */}
                   <div className="space-y-1.5">
                     <Label htmlFor="empMun">Município</Label>
@@ -785,7 +927,7 @@ export function EmpresaDetailModal({
                     </select>
                   </div>
 
-                  {/* Curva ABC e Índice Composto (Classificação 100% Automática) */}
+                  {/* Curva ABC e Índice Composto (Classificação 100% Automática com transparência) */}
                   <div className="space-y-1.5">
                     <Label htmlFor="empCurva">Curva ABC & Índice (Automático)</Label>
                     <div className="flex items-center gap-2 h-10 px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-xs font-medium text-slate-800">
@@ -802,7 +944,7 @@ export function EmpresaDetailModal({
                         Curva {curva}
                       </Badge>
                       <span className="text-slate-500 font-mono">
-                        Índice: <strong>{empresa?.score || 0}</strong>/100
+                        Índice: <strong>{scoreCalculado || empresa?.score || 0}</strong>/100
                       </span>
                     </div>
                   </div>
@@ -858,12 +1000,12 @@ export function EmpresaDetailModal({
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="empTel">Telefone / WhatsApp Geral</Label>
+                    <Label htmlFor="empTel">Telefone Principal (com DDI +55)</Label>
                     <Input
                       id="empTel"
-                      placeholder="(11) 3333-2222"
+                      placeholder="+55 (00) 00000-0000"
                       value={telefone}
-                      onChange={(e) => setTelefone(e.target.value)}
+                      onChange={(e) => setTelefone(formatPhoneBr(e.target.value, true))}
                       disabled={readOnly}
                     />
                   </div>
@@ -914,6 +1056,161 @@ export function EmpresaDetailModal({
                     />
                   </div>
                 </div>
+
+                {/* Seção de Múltiplos Telefones (Item 8) */}
+                <div className="mt-4 pt-4 border-t border-slate-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                        Telefones da Empresa ({telefones.length})
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        Adicione múltiplos contatos (fixo, celular ou WhatsApp) com links diretos
+                        para ligação e mensagem.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Lista de Telefones cadastrados */}
+                  {telefones.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 mb-3">
+                      {telefones.map((t) => {
+                        const waNumero = cleanPhoneForWa(t.numero)
+                        return (
+                          <div
+                            key={t.id}
+                            className="p-2.5 rounded-md border border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[10px] font-semibold uppercase ${
+                                    t.tipo === 'whatsapp'
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                      : t.tipo === 'celular'
+                                        ? 'bg-blue-50 text-blue-700 border-blue-300'
+                                        : 'bg-slate-100 text-slate-600'
+                                  }`}
+                                >
+                                  {t.tipo}
+                                </Badge>
+                                {t.ramalOuDescricao && (
+                                  <span className="text-[10px] text-slate-500 truncate">
+                                    {t.ramalOuDescricao}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="font-mono text-xs font-bold text-slate-900 block mt-1">
+                                {t.numero}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              {/* Link tel: */}
+                              <a
+                                href={`tel:${cleanPhoneForWa(t.numero)}`}
+                                className="p-1.5 rounded hover:bg-slate-200 text-slate-600 hover:text-blue-700"
+                                title="Ligar para o telefone"
+                              >
+                                <PhoneCall className="w-3.5 h-3.5" />
+                              </a>
+                              {/* Link wa.me */}
+                              {t.tipo === 'whatsapp' || t.tipo === 'celular' ? (
+                                <a
+                                  href={`https://wa.me/${waNumero}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="p-1.5 rounded hover:bg-emerald-100 text-emerald-700"
+                                  title="Abrir no WhatsApp"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5" />
+                                </a>
+                              ) : null}
+                              {!readOnly && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoverTelefone(t.id)}
+                                  className="p-1.5 rounded hover:bg-red-100 text-slate-400 hover:text-red-600"
+                                  title="Remover telefone"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic mb-3">
+                      Nenhum telefone adicional cadastrado.
+                    </p>
+                  )}
+
+                  {/* Adicionar novo telefone */}
+                  {!readOnly && (
+                    <div className="flex flex-wrap items-end gap-2 p-3 bg-slate-50 border border-slate-200 rounded-md">
+                      <div className="w-36 space-y-1">
+                        <Label className="text-[11px]">Tipo</Label>
+                        <select
+                          className="w-full h-8 px-2 text-xs border border-slate-300 rounded bg-white"
+                          value={novoTelefoneTipo}
+                          onChange={(e) => setNovoTelefoneTipo(e.target.value as any)}
+                        >
+                          <option value="celular">Celular</option>
+                          <option value="whatsapp">WhatsApp</option>
+                          <option value="fixo">Fixo</option>
+                        </select>
+                      </div>
+
+                      <div className="flex-1 min-w-[180px] space-y-1">
+                        <Label className="text-[11px]">Número com DDD (DDI +55)</Label>
+                        <Input
+                          placeholder="+55 (00) 00000-0000"
+                          value={novoTelefoneNumero}
+                          onChange={(e) =>
+                            setNovoTelefoneNumero(formatPhoneBr(e.target.value, true))
+                          }
+                          className="h-8 text-xs font-mono"
+                        />
+                      </div>
+
+                      <div className="flex-1 min-w-[140px] space-y-1">
+                        <Label className="text-[11px]">Descrição / Setor (opcional)</Label>
+                        <Input
+                          placeholder="Ex: Comercial, Recepção"
+                          value={novoTelefoneDesc}
+                          onChange={(e) => setNovoTelefoneDesc(e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleAdicionarTelefone}
+                        className="h-8 bg-blue-600 hover:bg-blue-700 text-white text-xs shrink-0"
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar Telefone
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Bloco de Transparência da Curva ABC (Item 2) */}
+                {empresa && (
+                  <div className="mt-4 p-3 bg-blue-50/70 border border-blue-200 rounded-md text-xs text-blue-900">
+                    <div className="flex items-center gap-2 font-bold mb-1">
+                      <Info className="w-4 h-4 text-blue-700 shrink-0" />
+                      <span>Transparência do Cálculo — Curva ABC & Score Composto</span>
+                    </div>
+                    <p className="text-slate-700 leading-relaxed">
+                      {explicacaoCurva ||
+                        `Classificada na Curva ${curva} com Índice Composto ${scoreCalculado || empresa.score || 0}/100. Ponderação: 50% Valor dos Contratos Ativos, 30% Vigência Restante e 20% Quantidade de Contratos. Regra de piso aplicada: a maior empresa da base nunca é classificada como C.`}
+                    </p>
+                  </div>
+                )}
               </form>
             </TabsContent>
 

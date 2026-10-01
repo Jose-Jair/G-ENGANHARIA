@@ -42,11 +42,17 @@ export const brasilApiService = {
     }
 
     // 2ª tentativa: chamada direta da BrasilAPI pelo frontend
-    const directRes = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${raw}`, {
-      headers: {
-        Accept: 'application/json',
-      },
-    })
+    let directRes: Response
+    try {
+      directRes = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${raw}`, {
+        headers: {
+          Accept: 'application/json',
+        },
+      })
+    } catch (netErr: unknown) {
+      console.warn('Falha de rede ao chamar BrasilAPI direta:', netErr)
+      throw new Error('Falha de conexão com o serviço BrasilAPI. Preencha os campos manualmente.')
+    }
 
     if (!directRes.ok) {
       if (directRes.status === 404) {

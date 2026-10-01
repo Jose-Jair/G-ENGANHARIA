@@ -100,6 +100,15 @@ export type CurvaABC = 'A' | 'B' | 'C'
 
 export type StatusEmpresa = 'ativa' | 'inativa'
 
+export type TipoTelefoneEmpresa = 'celular' | 'whatsapp' | 'fixo'
+
+export interface TelefoneEmpresaItem {
+  id: string
+  numero: string
+  tipo: TipoTelefoneEmpresa
+  ramalOuDescricao?: string
+}
+
 export interface EmpresaRecord {
   id: string
   razao_social: string
@@ -112,6 +121,7 @@ export interface EmpresaRecord {
   municipio?: string
   email?: string
   telefone?: string
+  telefones?: TelefoneEmpresaItem[]
   instagram?: string
   linkedin?: string
   site?: string

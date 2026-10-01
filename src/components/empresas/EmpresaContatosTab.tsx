@@ -282,8 +282,9 @@ export function EmpresaContatosTab({
                         <span className="truncate">{c.email}</span>
                       </span>
                       <a
-                        href={`mailto:${c.email}?subject=Intermediação de Projetos - ${empresaNome}`}
+                        href="mailto:grupomais.sae@gmail.com"
                         className="text-blue-600 hover:text-blue-800 text-[11px] font-medium shrink-0 ml-2"
+                        title="Enviar e-mail oficial (grupomais.sae@gmail.com)"
                       >
                         Enviar E-mail
                       </a>
@@ -378,21 +379,20 @@ export function EmpresaContatosTab({
                 <Label htmlFor="telContato">Telefone</Label>
                 <Input
                   id="telContato"
-                  placeholder="(11) 3333-4444"
+                  placeholder="(00) 0000-0000"
                   value={telefone}
-                  onChange={(e) => setTelefone(e.target.value)}
+                  onChange={(e) => setTelefone(formatPhoneBr(e.target.value))}
                 />
               </div>
-
               <div className="space-y-1.5">
                 <Label htmlFor="waContato">WhatsApp (com DDD)</Label>
                 <Input
                   id="waContato"
-                  placeholder="(11) 98888-7777"
+                  placeholder="(00) 00000-0000"
                   value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
+                  onChange={(e) => setWhatsapp(formatPhoneBr(e.target.value))}
                 />
-              </div>
+              </div>{' '}
             </div>
 
             <div className="pt-2 space-y-2 border-t border-slate-100">

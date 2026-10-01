@@ -53,16 +53,35 @@ export function isValidCnpj(cnpj: string | undefined | null): boolean {
   return true
 }
 
-export function formatPhoneBr(value: string | undefined | null): string {
+export function formatPhoneBr(
+  value: string | undefined | null,
+  includeDdi: boolean = false,
+): string {
   if (!value) return ''
-  const clean = value.replace(/\D/g, '')
-  if (clean.length === 11) {
-    return `(${clean.slice(0, 2)}) ${clean.slice(2, 7)}-${clean.slice(7)}`
+  let clean = value.replace(/\D/g, '')
+  if (!clean) return ''
+  // Se começar com 55 (DDI Brasil) e tiver mais de 11 dígitos, remove para formatar DDD + número
+  if (clean.length > 11 && clean.startsWith('55')) {
+    clean = clean.slice(2)
   }
-  if (clean.length === 10) {
-    return `(${clean.slice(0, 2)}) ${clean.slice(2, 6)}-${clean.slice(6)}`
+
+  let formatted = clean
+  if (clean.length <= 2) {
+    formatted = `(${clean}`
+  } else if (clean.length <= 6) {
+    formatted = `(${clean.slice(0, 2)}) ${clean.slice(2)}`
+  } else if (clean.length <= 10) {
+    // 8 dígitos: (00) 0000-0000
+    formatted = `(${clean.slice(0, 2)}) ${clean.slice(2, 6)}-${clean.slice(6, 10)}`
+  } else {
+    // 9 dígitos: (00) 00000-0000
+    formatted = `(${clean.slice(0, 2)}) ${clean.slice(2, 7)}-${clean.slice(7, 11)}`
   }
-  return value
+
+  if (includeDdi) {
+    return `+55 ${formatted}`
+  }
+  return formatted
 }
 
 export function cleanPhoneForWa(value: string | undefined | null): string {

@@ -22,6 +22,7 @@ export interface CreateEmpresaData {
   municipio?: string
   email?: string
   telefone?: string
+  telefones?: EmpresaRecord['telefones']
   instagram?: string
   linkedin?: string
   site?: string
@@ -127,8 +128,8 @@ export const empresasService = {
    * Curva C: < 1M
    */
   calcularCurva(totalValorContratos: number): CurvaABC {
-    if (totalValorContratos >= 5000000) return 'A'
-    if (totalValorContratos >= 1000000) return 'B'
+    if (totalValorContratos >= 1000000) return 'A'
+    if (totalValorContratos > 0) return 'B'
     return 'C'
   },
 }

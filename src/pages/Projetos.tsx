@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react'
-import { ProjetoRecord, SaudeProjeto } from '@/types'
-import { projetosService } from '@/services/projetos'
-import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { useToast } from '@/hooks/use-toast'
+import { ProjetoRecord, ProjetoEtapaRecord, SaudeProjeto, ExecutorRecord } from '@/types'
+import { projetosService } from '@/services/projetos'
+import { executoresService } from '@/services/executores'
+import { formatDateBr, formatCurrencyBr } from '@/lib/formatters'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
@@ -14,13 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useToast } from '@/hooks/use-toast'
 import {
-  Briefcase,
   Plus,
+  Briefcase,
   Search,
-  Filter,
-  Layers,
-  HeartPulse,
   Eye,
   AlertTriangle,
   FileText,
@@ -29,6 +27,9 @@ import {
   DollarSign,
   Loader2,
   Download,
+  Clock,
+  User,
+  Activity,
 } from 'lucide-react'
 import { exportService } from '@/services/exportService'
 import { formatCnpj, formatCpf } from '@/lib/cnpj'
@@ -40,17 +41,32 @@ import { ModalDossieProjeto } from '@/components/projetos/ModalDossieProjeto'
 
 import { useSearchParams } from 'react-router-dom'
 
+interface ProjetoComEtapasCalculadas extends ProjetoRecord {
+  etapas: ProjetoEtapaRecord[]
+  etapasConcluidasCount: number
+  totalEtapasCount: number
+  percentualConcluido: number
+  diasAtrasoMax: number
+  disciplinasList: string[]
+  executoresIds: string[]
+}
+
 export const ProjetosPage: React.FC = () => {
   const { user } = useAuth()
   const { toast } = useToast()
   const [searchParams] = useSearchParams()
 
   const [projetos, setProjetos] = useState<ProjetoRecord[]>([])
+  const [todasEtapas, setTodasEtapas] = useState<ProjetoEtapaRecord[]>([])
+  const [executores, setExecutores] = useState<ExecutorRecord[]>([])
   const [carregando, setCarregando] = useState(true)
 
   // Filtros
   const [busca, setBusca] = useState(() => searchParams.get('busca') || '')
   const [filtroSaude, setFiltroSaude] = useState<string>(() => searchParams.get('saude') || 'todos')
+  const [filtroDisciplina, setFiltroDisciplina] = useState<string>('todas')
+  const [filtroExecutor, setFiltroExecutor] = useState<string>('todos')
+  const [filtroPeriodo, setFiltroPeriodo] = useState<string>('todos')
   const [filtroStatus, setFiltroStatus] = useState<string>(
     () => searchParams.get('status') || 'todos',
   )
@@ -74,8 +90,14 @@ export const ProjetosPage: React.FC = () => {
   const carregarProjetos = async () => {
     setCarregando(true)
     try {
-      const lista = await projetosService.list()
-      setProjetos(lista)
+      const [listaPrj, listaEtapas, listaExec] = await Promise.all([
+        projetosService.list(),
+        projetosService.listTodasEtapas ? projetosService.listTodasEtapas() : Promise.resolve([]),
+        executoresService.list(),
+      ])
+      setProjetos(listaPrj)
+      setTodasEtapas(listaEtapas)
+      setExecutores(listaExec)
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar projetos',
@@ -91,29 +113,152 @@ export const ProjetosPage: React.FC = () => {
     carregarProjetos()
   }, [])
 
-  // Filtragem
-  const projetosFiltrados = projetos.filter((prj) => {
-    const pj = prj.expand?.empresa || prj.expand?.proposta?.expand?.empresa
-    const pf = prj.expand?.cliente_pf || prj.expand?.proposta?.expand?.cliente_pf
-    const nomeCliente = (pj?.nome_fantasia || pj?.razao_social || pf?.nome || '').toLowerCase()
-    const codigo = (prj.codigo || '').toLowerCase()
-    const nomePrj = (prj.nome || '').toLowerCase()
-    const matchBusca =
-      !busca ||
-      codigo.includes(busca.toLowerCase()) ||
-      nomePrj.includes(busca.toLowerCase()) ||
-      nomeCliente.includes(busca.toLowerCase())
+  // Mapa de etapas por projeto e cálculo de métricas de portfólio
+  const projetosComMetricas = useMemo<ProjetoComEtapasCalculadas[]>(() => {
+    const mapaEtapas = new Map<string, ProjetoEtapaRecord[]>()
+    todasEtapas.forEach((et) => {
+      const arr = mapaEtapas.get(et.projeto) || []
+      arr.push(et)
+      mapaEtapas.set(et.projeto, arr)
+    })
 
-    const matchSaude = filtroSaude === 'todos' || prj.saude === filtroSaude
-    const matchStatus = filtroStatus === 'todos' || prj.status === filtroStatus
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
 
-    return matchBusca && matchSaude && matchStatus
-  })
+    return projetos.map((prj) => {
+      const etapas = mapaEtapas.get(prj.id) || []
+      const totalEtapasCount = etapas.length
+      const etapasConcluidasCount = etapas.filter((e) => e.status === 'concluida').length
+      const percentualConcluido =
+        totalEtapasCount > 0 ? Math.round((etapasConcluidasCount / totalEtapasCount) * 100) : 0
 
-  // Contadores de saúde
-  const countVerde = projetos.filter((p) => p.saude === 'verde').length
-  const countAmarelo = projetos.filter((p) => p.saude === 'amarelo').length
-  const countVermelho = projetos.filter((p) => p.saude === 'vermelho').length
+      let diasAtrasoMax = 0
+      const executoresSet = new Set<string>()
+
+      etapas.forEach((e) => {
+        if (e.executor) executoresSet.add(e.executor)
+        if (e.status !== 'concluida' && e.status !== 'cancelada') {
+          const fim = e.prazo_fim || (e as any).data_fim
+          if (fim) {
+            const dFim = new Date(fim)
+            dFim.setHours(0, 0, 0, 0)
+            const diff = Math.ceil((hoje.getTime() - dFim.getTime()) / (1000 * 3600 * 24))
+            if (diff > diasAtrasoMax) diasAtrasoMax = diff
+          }
+        }
+      })
+
+      const discString = prj.disciplinas || ''
+      const disciplinasList = discString
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+
+      return {
+        ...prj,
+        etapas,
+        etapasConcluidasCount,
+        totalEtapasCount,
+        percentualConcluido,
+        diasAtrasoMax,
+        disciplinasList,
+        executoresIds: Array.from(executoresSet),
+      }
+    })
+  }, [projetos, todasEtapas])
+
+  // Filtragem e Ordenação por Criticidade (🔴 primeiro, depois por dias de atraso decrescente)
+  const projetosFiltrados = useMemo(() => {
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+
+    return projetosComMetricas
+      .filter((prj) => {
+        const pj = prj.expand?.empresa || prj.expand?.proposta?.expand?.empresa
+        const pf = prj.expand?.cliente_pf || prj.expand?.proposta?.expand?.cliente_pf
+        const nomeCliente = (pj?.nome_fantasia || pj?.razao_social || pf?.nome || '').toLowerCase()
+        const codigo = (prj.codigo || '').toLowerCase()
+        const nomePrj = (prj.nome || '').toLowerCase()
+        const matchBusca =
+          !busca ||
+          codigo.includes(busca.toLowerCase()) ||
+          nomePrj.includes(busca.toLowerCase()) ||
+          nomeCliente.includes(busca.toLowerCase())
+
+        const matchSaude = filtroSaude === 'todos' || prj.saude === filtroSaude
+        const matchStatus = filtroStatus === 'todos' || prj.status === filtroStatus
+
+        const matchDisciplina =
+          filtroDisciplina === 'todas' ||
+          prj.disciplinasList.some((d) => d.toLowerCase().includes(filtroDisciplina.toLowerCase()))
+
+        const matchExecutor =
+          filtroExecutor === 'todos' || prj.executoresIds.includes(filtroExecutor)
+
+        let matchPeriodo = true
+        if (filtroPeriodo === 'mes_atual') {
+          if (prj.prazo_final) {
+            const d = new Date(prj.prazo_final)
+            matchPeriodo =
+              d.getMonth() === hoje.getMonth() && d.getFullYear() === hoje.getFullYear()
+          } else {
+            matchPeriodo = false
+          }
+        } else if (filtroPeriodo === 'atrasados') {
+          matchPeriodo = prj.diasAtrasoMax > 0
+        }
+
+        return (
+          matchBusca &&
+          matchSaude &&
+          matchStatus &&
+          matchDisciplina &&
+          matchExecutor &&
+          matchPeriodo
+        )
+      })
+      .sort((a, b) => {
+        // Ordenação por criticidade: 🔴 Vermelho (peso 3), 🟡 Amarelo (peso 2), 🟢 Verde (peso 1)
+        const pesoSaude = (s?: string) => (s === 'vermelho' ? 3 : s === 'amarelo' ? 2 : 1)
+        const diffSaude = pesoSaude(b.saude) - pesoSaude(a.saude)
+        if (diffSaude !== 0) return diffSaude
+
+        // Se empatar na saúde, desempata pelo maior número de dias de atraso
+        return b.diasAtrasoMax - a.diasAtrasoMax
+      })
+  }, [
+    projetosComMetricas,
+    busca,
+    filtroSaude,
+    filtroStatus,
+    filtroDisciplina,
+    filtroExecutor,
+    filtroPeriodo,
+  ])
+
+  // Contadores e métricas de portfólio por saúde
+  const metricasPortfolio = useMemo(() => {
+    const calcMedia = (lista: ProjetoComEtapasCalculadas[]) => {
+      if (lista.length === 0) return { percConcluido: 0, diasAtraso: 0, total: 0 }
+      const totalPerc = lista.reduce((acc, p) => acc + p.percentualConcluido, 0)
+      const maxAtraso = Math.max(0, ...lista.map((p) => p.diasAtrasoMax))
+      return {
+        total: lista.length,
+        percConcluido: Math.round(totalPerc / lista.length),
+        diasAtraso: maxAtraso,
+      }
+    }
+
+    const verdes = projetosComMetricas.filter((p) => p.saude === 'verde')
+    const amarelos = projetosComMetricas.filter((p) => p.saude === 'amarelo')
+    const vermelhos = projetosComMetricas.filter((p) => p.saude === 'vermelho')
+
+    return {
+      verde: calcMedia(verdes),
+      amarelo: calcMedia(amarelos),
+      vermelho: calcMedia(vermelhos),
+    }
+  }, [projetosComMetricas])
 
   return (
     <div className="space-y-6">
@@ -227,88 +372,168 @@ export const ProjetosPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Cards de Indicadores de Saúde */}
+      {/* Visão de Portfólio: Cards no Topo por Saúde com % Concluído e Dias de Atraso */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="p-4 bg-white border border-slate-200 rounded-lg shadow-xs">
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
             Total de Projetos
           </span>
           <div className="flex items-center justify-between mt-1">
-            <span className="text-2xl font-black text-slate-900">{projetos.length}</span>
+            <span className="text-2xl font-black text-slate-900">{projetosComMetricas.length}</span>
             <Briefcase className="w-5 h-5 text-slate-400" />
+          </div>
+          <div className="text-[11px] text-slate-400 mt-2">
+            Ordenação ativa por criticidade (🔴 primeiro)
           </div>
         </div>
 
         <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-lg shadow-xs">
-          <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider block flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            Saúde Verde
-          </span>
-          <div className="flex items-center justify-between mt-1">
-            <span className="text-2xl font-black text-emerald-900">{countVerde}</span>
-            <span className="text-xs text-emerald-700">No prazo</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />🟢 Verde (
+              {metricasPortfolio.verde.total})
+            </span>
+            <Badge
+              variant="outline"
+              className="text-[10px] bg-white text-emerald-700 border-emerald-300"
+            >
+              No prazo
+            </Badge>
+          </div>
+          <div className="flex items-baseline justify-between mt-2">
+            <span className="text-2xl font-black text-emerald-950">
+              {metricasPortfolio.verde.percConcluido}%
+            </span>
+            <span className="text-xs text-emerald-700 font-medium">etapas concluídas</span>
+          </div>
+          <div className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1">
+            <Clock className="w-3 h-3" /> 0 dias de atraso crítico
           </div>
         </div>
 
         <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-lg shadow-xs">
-          <span className="text-xs font-semibold text-amber-800 uppercase tracking-wider block flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
-            Saúde Amarela
-          </span>
-          <div className="flex items-center justify-between mt-1">
-            <span className="text-2xl font-black text-amber-900">{countAmarelo}</span>
-            <span className="text-xs text-amber-700">Atenção</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500" />🟡 Amarelo (
+              {metricasPortfolio.amarelo.total})
+            </span>
+            <Badge
+              variant="outline"
+              className="text-[10px] bg-white text-amber-700 border-amber-300"
+            >
+              Atenção
+            </Badge>
+          </div>
+          <div className="flex items-baseline justify-between mt-2">
+            <span className="text-2xl font-black text-amber-950">
+              {metricasPortfolio.amarelo.percConcluido}%
+            </span>
+            <span className="text-xs text-amber-700 font-medium">etapas concluídas</span>
+          </div>
+          <div className="text-[11px] text-amber-700 mt-1 flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            {metricasPortfolio.amarelo.diasAtraso > 0
+              ? `Máx atraso: ${metricasPortfolio.amarelo.diasAtraso}d`
+              : 'Sem atraso registrado'}
           </div>
         </div>
 
         <div className="p-4 bg-rose-50/70 border border-rose-200 rounded-lg shadow-xs">
-          <span className="text-xs font-semibold text-rose-800 uppercase tracking-wider block flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-rose-500" />
-            Saúde Vermelha
-          </span>
-          <div className="flex items-center justify-between mt-1">
-            <span className="text-2xl font-black text-rose-900">{countVermelho}</span>
-            <span className="text-xs text-rose-700">Crítico / Atraso</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-rose-800 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />🔴 Vermelho (
+              {metricasPortfolio.vermelho.total})
+            </span>
+            <Badge variant="destructive" className="text-[10px]">
+              Crítico
+            </Badge>
+          </div>
+          <div className="flex items-baseline justify-between mt-2">
+            <span className="text-2xl font-black text-rose-950">
+              {metricasPortfolio.vermelho.percConcluido}%
+            </span>
+            <span className="text-xs text-rose-700 font-medium">etapas concluídas</span>
+          </div>
+          <div className="text-[11px] text-rose-700 mt-1 flex items-center gap-1 font-semibold">
+            <AlertTriangle className="w-3 h-3 text-rose-600" />
+            {metricasPortfolio.vermelho.diasAtraso > 0
+              ? `Atraso de até ${metricasPortfolio.vermelho.diasAtraso} dias`
+              : 'Risco/bloqueio crítico'}
           </div>
         </div>
       </div>
 
-      {/* Barra de Filtros e Busca */}
-      <div className="p-4 bg-white border border-slate-200 rounded-lg shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
-        <div className="relative flex-1 w-full">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <Input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por código (PRJ-...), nome do projeto ou cliente..."
-            className="pl-9 text-xs"
-          />
-        </div>
+      {/* Barra de Filtros Completos: Saúde, Disciplina, Executor, Período e Busca */}
+      <div className="p-4 bg-white border border-slate-200 rounded-lg shadow-xs space-y-3">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="relative flex-1 w-full">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por código (PRJ-...), nome do projeto ou cliente..."
+              className="pl-9 text-xs"
+            />
+          </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <Select value={filtroSaude} onValueChange={setFiltroSaude}>
-            <SelectTrigger className="w-[150px] text-xs h-9">
-              <SelectValue placeholder="Saúde" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todas Saúdes</SelectItem>
-              <SelectItem value="verde">🟢 Verde</SelectItem>
-              <SelectItem value="amarelo">🟡 Amarelo</SelectItem>
-              <SelectItem value="vermelho">🔴 Vermelho</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full md:w-auto">
+            {/* Filtro Saúde */}
+            <Select value={filtroSaude} onValueChange={setFiltroSaude}>
+              <SelectTrigger className="text-xs h-9">
+                <SelectValue placeholder="Saúde" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas Saúdes</SelectItem>
+                <SelectItem value="vermelho">🔴 Vermelho</SelectItem>
+                <SelectItem value="amarelo">🟡 Amarelo</SelectItem>
+                <SelectItem value="verde">🟢 Verde</SelectItem>
+              </SelectContent>
+            </Select>
 
-          <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-            <SelectTrigger className="w-[160px] text-xs h-9">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os Status</SelectItem>
-              <SelectItem value="em_andamento">Em Andamento</SelectItem>
-              <SelectItem value="concluido">Concluído</SelectItem>
-              <SelectItem value="pausado">Pausado</SelectItem>
-            </SelectContent>
-          </Select>
+            {/* Filtro Disciplina */}
+            <Select value={filtroDisciplina} onValueChange={setFiltroDisciplina}>
+              <SelectTrigger className="text-xs h-9">
+                <SelectValue placeholder="Disciplina" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas Disciplinas</SelectItem>
+                <SelectItem value="Estrutura">Estrutura</SelectItem>
+                <SelectItem value="Instalações">Instalações</SelectItem>
+                <SelectItem value="Arquitetura">Arquitetura</SelectItem>
+                <SelectItem value="Elétrica">Elétrica</SelectItem>
+                <SelectItem value="Hidrossanitário">Hidrossanitário</SelectItem>
+                <SelectItem value="Climatização">Climatização</SelectItem>
+                <SelectItem value="Prevenção contra Incêndio">PPCI</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Filtro Executor */}
+            <Select value={filtroExecutor} onValueChange={setFiltroExecutor}>
+              <SelectTrigger className="text-xs h-9">
+                <SelectValue placeholder="Executor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos Executores</SelectItem>
+                {executores.map((ex) => (
+                  <SelectItem key={ex.id} value={ex.id}>
+                    {ex.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Filtro Período de Entrega */}
+            <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
+              <SelectTrigger className="text-xs h-9">
+                <SelectValue placeholder="Período" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todo Período</SelectItem>
+                <SelectItem value="mes_atual">Entrega este Mês</SelectItem>
+                <SelectItem value="atrasados">Atrasados Hoje</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -397,8 +622,74 @@ export const ProjetosPage: React.FC = () => {
                     </p>
                   )}
 
+                  {/* Linha do Tempo Visual do Projeto: Barra de progresso horizontal com etapas */}
+                  <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-semibold text-slate-600 flex items-center gap-1">
+                        <Activity className="w-3 h-3 text-blue-600" />
+                        Linha do Tempo ({prj.percentualConcluido}% concluído)
+                      </span>
+                      <span className="text-slate-400 font-mono text-[10px]">
+                        {prj.etapasConcluidasCount}/{prj.totalEtapasCount} etapas
+                      </span>
+                    </div>
+
+                    {prj.etapas.length === 0 ? (
+                      <div className="h-2 w-full bg-slate-100 rounded-full" />
+                    ) : (
+                      <div className="flex items-center gap-1 w-full py-1">
+                        {prj.etapas.map((et, idx) => {
+                          const hojeTime = new Date().setHours(0, 0, 0, 0)
+                          const isConcluida = et.status === 'concluida'
+                          const isAndamento = et.status === 'em_andamento'
+                          const dFim =
+                            et.prazo_fim || (et as any).data_fim
+                              ? new Date(et.prazo_fim || (et as any).data_fim).getTime()
+                              : 0
+                          const isAtrasada =
+                            !isConcluida && et.status !== 'cancelada' && dFim > 0 && dFim < hojeTime
+
+                          const corEtapa = isConcluida
+                            ? 'bg-emerald-500 hover:bg-emerald-600'
+                            : isAtrasada
+                              ? 'bg-rose-500 hover:bg-rose-600 animate-pulse'
+                              : isAndamento
+                                ? 'bg-blue-500 hover:bg-blue-600'
+                                : 'bg-slate-200 hover:bg-slate-300'
+
+                          const nomeExecutor = et.expand?.executor?.nome || 'Sem executor'
+                          const prazoTexto = et.prazo_fim ? formatDateBr(et.prazo_fim) : 'Sem prazo'
+
+                          return (
+                            <div
+                              key={et.id || idx}
+                              className={`h-2.5 flex-1 rounded-sm cursor-pointer transition-colors ${corEtapa}`}
+                              title={`Etapa ${idx + 1}: ${et.nome || 'Etapa'} | Status: ${isAtrasada ? 'ATRASADA' : et.status} | Executor: ${nomeExecutor} | Prazo: ${prazoTexto}`}
+                            />
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between text-[10px] text-slate-400">
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />{' '}
+                        Concluída
+                        <span className="w-2 h-2 rounded-full bg-blue-500 inline-block ml-1" /> Em
+                        andamento
+                        <span className="w-2 h-2 rounded-full bg-rose-500 inline-block ml-1" />{' '}
+                        Atrasada
+                      </span>
+                      {prj.diasAtrasoMax > 0 && (
+                        <span className="font-bold text-rose-600">
+                          +{prj.diasAtrasoMax}d atraso
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Informações de Cliente, Valor e Prazo */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
                     <div className="flex items-center gap-1.5 truncate">
                       <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <span className="truncate">

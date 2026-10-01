@@ -1,159 +1,234 @@
-import { ContratoRecord, CurvaABC, PesosScoreCurva } from '@/types'
+import { ContratoRecord, CurvaABC } from '@/types'
+
+export interface MetricasContratoAtivo {
+  totalValorAtivo: number
+  qtdContratosAtivos: number
+  mediaMesesVigencia: number
+}
 
 export interface ScoreCalculationResult {
-  score: number // 0 a 100
+  score: number // Índice Composto de 0 a 100
   curva: CurvaABC
   totalValorAtivo: number
   qtdContratosAtivos: number
   mediaMesesVigencia: number
-  aderenciaPercent: number
+  aderenciaPercent?: number
   detalhes: {
-    pontosValor: number
-    pontosVigencia: number
-    pontosQtd: number
-    pontosAderencia: number
+    pontosValor: number // 50%
+    pontosVigencia: number // 30%
+    pontosQtd: number // 20%
+    indiceComposto: number
+    percentualAcumuladoPareto?: number
+  }
+}
+
+/**
+ * Filtra contratos vigentes de uma empresa:
+ * Situação diferente de encerrado/cancelado/rescindido e vigência final não expirada há mais de 30 dias.
+ */
+export function extrairMetricasContratosAtivos(
+  contratos: ContratoRecord[] = [],
+  hoje: Date = new Date(),
+): MetricasContratoAtivo {
+  const contratosAtivos = contratos.filter((c) => {
+    const sit = (c.situacao || '').toLowerCase()
+    if (sit.includes('encerr') || sit.includes('cancel') || sit.includes('rescind')) return false
+    if (c.vigencia_fim) {
+      const fim = new Date(c.vigencia_fim)
+      const diffDias = (fim.getTime() - hoje.getTime()) / (1000 * 3600 * 24)
+      if (diffDias < -30) return false
+    }
+    return true
+  })
+
+  const totalValorAtivo = contratosAtivos.reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
+  const qtdContratosAtivos = contratosAtivos.length
+
+  let somaMesesVigencia = 0
+  let contagemVigencias = 0
+  contratosAtivos.forEach((c) => {
+    if (c.vigencia_fim) {
+      const fim = new Date(c.vigencia_fim)
+      const meses = Math.max(0, (fim.getTime() - hoje.getTime()) / (1000 * 3600 * 24 * 30.4))
+      somaMesesVigencia += meses
+      contagemVigencias++
+    }
+  })
+  const mediaMesesVigencia = contagemVigencias > 0 ? somaMesesVigencia / contagemVigencias : 0
+
+  return {
+    totalValorAtivo,
+    qtdContratosAtivos,
+    mediaMesesVigencia: Math.round(mediaMesesVigencia * 10) / 10,
+  }
+}
+
+/**
+ * Calcula o Índice Composto de uma empresa individualmente:
+ * Peso 50% valor dos contratos ativos
+ * Peso 30% vigência restante dos contratos
+ * Peso 20% quantidade de contratos
+ * Normalizado de 0 a 100 em relação aos tetos estatísticos da base (ou tetos de referência padrão).
+ */
+export function calcularIndiceCompostoItem(
+  metricas: MetricasContratoAtivo,
+  maxValor: number = 10000000,
+  maxVigenciaMeses: number = 36,
+  maxQtd: number = 5,
+): { indiceComposto: number; pontosValor: number; pontosVigencia: number; pontosQtd: number } {
+  // Normalização de 0 a 100 para cada componente
+  const refValor = Math.max(maxValor, 100000)
+  const refVigencia = Math.max(maxVigenciaMeses, 12)
+  const refQtd = Math.max(maxQtd, 1)
+
+  const normValor = Math.min(100, Math.max(0, (metricas.totalValorAtivo / refValor) * 100))
+  const normVigencia = Math.min(100, Math.max(0, (metricas.mediaMesesVigencia / refVigencia) * 100))
+  const normQtd = Math.min(100, Math.max(0, (metricas.qtdContratosAtivos / refQtd) * 100))
+
+  // Índice Composto com pesos automáticos: 50% valor, 30% vigência, 20% quantidade
+  const indiceFloat = normValor * 0.5 + normVigencia * 0.3 + normQtd * 0.2
+  const indiceComposto = Math.min(100, Math.max(0, Math.round(indiceFloat * 10) / 10))
+
+  return {
+    indiceComposto,
+    pontosValor: Math.round(normValor),
+    pontosVigencia: Math.round(normVigencia),
+    pontosQtd: Math.round(normQtd),
   }
 }
 
 export const scoreCurvaService = {
+  extrairMetricas: extrairMetricasContratosAtivos,
+
   /**
-   * Calcula o score da empresa e classifica na Curva A/B/C
-   * Fatores:
-   * 1. Valor total de contratos ativos
-   * 2. Média de vigência restante dos contratos ativos
-   * 3. Número de contratos ativos
-   * 4. Aderência às disciplinas (CNAE de engenharia/infraestrutura vs serviços)
+   * Classificação estatística em lote para uma lista de empresas com contratos
+   * Aplica cortes estatísticos de Pareto da própria base:
+   * 1. Calcula o Índice Composto de cada empresa (50% valor + 30% vigência + 20% quantidade).
+   * 2. Ordena de forma decrescente pelo Índice Composto.
+   * 3. Calcula o acumulado percentual da soma dos índices na base.
+   * 4. Cortes estatísticos Pareto:
+   *    - Curva A: até 80% do índice acumulado (ou top se base pequena)
+   *    - Curva B: de 80% a 95% do índice acumulado
+   *    - Curva C: acima de 95% ou índice zero
    */
-  calcular(
-    contratos: ContratoRecord[] = [],
-    cnae?: string,
-    pesos: PesosScoreCurva = {
-      peso_valor: 40,
-      peso_vigencia: 25,
-      peso_qtd_contratos: 20,
-      peso_aderencia_disciplinas: 15,
-    },
-    faixaCorteA = 5000000,
-    faixaCorteB = 1000000,
-  ): ScoreCalculationResult {
+  classificarBaseEmpresas<T extends { id: string; cnae?: string }>(
+    empresas: T[],
+    contratosPorEmpresa: Map<string, ContratoRecord[]>,
+  ): Map<string, ScoreCalculationResult> {
     const hoje = new Date()
+    const resultados = new Map<string, ScoreCalculationResult>()
 
-    // Considera apenas contratos que não estejam com situação "Encerrado", "Cancelado" ou "Rescindido"
-    const contratosAtivos = contratos.filter((c) => {
-      const sit = (c.situacao || '').toLowerCase()
-      if (sit.includes('encerr') || sit.includes('cancel') || sit.includes('rescind')) return false
-      // Se tiver vigência fim no passado distante (> 30 dias), considera inativo
-      if (c.vigencia_fim) {
-        const fim = new Date(c.vigencia_fim)
-        const diffDias = (fim.getTime() - hoje.getTime()) / (1000 * 3600 * 24)
-        if (diffDias < -30) return false
-      }
-      return true
-    })
+    if (empresas.length === 0) return resultados
 
-    const totalValorAtivo = contratosAtivos.reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
-    const qtdContratosAtivos = contratosAtivos.length
-
-    // Média de meses restantes de vigência
-    let somaMesesVigencia = 0
-    let contagemVigencias = 0
-    contratosAtivos.forEach((c) => {
-      if (c.vigencia_fim) {
-        const fim = new Date(c.vigencia_fim)
-        const meses = Math.max(0, (fim.getTime() - hoje.getTime()) / (1000 * 3600 * 24 * 30.4))
-        somaMesesVigencia += meses
-        contagemVigencias++
+    // 1. Extrair métricas de todas as empresas
+    const metricasArray = empresas.map((emp) => {
+      const contratos = contratosPorEmpresa.get(emp.id) || []
+      const met = extrairMetricasContratosAtivos(contratos, hoje)
+      return {
+        id: emp.id,
+        met,
       }
     })
-    const mediaMesesVigencia = contagemVigencias > 0 ? somaMesesVigencia / contagemVigencias : 0
 
-    // Aderência CNAE: se CNAE contém divisões típicas de obras e engenharia (41, 42, 43, 71)
-    let aderenciaScore = 50 // baseline
-    if (cnae) {
-      const clean = cnae.replace(/\D/g, '')
-      if (
-        clean.startsWith('42') || // Infraestrutura pesada (rodovias, ferrovias, redes)
-        clean.startsWith('7112') // Serviços de engenharia consultiva
-      ) {
-        aderenciaScore = 100
-      } else if (clean.startsWith('41') || clean.startsWith('43')) {
-        // Edificações ou serviços especializados
-        aderenciaScore = 80
+    // Tetos estatísticos da base atual
+    const maxValorBase = Math.max(1000000, ...metricasArray.map((m) => m.met.totalValorAtivo))
+    const maxVigenciaBase = Math.max(12, ...metricasArray.map((m) => m.met.mediaMesesVigencia))
+    const maxQtdBase = Math.max(2, ...metricasArray.map((m) => m.met.qtdContratosAtivos))
+
+    // 2. Calcular índice composto individual de cada um
+    const comIndices = metricasArray.map((item) => {
+      const calculo = calcularIndiceCompostoItem(
+        item.met,
+        maxValorBase,
+        maxVigenciaBase,
+        maxQtdBase,
+      )
+      return {
+        id: item.id,
+        met: item.met,
+        ...calculo,
+      }
+    })
+
+    // 3. Ordenar por índice composto decrescente
+    comIndices.sort((a, b) => b.indiceComposto - a.indiceComposto)
+
+    // 4. Acumulado estatístico de Pareto
+    const somaTotalIndices = comIndices.reduce((acc, curr) => acc + curr.indiceComposto, 0)
+
+    let acumulado = 0
+    comIndices.forEach((item, index) => {
+      acumulado += item.indiceComposto
+      const percAcumulado =
+        somaTotalIndices > 0
+          ? (acumulado / somaTotalIndices) * 100
+          : ((index + 1) / comIndices.length) * 100
+
+      let curva: CurvaABC = 'C'
+      // Pareto: A até 80%, B de 80 a 95%, C restante
+      if (item.indiceComposto > 0) {
+        if (percAcumulado <= 80 || (index === 0 && item.indiceComposto > 0)) {
+          curva = 'A'
+        } else if (percAcumulado <= 95) {
+          curva = 'B'
+        } else {
+          curva = 'C'
+        }
       } else {
-        aderenciaScore = 40
+        curva = 'C'
       }
-    }
 
-    // Normalização das notas parciais (0 a 100)
-    // 1. Valor: se >= faixaCorteA (5M), nota 100. Se 1M, nota 70. Se < 100k, nota 20.
-    let notaValor = 0
-    if (totalValorAtivo >= faixaCorteA) {
-      notaValor = 100
-    } else if (totalValorAtivo >= faixaCorteB) {
-      // Interpolação entre faixaCorteB e faixaCorteA (70 a 99)
-      const ratio = (totalValorAtivo - faixaCorteB) / (faixaCorteA - faixaCorteB)
-      notaValor = 70 + ratio * 29
-    } else if (totalValorAtivo > 0) {
-      // Interpolação até faixaCorteB (20 a 69)
-      const ratio = Math.min(1, totalValorAtivo / faixaCorteB)
-      notaValor = 20 + ratio * 49
-    } else {
-      notaValor = 10
-    }
+      resultados.set(item.id, {
+        score: Math.round(item.indiceComposto),
+        curva,
+        totalValorAtivo: item.met.totalValorAtivo,
+        qtdContratosAtivos: item.met.qtdContratosAtivos,
+        mediaMesesVigencia: item.met.mediaMesesVigencia,
+        detalhes: {
+          pontosValor: item.pontosValor,
+          pontosVigencia: item.pontosVigencia,
+          pontosQtd: item.pontosQtd,
+          indiceComposto: item.indiceComposto,
+          percentualAcumuladoPareto: Math.round(percAcumulado * 10) / 10,
+        },
+      })
+    })
 
-    // 2. Vigência: se média >= 24 meses -> 100; se 12 meses -> 80; se 6 meses -> 50; se < 3 -> 25
-    let notaVigencia = 0
-    if (mediaMesesVigencia >= 24) notaVigencia = 100
-    else if (mediaMesesVigencia >= 12) notaVigencia = 80
-    else if (mediaMesesVigencia >= 6) notaVigencia = 60
-    else if (mediaMesesVigencia > 0) notaVigencia = 35
-    else notaVigencia = 15
+    return resultados
+  },
 
-    // 3. Quantidade de contratos: 1 contrato -> 60, 2 contratos -> 85, 3 ou mais -> 100
-    let notaQtd = 0
-    if (qtdContratosAtivos >= 3) notaQtd = 100
-    else if (qtdContratosAtivos === 2) notaQtd = 85
-    else if (qtdContratosAtivos === 1) notaQtd = 65
-    else notaQtd = 10
+  /**
+   * Cálculo pontual para uma empresa isolada (compatibilidade e visualização individual)
+   */
+  calcular(contratos: ContratoRecord[] = [], _cnae?: string): ScoreCalculationResult {
+    const hoje = new Date()
+    const met = extrairMetricasContratosAtivos(contratos, hoje)
+    const calculo = calcularIndiceCompostoItem(met)
 
-    // Cálculo ponderado
-    const totalPesos =
-      pesos.peso_valor +
-        pesos.peso_vigencia +
-        pesos.peso_qtd_contratos +
-        pesos.peso_aderencia_disciplinas || 100
-
-    const scoreFloat =
-      (notaValor * pesos.peso_valor +
-        notaVigencia * pesos.peso_vigencia +
-        notaQtd * pesos.peso_qtd_contratos +
-        aderenciaScore * pesos.peso_aderencia_disciplinas) /
-      totalPesos
-
-    const score = Math.min(100, Math.max(0, Math.round(scoreFloat)))
-
-    // Curva A/B/C estipulada pelo valor total dos contratos (conforme regra de negócio principal)
+    // Classificação de referência quando sem a base inteira:
+    // A: índice composto >= 70 ou contratos ativos > 3M
+    // B: índice composto entre 30 e 70 ou contratos ativos > 500k
+    // C: restante
     let curva: CurvaABC = 'C'
-    if (totalValorAtivo >= faixaCorteA) {
+    if (calculo.indiceComposto >= 60 || met.totalValorAtivo >= 5000000) {
       curva = 'A'
-    } else if (totalValorAtivo >= faixaCorteB) {
+    } else if (calculo.indiceComposto >= 25 || met.totalValorAtivo >= 1000000) {
       curva = 'B'
     } else {
       curva = 'C'
     }
 
     return {
-      score,
+      score: Math.round(calculo.indiceComposto),
       curva,
-      totalValorAtivo,
-      qtdContratosAtivos,
-      mediaMesesVigencia: Math.round(mediaMesesVigencia * 10) / 10,
-      aderenciaPercent: aderenciaScore,
+      totalValorAtivo: met.totalValorAtivo,
+      qtdContratosAtivos: met.qtdContratosAtivos,
+      mediaMesesVigencia: met.mediaMesesVigencia,
       detalhes: {
-        pontosValor: Math.round(notaValor),
-        pontosVigencia: Math.round(notaVigencia),
-        pontosQtd: Math.round(notaQtd),
-        pontosAderencia: Math.round(aderenciaScore),
+        pontosValor: calculo.pontosValor,
+        pontosVigencia: calculo.pontosVigencia,
+        pontosQtd: calculo.pontosQtd,
+        indiceComposto: calculo.indiceComposto,
       },
     }
   },

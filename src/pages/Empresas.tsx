@@ -418,9 +418,9 @@ export default function EmpresasPage() {
               onChange={(e) => setCurva(e.target.value)}
             >
               <option value="todas">Todas as Curvas</option>
-              <option value="A">Curva A (&gt; R$ 5M)</option>
-              <option value="B">Curva B (R$ 1M a R$ 5M)</option>
-              <option value="C">Curva C (&lt; R$ 1M)</option>
+              <option value="A">Curva A (Pareto ~80% índice acumulado)</option>
+              <option value="B">Curva B (Pareto 80%–95% índice acumulado)</option>
+              <option value="C">Curva C (Restante da base)</option>
             </select>
           </div>
 

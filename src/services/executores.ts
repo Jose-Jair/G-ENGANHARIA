@@ -32,10 +32,17 @@ export interface ExecutorComMetricas extends ExecutorRecord {
   etapasAtivasCount: number
   isCapacidadeEsgotada: boolean
   isRegistroVencido: boolean
-  isRegistroVencendoBreve: boolean // <= 30 dias
+  isRegistroVencendoBreve: boolean
   isAbaixoNotaCorte: boolean
+  tendenciaNota?: 'subindo' | 'caindo' | 'estavel' | 'sem_historico'
+  taxaOcupacaoPercent?: number
+  capacidadeLivre?: number
+  ultimaAvaliacao?: {
+    data: string
+    nota: number
+    projetoCodigo?: string
+  }
 }
-
 export const executoresService = {
   async list(): Promise<ExecutorRecord[]> {
     return await pb.collection('executores').getFullList<ExecutorRecord>({
@@ -113,13 +120,17 @@ export const executoresService = {
     })
   },
 
-  // Listar executores com métricas de validação em tela
+  // Listar executores com métricas de validação em tela, tendência e mapa de disponibilidade
   async listComMetricas(notaCorte: number = 3.0): Promise<ExecutorComMetricas[]> {
-    const [executores, etapasAtivas] = await Promise.all([
+    const [executores, etapasAtivas, todasAvaliacoes] = await Promise.all([
       this.list(),
       pb.collection('projeto_etapas').getFullList({
         filter: "executor != '' && status != 'concluida' && status != 'cancelada'",
         fields: 'id,executor',
+      }),
+      pb.collection('avaliacoes').getFullList<AvaliacaoRecord>({
+        sort: '-created',
+        fields: 'id,executor,nota_final,created,etapa',
       }),
     ])
 
@@ -133,10 +144,21 @@ export const executoresService = {
       contagemEtapas[execId] = (contagemEtapas[execId] || 0) + 1
     }
 
+    // Agrupar avaliações por executor
+    const avaliacoesPorExec: Record<string, AvaliacaoRecord[]> = {}
+    for (const a of todasAvaliacoes) {
+      if (!avaliacoesPorExec[a.executor]) {
+        avaliacoesPorExec[a.executor] = []
+      }
+      avaliacoesPorExec[a.executor].push(a)
+    }
+
     return executores.map((ex) => {
       const ativas = contagemEtapas[ex.id] || 0
       const cap = ex.capacidade_simultanea || 1
       const isCapacidadeEsgotada = ativas >= cap
+      const taxaOcupacaoPercent = Math.min(100, Math.round((ativas / cap) * 100))
+      const capacidadeLivre = Math.max(0, cap - ativas)
 
       let isRegistroVencido = false
       let isRegistroVencendoBreve = false
@@ -157,6 +179,30 @@ export const executoresService = {
           ? ex.nota_geral < notaCorte
           : false
 
+      // Calcular tendência comparando a última avaliação com a média das anteriores
+      const avs = avaliacoesPorExec[ex.id] || []
+      let tendenciaNota: 'subindo' | 'caindo' | 'estavel' | 'sem_historico' = 'sem_historico'
+      let ultimaAvaliacao: { data: string; nota: number; projetoCodigo?: string } | undefined
+
+      if (avs.length >= 2) {
+        const ultimaNota = avs[0].nota_final || 0
+        const penultimaNota = avs[1].nota_final || 0
+        if (ultimaNota > penultimaNota + 0.1) tendenciaNota = 'subindo'
+        else if (ultimaNota < penultimaNota - 0.1) tendenciaNota = 'caindo'
+        else tendenciaNota = 'estavel'
+
+        ultimaAvaliacao = {
+          data: avs[0].created || '',
+          nota: ultimaNota,
+        }
+      } else if (avs.length === 1) {
+        tendenciaNota = 'estavel'
+        ultimaAvaliacao = {
+          data: avs[0].created || '',
+          nota: avs[0].nota_final || 0,
+        }
+      }
+
       return {
         ...ex,
         etapasAtivasCount: ativas,
@@ -164,6 +210,10 @@ export const executoresService = {
         isRegistroVencido,
         isRegistroVencendoBreve,
         isAbaixoNotaCorte,
+        tendenciaNota,
+        taxaOcupacaoPercent,
+        capacidadeLivre,
+        ultimaAvaliacao,
       }
     })
   },
@@ -259,20 +309,11 @@ export const avaliacoesService = {
 
   async create(
     data: CreateAvaliacaoData,
-    pesos?: PesosAvaliacaoExecutor,
+    _pesos?: PesosAvaliacaoExecutor,
   ): Promise<AvaliacaoRecord> {
-    const pPont = pesos?.peso_pontualidade ?? 30
-    const pQual = pesos?.peso_qualidade ?? 35
-    const pCust = pesos?.peso_desvio_custo ?? 20
-    const pResp = pesos?.peso_responsividade ?? 15
-    const somaPesos = pPont + pQual + pCust + pResp || 100
-
+    // Cálculo balanceado automático dos 4 indicadores (25% cada)
     const notaCalculada =
-      (data.pontualidade * pPont +
-        data.qualidade * pQual +
-        data.desvio_custo * pCust +
-        data.responsividade * pResp) /
-      somaPesos
+      (data.pontualidade + data.qualidade + data.desvio_custo + data.responsividade) / 4
 
     return await pb.collection('avaliacoes').create<AvaliacaoRecord>({
       ...data,

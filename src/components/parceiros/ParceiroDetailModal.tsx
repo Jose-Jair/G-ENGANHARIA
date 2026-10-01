@@ -268,21 +268,55 @@ export function ParceiroDetailModal({
               <CardContent className="p-4 pt-1">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                   <div className="bg-white p-2.5 rounded border border-slate-200">
-                    <span className="text-slate-500 block text-[11px]">Contratos Ativos:</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 block text-[11px]">
+                        Contratos Ativos (40%):
+                      </span>
+                      {indicador?.componentesScore && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-mono text-blue-700 bg-blue-50"
+                        >
+                          Norm: {indicador.componentesScore.contratosNorm}
+                        </Badge>
+                      )}
+                    </div>
                     <strong className="text-slate-800 text-sm">
                       {indicador?.contratosAtivosQtd || empContratos.length} (
                       {formatCurrencyBr(indicador?.contratosAtivosValor || 0)})
                     </strong>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
-                    <span className="text-slate-500 block text-[11px]">Taxa de Conversão:</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 block text-[11px]">
+                        Taxa Conversão (35%):
+                      </span>
+                      {indicador?.componentesScore && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-mono text-emerald-700 bg-emerald-50"
+                        >
+                          Norm: {indicador.componentesScore.conversaoNorm}
+                        </Badge>
+                      )}
+                    </div>
                     <strong className="text-slate-800 text-sm">
                       {indicador?.taxaConversao || 0}% ({indicador?.totalPropostasAceitas || 0}/
                       {indicador?.totalPropostasEnviadas || 0})
                     </strong>
                   </div>
                   <div className="bg-white p-2.5 rounded border border-slate-200">
-                    <span className="text-slate-500 block text-[11px]">Projetos por Ano:</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 block text-[11px]">Projetos/Ano (25%):</span>
+                      {indicador?.componentesScore && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-mono text-purple-700 bg-purple-50"
+                        >
+                          Norm: {indicador.componentesScore.projetosNorm}
+                        </Badge>
+                      )}
+                    </div>
                     <strong className="text-slate-800 text-sm">
                       {indicador?.projetosPorAno || empProjs.length} projeto(s)
                     </strong>

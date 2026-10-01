@@ -772,6 +772,11 @@ export interface IndicadoresParceiro {
   contratosAtivosQtd: number
   contratosAtivosValor: number
   scoreDemanda: number // 0 a 100
+  componentesScore?: {
+    contratosNorm: number
+    conversaoNorm: number
+    projetosNorm: number
+  }
   curvaDinamica: CurvaABC
   percentualReceitaAcumulada: number // fatia acumulada no Pareto (0 a 100%)
   ranking: number

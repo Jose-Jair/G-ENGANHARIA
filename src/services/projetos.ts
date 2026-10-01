@@ -29,17 +29,36 @@ export interface UpdateProjetoData extends Partial<CreateProjetoData> {}
 
 export interface DocumentoComAlerta extends DocumentoRecord {
   diasAteVencimento: number | null
-  alertaNivel: 'vencido' | 'd1' | 'd7' | 'd15' | 'd30' | 'ok' | null
+  alertaNivel: 'ok' | 'd30' | 'd15' | 'd7' | 'd1' | 'vencido' | null
 }
 
+export interface SugestaoSaudeProjeto {
+  sugestao: SaudeProjeto
+  motivos: string[]
+  metricas: {
+    etapasTotal: number
+    etapasAtrasadas: number
+    riscosAltosAbertos: number
+    docsVencidosOuVencendo: number
+    desvioPrazoDias: number
+    pagoExecutores: number
+    valorTotalContratado: number
+  }
+}
 export const projetosService = {
   async list(): Promise<ProjetoRecord[]> {
     return await pb.collection('projetos').getFullList<ProjetoRecord>({
       sort: '-created',
-      expand: 'proposta,proposta.empresa,proposta.cliente_pf,contrato,empresa,cliente_pf',
+      expand: 'empresa,cliente_pf,proposta,proposta.empresa,proposta.cliente_pf',
     })
   },
 
+  async listTodasEtapas(): Promise<ProjetoEtapaRecord[]> {
+    return await pb.collection('projeto_etapas').getFullList<ProjetoEtapaRecord>({
+      sort: 'ordem',
+      expand: 'executor',
+    })
+  },
   async getById(id: string): Promise<ProjetoRecord> {
     return await pb.collection('projetos').getOne<ProjetoRecord>(id, {
       expand: 'proposta,proposta.empresa,proposta.cliente_pf,contrato,empresa,cliente_pf',
@@ -58,15 +77,49 @@ export const projetosService = {
     return await pb.collection('projetos').delete(id)
   },
 
+  // Atualizar a saúde do projeto com justificativa e auditoria de concordância/divergência
   async updateSaude(
     id: string,
     saude: SaudeProjeto,
     justificativa: string,
+    sugestaoCalculada?: SaudeProjeto,
+    motivosSugestao?: string[],
   ): Promise<ProjetoRecord> {
-    return await pb.collection('projetos').update<ProjetoRecord>(id, {
+    const atual = await pb.collection('projetos').getOne<ProjetoRecord>(id)
+    const atualizado = await pb.collection('projetos').update<ProjetoRecord>(id, {
       saude,
       justificativa_saude: justificativa,
     })
+
+    // Auditoria com detalhes completos de concordância ou divergência
+    try {
+      const user = pb.authStore.record
+      const concordouComSugestao = sugestaoCalculada ? saude === sugestaoCalculada : undefined
+      await pb.collection('audit_logs').create({
+        acao: 'ATUALIZACAO_SAUDE_PROJETO',
+        entidade: 'projetos',
+        registro_id: id,
+        user: user?.id,
+        user_email: user?.email,
+        detalhes: {
+          saude_anterior: atual.saude,
+          saude_nova: saude,
+          sugestao_calculada: sugestaoCalculada || null,
+          concordou_com_sugestao: concordouComSugestao,
+          tipo_decisao:
+            sugestaoCalculada && saude !== sugestaoCalculada
+              ? 'DIVERGENCIA_COM_JUSTIFICATIVA'
+              : 'CONCORDANCIA',
+          motivos_sugestao: motivosSugestao || [],
+          justificativa,
+          codigo: atualizado.codigo,
+        },
+      })
+    } catch {
+      // continua
+    }
+
+    return atualizado
   },
 
   // Busca dados completos de todas as 4 abas para a tela de detalhe do projeto
@@ -157,5 +210,124 @@ export const projetosService = {
     return comAlertas.filter(
       (d) => d.alertaNivel && ['vencido', 'd1', 'd7', 'd15', 'd30'].includes(d.alertaNivel),
     )
+  },
+
+  // Sugestão automática de Saúde do Projeto (🟢 Verde, 🟡 Amarelo, 🔴 Vermelho)
+  // Baseada em: etapas atrasadas, riscos Alto/Alto abertos, documentos vencidos/vencendo, desvio de prazo e financeiro
+  calcularSugestaoSaude(
+    projeto: ProjetoRecord,
+    etapas: ProjetoEtapaRecord[] = [],
+    riscos: RiscoRecord[] = [],
+    documentos: DocumentoRecord[] = [],
+    contasPagar: ContaRecord[] = [],
+  ): SugestaoSaudeProjeto {
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+
+    const motivos: string[] = []
+    let pontosProblema = 0 // 0 a 1: verde, 2 a 4: amarelo, 5+: vermelho
+
+    // 1. Etapas atrasadas
+    let etapasAtrasadas = 0
+    let desvioPrazoDias = 0
+
+    etapas.forEach((e) => {
+      if (e.status !== 'concluida' && e.status !== 'cancelada') {
+        const prazoFim = e.prazo_fim || (e as any).data_fim
+        if (prazoFim) {
+          const dFim = new Date(prazoFim)
+          dFim.setHours(0, 0, 0, 0)
+          const diff = Math.ceil((hoje.getTime() - dFim.getTime()) / (1000 * 3600 * 24))
+          if (diff > 0) {
+            etapasAtrasadas++
+            if (diff > desvioPrazoDias) desvioPrazoDias = diff
+          }
+        }
+      }
+    })
+
+    if (etapasAtrasadas > 1 || desvioPrazoDias > 15) {
+      pontosProblema += 3
+      motivos.push(
+        `${etapasAtrasadas} etapa(s) atrasada(s) (maior atraso: ${desvioPrazoDias} dias)`,
+      )
+    } else if (etapasAtrasadas === 1 || desvioPrazoDias > 0) {
+      pontosProblema += 1.5
+      motivos.push(`1 etapa com atraso de ${desvioPrazoDias} dias`)
+    }
+
+    // 2. Riscos Alto/Alto em aberto
+    const riscosAltosAbertos = riscos.filter((r) => {
+      const status = (r.status || '').toLowerCase()
+      if (status === 'mitigado' || status === 'resolvido') return false
+      const prob = (r.probabilidade || '').toLowerCase()
+      const imp = (r.impacto || '').toLowerCase()
+      return (prob === 'alta' || prob === 'alto') && (imp === 'alta' || imp === 'alto')
+    }).length
+
+    if (riscosAltosAbertos >= 2) {
+      pontosProblema += 3
+      motivos.push(`${riscosAltosAbertos} riscos críticos (Alto/Alto) abertos sem mitigação`)
+    } else if (riscosAltosAbertos === 1) {
+      pontosProblema += 1.5
+      motivos.push(`1 risco crítico (Alto/Alto) pendente de controle`)
+    }
+
+    // 3. Documentos vencidos ou vencendo em até 7 dias
+    let docsVencidosOuVencendo = 0
+    documentos.forEach((d) => {
+      if (d.vencimento) {
+        const v = new Date(d.vencimento)
+        v.setHours(0, 0, 0, 0)
+        const diff = Math.ceil((v.getTime() - hoje.getTime()) / (1000 * 3600 * 24))
+        if (diff <= 7) {
+          docsVencidosOuVencendo++
+        }
+      }
+    })
+
+    if (docsVencidosOuVencendo > 0) {
+      pontosProblema += 1
+      motivos.push(
+        `${docsVencidosOuVencendo} documento(s) técnico(s) vencido(s) ou vencendo em 7 dias`,
+      )
+    }
+
+    // 4. Situação financeira: se contas a pagar para executores excederem o valor contratado previsto
+    const pagoExecutores = contasPagar
+      .filter((c) => c.status === 'paga' || c.status === 'realizada')
+      .reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
+    const valorTotalContratado = Number(projeto.valor_total) || 0
+
+    if (valorTotalContratado > 0 && pagoExecutores > valorTotalContratado) {
+      pontosProblema += 2
+      motivos.push('Desvio financeiro: pagamentos a executores superam o teto do projeto')
+    }
+
+    let sugestao: SaudeProjeto = 'verde'
+    if (pontosProblema >= 3.5 || desvioPrazoDias >= 15 || riscosAltosAbertos >= 2) {
+      sugestao = 'vermelho'
+    } else if (pontosProblema >= 1.5 || etapasAtrasadas > 0 || docsVencidosOuVencendo > 0) {
+      sugestao = 'amarelo'
+    } else {
+      sugestao = 'verde'
+      if (motivos.length === 0) {
+        motivos.push('Etapas no prazo, sem riscos críticos abertos e documentos em dia')
+      }
+    }
+
+    return {
+      sugestao,
+      motivos,
+      metricas: {
+        etapasTotal: etapas.length,
+        etapasAtrasadas,
+        riscosAltosAbertos,
+        docsVencidosOuVencendo,
+        desvioPrazoDias,
+        pagoExecutores,
+        valorTotalContratado,
+      },
+    }
   },
 }

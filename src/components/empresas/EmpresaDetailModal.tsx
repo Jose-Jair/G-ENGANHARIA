@@ -444,12 +444,21 @@ export function EmpresaDetailModal({
                   </Badge>
                 )}
                 {empresa && (
-                  <Badge
-                    variant="outline"
-                    className="font-mono bg-blue-50 text-blue-700 border-blue-300"
-                  >
-                    Curva {curva}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge
+                      variant="outline"
+                      className="font-mono bg-blue-50 text-blue-700 border-blue-300"
+                    >
+                      Curva {curva} (Automática)
+                    </Badge>
+                    <Badge
+                      variant="secondary"
+                      className="font-mono text-[10px] bg-slate-100 text-slate-700 border border-slate-300"
+                      title="Índice Composto: 50% Valor Ativo + 30% Vigência Restante + 20% Qtd Contratos"
+                    >
+                      Índice: {empresa.score || 0}/100
+                    </Badge>
+                  </div>
                 )}
               </div>
               <DialogDescription className="text-xs text-slate-500 mt-1">
@@ -776,20 +785,26 @@ export function EmpresaDetailModal({
                     </select>
                   </div>
 
-                  {/* Curva ABC */}
+                  {/* Curva ABC e Índice Composto (Classificação 100% Automática) */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="empCurva">Curva ABC</Label>
-                    <select
-                      id="empCurva"
-                      className="w-full h-10 px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                      value={curva}
-                      onChange={(e) => setCurva(e.target.value as any)}
-                      disabled={readOnly}
-                    >
-                      <option value="A">Curva A (&gt; R$ 5M)</option>
-                      <option value="B">Curva B (R$ 1M a R$ 5M)</option>
-                      <option value="C">Curva C (&lt; R$ 1M)</option>
-                    </select>
+                    <Label htmlFor="empCurva">Curva ABC & Índice (Automático)</Label>
+                    <div className="flex items-center gap-2 h-10 px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-xs font-medium text-slate-800">
+                      <Badge
+                        variant="outline"
+                        className={`font-bold ${
+                          curva === 'A'
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                            : curva === 'B'
+                              ? 'bg-amber-100 text-amber-800 border-amber-300'
+                              : 'bg-slate-100 text-slate-700 border-slate-300'
+                        }`}
+                      >
+                        Curva {curva}
+                      </Badge>
+                      <span className="text-slate-500 font-mono">
+                        Índice: <strong>{empresa?.score || 0}</strong>/100
+                      </span>
+                    </div>
                   </div>
 
                   {/* Etapa do Funil */}

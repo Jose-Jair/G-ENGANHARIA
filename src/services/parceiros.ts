@@ -132,11 +132,7 @@ export const parceirosService = {
     contas: ContaRecord[],
     contratos: ContratoRecord[],
     diasLimiteSemDemanda = 180,
-    pesosScore: PesosScoreDemandaParceiro = {
-      peso_contratos_valor: 35,
-      peso_taxa_conversao: 35,
-      peso_projetos_ano: 30,
-    },
+    _pesosScore?: PesosScoreDemandaParceiro,
     modoCurva: 'dinamico' | 'manual' = 'dinamico',
     cortesPareto = { corteA: 80, corteB: 95 },
   ): IndicadoresParceiro[] {
@@ -327,40 +323,6 @@ export const parceirosService = {
         0,
       )
 
-      // Score de capacidade de demanda (A4)
-      // 1. Contratos ativos (valor e quantidade) -> nota 0-100
-      let notaContratos = 0
-      if (contratosAtivosValor >= 5000000 || contratosAtivosQtd >= 2) notaContratos = 100
-      else if (contratosAtivosValor >= 1000000 || contratosAtivosQtd >= 1) notaContratos = 75
-      else if (contratosAtivosValor > 0) notaContratos = 50
-      else notaContratos = 30
-
-      // 2. Taxa de conversão -> nota 0-100
-      let notaConversao = 0
-      if (taxaConversao >= 80) notaConversao = 100
-      else if (taxaConversao >= 50) notaConversao = 75
-      else if (taxaConversao > 0) notaConversao = 50
-      else notaConversao = 25
-
-      // 3. Projetos por ano -> nota 0-100
-      let notaProjetos = 0
-      if (projetosPorAno >= 3) notaProjetos = 100
-      else if (projetosPorAno === 2) notaProjetos = 80
-      else if (projetosPorAno === 1) notaProjetos = 60
-      else notaProjetos = 25
-
-      const somaPesos =
-        pesosScore.peso_contratos_valor +
-          pesosScore.peso_taxa_conversao +
-          pesosScore.peso_projetos_ano || 100
-
-      const scoreDemanda = Math.round(
-        (notaContratos * pesosScore.peso_contratos_valor +
-          notaConversao * pesosScore.peso_taxa_conversao +
-          notaProjetos * pesosScore.peso_projetos_ano) /
-          somaPesos,
-      )
-
       return {
         parceiro: emp,
         receitaAcumulada,
@@ -377,20 +339,63 @@ export const parceirosService = {
         projetosPorAno,
         contratosAtivosQtd,
         contratosAtivosValor,
-        scoreDemanda: Math.min(100, Math.max(0, scoreDemanda)),
+      }
+    })
+
+    // Médias da base para NORMALIZAÇÃO ESTATÍSTICA AUTOMÁTICA
+    const totalP = Math.max(1, preLista.length)
+    const mediaContratosValor =
+      preLista.reduce((acc, i) => acc + i.contratosAtivosValor, 0) / totalP || 1000000
+    const mediaContratosQtd =
+      preLista.reduce((acc, i) => acc + i.contratosAtivosQtd, 0) / totalP || 1
+    const mediaTaxaConversao = preLista.reduce((acc, i) => acc + i.taxaConversao, 0) / totalP || 30
+    const mediaProjetosAno = preLista.reduce((acc, i) => acc + i.projetosPorAno, 0) / totalP || 1
+
+    // Cálculo normalizado estatisticamente e pesos fixos internos (40% contratos, 35% conversão, 25% projetos)
+    const preListaComScore = preLista.map((item) => {
+      // Indicador 1: Contratos ativos (combinado valor e quantidade) relativo à média
+      const relValor = item.contratosAtivosValor / mediaContratosValor
+      const relQtd = item.contratosAtivosQtd / mediaContratosQtd
+      const normContratos = Math.min(
+        100,
+        Math.max(10, Math.round((relValor * 0.7 + relQtd * 0.3) * 50)),
+      )
+
+      // Indicador 2: Taxa de conversão relativo à média da base
+      const relConversao = item.taxaConversao / (mediaTaxaConversao || 1)
+      const normConversao = Math.min(100, Math.max(10, Math.round(relConversao * 50)))
+
+      // Indicador 3: Projetos por ano relativo à média da base
+      const relProjetos = item.projetosPorAno / (mediaProjetosAno || 1)
+      const normProjetos = Math.min(100, Math.max(10, Math.round(relProjetos * 50)))
+
+      // Agregação automática: pesos fixos internos (40% contratos, 35% conversão, 25% projetos)
+      const scoreDemanda = Math.min(
+        100,
+        Math.max(0, Math.round(normContratos * 0.4 + normConversao * 0.35 + normProjetos * 0.25)),
+      )
+
+      return {
+        ...item,
+        scoreDemanda,
+        componentesScore: {
+          contratosNorm: normContratos,
+          conversaoNorm: normConversao,
+          projetosNorm: normProjetos,
+        },
       }
     })
 
     // 3. Ordenar do maior para o menor por receita acumulada para o PARETO DINÂMICO
-    preLista.sort((a, b) => b.receitaAcumulada - a.receitaAcumulada)
+    preListaComScore.sort((a, b) => b.receitaAcumulada - a.receitaAcumulada)
 
-    const receitaTotalGeral = preLista.reduce((acc, item) => acc + item.receitaAcumulada, 0)
+    const receitaTotalGeral = preListaComScore.reduce((acc, item) => acc + item.receitaAcumulada, 0)
 
     let acumuladoAtual = 0
     const resultados: IndicadoresParceiro[] = []
 
-    for (let i = 0; i < preLista.length; i++) {
-      const item = preLista[i]
+    for (let i = 0; i < preListaComScore.length; i++) {
+      const item = preListaComScore[i]
       acumuladoAtual += item.receitaAcumulada
 
       const percAcumulado = receitaTotalGeral > 0 ? (acumuladoAtual / receitaTotalGeral) * 100 : 0
@@ -432,6 +437,7 @@ export const parceirosService = {
         contratosAtivosQtd: item.contratosAtivosQtd,
         contratosAtivosValor: item.contratosAtivosValor,
         scoreDemanda: item.scoreDemanda,
+        componentesScore: item.componentesScore,
         curvaDinamica,
         percentualReceitaAcumulada: Math.round(percAcumulado * 10) / 10,
         ranking: i + 1,

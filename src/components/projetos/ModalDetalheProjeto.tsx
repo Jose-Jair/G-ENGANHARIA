@@ -131,6 +131,30 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
     (r) => r.probabilidade === 'alta' && r.impacto === 'alto' && r.status === 'aberto',
   ).length
 
+  // Indicador de performance por projeto consolidado:
+  // Prazo (etapas no prazo vs atrasadas), Risco (riscos por severidade) e Financeiro (pago a executores vs contratado)
+  const etapasConcluidasCount = etapas.filter((e) => e.status === 'concluida').length
+  const etapasAtrasadasCount = etapas.filter((e) => {
+    if (e.status === 'concluida' || e.status === 'cancelada') return false
+    const fim = e.prazo_fim || (e as any).data_fim
+    if (!fim) return false
+    const dFim = new Date(fim)
+    dFim.setHours(0, 0, 0, 0)
+    const hj = new Date()
+    hj.setHours(0, 0, 0, 0)
+    return dFim.getTime() < hj.getTime()
+  }).length
+  const etapasNoPrazoCount = etapas.length - etapasAtrasadasCount - etapasConcluidasCount
+
+  const riscosAltos = riscos.filter((r) => r.impacto === 'alto' || r.impacto === 'alta').length
+  const riscosMedios = riscos.filter((r) => r.impacto === 'medio' || r.impacto === 'media').length
+  const riscosBaixos = riscos.length - riscosAltos - riscosMedios
+
+  const totalPagoExecutores = etapas.reduce((acc, e) => acc + (Number(e.valor_executor) || 0), 0)
+  const percFinanceiro = projeto?.valor_total
+    ? Math.min(100, Math.round((totalPagoExecutores / Number(projeto.valor_total)) * 100))
+    : 0
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -144,6 +168,7 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
             <div className="flex flex-col">
               {/* Header do Projeto */}
               <div className="p-6 bg-slate-900 text-white border-b border-slate-800">
+                {' '}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
@@ -249,6 +274,109 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                           Alterar Saúde
                         </Button>
                       )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Painel Consolidado de Performance do Projeto (Objetivo 2) */}
+              <div className="p-4 bg-slate-100 border-b border-slate-200">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2 flex items-center justify-between">
+                  <span>Indicadores de Performance Consolidados</span>
+                  <span className="text-[10px] font-mono lowercase text-slate-400">
+                    visão unificada: prazo, risco e custo
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* Performance Prazo */}
+                  <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs">
+                    <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                      <span className="font-semibold text-slate-700 flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                        Performance de Prazo
+                      </span>
+                      <span className="font-mono text-[11px] font-bold">
+                        {etapas.length > 0
+                          ? `${Math.round((etapasConcluidasCount / etapas.length) * 100)}% conc.`
+                          : '0%'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs mt-2">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] bg-emerald-50 text-emerald-800 border-emerald-300"
+                      >
+                        {etapasConcluidasCount} concluídas
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] bg-blue-50 text-blue-800 border-blue-300"
+                      >
+                        {etapasNoPrazoCount} em dia
+                      </Badge>
+                      {etapasAtrasadasCount > 0 && (
+                        <Badge variant="destructive" className="text-[10px]">
+                          {etapasAtrasadasCount} atrasadas
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Riscos Abertos por Severidade */}
+                  <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs">
+                    <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                      <span className="font-semibold text-slate-700 flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                        Mapa de Riscos ({riscos.length})
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        {totalRiscosCriticos} críticos abertos
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs mt-2">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] bg-rose-50 text-rose-800 border-rose-300"
+                      >
+                        {riscosAltos} Alto
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] bg-amber-50 text-amber-800 border-amber-300"
+                      >
+                        {riscosMedios} Médio
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] bg-slate-100 text-slate-700 border-slate-300"
+                      >
+                        {riscosBaixos} Baixo
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Financeiro Consolidado */}
+                  <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs">
+                    <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                      <span className="font-semibold text-slate-700 flex items-center gap-1">
+                        <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                        Alocação Financeira
+                      </span>
+                      <span className="font-mono text-[11px] text-slate-600">
+                        {percFinanceiro}% do teto
+                      </span>
+                    </div>
+                    <div className="text-xs mt-1.5 flex items-center justify-between">
+                      <span className="text-slate-500 text-[11px]">Custo Executores:</span>
+                      <strong className="text-slate-900 font-mono">
+                        {formatCurrencyBr(totalPagoExecutores)}
+                      </strong>
+                    </div>
+                    <div className="text-[10px] text-slate-400 flex items-center justify-between mt-0.5">
+                      <span>Valor do Contrato:</span>
+                      <span className="font-mono">
+                        {formatCurrencyBr(projeto.valor_total || 0)}
+                      </span>
                     </div>
                   </div>
                 </div>

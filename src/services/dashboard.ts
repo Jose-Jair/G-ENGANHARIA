@@ -288,17 +288,28 @@ export const dashboardService = {
       valorTotalContratosGestao += Number(c.valor) || 0
     }
 
-    // Curva ABC dinâmica das empresas usando scoreCurvaService
+    // Curva ABC automática por índice composto e Pareto usando scoreCurvaService
     const curvaABC = {
       A: { count: 0, valor: 0 },
       B: { count: 0, valor: 0 },
       C: { count: 0, valor: 0 },
     }
 
-    for (const emp of empresas) {
-      if (emp.status !== 'ativa') continue
-      const contratosEmp = contratosPorEmpresa[emp.id] || []
-      const resScore = scoreCurvaService.calcular(contratosEmp, emp.cnae)
+    const mapaContratosAtivos = new Map<string, ContratoRecord[]>()
+    for (const empId of Object.keys(contratosPorEmpresa)) {
+      mapaContratosAtivos.set(empId, contratosPorEmpresa[empId])
+    }
+
+    const empresasAtivas = empresas.filter((e) => e.status === 'ativa')
+    const mapaClassificacao = scoreCurvaService.classificarBaseEmpresas(
+      empresasAtivas,
+      mapaContratosAtivos,
+    )
+
+    for (const emp of empresasAtivas) {
+      const resScore =
+        mapaClassificacao.get(emp.id) ||
+        scoreCurvaService.calcular(contratosPorEmpresa[emp.id] || [], emp.cnae)
       const curva = resScore.curva || 'C'
       curvaABC[curva].count++
       curvaABC[curva].valor += resScore.totalValorAtivo

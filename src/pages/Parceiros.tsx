@@ -654,9 +654,26 @@ export function ParceirosPage() {
                             {ind.scoreDemanda}
                             <span className="text-[10px] text-slate-400">/100</span>
                           </div>
-                          <span className="text-[10px] text-slate-400 block">
-                            Conv: {ind.taxaConversao}%
-                          </span>
+                          {ind.componentesScore ? (
+                            <div
+                              className="text-[9px] text-slate-400 mt-0.5 space-x-1"
+                              title="Componentes normalizados pela média: Contratos (40%) | Conversão (35%) | Projetos/Ano (25%)"
+                            >
+                              <span className="text-blue-600">
+                                Ct:{ind.componentesScore.contratosNorm}
+                              </span>
+                              <span className="text-emerald-600">
+                                Cv:{ind.componentesScore.conversaoNorm}
+                              </span>
+                              <span className="text-purple-600">
+                                Pr:{ind.componentesScore.projetosNorm}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 block">
+                              Conv: {ind.taxaConversao}%
+                            </span>
+                          )}
                         </td>
 
                         {/* Contratos Ativos */}

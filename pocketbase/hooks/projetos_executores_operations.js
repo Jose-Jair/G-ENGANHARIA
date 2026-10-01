@@ -101,7 +101,7 @@ onRecordValidate((e) => {
   e.next()
 })
 
-// Ao salvar uma avaliação, recalcular a nota geral ponderada do executor (inline)
+// Ao salvar uma avaliação, recalcular a nota geral com recência e volume
 onRecordAfterCreateSuccess((e) => {
   const rec = e.record
   if (rec.collection().name === 'avaliacoes') {
@@ -110,26 +110,6 @@ onRecordAfterCreateSuccess((e) => {
       try {
         const executor = $app.findRecordById('executores', executorId)
         if (executor) {
-          let pPont = 30
-          let pQual = 35
-          let pCust = 20
-          let pResp = 15
-
-          try {
-            const paramPesos = $app.findFirstRecordByData(
-              'parametros',
-              'chave',
-              'pesos_avaliacao_executor',
-            )
-            if (paramPesos) {
-              const valObj = JSON.parse(paramPesos.getString('valor'))
-              pPont = Number(valObj.peso_pontualidade) || 30
-              pQual = Number(valObj.peso_qualidade) || 35
-              pCust = Number(valObj.peso_desvio_custo) || 20
-              pResp = Number(valObj.peso_responsividade) || 15
-            }
-          } catch (_) {}
-
           const avaliacoes = $app.findRecordsByFilter(
             'avaliacoes',
             "executor = '" + executorId + "'",
@@ -143,7 +123,9 @@ onRecordAfterCreateSuccess((e) => {
             executor.set('total_avaliacoes', 0)
             $app.save(executor)
           } else {
-            let somaNotas = 0
+            let somaNotasPonderadas = 0
+            let somaPesosRecencia = 0
+
             for (let i = 0; i < avaliacoes.length; i++) {
               const a = avaliacoes[i]
               const pont = a.getFloat('pontualidade') || 0
@@ -151,27 +133,54 @@ onRecordAfterCreateSuccess((e) => {
               const cust = a.getFloat('desvio_custo') || 0
               const resp = a.getFloat('responsividade') || 0
 
-              const somaPesos = pPont + pQual + pCust + pResp || 100
-              const notaPonderada =
-                (pont * pPont + qual * pQual + cust * pCust + resp * pResp) / somaPesos
-              somaNotas += notaPonderada
-
-              if (Math.abs((a.getFloat('nota_final') || 0) - notaPonderada) > 0.01) {
-                a.set('nota_final', parseFloat(notaPonderada.toFixed(2)))
+              const notaIndividual = (pont + qual + cust + resp) / 4
+              if (Math.abs((a.getFloat('nota_final') || 0) - notaIndividual) > 0.01) {
+                a.set('nota_final', parseFloat(notaIndividual.toFixed(2)))
                 try {
                   $app.save(a)
                 } catch (_) {}
               }
+
+              const pesoRecencia = Math.max(1.0, 3.0 - i * 0.4)
+              somaNotasPonderadas += notaIndividual * pesoRecencia
+              somaPesosRecencia += pesoRecencia
             }
 
-            const mediaGeral = somaNotas / avaliacoes.length
-            executor.set('nota_geral', parseFloat(mediaGeral.toFixed(2)))
+            const notaCalculada =
+              somaPesosRecencia > 0 ? somaNotasPonderadas / somaPesosRecencia : 0
+            const notaAnterior = executor.getFloat('nota_geral') || 0
+            const novaNota = parseFloat(notaCalculada.toFixed(2))
+
+            executor.set('nota_geral', novaNota)
             executor.set('total_avaliacoes', avaliacoes.length)
             $app.save(executor)
+
+            if (Math.abs(notaAnterior - novaNota) >= 0.05) {
+              try {
+                const auditCol = $app.findCollectionByNameOrId('audit_logs')
+                const aRec = new Record(auditCol)
+                aRec.set('acao', 'RECALCULO_NOTA_EXECUTOR')
+                aRec.set('entidade', 'executores')
+                aRec.set('registro_id', executorId)
+                aRec.set('detalhes', {
+                  nota_anterior: notaAnterior,
+                  nova_nota: novaNota,
+                  total_avaliacoes: avaliacoes.length,
+                  tendencia:
+                    novaNota > notaAnterior
+                      ? 'subindo'
+                      : novaNota < notaAnterior
+                        ? 'caindo'
+                        : 'estavel',
+                  mensagem: 'Nota recalculada automaticamente com ponderação por volume e recência',
+                })
+                $app.save(aRec)
+              } catch (_) {}
+            }
           }
         }
       } catch (err) {
-        console.log('Erro ao recalcular nota geral do executor no create: ' + err)
+        console.log('Erro ao recalcular nota no create: ' + err)
       }
     }
   }
@@ -185,26 +194,6 @@ onRecordAfterUpdateSuccess((e) => {
       try {
         const executor = $app.findRecordById('executores', executorId)
         if (executor) {
-          let pPont = 30
-          let pQual = 35
-          let pCust = 20
-          let pResp = 15
-
-          try {
-            const paramPesos = $app.findFirstRecordByData(
-              'parametros',
-              'chave',
-              'pesos_avaliacao_executor',
-            )
-            if (paramPesos) {
-              const valObj = JSON.parse(paramPesos.getString('valor'))
-              pPont = Number(valObj.peso_pontualidade) || 30
-              pQual = Number(valObj.peso_qualidade) || 35
-              pCust = Number(valObj.peso_desvio_custo) || 20
-              pResp = Number(valObj.peso_responsividade) || 15
-            }
-          } catch (_) {}
-
           const avaliacoes = $app.findRecordsByFilter(
             'avaliacoes',
             "executor = '" + executorId + "'",
@@ -218,7 +207,9 @@ onRecordAfterUpdateSuccess((e) => {
             executor.set('total_avaliacoes', 0)
             $app.save(executor)
           } else {
-            let somaNotas = 0
+            let somaNotasPonderadas = 0
+            let somaPesosRecencia = 0
+
             for (let i = 0; i < avaliacoes.length; i++) {
               const a = avaliacoes[i]
               const pont = a.getFloat('pontualidade') || 0
@@ -226,32 +217,57 @@ onRecordAfterUpdateSuccess((e) => {
               const cust = a.getFloat('desvio_custo') || 0
               const resp = a.getFloat('responsividade') || 0
 
-              const somaPesos = pPont + pQual + pCust + pResp || 100
-              const notaPonderada =
-                (pont * pPont + qual * pQual + cust * pCust + resp * pResp) / somaPesos
-              somaNotas += notaPonderada
-
-              if (Math.abs((a.getFloat('nota_final') || 0) - notaPonderada) > 0.01) {
-                a.set('nota_final', parseFloat(notaPonderada.toFixed(2)))
+              const notaIndividual = (pont + qual + cust + resp) / 4
+              if (Math.abs((a.getFloat('nota_final') || 0) - notaIndividual) > 0.01) {
+                a.set('nota_final', parseFloat(notaIndividual.toFixed(2)))
                 try {
                   $app.save(a)
                 } catch (_) {}
               }
+
+              const pesoRecencia = Math.max(1.0, 3.0 - i * 0.4)
+              somaNotasPonderadas += notaIndividual * pesoRecencia
+              somaPesosRecencia += pesoRecencia
             }
 
-            const mediaGeral = somaNotas / avaliacoes.length
-            executor.set('nota_geral', parseFloat(mediaGeral.toFixed(2)))
+            const notaCalculada =
+              somaPesosRecencia > 0 ? somaNotasPonderadas / somaPesosRecencia : 0
+            const notaAnterior = executor.getFloat('nota_geral') || 0
+            const novaNota = parseFloat(notaCalculada.toFixed(2))
+
+            executor.set('nota_geral', novaNota)
             executor.set('total_avaliacoes', avaliacoes.length)
             $app.save(executor)
+
+            if (Math.abs(notaAnterior - novaNota) >= 0.05) {
+              try {
+                const auditCol = $app.findCollectionByNameOrId('audit_logs')
+                const aRec = new Record(auditCol)
+                aRec.set('acao', 'RECALCULO_NOTA_EXECUTOR')
+                aRec.set('entidade', 'executores')
+                aRec.set('registro_id', executorId)
+                aRec.set('detalhes', {
+                  nota_anterior: notaAnterior,
+                  nova_nota: novaNota,
+                  total_avaliacoes: avaliacoes.length,
+                  tendencia:
+                    novaNota > notaAnterior
+                      ? 'subindo'
+                      : novaNota < notaAnterior
+                        ? 'caindo'
+                        : 'estavel',
+                  mensagem: 'Nota recalculada automaticamente com ponderação por volume e recência',
+                })
+                $app.save(aRec)
+              } catch (_) {}
+            }
           }
         }
       } catch (err) {
-        console.log('Erro ao recalcular nota geral do executor no update: ' + err)
+        console.log('Erro ao recalcular nota no update: ' + err)
       }
     }
-  }
-
-  // Ao escolher uma cotação (escolhida = true), vincular executor à etapa e desmarcar outras
+  } // Ao escolher uma cotação (escolhida = true), vincular executor à etapa e desmarcar outras
   if (rec.collection().name === 'cotacoes') {
     const isEscolhida = rec.getBool('escolhida')
     const original = rec.original()

@@ -108,10 +108,6 @@ export default function FunilPage() {
   const [users, setUsers] = useState<UserRecord[]>([])
   const [reativacoesPendentes, setReativacoesPendentes] = useState<ReativacaoSugeridaRecord[]>([])
 
-  // Faixas e pesos de score
-  const [faixaCorteA, setFaixaCorteA] = useState(5000000)
-  const [faixaCorteB, setFaixaCorteB] = useState(1000000)
-
   // Filtros combináveis persistidos na sessionStorage
   const [filtroEtapa, setFiltroEtapa] = useState<string>(
     () => sessionStorage.getItem('funil_filtro_etapa') || 'todas',
@@ -203,8 +199,7 @@ export default function FunilPage() {
             header: 'Score Calculado',
             accessor: (e) => {
               const cts = contratosPorEmpresa.get(e.id)?.contratos || []
-              return scoreCurvaService.calcular(cts, e.cnae, undefined, faixaCorteA, faixaCorteB)
-                .score
+              return scoreCurvaService.calcular(cts, e.cnae).score
             },
           },
           {
@@ -251,19 +246,13 @@ export default function FunilPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [empList, contList, userList, paramList, reatList] = await Promise.all([
+      const [empList, contList, userList, _paramList, reatList] = await Promise.all([
         empresasService.list(),
         contratosService.listAll(),
         usersService.list(),
         parametrosService.list(),
         reativacoesService.listPendentes(),
       ])
-
-      // Obter faixas dos parâmetros
-      const paramA = paramList.find((p) => p.chave === 'faixa_corte_curva_a')
-      const paramB = paramList.find((p) => p.chave === 'faixa_corte_curva_b')
-      if (paramA && paramA.valor) setFaixaCorteA(parseFloat(paramA.valor) || 5000000)
-      if (paramB && paramB.valor) setFaixaCorteB(parseFloat(paramB.valor) || 1000000)
 
       setEmpresas(empList)
       setContratos(contList)

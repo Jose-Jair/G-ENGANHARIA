@@ -75,3 +75,51 @@ export function cleanPhoneForWa(value: string | undefined | null): string {
   }
   return clean
 }
+
+/**
+ * Utilitários para CPF brasileiro: formatação, sanitização e validação de dígitos verificadores
+ */
+export function cleanCpf(value: string | undefined | null): string {
+  if (!value) return ''
+  return value.replace(/\D/g, '')
+}
+
+export function formatCpf(value: string | undefined | null): string {
+  const clean = cleanCpf(value)
+  if (!clean) return ''
+  if (clean.length <= 3) return clean
+  if (clean.length <= 6) return `${clean.slice(0, 3)}.${clean.slice(3)}`
+  if (clean.length <= 9) return `${clean.slice(0, 3)}.${clean.slice(3, 6)}.${clean.slice(6)}`
+  return `${clean.slice(0, 3)}.${clean.slice(3, 6)}.${clean.slice(6, 9)}-${clean.slice(9, 11)}`
+}
+
+/**
+ * Validação dos dois dígitos verificadores do CPF (algoritmo Módulo 11 da Receita Federal)
+ */
+export function isValidCpf(cpf: string | undefined | null): boolean {
+  const clean = cleanCpf(cpf)
+  if (!clean || clean.length !== 11) return false
+
+  // Rejeita sequências de números repetidos óbvias (ex: 11111111111)
+  if (/^(\d)\1{10}$/.test(clean)) return false
+
+  // Primeiro dígito verificador
+  let soma = 0
+  for (let i = 0; i < 9; i++) {
+    soma += parseInt(clean.charAt(i), 10) * (10 - i)
+  }
+  let resto = (soma * 10) % 11
+  if (resto === 10 || resto === 11) resto = 0
+  if (resto !== parseInt(clean.charAt(9), 10)) return false
+
+  // Segundo dígito verificador
+  soma = 0
+  for (let i = 0; i < 10; i++) {
+    soma += parseInt(clean.charAt(i), 10) * (11 - i)
+  }
+  resto = (soma * 10) % 11
+  if (resto === 10 || resto === 11) resto = 0
+  if (resto !== parseInt(clean.charAt(10), 10)) return false
+
+  return true
+}

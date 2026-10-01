@@ -696,8 +696,9 @@ export default function AdministracaoPage() {
             <CardHeader>
               <CardTitle className="text-lg">Parâmetros do Sistema</CardTitle>
               <CardDescription className="text-xs">
-                Chaves de configuração global que ditam cadências, carências, faixas da curva ABC e
-                regras operacionais.
+                Chaves de configuração global que ditam cadências, carências, faixas da curva ABC,
+                modo dinâmico de Pareto, pesos do score de capacidade de demanda e regras
+                operacionais.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">

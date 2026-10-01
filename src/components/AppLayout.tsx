@@ -19,11 +19,15 @@ import {
   Bell,
   CalendarCheck,
   Megaphone,
+  Handshake,
+  UserCheck,
 } from 'lucide-react'
 import { toquesService } from '@/services/toques'
 import { empresasService } from '@/services/empresas'
 import { parametrosService } from '@/services/parametros'
 import { campanhasService } from '@/services/campanhas'
+import { parceirosService } from '@/services/parceiros'
+import { contratosService } from '@/services/contratos'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDateBr } from '@/lib/formatters'
@@ -43,6 +47,7 @@ export default function AppLayout() {
   const [badgeAcoesCount, setBadgeAcoesCount] = useState<number>(0)
   const [badgeCriticosCount, setBadgeCriticosCount] = useState<number>(0)
   const [badgeCampanhasPendentesCount, setBadgeCampanhasPendentesCount] = useState<number>(0)
+  const [badgeParceirosSemDemandaCount, setBadgeParceirosSemDemandaCount] = useState<number>(0)
 
   // Carregar contagem de ações do dia + atrasos para a badge de notificações no sininho
   const carregarNotificacoes = async () => {
@@ -108,6 +113,39 @@ export default function AppLayout() {
         }
       } else {
         setBadgeCampanhasPendentesCount(0)
+      }
+
+      // Regra da Etapa 6 (A6): Alerta de parceiro sem demanda há mais de X dias direcionado ao Comercial / Admin
+      try {
+        let diasParceiroLim = 180
+        try {
+          const p = await parametrosService.getByKey('dias_alerta_sem_demanda_parceiro')
+          if (p?.valor) diasParceiroLim = parseInt(p.valor, 10) || 180
+        } catch {
+          /* ignore */
+        }
+
+        const [parcs, props, projs, conts, contrs] = await Promise.all([
+          parceirosService.listParceiros(),
+          parceirosService.listPropostas(),
+          parceirosService.listProjetos(),
+          parceirosService.listContasReceber(),
+          contratosService.listAll(),
+        ])
+
+        const inds = parceirosService.calcularIndicadoresParceiros(
+          parcs,
+          props,
+          projs,
+          conts,
+          contrs,
+          diasParceiroLim,
+        )
+
+        const semDemandaCriticos = inds.filter((i) => i.isSemDemandaCritica).length
+        setBadgeParceirosSemDemandaCount(semDemandaCriticos)
+      } catch {
+        /* intentionally ignored */
       }
     } catch {
       /* intentionally ignored */
@@ -184,6 +222,65 @@ export default function AppLayout() {
                 )}
               </div>
             </NavLink>
+          )}
+
+          {/* ETAPA 6: Módulo Parceiros e Clientes (Admin, Comercial, Financeiro, Gestor) */}
+          {user?.role && user.role !== 'executor' && (
+            <>
+              <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Parceiros e Clientes
+              </div>
+
+              <NavLink
+                to="/parceiros"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`
+                }
+              >
+                <Handshake className="w-4 h-4 text-emerald-400" />
+                <div className="flex items-center justify-between flex-1">
+                  <span>Parceiros</span>
+                  {badgeParceirosSemDemandaCount > 0 && (
+                    <span
+                      className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-rose-600 text-white shadow-xs"
+                      title={`${badgeParceirosSemDemandaCount} parceiro(s) sem demanda há mais de 180 dias`}
+                    >
+                      {badgeParceirosSemDemandaCount}
+                    </span>
+                  )}
+                  {(user.role === 'financeiro' || user.role === 'gestor') && (
+                    <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                      Leitura
+                    </span>
+                  )}
+                </div>
+              </NavLink>
+
+              <NavLink
+                to="/clientes-pf"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`
+                }
+              >
+                <UserCheck className="w-4 h-4 text-cyan-400" />
+                <div className="flex items-center justify-between flex-1">
+                  <span>Clientes PF</span>
+                  {(user.role === 'financeiro' || user.role === 'gestor') && (
+                    <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                      Leitura
+                    </span>
+                  )}
+                </div>
+              </NavLink>
+            </>
           )}
 
           {/* ETAPA 3: MÓDULO FUNIL COMERCIAL (Admin e Comercial exclusivamente) */}
@@ -369,29 +466,35 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Sininho com Badge de Notificações: Ações do Dia, Atrasos e Campanhas Pendentes de Aprovação */}
+            {/* Sininho com Badge de Notificações: Ações do Dia, Atrasos, Campanhas Pendentes e Parceiros sem Demanda (A6) */}
             {user?.role && (user.role === 'admin' || user.role === 'comercial') && (
               <NavLink
-                to={isAdmin && badgeCampanhasPendentesCount > 0 ? '/campanhas' : '/acoes-do-dia'}
-                className="relative p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-full transition-colors"
-                title={
-                  isAdmin && badgeCampanhasPendentesCount > 0
-                    ? `${badgeCampanhasPendentesCount} campanha(s) aguardando aprovação do Admin | ${badgeAcoesCount} ações do dia`
-                    : `${badgeAcoesCount} ações da cadência aguardando intervenção hoje`
+                to={
+                  badgeParceirosSemDemandaCount > 0
+                    ? '/parceiros'
+                    : isAdmin && badgeCampanhasPendentesCount > 0
+                      ? '/campanhas'
+                      : '/acoes-do-dia'
                 }
+                className="relative p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-full transition-colors"
+                title={`Notificações: ${badgeAcoesCount} ações cadência, ${badgeCampanhasPendentesCount} campanhas pendentes, ${badgeParceirosSemDemandaCount} parceiros sem demanda (+180d)`}
               >
                 <Bell className="w-5 h-5" />
-                {(badgeAcoesCount > 0 || (isAdmin && badgeCampanhasPendentesCount > 0)) && (
+                {(badgeAcoesCount > 0 ||
+                  (isAdmin && badgeCampanhasPendentesCount > 0) ||
+                  badgeParceirosSemDemandaCount > 0) && (
                   <span
                     className={`absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full text-[10px] font-bold text-white shadow-xs ${
-                      badgeCriticosCount > 0
+                      badgeCriticosCount > 0 || badgeParceirosSemDemandaCount > 0
                         ? 'bg-rose-600 animate-pulse'
                         : isAdmin && badgeCampanhasPendentesCount > 0
                           ? 'bg-amber-600'
                           : 'bg-blue-600'
                     }`}
                   >
-                    {badgeAcoesCount + (isAdmin ? badgeCampanhasPendentesCount : 0)}
+                    {badgeAcoesCount +
+                      (isAdmin ? badgeCampanhasPendentesCount : 0) +
+                      badgeParceirosSemDemandaCount}
                   </span>
                 )}
               </NavLink>

@@ -18,6 +18,8 @@ import NaoContatarPage from './pages/NaoContatar'
 import AcoesDoDiaPage from './pages/AcoesDoDia'
 import CampanhasPage from './pages/Campanhas'
 import DescadastroPage from './pages/Descadastro'
+import { ParceirosPage } from './pages/Parceiros'
+import { ClientesPfPage } from './pages/ClientesPf'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -51,6 +53,26 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['admin', 'comercial', 'financeiro', 'gestor']}>
                   <EmpresasPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ETAPA 6: Módulo Parceiros Demandantes (Admin e Comercial gravam; Financeiro e Gestor leem) */}
+            <Route
+              path="/parceiros"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'comercial', 'financeiro', 'gestor']}>
+                  <ParceirosPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ETAPA 6: Módulo Clientes PF (Admin e Comercial gravam; Financeiro e Gestor leem) */}
+            <Route
+              path="/clientes-pf"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'comercial', 'financeiro', 'gestor']}>
+                  <ClientesPfPage />
                 </ProtectedRoute>
               }
             />

@@ -362,3 +362,139 @@ export interface MetricasConsolidadasCampanhas {
   taxaRespostaGeral: number
   taxaDescadastroGeral: number
 }
+
+/* ==========================================================================
+   ETAPA 6 — PARCEIROS E CLIENTES (PF & PJ)
+   ========================================================================== */
+
+export type BaseLegalLgpd =
+  | 'consentimento'
+  | 'execucao_contrato'
+  | 'obrigacao_legal'
+  | 'legitimo_interesse'
+
+export const BASE_LEGAL_LGPD_LABELS: Record<BaseLegalLgpd, string> = {
+  consentimento: 'Consentimento do Titular (Art. 7º, I)',
+  execucao_contrato: 'Execução de Contrato (Art. 7º, V)',
+  obrigacao_legal: 'Cumprimento de Obrigação Legal (Art. 7º, II)',
+  legitimo_interesse: 'Legítimo Interesse (Art. 7º, IX)',
+}
+
+export interface ClientePfRecord {
+  id: string
+  nome: string
+  cpf: string
+  email?: string
+  telefone?: string
+  base_legal?: BaseLegalLgpd | string
+  consentimento_lgpd: boolean
+  data_consentimento?: string
+  endereco?: string
+  observacoes?: string
+  created: string
+  updated: string
+}
+
+export interface PropostaRecord {
+  id: string
+  numero: string
+  revisao?: string
+  empresa?: string
+  cliente_pf?: string
+  escopo: string
+  disciplinas?: string
+  entregaveis?: string
+  prazo?: string
+  preco: number
+  custo?: number
+  margem?: number
+  impostos?: number
+  condicoes_pagamento?: string
+  validade?: string
+  premissas?: string
+  exclusoes?: string
+  status:
+    | 'rascunho'
+    | 'aprovacao_interna'
+    | 'enviada'
+    | 'visualizada'
+    | 'em_negociacao'
+    | 'aceita'
+    | 'recusada'
+    | 'expirada'
+  motivo_recusa?: string
+  token_aceite?: string
+  created: string
+  updated: string
+  expand?: {
+    empresa?: EmpresaRecord
+    cliente_pf?: ClientePfRecord
+  }
+}
+
+export interface ProjetoRecord {
+  id: string
+  codigo: string
+  proposta?: string
+  contrato?: string
+  subcontratacao_autorizada?: boolean
+  anexo_autorizacao?: string
+  saude?: 'verde' | 'amarelo' | 'vermelho'
+  status?: string
+  created: string
+  updated: string
+  expand?: {
+    proposta?: PropostaRecord
+    contrato?: ContratoRecord
+  }
+}
+
+export interface ContaRecord {
+  id: string
+  tipo: 'receber' | 'pagar'
+  projeto?: string
+  proposta?: string
+  executor?: string
+  descricao: string
+  valor: number
+  vencimento?: string
+  status: 'rascunho' | 'prevista' | 'realizada' | 'paga' | 'cancelada'
+  nf?: string
+  forma_pagamento?: string
+  bloqueada_por_fechamento?: boolean
+  created: string
+  updated: string
+  expand?: {
+    projeto?: ProjetoRecord
+    proposta?: PropostaRecord
+  }
+}
+
+export interface PesosScoreDemandaParceiro {
+  peso_contratos_valor: number // ex: 35%
+  peso_taxa_conversao: number // ex: 35%
+  peso_projetos_ano: number // ex: 30%
+}
+
+export interface IndicadoresParceiro {
+  empresaId: string
+  empresa: EmpresaRecord
+  receitaAcumulada: number
+  margemMedia: number // %
+  ticketMedio: number // R$
+  prazoMedioPagamentoDias: number // dias médios até liquidação
+  ultimaDemandaData: string | null // data da última proposta ou projeto
+  diasSemDemanda: number
+  isSemDemandaCritica: boolean // se diasSemDemanda >= limite configurado
+  totalPropostasEnviadas: number
+  totalPropostasAceitas: number
+  taxaConversao: number // %
+  totalProjetos: number
+  projetosPorAno: number
+  contratosAtivosQtd: number
+  contratosAtivosValor: number
+  scoreDemanda: number // 0 a 100
+  curvaDinamica: CurvaABC
+  percentualReceitaAcumulada: number // fatia acumulada no Pareto (0 a 100%)
+  ranking: number
+}

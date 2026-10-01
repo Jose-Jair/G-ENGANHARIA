@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T02:09:19.945Z",
+  "generatedAt": "2026-10-01T02:24:04.427Z",
   "collections": [
     {
       "name": "users",
@@ -941,8 +941,8 @@
       "name": "clientes_pf",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor')",
-        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor')",
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || @request.auth.role = 'gestor')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || @request.auth.role = 'gestor')",
         "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
         "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
         "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
@@ -1003,6 +1003,18 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "endereco",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": []

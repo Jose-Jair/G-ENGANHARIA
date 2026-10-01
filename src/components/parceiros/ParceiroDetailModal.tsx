@@ -487,12 +487,48 @@ export function ParceiroDetailModal({
               )}
             </div>
 
+            {/* Alerta de Parceiro Reincidente em Atraso (Etapa 9 - Item E) */}
+            {(() => {
+              const totalAtrasos = empContas.filter((c) => {
+                if (c.status === 'atrasada') return true
+                if (
+                  (c.status === 'paga' || c.status === 'realizada') &&
+                  c.vencimento &&
+                  c.data_pagamento
+                ) {
+                  return c.data_pagamento.substring(0, 10) > c.vencimento.substring(0, 10)
+                }
+                return false
+              }).length
+
+              if (totalAtrasos > 0) {
+                return (
+                  <div className="p-3 bg-rose-50 border border-rose-300 rounded-lg flex items-start gap-2.5 text-xs text-rose-900 mt-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block">
+                        Alerta de Inadimplência / Atraso Reincidente:
+                      </strong>
+                      Este parceiro possui{' '}
+                      <span className="font-bold underline">
+                        {totalAtrasos} ocorrência(s) de atraso
+                      </span>{' '}
+                      registrada(s) no histórico de pagamentos de faturamento e parcelas. Avalie
+                      exigir sinal antecipado ou garantias financeiras adicionais para novas
+                      propostas.
+                    </div>
+                  </div>
+                )
+              }
+              return null
+            })()}
+
             {/* Contas a receber ligadas */}
             <div className="pt-2">
               <h4 className="text-xs font-semibold text-slate-700 uppercase mb-2 flex items-center gap-1.5">
                 <DollarSign className="w-4 h-4 text-emerald-600" />
                 Contas a Receber / Faturamento ({empContas.length})
-              </h4>
+              </h4>{' '}
               {empContas.length === 0 ? (
                 <p className="text-xs text-slate-400">Nenhum faturamento registrado.</p>
               ) : (

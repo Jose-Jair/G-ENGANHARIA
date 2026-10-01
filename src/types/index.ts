@@ -708,24 +708,43 @@ export interface ModeloEtapaDisciplina {
   etapas: string[]
 }
 
+export type StatusConta =
+  | 'rascunho'
+  | 'aprovada'
+  | 'enviada'
+  | 'paga'
+  | 'atrasada'
+  | 'cancelada'
+  | 'prevista'
+  | 'realizada'
+
 export interface ContaRecord {
   id: string
   tipo: 'receber' | 'pagar'
   projeto?: string
   proposta?: string
   executor?: string
+  etapa?: string
   descricao: string
   valor: number
+  retencao_impostos?: number
+  valor_liquido?: number
   vencimento?: string
-  status: 'rascunho' | 'prevista' | 'realizada' | 'paga' | 'cancelada'
+  data_pagamento?: string
+  status: StatusConta
   nf?: string
   forma_pagamento?: string
+  anexo_comprovante?: string
+  motivo_cancelamento?: string
+  medicao_aprovada_origem?: string
   bloqueada_por_fechamento?: boolean
   created: string
   updated: string
   expand?: {
     projeto?: ProjetoRecord
     proposta?: PropostaRecord
+    executor?: ExecutorRecord
+    etapa?: ProjetoEtapaRecord
   }
 }
 

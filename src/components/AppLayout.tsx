@@ -24,6 +24,7 @@ import {
   FileText,
   Briefcase,
   HardHat,
+  DollarSign,
 } from 'lucide-react'
 import { projetosService } from '@/services/projetos'
 import { toquesService } from '@/services/toques'
@@ -53,10 +54,11 @@ export default function AppLayout() {
   const [badgeCampanhasPendentesCount, setBadgeCampanhasPendentesCount] = useState<number>(0)
   const [badgeParceirosSemDemandaCount, setBadgeParceirosSemDemandaCount] = useState<number>(0)
   const [badgeDocumentosVencendoCount, setBadgeDocumentosVencendoCount] = useState<number>(0)
+  const [badgeFinanceiroAlertasCount, setBadgeFinanceiroAlertasCount] = useState<number>(0)
 
   // Carregar contagem de ações do dia + atrasos para a badge de notificações no sininho
   const carregarNotificacoes = async () => {
-    if (!user?.role || (user.role !== 'admin' && user.role !== 'comercial')) {
+    if (!user?.role) {
       return
     }
 
@@ -159,6 +161,18 @@ export default function AppLayout() {
         setBadgeDocumentosVencendoCount(docsAlerta.length)
       } catch {
         /* intentionally ignored */
+      }
+
+      // Regra da Etapa 9: Alertas Financeiros D-7, D-1 e Contas Atrasadas (apenas para Admin e Financeiro)
+      if (user?.role === 'admin' || user?.role === 'financeiro') {
+        try {
+          const { financeiroService } = await import('@/services/financeiro')
+          const todasContas = await financeiroService.listAll()
+          const alertasFin = financeiroService.calcularAlertasVencimento(todasContas)
+          setBadgeFinanceiroAlertasCount(alertasFin.totalAlertas)
+        } catch {
+          /* intentionally ignored */
+        }
       }
     } catch {
       /* intentionally ignored */
@@ -315,6 +329,39 @@ export default function AppLayout() {
                   )}
                 </div>
               </NavLink>
+
+              {/* ETAPA 9: MÓDULO FINANCEIRO (Exclusivo Admin e Financeiro) */}
+              {(user.role === 'admin' || user.role === 'financeiro') && (
+                <>
+                  <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    Controladoria & Finanças
+                  </div>
+
+                  <NavLink
+                    to="/financeiro"
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'bg-blue-600 text-white'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`
+                    }
+                  >
+                    <DollarSign className="w-4 h-4 text-emerald-400" />
+                    <div className="flex items-center justify-between flex-1">
+                      <span>Financeiro</span>
+                      {badgeFinanceiroAlertasCount > 0 && (
+                        <span
+                          className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-rose-600 text-white shadow-xs"
+                          title={`${badgeFinanceiroAlertasCount} conta(s) com alerta de vencimento (D-7/D-1/Atraso)`}
+                        >
+                          {badgeFinanceiroAlertasCount}
+                        </span>
+                      )}
+                    </div>
+                  </NavLink>
+                </>
+              )}
 
               {/* ETAPA 8: PROJETOS E EXECUTORES */}
               <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -560,32 +607,37 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Sininho com Badge de Notificações: Ações do Dia, Atrasos, Campanhas Pendentes, Parceiros sem Demanda e Documentos Vencendo (Etapa 8) */}
+            {/* Sininho com Badge de Notificações: Ações do Dia, Atrasos, Campanhas Pendentes, Parceiros sem Demanda, Documentos e Alertas Financeiros */}
             {user?.role && user.role !== 'executor' && (
               <NavLink
                 to={
-                  badgeDocumentosVencendoCount > 0 &&
-                  (user.role === 'admin' || user.role === 'gestor')
-                    ? '/projetos'
-                    : badgeParceirosSemDemandaCount > 0
-                      ? '/parceiros'
-                      : isAdmin && badgeCampanhasPendentesCount > 0
-                        ? '/campanhas'
-                        : '/acoes-do-dia'
+                  badgeFinanceiroAlertasCount > 0 &&
+                  (user.role === 'admin' || user.role === 'financeiro')
+                    ? '/financeiro'
+                    : badgeDocumentosVencendoCount > 0 &&
+                        (user.role === 'admin' || user.role === 'gestor')
+                      ? '/projetos'
+                      : badgeParceirosSemDemandaCount > 0
+                        ? '/parceiros'
+                        : isAdmin && badgeCampanhasPendentesCount > 0
+                          ? '/campanhas'
+                          : '/acoes-do-dia'
                 }
                 className="relative p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-full transition-colors"
-                title={`Notificações: ${badgeAcoesCount} ações cadência, ${badgeCampanhasPendentesCount} campanhas pendentes, ${badgeParceirosSemDemandaCount} parceiros sem demanda (+180d), ${badgeDocumentosVencendoCount} documentos com alerta de vencimento (D-30/15/7/1)`}
+                title={`Notificações: ${badgeAcoesCount} ações cadência, ${badgeCampanhasPendentesCount} campanhas pendentes, ${badgeParceirosSemDemandaCount} parceiros sem demanda (+180d), ${badgeDocumentosVencendoCount} documentos com alerta, ${badgeFinanceiroAlertasCount} alertas financeiros (D-7/D-1/Atraso)`}
               >
                 <Bell className="w-5 h-5" />
                 {(badgeAcoesCount > 0 ||
                   (isAdmin && badgeCampanhasPendentesCount > 0) ||
                   badgeParceirosSemDemandaCount > 0 ||
-                  badgeDocumentosVencendoCount > 0) && (
+                  badgeDocumentosVencendoCount > 0 ||
+                  badgeFinanceiroAlertasCount > 0) && (
                   <span
                     className={`absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full text-[10px] font-bold text-white shadow-xs ${
                       badgeCriticosCount > 0 ||
                       badgeParceirosSemDemandaCount > 0 ||
-                      badgeDocumentosVencendoCount > 0
+                      badgeDocumentosVencendoCount > 0 ||
+                      badgeFinanceiroAlertasCount > 0
                         ? 'bg-rose-600 animate-pulse'
                         : isAdmin && badgeCampanhasPendentesCount > 0
                           ? 'bg-amber-600'
@@ -595,7 +647,8 @@ export default function AppLayout() {
                     {badgeAcoesCount +
                       (isAdmin ? badgeCampanhasPendentesCount : 0) +
                       badgeParceirosSemDemandaCount +
-                      badgeDocumentosVencendoCount}
+                      badgeDocumentosVencendoCount +
+                      badgeFinanceiroAlertasCount}
                   </span>
                 )}
               </NavLink>

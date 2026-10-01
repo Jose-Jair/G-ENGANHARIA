@@ -25,6 +25,7 @@ import { PropostaPublicaPage } from './pages/PropostaPublica'
 import { ProjetosPage } from './pages/Projetos'
 import { ExecutoresPage } from './pages/Executores'
 import { CotacaoPublicaPage } from './pages/CotacaoPublica'
+import { FinanceiroPage } from './pages/Financeiro'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -84,6 +85,16 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['admin', 'gestor', 'comercial']}>
                   <ExecutoresPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ETAPA 9: Módulo Financeiro & Fluxo de Caixa (Acesso restrito: Admin e Financeiro. Comercial, Gestor e Executor SEM acesso) */}
+            <Route
+              path="/financeiro"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'financeiro']}>
+                  <FinanceiroPage />
                 </ProtectedRoute>
               }
             />

@@ -28,6 +28,8 @@ import {
   LayoutDashboard,
   BookOpen,
   KeyRound,
+  Mail,
+  MessageSquare,
 } from 'lucide-react'
 import { ModalTrocarSenha } from '@/components/ModalTrocarSenha'
 import { GPlusLogo } from '@/components/GPlusLogo'

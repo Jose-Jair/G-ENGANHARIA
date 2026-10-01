@@ -81,6 +81,7 @@ export function EmpresaDetailModal({
   diasAlerta = 5,
   readOnly = false,
   onSuccess,
+  onCreatedEmpresaSelect,
 }: EmpresaDetailModalProps) {
   const [currentEmpresa, setCurrentEmpresa] = useState<EmpresaRecord | null>(initialEmpresa)
 

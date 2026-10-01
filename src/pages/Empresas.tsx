@@ -678,6 +678,10 @@ export default function EmpresasPage() {
         diasAlerta={diasAlerta}
         readOnly={isReadOnly}
         onSuccess={loadData}
+        onCreatedEmpresaSelect={(created) => {
+          setSelectedEmpresa(created)
+          loadData()
+        }}
       />
     </div>
   )

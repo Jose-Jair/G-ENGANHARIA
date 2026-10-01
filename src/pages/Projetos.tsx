@@ -28,7 +28,10 @@ import {
   Building2,
   DollarSign,
   Loader2,
+  Download,
 } from 'lucide-react'
+import { exportService } from '@/services/exportService'
+import { formatCnpj, formatCpf } from '@/lib/cnpj'
 
 import { ModalDetalheProjeto } from '@/components/projetos/ModalDetalheProjeto'
 import { ModalCriarProjeto } from '@/components/projetos/ModalCriarProjeto'
@@ -119,15 +122,97 @@ export const ProjetosPage: React.FC = () => {
           </p>
         </div>
 
-        {canCreate && (
+        <div className="flex items-center gap-2">
           <Button
-            onClick={() => setModalCriarOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-xs shadow-xs"
+            variant="outline"
+            onClick={async () => {
+              if (projetosFiltrados.length === 0) {
+                toast({
+                  title: 'Sem projetos para exportar',
+                  description: 'A lista atual não possui projetos com os filtros aplicados.',
+                  variant: 'destructive',
+                })
+                return
+              }
+              try {
+                await exportService.exportarParaCsv({
+                  filename: `projetos_${new Date().toISOString().slice(0, 10)}.csv`,
+                  tela: 'projetos',
+                  descricao: 'Exportação de projetos de engenharia, saúde e valores',
+                  filtros: {
+                    saude: filtroSaude,
+                    status: filtroStatus,
+                    busca: busca || undefined,
+                  },
+                  columns: [
+                    { header: 'Código', accessor: (p) => p.codigo },
+                    { header: 'Nome do Projeto', accessor: (p) => p.nome || `Projeto ${p.codigo}` },
+                    {
+                      header: 'Cliente',
+                      accessor: (p) => {
+                        const pj = p.expand?.empresa || p.expand?.proposta?.expand?.empresa
+                        const pf = p.expand?.cliente_pf || p.expand?.proposta?.expand?.cliente_pf
+                        return pj?.nome_fantasia || pj?.razao_social || pf?.nome || 'Não vinculado'
+                      },
+                    },
+                    {
+                      header: 'Documento Cliente',
+                      accessor: (p) => {
+                        const pj = p.expand?.empresa || p.expand?.proposta?.expand?.empresa
+                        const pf = p.expand?.cliente_pf || p.expand?.proposta?.expand?.cliente_pf
+                        return pj?.cnpj ? formatCnpj(pj.cnpj) : pf?.cpf ? formatCpf(pf.cpf) : ''
+                      },
+                    },
+                    { header: 'Status', accessor: (p) => p.status || 'em_andamento' },
+                    { header: 'Saúde', accessor: (p) => p.saude || 'verde' },
+                    { header: 'Justificativa Saúde', accessor: (p) => p.justificativa_saude || '' },
+                    {
+                      header: 'Valor Total (R$)',
+                      accessor: (p) => formatCurrencyBr(p.valor_total || 0),
+                    },
+                    {
+                      header: 'Prazo Final',
+                      accessor: (p) => (p.prazo_final ? formatDateBr(p.prazo_final) : ''),
+                    },
+                    {
+                      header: 'Proposta Origem',
+                      accessor: (p) => p.expand?.proposta?.numero || '',
+                    },
+                    {
+                      header: 'Disciplinas',
+                      accessor: (p) => p.disciplinas || '',
+                    },
+                  ],
+                  data: projetosFiltrados,
+                })
+                toast({
+                  title: 'Projetos Exportados',
+                  description: `${projetosFiltrados.length} projeto(s) exportado(s) com sucesso. Auditoria registrada.`,
+                })
+              } catch (err: any) {
+                toast({
+                  title: 'Erro ao exportar projetos',
+                  description: err.message || 'Falha ao gerar CSV.',
+                  variant: 'destructive',
+                })
+              }
+            }}
+            className="text-xs text-slate-700 hover:text-emerald-700 hover:border-emerald-300 shadow-xs"
           >
-            <Plus className="w-4 h-4 mr-1.5" />
-            Novo Projeto Direto
+            <Download className="w-4 h-4 mr-1.5 text-emerald-600" />
+            Exportar CSV
           </Button>
-        )}
+
+          {canCreate && (
+            <Button
+              onClick={() => setModalCriarOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-xs shadow-xs"
+            >
+              <Plus className="w-4 h-4 mr-1.5" />
+              Novo Projeto Direto
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Cards de Indicadores de Saúde */}

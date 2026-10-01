@@ -43,7 +43,10 @@ import {
   Sparkles,
   BarChart3,
   HelpCircle,
+  Download,
 } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
+import { exportService } from '@/services/exportService'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
 import { formatCnpj, formatPhoneBr } from '@/lib/cnpj'
 import { ParceiroDetailModal } from '@/components/parceiros/ParceiroDetailModal'
@@ -51,6 +54,7 @@ import { ModalCriarParceiro } from '@/components/parceiros/ModalCriarParceiro'
 
 export function ParceirosPage() {
   const { user, isAdmin } = useAuth()
+  const { toast } = useToast()
 
   const [loading, setLoading] = useState(true)
   const [parceiros, setParceiros] = useState<EmpresaRecord[]>([])
@@ -266,15 +270,112 @@ export function ParceirosPage() {
           </p>
         </div>
 
-        {canWrite && (
+        <div className="flex items-center gap-2">
           <Button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-xs gap-1.5 shrink-0"
+            variant="outline"
+            onClick={async () => {
+              if (parceirosFiltrados.length === 0) {
+                toast({
+                  title: 'Sem parceiros para exportar',
+                  description: 'A lista filtrada de parceiros demandantes está vazia.',
+                  variant: 'destructive',
+                })
+                return
+              }
+              try {
+                await exportService.exportarParaCsv({
+                  filename: `parceiros_demandantes_${new Date().toISOString().slice(0, 10)}.csv`,
+                  tela: 'parceiros',
+                  descricao: 'Exportação de parceiros demandantes com Curva ABC dinâmica e score',
+                  filtros: {
+                    curva: filtroCurva,
+                    alerta: filtroAlerta,
+                    busca: busca || undefined,
+                    ordenacao,
+                  },
+                  columns: [
+                    {
+                      header: 'Nome / Razão Social',
+                      accessor: (ind) =>
+                        ind.empresa.razao_social || ind.empresa.nome_fantasia || '',
+                    },
+                    {
+                      header: 'Nome Fantasia',
+                      accessor: (ind) => ind.empresa.nome_fantasia || '',
+                    },
+                    {
+                      header: 'CNPJ',
+                      accessor: (ind) => formatCnpj(ind.empresa.cnpj),
+                    },
+                    { header: 'UF', accessor: (ind) => ind.empresa.uf || '' },
+                    {
+                      header: 'Curva ABC Dinâmica',
+                      accessor: (ind) => `Curva ${ind.curvaDinamica}`,
+                    },
+                    {
+                      header: '% Receita Acumulada',
+                      accessor: (ind) => `${ind.percentualReceitaAcumulada}%`,
+                    },
+                    { header: 'Score de Demanda', accessor: (ind) => ind.scoreDemanda },
+                    {
+                      header: 'Receita Acumulada (R$)',
+                      accessor: (ind) => formatCurrencyBr(ind.receitaAcumulada),
+                    },
+                    {
+                      header: 'Ticket Médio (R$)',
+                      accessor: (ind) => formatCurrencyBr(ind.ticketMedio),
+                    },
+                    {
+                      header: 'Taxa de Conversão (%)',
+                      accessor: (ind) => `${ind.taxaConversao}%`,
+                    },
+                    {
+                      header: 'Última Demanda',
+                      accessor: (ind) =>
+                        ind.ultimaDemandaData
+                          ? formatDateBr(ind.ultimaDemandaData)
+                          : 'Sem registro',
+                    },
+                    {
+                      header: 'Dias sem Demanda',
+                      accessor: (ind) =>
+                        ind.diasSemDemanda !== undefined ? ind.diasSemDemanda : '',
+                    },
+                    {
+                      header: 'Status de Alerta',
+                      accessor: (ind) => (ind.isSemDemandaCritica ? 'Em Alerta (+dias)' : 'Ativo'),
+                    },
+                  ],
+                  data: parceirosFiltrados,
+                })
+                toast({
+                  title: 'Parceiros Exportados',
+                  description: `${parceirosFiltrados.length} parceiro(s) exportado(s) com sucesso. Auditoria registrada no servidor.`,
+                })
+              } catch (err: any) {
+                toast({
+                  title: 'Erro ao exportar parceiros',
+                  description: err.message || 'Falha ao exportar CSV.',
+                  variant: 'destructive',
+                })
+              }
+            }}
+            className="text-xs gap-1.5 shrink-0 text-slate-700 hover:text-emerald-700 hover:border-emerald-300"
           >
-            <Plus className="w-4 h-4" />
-            Novo Parceiro Direto
+            <Download className="w-4 h-4 text-emerald-600" />
+            Exportar CSV
           </Button>
-        )}
+
+          {canWrite && (
+            <Button
+              onClick={() => setShowCreateModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-xs gap-1.5 shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              Novo Parceiro Direto
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Cards de Métricas Principais */}

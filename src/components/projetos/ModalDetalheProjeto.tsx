@@ -36,6 +36,7 @@ import { RiscosTab } from './RiscosTab'
 import { ModalSaudeProjeto } from './ModalSaudeProjeto'
 import { ModalCotacoesEtapa } from './ModalCotacoesEtapa'
 import { ModalAvaliacaoExecutor } from './ModalAvaliacaoExecutor'
+import { ModalDossieProjeto } from './ModalDossieProjeto'
 
 interface ModalDetalheProjetoProps {
   open: boolean
@@ -64,6 +65,7 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
   // Modais secundários
   const [modalSaudeOpen, setModalSaudeOpen] = useState(false)
   const [modalCotacoesOpen, setModalCotacoesOpen] = useState(false)
+  const [modalDossieOpen, setModalDossieOpen] = useState(false)
   const [etapaCotacaoSelecionada, setEtapaCotacaoSelecionada] = useState<ProjetoEtapaRecord | null>(
     null,
   )
@@ -72,6 +74,9 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
     useState<ProjetoEtapaRecord | null>(null)
 
   const canEdit = !!(user && (user.role === 'admin' || user.role === 'gestor'))
+  const canViewDossie = !!(
+    user && ['admin', 'gestor', 'financeiro', 'comercial'].includes(user.role)
+  )
 
   const carregarDadosCompletos = async () => {
     if (!projetoId) return
@@ -220,17 +225,31 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                       </p>
                     )}
 
-                    {canEdit && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setModalSaudeOpen(true)}
-                        className="text-[11px] text-blue-400 hover:text-blue-300 hover:bg-slate-700/50 h-6 px-2 mt-1"
-                      >
-                        <HeartPulse className="w-3 h-3 mr-1" />
-                        Alterar Saúde
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-1.5 mt-1">
+                      {canViewDossie && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setModalDossieOpen(true)}
+                          className="text-[11px] bg-blue-600/20 text-blue-300 hover:bg-blue-600 hover:text-white border-blue-500/40 h-6 px-2.5"
+                        >
+                          <FileText className="w-3 h-3 mr-1" />
+                          Dossiê (PDF)
+                        </Button>
+                      )}
+
+                      {canEdit && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setModalSaudeOpen(true)}
+                          className="text-[11px] text-blue-400 hover:text-blue-300 hover:bg-slate-700/50 h-6 px-2"
+                        >
+                          <HeartPulse className="w-3 h-3 mr-1" />
+                          Alterar Saúde
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -361,6 +380,13 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
           carregarDadosCompletos()
           onUpdate()
         }}
+      />
+
+      {/* Modal Dossiê Consolidado do Projeto (PDF / Impressão autenticada) */}
+      <ModalDossieProjeto
+        open={modalDossieOpen}
+        onOpenChange={setModalDossieOpen}
+        projetoId={projetoId}
       />
     </>
   )

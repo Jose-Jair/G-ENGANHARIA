@@ -50,7 +50,9 @@ import {
   Search,
   Filter,
   Check,
+  Download,
 } from 'lucide-react'
+import { exportService } from '@/services/exportService'
 
 import { ModalCriarEditarCampanha } from '@/components/campanhas/ModalCriarEditarCampanha'
 import { ModalAprovacaoAgendamento } from '@/components/campanhas/ModalAprovacaoAgendamento'
@@ -260,6 +262,84 @@ export default function CampanhasPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              if (campanhasFiltradas.length === 0) {
+                toast({
+                  title: 'Sem campanhas para exportar',
+                  description: 'Nenhuma campanha corresponde aos filtros selecionados.',
+                  variant: 'destructive',
+                })
+                return
+              }
+              try {
+                await exportService.exportarParaCsv({
+                  filename: `relatorio_campanhas_nutricao_${new Date().toISOString().slice(0, 10)}.csv`,
+                  tela: 'campanhas_nutricao',
+                  descricao:
+                    'Relatório Consolidado de Campanhas de Nutrição Mensal, Destinatários e Métricas',
+                  filtros: {
+                    status: filtroStatus,
+                    segmento: filtroSegmento,
+                    busca: busca || undefined,
+                  },
+                  columns: [
+                    { header: 'Nome da Campanha', accessor: (c) => c.nome },
+                    { header: 'Assunto do E-mail', accessor: (c) => c.assunto },
+                    { header: 'Segmento Curva', accessor: (c) => c.segmento_curva || 'Todos' },
+                    { header: 'Status', accessor: (c) => c.status },
+                    {
+                      header: 'Data de Envio / Agendamento',
+                      accessor: (c) => (c.data_envio ? formatDateBr(c.data_envio) : 'Mensal'),
+                    },
+                    { header: 'Total Destinatários', accessor: (c) => c.total_destinatarios || 0 },
+                    { header: 'Total Enviados', accessor: (c) => c.total_enviados || 0 },
+                    { header: 'Total Abertos', accessor: (c) => c.total_abertos || 0 },
+                    { header: 'Total Cliques', accessor: (c) => c.total_cliques || 0 },
+                    { header: 'Total Respostas', accessor: (c) => c.total_respostas || 0 },
+                    {
+                      header: 'Total Descadastros (LGPD)',
+                      accessor: (c) => c.total_descadastros || 0,
+                    },
+                    {
+                      header: 'Taxa de Abertura (%)',
+                      accessor: (c) => `${c.metricas?.taxaAbertura || 0}%`,
+                    },
+                    {
+                      header: 'Taxa de Cliques (%)',
+                      accessor: (c) => `${c.metricas?.taxaClique || 0}%`,
+                    },
+                    {
+                      header: 'Taxa de Respostas (%)',
+                      accessor: (c) => `${c.metricas?.taxaResposta || 0}%`,
+                    },
+                    {
+                      header: 'Aprovada por Admin',
+                      accessor: (c) => (c.aprovada_por_admin ? 'SIM' : 'NÃO'),
+                    },
+                  ],
+                  data: campanhasFiltradas,
+                })
+                toast({
+                  title: 'Campanhas Exportadas',
+                  description: `${campanhasFiltradas.length} campanha(s) exportada(s) em CSV. Auditoria registrada.`,
+                })
+              } catch (err: any) {
+                toast({
+                  title: 'Erro ao exportar campanhas',
+                  description: err.message || 'Falha ao gerar CSV.',
+                  variant: 'destructive',
+                })
+              }
+            }}
+            className="text-xs text-slate-700 hover:text-emerald-700 hover:border-emerald-300"
+          >
+            <Download className="w-3.5 h-3.5 mr-1.5 text-emerald-600" />
+            Exportar CSV
+          </Button>
+
           {(isAdmin || isComercial) && (
             <Button
               onClick={() => {

@@ -32,6 +32,7 @@ import {
   Loader2,
   FileCheck,
 } from 'lucide-react'
+import { exportService } from '@/services/exportService'
 
 import { ModalCriarEditarExecutor } from '@/components/executores/ModalCriarEditarExecutor'
 import { ModalSuspenderExecutor } from '@/components/executores/ModalSuspenderExecutor'
@@ -159,18 +160,92 @@ export const ExecutoresPage: React.FC = () => {
           </p>
         </div>
 
-        {canEdit && (
+        <div className="flex items-center gap-2">
           <Button
-            onClick={() => {
-              setExecutorEditar(null)
-              setModalCriarEditarOpen(true)
+            variant="outline"
+            onClick={async () => {
+              if (executoresFiltrados.length === 0) {
+                toast({
+                  title: 'Sem executores para exportar',
+                  description: 'A lista atual não possui executores com os filtros aplicados.',
+                  variant: 'destructive',
+                })
+                return
+              }
+              try {
+                await exportService.exportarParaCsv({
+                  filename: `executores_${new Date().toISOString().slice(0, 10)}.csv`,
+                  tela: 'executores',
+                  descricao: 'Exportação de parceiros executores técnicos, notas e conselhos',
+                  filtros: {
+                    tipo: filtroTipo,
+                    status: filtroStatus,
+                    alerta: filtroAlerta,
+                    busca: busca || undefined,
+                  },
+                  columns: [
+                    { header: 'Nome', accessor: (ex) => ex.nome },
+                    { header: 'Tipo', accessor: (ex) => ex.tipo },
+                    { header: 'CPF / CNPJ', accessor: (ex) => ex.cpf_cnpj || '' },
+                    { header: 'Conselho', accessor: (ex) => ex.conselho || '' },
+                    { header: 'Nº Registro', accessor: (ex) => ex.numero_registro || '' },
+                    {
+                      header: 'Validade Conselho',
+                      accessor: (ex) =>
+                        ex.conselho_validade ? formatDateBr(ex.conselho_validade) : '',
+                    },
+                    { header: 'Disciplinas', accessor: (ex) => ex.disciplinas || '' },
+                    {
+                      header: 'Nota Geral',
+                      accessor: (ex) => (ex.nota_geral ? ex.nota_geral.toFixed(2) : 'S/ Nota'),
+                    },
+                    { header: 'Total Avaliações', accessor: (ex) => ex.total_avaliacoes || 0 },
+                    {
+                      header: 'Capacidade Simultânea',
+                      accessor: (ex) => ex.capacidade_simultanea || 1,
+                    },
+                    { header: 'Etapas Ativas', accessor: (ex) => ex.etapasAtivasCount },
+                    { header: 'Status', accessor: (ex) => ex.status },
+                    {
+                      header: 'Motivo Suspensão',
+                      accessor: (ex) => ex.motivo_suspensao || '',
+                    },
+                    { header: 'E-mail', accessor: (ex) => ex.email || '' },
+                    { header: 'Telefone', accessor: (ex) => ex.telefone || '' },
+                  ],
+                  data: executoresFiltrados,
+                })
+                toast({
+                  title: 'Executores Exportados',
+                  description: `${executoresFiltrados.length} executor(es) exportado(s) com sucesso. Auditoria registrada.`,
+                })
+              } catch (err: any) {
+                toast({
+                  title: 'Erro ao exportar executores',
+                  description: err.message || 'Falha ao gerar CSV.',
+                  variant: 'destructive',
+                })
+              }
             }}
-            className="bg-blue-600 hover:bg-blue-700 text-xs shadow-xs"
+            className="text-xs text-slate-700 hover:text-emerald-700 hover:border-emerald-300 shadow-xs"
           >
-            <Plus className="w-4 h-4 mr-1.5" />
-            Novo Executor
+            <Download className="w-4 h-4 mr-1.5 text-emerald-600" />
+            Exportar CSV
           </Button>
-        )}
+
+          {canEdit && (
+            <Button
+              onClick={() => {
+                setExecutorEditar(null)
+                setModalCriarEditarOpen(true)
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-xs shadow-xs"
+            >
+              <Plus className="w-4 h-4 mr-1.5" />
+              Novo Executor
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Cards de Métricas */}

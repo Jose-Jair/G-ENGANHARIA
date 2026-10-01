@@ -15,7 +15,10 @@ import {
   Briefcase,
   ChevronRight,
   Filter,
+  Download,
 } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
+import { exportService } from '@/services/exportService'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
 import { formatCpf, formatPhoneBr } from '@/lib/cnpj'
 import { ModalCriarClientePf } from '@/components/clientesPf/ModalCriarClientePf'
@@ -24,6 +27,7 @@ import { parceirosService } from '@/services/parceiros'
 
 export function ClientesPfPage() {
   const { user } = useAuth()
+  const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [clientes, setClientes] = useState<ClientePfComMetricas[]>([])
   const [propostas, setPropostas] = useState<PropostaRecord[]>([])
@@ -126,15 +130,79 @@ export function ClientesPfPage() {
           </p>
         </div>
 
-        {canWrite && (
+        <div className="flex items-center gap-2">
           <Button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-xs gap-1.5 shrink-0"
+            variant="outline"
+            onClick={async () => {
+              if (clientesFiltrados.length === 0) {
+                toast({
+                  title: 'Sem clientes PF para exportar',
+                  description: 'A lista atual de clientes PF está vazia.',
+                  variant: 'destructive',
+                })
+                return
+              }
+              try {
+                await exportService.exportarParaCsv({
+                  filename: `clientes_pf_${new Date().toISOString().slice(0, 10)}.csv`,
+                  tela: 'clientes_pf',
+                  descricao:
+                    'Exportação de Clientes Pessoa Física com Base Legal e Consentimento LGPD',
+                  filtros: {
+                    base_legal: filtroBaseLegal,
+                    busca: busca || undefined,
+                  },
+                  columns: [
+                    { header: 'Nome do Cliente', accessor: (c) => c.nome },
+                    { header: 'CPF', accessor: (c) => formatCpf(c.cpf) },
+                    { header: 'E-mail', accessor: (c) => c.email || '' },
+                    { header: 'Telefone', accessor: (c) => formatPhoneBr(c.telefone) || '' },
+                    { header: 'Endereço', accessor: (c) => c.endereco || '' },
+                    {
+                      header: 'Base Legal LGPD',
+                      accessor: (c) => c.base_legal?.replace('_', ' ') || 'consentimento',
+                    },
+                    {
+                      header: 'Data Consentimento LGPD',
+                      accessor: (c) => formatDateBr(c.data_consentimento),
+                    },
+                    {
+                      header: 'Receita Acumulada (R$)',
+                      accessor: (c) => formatCurrencyBr(c.receitaAcumulada),
+                    },
+                    { header: 'Nº Projetos', accessor: (c) => c.totalProjetos },
+                    { header: 'Nº Propostas', accessor: (c) => c.totalPropostas },
+                  ],
+                  data: clientesFiltrados,
+                })
+                toast({
+                  title: 'Clientes PF Exportados',
+                  description: `${clientesFiltrados.length} cliente(s) PF exportado(s). Auditoria registrada em conformidade LGPD.`,
+                })
+              } catch (err: any) {
+                toast({
+                  title: 'Erro ao exportar clientes PF',
+                  description: err.message || 'Falha ao gerar CSV.',
+                  variant: 'destructive',
+                })
+              }
+            }}
+            className="text-xs gap-1.5 shrink-0 text-slate-700 hover:text-emerald-700 hover:border-emerald-300"
           >
-            <Plus className="w-4 h-4" />
-            Novo Cliente PF
+            <Download className="w-4 h-4 text-emerald-600" />
+            Exportar CSV
           </Button>
-        )}
+
+          {canWrite && (
+            <Button
+              onClick={() => setShowCreateModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-xs gap-1.5 shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              Novo Cliente PF
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Cards de Métricas Principais (B) */}

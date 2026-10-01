@@ -29,8 +29,10 @@ import {
   ExternalLink,
   ChevronRight,
   TrendingUp,
+  Download,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { exportService } from '@/services/exportService'
 
 export default function EmpresasPage() {
   const { user, isAdmin, isComercial, isFinanceiro, isGestor } = useAuth()
@@ -143,6 +145,81 @@ export default function EmpresasPage() {
     return Array.from(setUfs).sort()
   }, [empresas])
 
+  const [exportando, setExportando] = useState(false)
+
+  const handleExportarCsv = async () => {
+    if (empresas.length === 0) {
+      toast({
+        title: 'Sem dados para exportar',
+        description: 'A lista filtrada de empresas não contém registros no momento.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setExportando(true)
+    try {
+      await exportService.exportarParaCsv({
+        filename: `empresas_export_${new Date().toISOString().slice(0, 10)}.csv`,
+        tela: 'empresas',
+        descricao: 'Exportação da lista filtrada de empresas e contratos',
+        filtros: {
+          busca: busca || undefined,
+          etapa_funil: etapaFunil,
+          curva,
+          uf,
+          responsavel,
+          status,
+        },
+        columns: [
+          { header: 'Razão Social', accessor: (e) => e.razao_social || '' },
+          { header: 'Nome Fantasia', accessor: (e) => e.nome_fantasia || '' },
+          { header: 'CNPJ', accessor: (e) => formatCnpj(e.cnpj) },
+          { header: 'UF', accessor: (e) => e.uf || '' },
+          { header: 'Município', accessor: (e) => e.municipio || '' },
+          { header: 'Curva ABC', accessor: (e) => e.curva || 'C' },
+          {
+            header: 'Etapa do Funil',
+            accessor: (e) => ETAPA_FUNIL_LABELS[e.etapa_funil as EtapaFunil] || e.etapa_funil,
+          },
+          {
+            header: 'Responsável',
+            accessor: (e) => users.find((u) => u.id === e.responsavel)?.name || 'Não atribuído',
+          },
+          {
+            header: 'Contratos Ativos (Qtd)',
+            accessor: (e) => contratosPorEmpresa.get(e.id)?.contratos.length || 0,
+          },
+          {
+            header: 'Valor Total Contratos (R$)',
+            accessor: (e) => {
+              const val = contratosPorEmpresa.get(e.id)?.totalAtivo || 0
+              return formatCurrencyBr(val)
+            },
+          },
+          { header: 'Situação Cadastral', accessor: (e) => e.situacao_cadastral || 'Ativa' },
+          { header: 'Status no Funil', accessor: (e) => e.status || 'ativa' },
+          { header: 'E-mail', accessor: (e) => e.email || '' },
+          { header: 'Telefone', accessor: (e) => e.telefone || '' },
+        ],
+        data: empresas,
+      })
+
+      toast({
+        title: 'Exportação Concluída',
+        description: `${empresas.length} empresa(s) exportada(s) para CSV com sucesso. Auditoria registrada no servidor.`,
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro na Exportação',
+        description: err.message || 'Falha ao gerar o arquivo de exportação.',
+        variant: 'destructive',
+      })
+    } finally {
+      setExportando(false)
+    }
+  }
+
   const openNewEmpresa = () => {
     setSelectedEmpresa(null)
     setModalOpen(true)
@@ -184,20 +261,30 @@ export default function EmpresasPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            onClick={handleExportarCsv}
+            disabled={exportando || loading}
+            className="text-slate-700 hover:text-emerald-700 hover:border-emerald-300 text-xs h-9"
+          >
+            <Download className="w-4 h-4 mr-1.5 text-emerald-600" />
+            {exportando ? 'Exportando...' : 'Exportar CSV'}
+          </Button>
+
           {canEdit && (
             <>
               <Button
                 variant="outline"
                 onClick={() => navigate('/empresas/importar')}
-                className="text-slate-700 hover:text-blue-600 hover:border-blue-300"
+                className="text-slate-700 hover:text-blue-600 hover:border-blue-300 text-xs h-9"
               >
-                <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-600" />
+                <FileSpreadsheet className="w-4 h-4 mr-1.5 text-emerald-600" />
                 Importar Planilha
               </Button>
 
               <Button
                 onClick={openNewEmpresa}
-                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm text-xs h-9"
               >
                 <Plus className="w-4 h-4 mr-1.5" />
                 Nova Empresa

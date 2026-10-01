@@ -43,8 +43,10 @@ import {
   Sparkles,
   ArrowUpDown,
   Filter,
+  Download,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { exportService } from '@/services/exportService'
 
 export default function AcoesDoDiaPage() {
   const { user, isAdmin } = useAuth()
@@ -309,6 +311,108 @@ export default function AcoesDoDiaPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              if (toquesFiltradosEOrdenados.length === 0) {
+                toast({
+                  title: 'Sem ações para exportar',
+                  description:
+                    'A lista atual não contém toques pendentes com os filtros aplicados.',
+                  variant: 'destructive',
+                })
+                return
+              }
+              try {
+                await exportService.exportarParaCsv({
+                  filename: `acoes_do_dia_${new Date().toISOString().slice(0, 10)}.csv`,
+                  tela: 'acoes_do_dia',
+                  descricao: 'Exportação da esteira de Ações do Dia / Cadência de prospecção',
+                  filtros: {
+                    status: filtroStatus,
+                    canal: filtroCanal,
+                    curva: filtroCurva,
+                    busca: busca || undefined,
+                  },
+                  columns: [
+                    {
+                      header: 'Empresa',
+                      accessor: (t) => {
+                        const emp = empresasMap[t.empresa]
+                        return emp?.nome_fantasia || emp?.razao_social || 'Empresa'
+                      },
+                    },
+                    {
+                      header: 'CNPJ',
+                      accessor: (t) => {
+                        const emp = empresasMap[t.empresa]
+                        return formatCnpj(emp?.cnpj || '')
+                      },
+                    },
+                    {
+                      header: 'Curva ABC',
+                      accessor: (t) => empresasMap[t.empresa]?.curva || 'C',
+                    },
+                    { header: 'Toque', accessor: (t) => `Toque ${t.numero_toque}` },
+                    {
+                      header: 'Canal',
+                      accessor: (t) => (t.canal === 'email' ? 'E-mail' : 'WhatsApp'),
+                    },
+                    {
+                      header: 'Data Prevista',
+                      accessor: (t) => formatDateBr(t.data_prevista),
+                    },
+                    {
+                      header: 'Status',
+                      accessor: (t) =>
+                        t.statusCalculado === 'em_atraso'
+                          ? `Em atraso (${t.diasAtraso}d)`
+                          : 'Para hoje',
+                    },
+                    {
+                      header: 'Decisor',
+                      accessor: (t) => {
+                        const contatos = contatosMap[t.empresa] || []
+                        const decisor = contatos.find((c) => c.decisor) || contatos[0]
+                        return decisor
+                          ? `${decisor.nome} (${decisor.cargo || 'Cargo n/i'})`
+                          : 'Não informado'
+                      },
+                    },
+                    {
+                      header: 'Órgão Contratante',
+                      accessor: (t) => contratosMap[t.empresa]?.[0]?.orgao || 'Não informado',
+                    },
+                    {
+                      header: 'Valor Contrato (R$)',
+                      accessor: (t) => {
+                        const v = contratosMap[t.empresa]?.[0]?.valor || 0
+                        return formatCurrencyBr(v)
+                      },
+                    },
+                  ],
+                  data: toquesFiltradosEOrdenados,
+                })
+                toast({
+                  title: 'Ações do Dia Exportadas',
+                  description: `${toquesFiltradosEOrdenados.length} toque(s) exportado(s) com sucesso. Auditoria registrada.`,
+                })
+              } catch (err: any) {
+                toast({
+                  title: 'Erro ao exportar ações',
+                  description: err.message || 'Falha ao gerar CSV.',
+                  variant: 'destructive',
+                })
+              }
+            }}
+            disabled={loading}
+            className="text-xs text-slate-700 hover:text-emerald-700 hover:border-emerald-300"
+          >
+            <Download className="w-3.5 h-3.5 mr-1.5 text-emerald-600" />
+            Exportar CSV
+          </Button>
+
           <Button
             variant="outline"
             size="sm"

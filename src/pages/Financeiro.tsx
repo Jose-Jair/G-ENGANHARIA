@@ -40,9 +40,12 @@ import {
   ShieldCheck,
   Briefcase,
   Layers,
+  Download,
 } from 'lucide-react'
+import { exportService } from '@/services/exportService'
 import { ModalNovaConta } from '@/components/financeiro/ModalNovaConta'
 import { ModalDetalhesConta } from '@/components/financeiro/ModalDetalhesConta'
+import { ModalRelatoriosFinanceiros } from '@/components/financeiro/ModalRelatoriosFinanceiros'
 
 export function FinanceiroPage() {
   const { user, isAdmin } = useAuth()
@@ -61,6 +64,7 @@ export function FinanceiroPage() {
   // Modais
   const [modalNovaContaOpen, setModalNovaContaOpen] = useState(false)
   const [modalDetalhesOpen, setModalDetalhesOpen] = useState(false)
+  const [modalRelatoriosOpen, setModalRelatoriosOpen] = useState(false)
   const [contaSelecionada, setContaSelecionada] = useState<ContaRecord | null>(null)
 
   const canManage = user?.role === 'admin' || user?.role === 'financeiro'
@@ -169,6 +173,101 @@ export function FinanceiroPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setModalRelatoriosOpen(true)}
+            className="text-xs text-slate-700 hover:text-emerald-700 hover:border-emerald-300"
+          >
+            <FileText className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+            Relatórios Financeiros
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              const dadosExport =
+                activeTab === 'receber' ? contasReceberFiltradas : contasPagarFiltradas
+              if (dadosExport.length === 0) {
+                toast({
+                  title: 'Sem dados para exportar',
+                  description: 'A lista atual não contém registros correspondentes.',
+                  variant: 'destructive',
+                })
+                return
+              }
+              try {
+                await exportService.exportarParaCsv({
+                  filename: `financeiro_${activeTab}_${new Date().toISOString().slice(0, 10)}.csv`,
+                  tela: `financeiro_${activeTab}`,
+                  descricao: `Exportação da lista de contas a ${activeTab} com filtros ativos`,
+                  isFinanceiro: true,
+                  filtros: {
+                    tipo: activeTab,
+                    status: filtroStatus,
+                    busca: termoBusca || undefined,
+                  },
+                  columns: [
+                    {
+                      header: 'Tipo',
+                      accessor: (c) => (c.tipo === 'receber' ? 'A Receber' : 'A Pagar'),
+                    },
+                    { header: 'Descrição', accessor: (c) => c.descricao },
+                    {
+                      header: 'Cliente / Fornecedor',
+                      accessor: (c) =>
+                        c.tipo === 'receber'
+                          ? c.expand?.projeto?.expand?.empresa?.razao_social ||
+                            c.expand?.projeto?.expand?.empresa?.nome_fantasia ||
+                            c.expand?.proposta?.expand?.empresa?.razao_social ||
+                            c.expand?.proposta?.expand?.cliente_pf?.nome ||
+                            'Cliente'
+                          : c.expand?.executor?.nome || 'Despesa Operacional',
+                    },
+                    { header: 'Projeto', accessor: (c) => c.expand?.projeto?.codigo || '' },
+                    { header: 'Proposta', accessor: (c) => c.expand?.proposta?.numero || '' },
+                    { header: 'Valor Bruto (R$)', accessor: (c) => formatCurrencyBr(c.valor) },
+                    {
+                      header: 'Retenção Impostos (R$)',
+                      accessor: (c) => formatCurrencyBr(c.retencao_impostos || 0),
+                    },
+                    {
+                      header: 'Valor Líquido (R$)',
+                      accessor: (c) => formatCurrencyBr(c.valor_liquido || c.valor),
+                    },
+                    {
+                      header: 'Vencimento',
+                      accessor: (c) => (c.vencimento ? formatDateBr(c.vencimento) : ''),
+                    },
+                    { header: 'Status', accessor: (c) => c.status },
+                    {
+                      header: 'Data de Baixa',
+                      accessor: (c) => (c.data_pagamento ? formatDateBr(c.data_pagamento) : ''),
+                    },
+                    { header: 'Nota Fiscal / Doc', accessor: (c) => c.nf || '' },
+                    { header: 'Forma Pagamento', accessor: (c) => c.forma_pagamento || '' },
+                  ],
+                  data: dadosExport,
+                })
+                toast({
+                  title: 'Lista Exportada',
+                  description: `${dadosExport.length} conta(s) exportada(s) para CSV com sucesso.`,
+                })
+              } catch (err: any) {
+                toast({
+                  title: 'Erro na exportação',
+                  description: err.message || 'Falha ao gerar CSV.',
+                  variant: 'destructive',
+                })
+              }
+            }}
+            className="text-xs text-slate-700 hover:text-emerald-700 hover:border-emerald-300"
+          >
+            <Download className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+            Exportar CSV
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -871,6 +970,15 @@ export function FinanceiroPage() {
         conta={contaSelecionada}
         canManage={canManage}
         onSuccess={carregarDados}
+      />
+
+      {/* Modal Relatórios Financeiros Exportáveis (Item 3 do escopo) */}
+      <ModalRelatoriosFinanceiros
+        open={modalRelatoriosOpen}
+        onOpenChange={setModalRelatoriosOpen}
+        contas={contas}
+        fluxo12Meses={fluxo12Meses}
+        projetos={projetos}
       />
     </div>
   )

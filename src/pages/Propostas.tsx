@@ -17,7 +17,9 @@ import {
   Calendar,
   Layers,
   PieChart,
+  Download,
 } from 'lucide-react'
+import { exportService } from '@/services/exportService'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -250,15 +252,110 @@ export const PropostasPage: React.FC = () => {
           </p>
         </div>
 
-        {canCreateOrEdit && (
+        <div className="flex items-center gap-2">
           <Button
-            onClick={handleOpenNova}
-            className="bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow-sm"
+            variant="outline"
+            onClick={async () => {
+              if (propostasFiltradas.length === 0) {
+                toast({
+                  title: 'Sem propostas para exportar',
+                  description: 'Nenhuma proposta encontrada com os filtros atuais.',
+                  variant: 'destructive',
+                })
+                return
+              }
+              try {
+                await exportService.exportarParaCsv({
+                  filename: `propostas_${new Date().toISOString().slice(0, 10)}.csv`,
+                  tela: 'propostas',
+                  descricao: 'Exportação de propostas comerciais e técnicas com margem e recusas',
+                  filtros: {
+                    status: filtroStatus,
+                    busca: filtroBusca || undefined,
+                  },
+                  columns: [
+                    { header: 'Número', accessor: (p) => p.numero },
+                    { header: 'Revisão', accessor: (p) => p.revisao || 'Rev.00' },
+                    {
+                      header: 'Cliente',
+                      accessor: (p) =>
+                        p.expand?.empresa?.razao_social ||
+                        p.expand?.empresa?.nome_fantasia ||
+                        p.expand?.cliente_pf?.nome ||
+                        'Não informado',
+                    },
+                    {
+                      header: 'Documento (CNPJ/CPF)',
+                      accessor: (p) =>
+                        p.expand?.empresa?.cnpj
+                          ? formatCnpj(p.expand.empresa.cnpj)
+                          : p.expand?.cliente_pf?.cpf
+                            ? formatCpf(p.expand.cliente_pf.cpf)
+                            : '',
+                    },
+                    {
+                      header: 'Valor Preço (R$)',
+                      accessor: (p) => formatCurrencyBr(p.preco),
+                    },
+                    {
+                      header: 'Custo Estimado (R$)',
+                      accessor: (p) => formatCurrencyBr(p.custo),
+                    },
+                    {
+                      header: 'Margem Bruta (R$)',
+                      accessor: (p) => formatCurrencyBr(p.margem),
+                    },
+                    {
+                      header: 'Status',
+                      accessor: (p) => p.status,
+                    },
+                    {
+                      header: 'Validade',
+                      accessor: (p) => (p.validade ? formatDateBr(p.validade) : ''),
+                    },
+                    {
+                      header: 'Motivo de Recusa',
+                      accessor: (p) => p.motivo_recusa || '',
+                    },
+                    {
+                      header: 'Data de Aceite',
+                      accessor: (p) => (p.data_aceite ? formatDateBr(p.data_aceite) : ''),
+                    },
+                    {
+                      header: 'Contrato Vinculado',
+                      accessor: (p) => p.expand?.contrato?.numero || '',
+                    },
+                  ],
+                  data: propostasFiltradas,
+                })
+                toast({
+                  title: 'Propostas Exportadas',
+                  description: `${propostasFiltradas.length} proposta(s) exportada(s) com sucesso. Auditoria registrada no servidor.`,
+                })
+              } catch (err: any) {
+                toast({
+                  title: 'Erro na exportação',
+                  description: err.message || 'Falha ao exportar CSV de propostas.',
+                  variant: 'destructive',
+                })
+              }
+            }}
+            className="text-xs text-slate-700 hover:text-emerald-700 hover:border-emerald-300"
           >
-            <Plus className="w-4 h-4" />
-            Nova Proposta
+            <Download className="w-4 h-4 mr-1.5 text-emerald-600" />
+            Exportar CSV
           </Button>
-        )}
+
+          {canCreateOrEdit && (
+            <Button
+              onClick={handleOpenNova}
+              className="bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow-sm text-xs"
+            >
+              <Plus className="w-4 h-4" />
+              Nova Proposta
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* PAINEL DE INDICADORES (Req. F: Análise de Recusas e Taxa de Aceite) */}

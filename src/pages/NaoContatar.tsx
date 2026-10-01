@@ -19,7 +19,9 @@ import {
   ShieldCheck,
   ArrowRight,
   Info,
+  Download,
 } from 'lucide-react'
+import { exportService } from '@/services/exportService'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -226,6 +228,64 @@ export default function NaoContatarPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            onClick={async () => {
+              if (itensFiltrados.length === 0) {
+                toast({
+                  title: 'Sem registros para exportar',
+                  description: 'A lista Não Contatar está vazia.',
+                  variant: 'destructive',
+                })
+                return
+              }
+              try {
+                await exportService.exportarParaCsv({
+                  filename: `base_nao_contatar_${new Date().toISOString().slice(0, 10)}.csv`,
+                  tela: 'nao_contatar',
+                  descricao:
+                    'Exportação da base completa da lista Não Contatar para revisão do Admin',
+                  filtros: { busca: busca || undefined },
+                  columns: [
+                    { header: 'E-mail Bloqueado', accessor: (it) => it.email },
+                    {
+                      header: 'Empresa Associada',
+                      accessor: (it) =>
+                        it.expand?.empresa?.razao_social ||
+                        it.expand?.empresa?.nome_fantasia ||
+                        'E-mail Avulso',
+                    },
+                    {
+                      header: 'CNPJ Empresa',
+                      accessor: (it) => it.expand?.empresa?.cnpj || '',
+                    },
+                    { header: 'Motivo do Bloqueio', accessor: (it) => it.motivo || '' },
+                    {
+                      header: 'Data de Inclusão',
+                      accessor: (it) => formatDateBr(it.data_inclusao || it.created),
+                    },
+                    { header: 'ID Registro', accessor: (it) => it.id },
+                  ],
+                  data: itensFiltrados,
+                })
+                toast({
+                  title: 'Base Não Contatar Exportada',
+                  description: `${itensFiltrados.length} registro(s) exportado(s) em CSV para auditoria do Admin.`,
+                })
+              } catch (err: any) {
+                toast({
+                  title: 'Erro ao exportar',
+                  description: err.message || 'Falha ao gerar CSV.',
+                  variant: 'destructive',
+                })
+              }
+            }}
+            className="text-xs text-slate-700 hover:text-emerald-700 hover:border-emerald-300"
+          >
+            <Download className="w-3.5 h-3.5 mr-1.5 text-emerald-600" />
+            Exportar CSV
+          </Button>
+
           <Button
             variant="outline"
             onClick={() => navigate('/funil')}

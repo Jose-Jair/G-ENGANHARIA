@@ -35,7 +35,9 @@ import {
   FileSpreadsheet,
   Layers,
   ArrowRight,
+  Download,
 } from 'lucide-react'
+import { exportService } from '@/services/exportService'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -153,6 +155,89 @@ export default function FunilPage() {
   // Drag & drop state
   const [draggedEmpresaId, setDraggedEmpresaId] = useState<string | null>(null)
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null)
+
+  const [exportando, setExportando] = useState(false)
+
+  const handleExportarFunil = async () => {
+    if (empresasFiltradas.length === 0) {
+      toast({
+        title: 'Sem dados para exportar',
+        description: 'Nenhuma empresa visível no funil com os filtros atuais.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setExportando(true)
+    try {
+      await exportService.exportarParaCsv({
+        filename: `funil_export_${new Date().toISOString().slice(0, 10)}.csv`,
+        tela: 'funil',
+        descricao: 'Exportação das empresas e etapas do Funil de Vendas com curva ABC e valores',
+        filtros: {
+          etapa: filtroEtapa,
+          curva: filtroCurva,
+          uf: filtroUf,
+          responsavel: filtroResponsavel,
+          faixa_valor: filtroFaixaValor,
+          busca: busca || undefined,
+        },
+        columns: [
+          {
+            header: 'Empresa',
+            accessor: (e) => e.nome_fantasia || e.razao_social || 'Sem Nome',
+          },
+          { header: 'Razão Social', accessor: (e) => e.razao_social || '' },
+          { header: 'CNPJ', accessor: (e) => formatCnpj(e.cnpj) },
+          { header: 'UF', accessor: (e) => e.uf || '' },
+          {
+            header: 'Etapa do Funil',
+            accessor: (e) => {
+              const col = KANBAN_COLUMNS.find((c) => c.id === e.etapa_funil)
+              return col ? col.title : e.etapa_funil
+            },
+          },
+          { header: 'Curva ABC', accessor: (e) => e.curva || 'C' },
+          { header: 'Score Calculado', accessor: (e) => e.score_prioridade ?? 0 },
+          {
+            header: 'Valor Contratos Ativos (R$)',
+            accessor: (e) => {
+              const val = contratosPorEmpresa.get(e.id)?.total || 0
+              return formatCurrencyBr(val)
+            },
+          },
+          {
+            header: 'Qtd Contratos Ativos',
+            accessor: (e) => contratosPorEmpresa.get(e.id)?.contratos.length || 0,
+          },
+          {
+            header: 'Responsável',
+            accessor: (e) => users.find((u) => u.id === e.responsavel)?.name || 'Não atribuído',
+          },
+          {
+            header: 'Próxima Ação Data',
+            accessor: (e) => (e.proxima_acao_data ? formatDateBr(e.proxima_acao_data) : ''),
+          },
+          { header: 'Próxima Ação Descrição', accessor: (e) => e.proxima_acao_desc || '' },
+          { header: 'Status', accessor: (e) => e.status || 'ativa' },
+        ],
+        data: empresasFiltradas,
+      })
+
+      toast({
+        title: 'Funil Exportado',
+        description: `${empresasFiltradas.length} empresa(s) do funil exportada(s) com sucesso. Auditoria registrada no servidor.`,
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro na Exportação do Funil',
+        description: err.message || 'Falha ao gerar CSV do funil.',
+        variant: 'destructive',
+      })
+    } finally {
+      setExportando(false)
+    }
+  }
 
   // Carregar dados
   const loadData = async () => {
@@ -530,6 +615,17 @@ export default function FunilPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportarFunil}
+            disabled={exportando || loading}
+            className="text-xs text-slate-700 hover:text-emerald-700 hover:border-emerald-300"
+          >
+            <Download className="w-3.5 h-3.5 mr-1.5 text-emerald-600" />
+            {exportando ? 'Exportando...' : 'Exportar CSV'}
+          </Button>
+
           <Button
             variant="outline"
             size="sm"

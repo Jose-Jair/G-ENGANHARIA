@@ -26,7 +26,9 @@ import {
   HardHat,
   DollarSign,
   LayoutDashboard,
+  BookOpen,
 } from 'lucide-react'
+import { GPlusLogo } from '@/components/GPlusLogo'
 import { projetosService } from '@/services/projetos'
 import { toquesService } from '@/services/toques'
 import { empresasService } from '@/services/empresas'
@@ -194,22 +196,16 @@ export default function AppLayout() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
       {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-slate-900 text-slate-100 flex flex-col shrink-0 border-r border-slate-800">
-        <div className="p-4 border-b border-slate-800 flex items-center gap-3">
-          <div className="p-2 bg-blue-600 text-white rounded-lg shadow">
-            <Building2 className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="font-bold text-sm tracking-tight text-white leading-tight">
-              Engenharia Contratos
-            </h1>
-            <span className="text-[11px] text-blue-400 font-medium">Intermediação & Projetos</span>
-          </div>
+      <aside className="w-full md:w-64 bg-[#1E2A4A] text-slate-100 flex flex-col shrink-0 border-r border-[#141D34]">
+        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+          <NavLink to={isAdmin ? '/dashboard' : '/'} className="flex items-center gap-3 group">
+            <GPlusLogo variant="compact" theme="dark" size={32} />
+          </NavLink>
         </div>
 
-        {/* Navigation Modules (Strictly by Role in Stage 1) */}
-        <div className="flex-1 py-4 px-3 space-y-1">
-          <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+        {/* Navigation Modules (Strictly by Role) */}
+        <div className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+          <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
             Navegação Principal
           </div>
 
@@ -220,15 +216,15 @@ export default function AppLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
                 }`
               }
             >
-              <LayoutDashboard className="w-4 h-4 text-blue-400" />
+              <LayoutDashboard className="w-4 h-4 text-orange-300" />
               <div className="flex items-center justify-between flex-1">
                 <span>Dashboard</span>
-                <span className="text-[9px] bg-red-950 text-red-300 border border-red-800/80 px-1.5 py-0.2 rounded font-bold uppercase">
+                <span className="text-[9px] bg-white/20 text-white px-1.5 py-0.2 rounded font-bold uppercase">
                   Admin
                 </span>
               </div>
@@ -240,12 +236,12 @@ export default function AppLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
                 }`
               }
             >
-              <Home className="w-4 h-4" />
+              <Home className="w-4 h-4 text-orange-300" />
               <span>Página Inicial</span>
             </NavLink>
           )}
@@ -257,8 +253,8 @@ export default function AppLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
                 }`
               }
             >
@@ -266,7 +262,7 @@ export default function AppLayout() {
               <div className="flex items-center justify-between flex-1">
                 <span>Empresas</span>
                 {(user.role === 'financeiro' || user.role === 'gestor') && (
-                  <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                  <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
                     Leitura
                   </span>
                 )}
@@ -286,8 +282,8 @@ export default function AppLayout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
                   }`
                 }
               >
@@ -303,7 +299,7 @@ export default function AppLayout() {
                     </span>
                   )}
                   {(user.role === 'financeiro' || user.role === 'gestor') && (
-                    <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                    <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
                       Leitura
                     </span>
                   )}
@@ -315,8 +311,8 @@ export default function AppLayout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
                   }`
                 }
               >
@@ -324,7 +320,7 @@ export default function AppLayout() {
                 <div className="flex items-center justify-between flex-1">
                   <span>Clientes PF</span>
                   {(user.role === 'financeiro' || user.role === 'gestor') && (
-                    <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                    <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
                       Leitura
                     </span>
                   )}
@@ -337,16 +333,16 @@ export default function AppLayout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
                   }`
                 }
               >
-                <FileText className="w-4 h-4 text-emerald-400" />
+                <FileText className="w-4 h-4 text-orange-300" />
                 <div className="flex items-center justify-between flex-1">
                   <span>Propostas</span>
                   {(user.role === 'financeiro' || user.role === 'gestor') && (
-                    <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                    <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
                       Leitura
                     </span>
                   )}
@@ -365,8 +361,8 @@ export default function AppLayout() {
                     className={({ isActive }) =>
                       `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         isActive
-                          ? 'bg-blue-600 text-white'
-                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                          ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                          : 'text-slate-300 hover:bg-white/10 hover:text-white'
                       }`
                     }
                   >
@@ -397,12 +393,12 @@ export default function AppLayout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
                   }`
                 }
               >
-                <Briefcase className="w-4 h-4 text-blue-400" />
+                <Briefcase className="w-4 h-4 text-sky-400" />
                 <div className="flex items-center justify-between flex-1">
                   <span>Projetos</span>
                   {badgeDocumentosVencendoCount > 0 && (
@@ -414,7 +410,7 @@ export default function AppLayout() {
                     </span>
                   )}
                   {(user.role === 'financeiro' || user.role === 'comercial') && (
-                    <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                    <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
                       Leitura
                     </span>
                   )}
@@ -428,8 +424,8 @@ export default function AppLayout() {
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       isActive
-                        ? 'bg-blue-600 text-white'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                        ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                        : 'text-slate-300 hover:bg-white/10 hover:text-white'
                     }`
                   }
                 >
@@ -437,7 +433,7 @@ export default function AppLayout() {
                   <div className="flex items-center justify-between flex-1">
                     <span>Executores</span>
                     {user.role === 'comercial' && (
-                      <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                      <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
                         Leitura
                       </span>
                     )}
@@ -459,8 +455,8 @@ export default function AppLayout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
                   }`
                 }
               >
@@ -480,12 +476,12 @@ export default function AppLayout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
                   }`
                 }
               >
-                <Kanban className="w-4 h-4 text-blue-400" />
+                <Kanban className="w-4 h-4 text-sky-400" />
                 <span>Funil (9 Etapas)</span>
               </NavLink>
 
@@ -494,8 +490,8 @@ export default function AppLayout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
                   }`
                 }
               >
@@ -518,8 +514,8 @@ export default function AppLayout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
                   }`
                 }
               >
@@ -532,8 +528,8 @@ export default function AppLayout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
                   }`
                 }
               >
@@ -542,6 +538,29 @@ export default function AppLayout() {
               </NavLink>
             </>
           )}
+
+          {/* AJUDA & MANUAL DE USO (Acesso geral com login) */}
+          <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Ajuda & Documentação
+          </div>
+          <NavLink
+            to="/manual"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                  : 'text-slate-300 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <BookOpen className="w-4 h-4 text-amber-300" />
+            <div className="flex items-center justify-between flex-1">
+              <span>Manual de Uso</span>
+              <span className="text-[9px] bg-white/20 text-white px-1.5 py-0.2 rounded font-medium">
+                Guia
+              </span>
+            </div>
+          </NavLink>
 
           {/* Admin Exclusive Links */}
           {isAdmin && (
@@ -555,12 +574,12 @@ export default function AppLayout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
                   }`
                 }
               >
-                <Shield className="w-4 h-4" />
+                <Shield className="w-4 h-4 text-orange-300" />
                 <span>Administração</span>
               </NavLink>
 
@@ -569,28 +588,28 @@ export default function AppLayout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
                   }`
                 }
               >
-                <History className="w-4 h-4" />
+                <History className="w-4 h-4 text-orange-300" />
                 <span>Auditoria Imutável</span>
               </NavLink>
             </>
           )}
 
           {user?.role === 'executor' && (
-            <div className="mt-6 p-3 rounded-lg bg-slate-800/60 border border-slate-700/60 text-xs text-slate-400">
-              <span className="font-semibold text-slate-300 block mb-1">Acesso Restrito:</span>
+            <div className="mt-6 p-3 rounded-lg bg-black/20 border border-white/10 text-xs text-slate-300">
+              <span className="font-semibold text-white block mb-1">Acesso Restrito:</span>
               Como executor externo, suas ordens de serviço e demandas de engenharia serão
-              disponibilizadas na Etapa 5 (Execução).
+              disponibilizadas pelo Gestor de Projetos.
             </div>
           )}
         </div>
 
         {/* User Card in Sidebar */}
-        <div className="p-3 border-t border-slate-800 bg-slate-950/40">
+        <div className="p-3 border-t border-white/10 bg-[#141D34]">
           <div className="flex items-center justify-between mb-2">
             <div className="min-w-0 pr-2">
               <p className="text-xs font-semibold text-white truncate">{user?.name || 'Usuário'}</p>
@@ -605,15 +624,25 @@ export default function AppLayout() {
               </Badge>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLogout}
-            className="w-full justify-start text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30 h-8"
-          >
-            <LogOut className="w-3.5 h-3.5 mr-2" />
-            Encerrar Sessão
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <NavLink
+              to="/manual"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-slate-200 hover:text-white bg-white/5 hover:bg-white/10 rounded-md transition-colors"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-orange-400" />
+              Manual
+            </NavLink>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="px-2 text-xs text-rose-300 hover:text-rose-100 hover:bg-rose-900/40 h-8"
+              title="Encerrar Sessão"
+            >
+              <LogOut className="w-3.5 h-3.5 mr-1" />
+              Sair
+            </Button>
+          </div>
         </div>
       </aside>
 
@@ -622,15 +651,28 @@ export default function AppLayout() {
         {/* Top Header */}
         <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shrink-0">
           <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-500 font-medium">Ambiente Operacional Seguro</span>
+            <span className="text-xs font-semibold text-[#1E2A4A] tracking-tight flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#D95A2B]" />
+              GESTÃO G+ • Engenharia
+            </span>
             <span className="text-slate-300">|</span>
-            <span className="text-xs text-slate-600 font-mono">
+            <span className="text-xs text-slate-500 font-mono">
               Hoje: {formatDateBr(new Date().toISOString())}
             </span>
           </div>
 
-          <div className="flex items-center gap-4">
-            {/* Sininho com Badge de Notificações: Ações do Dia, Atrasos, Campanhas Pendentes, Parceiros sem Demanda, Documentos e Alertas Financeiros */}
+          <div className="flex items-center gap-3">
+            {/* Atalho para o Manual de Uso */}
+            <NavLink
+              to="/manual"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#1E2A4A] hover:text-[#D95A2B] bg-slate-100 hover:bg-orange-50 rounded-lg transition-colors border border-slate-200"
+              title="Acessar Manual de Uso da Plataforma"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-[#D95A2B]" />
+              <span>Manual de Uso</span>
+            </NavLink>
+
+            {/* Sininho com Badge de Notificações */}
             {user?.role && user.role !== 'executor' && (
               <NavLink
                 to={
@@ -646,7 +688,7 @@ export default function AppLayout() {
                           ? '/campanhas'
                           : '/acoes-do-dia'
                 }
-                className="relative p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-full transition-colors"
+                className="relative p-2 text-slate-600 hover:text-[#D95A2B] hover:bg-slate-100 rounded-full transition-colors"
                 title={`Notificações: ${badgeAcoesCount} ações cadência, ${badgeCampanhasPendentesCount} campanhas pendentes, ${badgeParceirosSemDemandaCount} parceiros sem demanda (+180d), ${badgeDocumentosVencendoCount} documentos com alerta, ${badgeFinanceiroAlertasCount} alertas financeiros (D-7/D-1/Atraso)`}
               >
                 <Bell className="w-5 h-5" />
@@ -664,7 +706,7 @@ export default function AppLayout() {
                         ? 'bg-rose-600 animate-pulse'
                         : isAdmin && badgeCampanhasPendentesCount > 0
                           ? 'bg-amber-600'
-                          : 'bg-blue-600'
+                          : 'bg-[#D95A2B]'
                     }`}
                   >
                     {badgeAcoesCount +
@@ -678,14 +720,23 @@ export default function AppLayout() {
             )}
 
             {user && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-slate-700 hidden sm:inline">
-                  {user.name}
-                </span>
-                <Badge variant="outline" className={`text-xs ${ROLE_BADGE_VARIANTS[user.role]}`}>
-                  {ROLE_LABELS[user.role]}
-                </Badge>
-              </div>
+              <NavLink
+                to="/manual"
+                className="flex items-center gap-2 px-2.5 py-1 rounded-lg hover:bg-slate-100 transition-colors"
+                title="Ver perfil e Manual de Uso"
+              >
+                <div className="w-7 h-7 rounded-full bg-[#1E2A4A] text-white flex items-center justify-center text-xs font-bold">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="hidden sm:flex flex-col text-left">
+                  <span className="text-xs font-semibold text-slate-800 leading-none">
+                    {user.name}
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-0.5 leading-none">
+                    {ROLE_LABELS[user.role]}
+                  </span>
+                </div>
+              </NavLink>
             )}
             <Button
               variant="outline"

@@ -27,6 +27,7 @@ import { ProjetosPage } from './pages/Projetos'
 import { ExecutoresPage } from './pages/Executores'
 import { CotacaoPublicaPage } from './pages/CotacaoPublica'
 import { FinanceiroPage } from './pages/Financeiro'
+import { ManualUsoPage } from './pages/ManualUso'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -68,6 +69,16 @@ const App = () => (
               }
             />
             <Route path="/boas-vindas" element={<WelcomePage />} />
+
+            {/* MANUAL DE USO DA PLATAFORMA (Acesso a todos os perfis autenticados com login) */}
+            <Route
+              path="/manual"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'comercial', 'financeiro', 'gestor']}>
+                  <ManualUsoPage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* ETAPA 7: Módulo Propostas (Admin e Comercial gravam; Financeiro e Gestor leem) */}
             <Route

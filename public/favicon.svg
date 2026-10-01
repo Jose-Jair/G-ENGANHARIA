@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <rect width="100" height="100" rx="20" fill="#1E2A4A" />
+  <!-- Traço da Casa em Cinza -->
+  <path d="M 32 38 L 49.5 25.5 L 68 39 L 68 57" stroke="#CBD5E1" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- G em Laranja -->
+  <path d="M 49.5 31 L 35.5 41.5 L 35.5 57 L 51 57 L 51 41.5" stroke="#D95A2B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Barra horizontal da cruz do G+ -->
+  <line x1="45" y1="46" x2="65" y2="46" stroke="#D95A2B" stroke-width="4.8" stroke-linecap="round" />
+</svg>

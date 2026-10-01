@@ -22,8 +22,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Building2, ShieldCheck, KeyRound, AlertCircle, CheckCircle2, Lock } from 'lucide-react'
+import { ShieldCheck, KeyRound, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import { GPlusLogo } from '@/components/GPlusLogo'
 
 export default function LoginPage() {
   const { login, confirmMfaLogin } = useAuth()
@@ -127,23 +128,25 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-slate-900 px-4 py-8 relative">
-      <div className="absolute inset-0 bg-gradient-to-tr from-slate-950 via-slate-900 to-blue-950 opacity-90 -z-10" />
+    <div className="min-h-screen flex flex-col justify-center items-center bg-[#141D34] px-4 py-8 relative">
+      {/* Fundo Navy institucional com gradiente sutil */}
+      <div className="absolute inset-0 bg-radial from-[#1E2A4A] via-[#141D34] to-[#0D1322] opacity-95 -z-10" />
 
       <div className="w-full max-w-md space-y-6">
-        <div className="text-center space-y-2">
-          <div className="inline-flex p-3 bg-blue-600/20 text-blue-400 rounded-2xl border border-blue-500/30 shadow-lg shadow-blue-500/10">
-            <Building2 className="w-10 h-10" />
+        {/* Logo oficial da empresa G+ Engenharia completa */}
+        <div className="text-center space-y-3">
+          <div className="flex justify-center">
+            <div className="p-4 bg-white/5 rounded-2xl border border-white/10 shadow-2xl backdrop-blur-xs">
+              <GPlusLogo variant="vertical" theme="dark" size={88} showSlogan={true} />
+            </div>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">
-            Engenharia Contratos Públicos
-          </h1>
-          <p className="text-sm text-slate-400">
-            Plataforma de Intermediação Técnica & Gestão de Demandas
+          <h1 className="text-xl font-bold tracking-tight text-white">GESTÃO G+</h1>
+          <p className="text-xs text-slate-400">
+            Plataforma de Intermediação Técnica de Engenharia & Gestão de Demandas
           </p>
         </div>
 
-        <Card className="border-slate-800 bg-slate-950/80 backdrop-blur text-slate-100 shadow-2xl">
+        <Card className="border-slate-800 bg-[#1E2A4A]/90 backdrop-blur text-slate-100 shadow-2xl">
           <CardHeader className="space-y-1">
             <CardTitle className="text-xl text-white">
               {showMfaStep ? 'Autenticação em Duas Etapas (MFA)' : 'Acesso ao Sistema'}
@@ -172,11 +175,11 @@ export default function LoginPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="ex: admin@sistema.eng.br"
+                    placeholder="ex: admin@gestaogmais.eng.br"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500"
+                    className="bg-slate-950/60 border-slate-700 text-white placeholder:text-slate-500 focus:border-[#D95A2B]"
                   />
                 </div>
 
@@ -192,7 +195,7 @@ export default function LoginPage() {
                         setForgotSuccess(false)
                         setShowForgotModal(true)
                       }}
-                      className="text-xs text-blue-400 hover:text-blue-300 hover:underline transition"
+                      className="text-xs text-orange-400 hover:text-orange-300 hover:underline transition"
                     >
                       Esqueci minha senha
                     </button>
@@ -203,14 +206,14 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500"
+                    className="bg-slate-950/60 border-slate-700 text-white placeholder:text-slate-500 focus:border-[#D95A2B]"
                   />
                 </div>
 
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 shadow-lg shadow-blue-600/30"
+                  className="w-full bg-[#D95A2B] hover:bg-[#C44E22] text-white font-semibold py-2.5 shadow-lg shadow-orange-950/40"
                 >
                   {isSubmitting ? 'Autenticando...' : 'Entrar no Sistema'}
                 </Button>
@@ -258,7 +261,7 @@ export default function LoginPage() {
                   <Button
                     type="submit"
                     disabled={isSubmitting || totpCode.length !== 6}
-                    className="w-2/3 bg-blue-600 hover:bg-blue-500 text-white font-medium"
+                    className="w-2/3 bg-[#D95A2B] hover:bg-[#C44E22] text-white font-semibold"
                   >
                     {isSubmitting ? 'Validando...' : 'Confirmar Código'}
                   </Button>
@@ -277,49 +280,59 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => handleQuickLogin('admin@sistema.eng.br')}
-                className="text-left px-2 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 flex items-center justify-between"
+                className="text-left px-2 py-1.5 rounded bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 flex items-center justify-between group"
               >
                 <span>Admin</span>
-                <span className="text-[10px] text-blue-400 font-mono">Ana</span>
+                <span className="text-[10px] text-orange-400 font-mono group-hover:text-orange-300">
+                  Ana
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickLogin('comercial@sistema.eng.br')}
-                className="text-left px-2 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 flex items-center justify-between"
+                className="text-left px-2 py-1.5 rounded bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 flex items-center justify-between group"
               >
                 <span>Comercial</span>
-                <span className="text-[10px] text-blue-400 font-mono">Carlos</span>
+                <span className="text-[10px] text-orange-400 font-mono group-hover:text-orange-300">
+                  Carlos
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickLogin('financeiro@sistema.eng.br')}
-                className="text-left px-2 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 flex items-center justify-between"
+                className="text-left px-2 py-1.5 rounded bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 flex items-center justify-between group"
               >
                 <span>Financeiro</span>
-                <span className="text-[10px] text-blue-400 font-mono">Beatriz</span>
+                <span className="text-[10px] text-orange-400 font-mono group-hover:text-orange-300">
+                  Beatriz
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickLogin('gestor@sistema.eng.br')}
-                className="text-left px-2 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 flex items-center justify-between"
+                className="text-left px-2 py-1.5 rounded bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 flex items-center justify-between group"
               >
                 <span>Gestor</span>
-                <span className="text-[10px] text-blue-400 font-mono">Daniel</span>
+                <span className="text-[10px] text-orange-400 font-mono group-hover:text-orange-300">
+                  Daniel
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickLogin('executor@sistema.eng.br')}
-                className="col-span-2 text-left px-2 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 flex items-center justify-between"
+                className="col-span-2 text-left px-2 py-1.5 rounded bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 flex items-center justify-between group"
               >
                 <span>Executor Externo</span>
-                <span className="text-[10px] text-blue-400 font-mono">Eduardo</span>
+                <span className="text-[10px] text-orange-400 font-mono group-hover:text-orange-300">
+                  Eduardo
+                </span>
               </button>
             </div>
           </CardFooter>
         </Card>
 
-        <div className="text-center text-xs text-slate-500">
-          Etapa 1 — Fundamentos de Dados, Auditoria Imutável & Acesso Seguro
+        <div className="text-center text-xs text-slate-400">
+          GESTÃO G+ • Conectando ideias, somando resultados
         </div>
       </div>
 
@@ -381,7 +394,7 @@ export default function LoginPage() {
                 <Button
                   type="submit"
                   disabled={forgotSubmitting}
-                  className="bg-blue-600 hover:bg-blue-500 text-white"
+                  className="bg-[#D95A2B] hover:bg-[#C44E22] text-white"
                 >
                   {forgotSubmitting ? 'Enviando...' : 'Enviar Link de Redefinição'}
                 </Button>

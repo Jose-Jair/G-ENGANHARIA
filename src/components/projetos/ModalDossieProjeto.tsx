@@ -20,6 +20,7 @@ import {
   Loader2,
   ExternalLink,
 } from 'lucide-react'
+import { GPlusLogo } from '@/components/GPlusLogo'
 import pb from '@/lib/pocketbase/client'
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
 import { formatCnpj, formatCpf } from '@/lib/cnpj'
@@ -74,18 +75,15 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0 print:m-0 print:p-0 print:max-w-none print:max-h-none print:shadow-none print:border-none">
         {/* Barra Superior com Controles de Exportação / PDF */}
-        <div className="p-4 bg-slate-900 text-white flex items-center justify-between sticky top-0 z-20 print:hidden">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-blue-600 rounded">
-              <FileText className="w-4 h-4 text-white" />
-            </div>
+        <div className="p-4 bg-[#1E2A4A] text-white flex items-center justify-between sticky top-0 z-20 print:hidden">
+          <div className="flex items-center gap-3">
+            <GPlusLogo variant="icon" size={28} />
             <div>
               <DialogTitle className="text-sm font-bold text-white">
-                Dossiê Consolidado do Projeto (PDF)
+                Dossiê Consolidado do Projeto — G+ Engenharia
               </DialogTitle>
               <p className="text-[11px] text-slate-300">
-                Documento técnico consolidado com etapas, entregáveis, documentos, riscos e
-                finanças.
+                Layout A4 oficial com etapas, entregáveis, documentos, riscos e finanças.
               </p>
             </div>
           </div>
@@ -94,16 +92,16 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
             <Button
               size="sm"
               onClick={handleImprimirSalvarPdf}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 shadow-xs"
+              className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs gap-1.5 shadow-xs"
             >
               <Printer className="w-3.5 h-3.5" />
-              Imprimir / Salvar em PDF
+              Imprimir / Salvar em PDF A4
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => onOpenChange(false)}
-              className="text-xs bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
+              className="text-xs bg-white/10 border-white/20 text-slate-200 hover:bg-white/20"
             >
               Fechar
             </Button>
@@ -120,12 +118,10 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
         ) : dossie ? (
           <div className="p-8 sm:p-10 bg-white text-slate-900 text-xs space-y-6 print:p-6 print:space-y-4 font-sans">
             {/* CABEÇALHO INSTITUCIONAL DO DOSSIÊ */}
-            <div className="border-b-2 border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-blue-700 block">
-                  Plataforma de Intermediação Técnica de Engenharia
-                </span>
-                <h1 className="text-2xl font-black text-slate-950 tracking-tight mt-0.5">
+            <div className="border-b-2 border-[#1E2A4A] pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <GPlusLogo variant="horizontal" theme="light" size={42} showSlogan={true} />
+                <h1 className="text-xl font-black text-[#1E2A4A] tracking-tight mt-2">
                   DOSSIÊ TÉCNICO & OPERACIONAL DO PROJETO
                 </h1>
                 <div className="flex items-center gap-3 mt-1 text-slate-600 text-xs">

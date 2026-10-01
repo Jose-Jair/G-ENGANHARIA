@@ -99,25 +99,25 @@ export function DashboardPage() {
       {/* CABEÇALHO DO DASHBOARD EXECUTIVO */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-blue-600 text-white rounded-lg shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-[#D95A2B] text-white rounded-lg shadow-sm">
               <LayoutDashboard className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                  Dashboard Executivo de Engenharia
+                <h1 className="text-2xl font-bold tracking-tight text-[#1E2A4A]">
+                  Dashboard Executivo — GESTÃO G+
                 </h1>
                 <Badge
                   variant="outline"
-                  className="bg-red-50 text-red-700 border-red-300 font-bold text-[10px] uppercase tracking-wide"
+                  className="bg-orange-50 text-[#D95A2B] border-orange-200 font-bold text-[10px] uppercase tracking-wide"
                 >
                   Exclusivo Admin
                 </Badge>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
                 Painel consolidado em tempo de execução com visão 360° de Funil, Propostas,
-                Projetos, Finanças e Alertas.
+                Projetos, Finanças e Alertas operacionais.
               </p>
             </div>
           </div>

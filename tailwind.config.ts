@@ -39,6 +39,24 @@ export default {
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
+          hover: '#C44E22',
+        },
+        navy: {
+          DEFAULT: '#1E2A4A',
+          dark: '#141D34',
+          light: '#2C3B63',
+          foreground: '#F1F5F9',
+        },
+        gorange: {
+          DEFAULT: '#D95A2B',
+          hover: '#C44E22',
+          light: '#FDF2EC',
+          border: '#F8C8B5',
+        },
+        ggray: {
+          DEFAULT: '#8A8A8A',
+          light: '#CBD5E1',
+          dark: '#475569',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',

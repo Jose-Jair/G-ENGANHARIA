@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { CheckCircle2, AlertTriangle, ShieldCheck, MailX, Loader2, ArrowLeft } from 'lucide-react'
 import { formatDateTimeBr } from '@/lib/formatters'
+import { GPlusLogo } from '@/components/GPlusLogo'
 
 export default function DescadastroPage() {
   const { token } = useParams<{ token: string }>()
@@ -71,12 +72,13 @@ export default function DescadastroPage() {
     <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-lg">
         {/* Header institucional */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center p-3 bg-blue-600 text-white rounded-xl shadow-md mb-3">
-            <MailX className="w-7 h-7" />
+        <div className="text-center mb-6 space-y-2">
+          <div className="flex justify-center">
+            <GPlusLogo variant="vertical" theme="light" size={56} showSlogan={true} />
           </div>
-          <h1 className="text-xl font-bold text-slate-800">Engenharia Contratos</h1>
-          <p className="text-xs text-slate-500">Gestão e Intermediação de Parcerias Técnicas</p>
+          <p className="text-xs text-slate-500 mt-2">
+            GESTÃO G+ • Intermediação Técnica & Gestão de Demandas
+          </p>
         </div>
 
         <Card className="border-slate-200 shadow-md bg-white">

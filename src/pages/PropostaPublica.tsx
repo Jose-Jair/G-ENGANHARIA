@@ -14,6 +14,7 @@ import {
   Printer,
   FileCheck,
 } from 'lucide-react'
+import { GPlusLogo } from '@/components/GPlusLogo'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
@@ -252,26 +253,21 @@ export const PropostaPublicaPage: React.FC = () => {
         {/* DOCUMENTO DA PROPOSTA (LAYOUT DE DOCUMENTO FORMAL) */}
         <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden print:border-0 print:shadow-none">
           {/* TOPO COM LOGO E DADOS GERAIS */}
-          <div className="p-8 border-b border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <FileText className="w-6 h-6 text-blue-600" />
-                <span className="font-bold text-lg text-slate-900 tracking-tight">
-                  Proposta Técnica e Orçamentária
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Intermediação e Consultoria de Projetos de Engenharia
-              </p>
+          <div className="p-8 border-b border-slate-200 bg-[#1E2A4A]/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <GPlusLogo variant="horizontal" theme="light" size={44} showSlogan={true} />
             </div>
 
-            <div className="text-left sm:text-right">
-              <div className="font-mono font-bold text-base text-slate-900">{proposta.numero}</div>
+            <div className="text-left sm:text-right border-l sm:border-l-0 pl-4 sm:pl-0 border-slate-200">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#D95A2B] block">
+                Proposta Comercial
+              </span>
+              <div className="font-mono font-black text-lg text-[#1E2A4A]">{proposta.numero}</div>
               <div className="text-xs text-slate-500">
                 Versão: {proposta.revisao || 'Rev.00'} • Emissão: {formatDateBr(proposta.created)}
               </div>
               {proposta.validade && (
-                <div className="text-xs font-semibold text-amber-700 mt-0.5">
+                <div className="text-xs font-semibold text-[#D95A2B] mt-0.5">
                   Validade até {formatDateBr(proposta.validade)}
                 </div>
               )}

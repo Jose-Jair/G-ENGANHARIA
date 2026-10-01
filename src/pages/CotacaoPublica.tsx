@@ -21,6 +21,7 @@ import {
   Clock,
   ShieldCheck,
 } from 'lucide-react'
+import { GPlusLogo } from '@/components/GPlusLogo'
 
 export const CotacaoPublicaPage: React.FC = () => {
   const { token } = useParams<{ token: string }>()
@@ -150,23 +151,17 @@ export const CotacaoPublicaPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto space-y-6">
-        {/* Topo Institucional */}
+        {/* Topo Institucional com Logo Oficial */}
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-xs">
-              <MessageSquareQuote className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-indigo-600 font-bold block">
-                Plataforma de Intermediação de Engenharia
-              </span>
-              <h1 className="text-lg font-bold text-slate-900">Solicitação de Cotação Técnica</h1>
-            </div>
+          <div className="flex items-center gap-4">
+            <GPlusLogo variant="horizontal" theme="light" size={40} showSlogan={true} />
           </div>
 
-          <div className="text-right">
-            <span className="text-[11px] text-slate-400 block">Convidado:</span>
-            <span className="font-semibold text-xs text-slate-800">{executor?.nome}</span>
+          <div className="text-left sm:text-right border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#D95A2B] font-bold block">
+              Cotação de Executor Externo
+            </span>
+            <span className="font-bold text-xs text-[#1E2A4A] block">{executor?.nome}</span>
             <span className="text-[10px] font-mono text-slate-400 block">
               {executor?.conselho} {executor?.numero_registro}
             </span>
@@ -313,7 +308,7 @@ export const CotacaoPublicaPage: React.FC = () => {
               <Button
                 type="submit"
                 disabled={salvando}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-6 py-2.5 h-auto shadow-sm"
+                className="bg-[#D95A2B] hover:bg-[#C44E22] text-white font-semibold text-xs px-6 py-2.5 h-auto shadow-sm"
               >
                 {salvando ? (
                   <>

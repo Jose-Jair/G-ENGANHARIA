@@ -10,102 +10,106 @@
 @layer base {
   :root {
     /* Change the colors to match the design system */
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* G+ Engenharia Design System: Laranja G+ (#D95A2B), Navy (#1E2A4A), Cinza (#8A8A8A) */
+    --background: 210 20% 98%;
+    --foreground: 224 42% 16%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 224 42% 16%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 224 42% 16%;
 
-    --primary: 222.2 84% 4.9%;
-    --primary-foreground: 210 40% 98%;
+    /* Cor primária: Laranja G+ #D95A2B (HSL 16 68% 51%) */
+    --primary: 16 68% 51%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 98%;
-    --secondary-foreground: 222.2 84% 4.9%;
+    /* Cor institucional Navy #1E2A4A (HSL 224 42% 20%) */
+    --navy: 224 42% 20%;
+    --navy-foreground: 210 40% 98%;
 
-    --muted: 210 40% 98%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 224 42% 16%;
 
-    --accent: 210 40% 98%;
-    --accent-foreground: 222.2 84% 4.9%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 16 85% 96%;
+    --accent-foreground: 16 68% 40%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 16 68% 51%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 222.2 84% 4.9%;
-
-    --sidebar-primary: 222.2 84% 4.9%;
-
+    /* Sidebar Institucional: Navy G+ #1E2A4A */
+    --sidebar-background: 224 42% 16%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 16 68% 51%;
     --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 224 38% 23%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 224 32% 22%;
+    --sidebar-ring: 16 68% 51%;
 
-    --sidebar-accent: 210 40% 98%;
-
-    --sidebar-accent-foreground: 222.2 84% 4.9%;
-
-    --sidebar-border: 214.3 31.8% 91.4%;
-
-    --sidebar-ring: 222.2 84% 4.9%;
-
-    --chart-1: 34 100% 44%;
-    --chart-2: 189 100% 38%;
-    --chart-3: 209 100% 32%;
-    --chart-4: 42 100% 50%;
-    --chart-5: 33 100% 50%;
+    /* Gráficos na paleta oficial G+ (Laranja, Navy, Cinza, Ciano complementar, Âmbar) */
+    --chart-1: 16 68% 51%;
+    --chart-2: 224 42% 20%;
+    --chart-3: 0 0% 54%;
+    --chart-4: 199 89% 48%;
+    --chart-5: 38 92% 50%;
   }
 
   .dark {
-    /* Change the colors to match the design system consistent with the dark mode */
-    --background: 222.2 84% 4.9%;
+    --background: 224 42% 12%;
     --foreground: 210 40% 98%;
 
-    --card: 222.2 84% 4.9%;
+    --card: 224 42% 15%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222.2 84% 4.9%;
+    --popover: 224 42% 15%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 84% 4.9%;
+    --primary: 16 68% 51%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 222.2 84% 4.9%;
+    --navy: 224 42% 25%;
+    --navy-foreground: 210 40% 98%;
+
+    --secondary: 224 35% 20%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 222.2 84% 4.9%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 224 35% 20%;
+    --muted-foreground: 220 14% 65%;
 
-    --accent: 222.2 84% 4.9%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 16 68% 22%;
+    --accent-foreground: 16 90% 80%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 222.2 84% 4.9%;
-    --input: 222.2 84% 4.9%;
-    --ring: 214.3 31.8% 91.4%;
-    --sidebar-background: 222.2 84% 4.9%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 222.2 84% 4.9%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222.2 84% 4.9%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222.2 84% 4.9%;
-    --sidebar-ring: 222.2 84% 4.9%;
+    --border: 224 35% 22%;
+    --input: 224 35% 22%;
+    --ring: 16 68% 51%;
 
-    --chart-1: 270 100% 44%;
-    --chart-2: 164 100% 38%;
-    --chart-3: 43 100% 32%;
-    --chart-4: 340 100% 50%;
-    --chart-5: 10 100% 50%;
+    --sidebar-background: 224 45% 10%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 16 68% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 224 40% 18%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 224 35% 18%;
+    --sidebar-ring: 16 68% 51%;
+
+    --chart-1: 16 68% 55%;
+    --chart-2: 215 50% 65%;
+    --chart-3: 0 0% 65%;
+    --chart-4: 199 89% 55%;
+    --chart-5: 38 92% 55%;
   }
 
   /* NEVER REMOVE THIS */

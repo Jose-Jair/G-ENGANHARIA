@@ -17,7 +17,9 @@ import {
   Briefcase,
   Layers,
   Coins,
+  BookOpen,
 } from 'lucide-react'
+import { GPlusLogo } from '@/components/GPlusLogo'
 import { formatDateTimeBr } from '@/lib/formatters'
 
 export default function WelcomePage() {
@@ -27,26 +29,28 @@ export default function WelcomePage() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Welcome Hero */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 text-white rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-blue-600/10 skew-x-12 pointer-events-none" />
+      <div className="bg-[#1E2A4A] text-white rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden border border-[#141D34]">
+        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-[#D95A2B]/10 skew-x-12 pointer-events-none" />
 
         <div className="relative z-10 space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="p-1.5 bg-blue-500/20 text-blue-400 rounded-lg border border-blue-500/30">
-              <Building2 className="w-5 h-5" />
-            </span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-blue-300">
-              Etapa 1 — Fundamentos de Dados e Segurança
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <GPlusLogo variant="compact" theme="dark" size={36} />
+            <Button
+              onClick={() => navigate('/manual')}
+              className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs gap-1.5 shadow-md"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              Acessar Manual de Uso
+            </Button>
           </div>
 
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
               Olá, {user?.name || 'Colaborador'}!
             </h1>
-            <p className="text-slate-300 text-sm md:text-base mt-1 max-w-2xl">
-              Você está autenticado no Sistema de Gestão e Intermediação de Engenharia para
-              Contratos Públicos.
+            <p className="text-slate-200 text-sm md:text-base mt-1 max-w-2xl">
+              Bem-vindo ao <strong>GESTÃO G+</strong> — Engenharia. Conectando ideias, somando
+              resultados.
             </p>
           </div>
 
@@ -95,7 +99,7 @@ export default function WelcomePage() {
             </div>
             <Button
               onClick={() => navigate('/administracao')}
-              className="bg-blue-600 hover:bg-blue-700 text-xs gap-1.5 shrink-0"
+              className="bg-[#D95A2B] hover:bg-[#C44E22] text-xs gap-1.5 shrink-0"
             >
               Ir para Administração
               <ArrowRight className="w-3.5 h-3.5" />

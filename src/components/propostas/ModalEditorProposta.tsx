@@ -223,7 +223,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
 
   const loadContratosEmpresa = async (empresaId: string) => {
     try {
-      const data = await contratosService.list({ empresaId })
+      const data = await contratosService.listByEmpresa(empresaId)
       setContratos(data)
       if (data.length > 0 && !selectedContratoId) {
         setSelectedContratoId(data[0].id)
@@ -304,15 +304,15 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
       if (emp) nomeCliente = emp.razao_social
       const cont = contratos.find((c) => c.id === selectedContratoId)
       if (cont) {
-        orgaoContrato = cont.orgao_contratante
-        valorContratoStr = formatCurrencyBr(cont.valor_total)
+        orgaoContrato = cont.orgao
+        valorContratoStr = formatCurrencyBr(cont.valor)
       }
     } else {
       const pf = clientesPf.find((c) => c.id === selectedClientePfId)
       if (pf) nomeCliente = pf.nome
     }
 
-    const textoComVariaveis = propostasService.substituirVariaveisModelo(modelo.conteudo, {
+    const textoComVariaveis = propostasService.substituirVariaveisModelo(modelo.corpo, {
       nome: nomeCliente,
       orgao: orgaoContrato,
       valor_contrato: valorContratoStr,
@@ -324,7 +324,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
 
     toast({
       title: 'Modelo Aplicado',
-      description: `Variáveis preenchidas automaticamente a partir de "${modelo.titulo}".`,
+      description: `Variáveis preenchidas automaticamente a partir de "${modelo.nome}".`,
     })
   }
 
@@ -427,11 +427,10 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
         // Se tiver empresa vinculada, mover empresa no funil para "Com proposta elaborada" (Req. G)
         if (selectedEmpresaId) {
           try {
-            await empresasService.updateEtapaFunil(
-              selectedEmpresaId,
-              'com_proposta_elaborada',
-              `Elaborada proposta técnica ${res.numero || 'comercial'} no valor de ${formatCurrencyBr(totais.precoTotal)}`,
-            )
+            await empresasService.update(selectedEmpresaId, {
+              etapa_funil: 'com_proposta_elaborada',
+              proxima_acao_desc: `Elaborada proposta técnica ${res.numero || 'comercial'} no valor de ${formatCurrencyBr(totais.precoTotal)}`,
+            })
           } catch (err) {
             console.warn('Erro ao atualizar etapa do funil da empresa:', err)
           }
@@ -551,8 +550,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                       <SelectContent>
                         {contratos.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
-                            {c.numero_contrato} - {c.orgao_contratante} (
-                            {formatCurrencyBr(c.valor_total)})
+                            {c.numero} - {c.orgao} ({formatCurrencyBr(c.valor)})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -569,7 +567,8 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                     <SelectContent>
                       {clientesPf.map((pf) => (
                         <SelectItem key={pf.id} value={pf.id}>
-                          {pf.nome} ({pf.cpf || pf.telefone || pf.email}) - {pf.cidade}/{pf.estado}
+                          {pf.nome} ({pf.cpf || pf.telefone || pf.email})
+                          {pf.endereco ? ` - ${pf.endereco}` : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -815,7 +814,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                   <SelectContent>
                     {modelos.map((m) => (
                       <SelectItem key={m.id} value={m.id}>
-                        {m.titulo}
+                        {m.nome}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -183,9 +183,11 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                       {proposta.expand.empresa.razao_social}
                     </div>
                     <div className="text-slate-600">CNPJ: {proposta.expand.empresa.cnpj}</div>
-                    {proposta.expand.empresa.cidade && (
+                    {(proposta.expand.empresa.municipio || proposta.expand.empresa.uf) && (
                       <div className="text-slate-500">
-                        {proposta.expand.empresa.cidade} / {proposta.expand.empresa.estado}
+                        {[proposta.expand.empresa.municipio, proposta.expand.empresa.uf]
+                          .filter(Boolean)
+                          .join(' / ')}
                       </div>
                     )}
                   </div>
@@ -197,9 +199,9 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                     <div className="text-slate-600">
                       CPF: {proposta.expand.cliente_pf.cpf || 'Não informado'}
                     </div>
-                    <div className="text-slate-500">
-                      {proposta.expand.cliente_pf.cidade} / {proposta.expand.cliente_pf.estado}
-                    </div>
+                    {proposta.expand.cliente_pf.endereco && (
+                      <div className="text-slate-500">{proposta.expand.cliente_pf.endereco}</div>
+                    )}
                   </div>
                 ) : (
                   <span className="text-slate-400">Cliente não especificado</span>
@@ -213,11 +215,10 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                 {proposta.expand?.contrato ? (
                   <div className="mt-1">
                     <div className="font-semibold text-slate-900">
-                      {proposta.expand.contrato.numero_contrato} -{' '}
-                      {proposta.expand.contrato.orgao_contratante}
+                      {proposta.expand.contrato.numero} - {proposta.expand.contrato.orgao}
                     </div>
                     <div className="text-slate-600">
-                      Valor Contrato: {formatCurrencyBr(proposta.expand.contrato.valor_total)}
+                      Valor Contrato: {formatCurrencyBr(proposta.expand.contrato.valor)}
                     </div>
                   </div>
                 ) : (

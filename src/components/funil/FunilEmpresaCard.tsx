@@ -12,6 +12,7 @@ import {
   Sparkles,
   AlertCircle,
   GripVertical,
+  FileText,
 } from 'lucide-react'
 
 interface FunilEmpresaCardProps {

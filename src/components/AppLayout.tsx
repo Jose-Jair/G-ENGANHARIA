@@ -21,6 +21,7 @@ import {
   Megaphone,
   Handshake,
   UserCheck,
+  FileText,
 } from 'lucide-react'
 import { toquesService } from '@/services/toques'
 import { empresasService } from '@/services/empresas'

@@ -291,9 +291,11 @@ export const PropostaPublicaPage: React.FC = () => {
                       {proposta.expand.empresa.razao_social}
                     </div>
                     <div>CNPJ: {proposta.expand.empresa.cnpj}</div>
-                    {proposta.expand.empresa.cidade && (
+                    {(proposta.expand.empresa.municipio || proposta.expand.empresa.uf) && (
                       <div>
-                        {proposta.expand.empresa.cidade} / {proposta.expand.empresa.estado}
+                        {[proposta.expand.empresa.municipio, proposta.expand.empresa.uf]
+                          .filter(Boolean)
+                          .join(' / ')}
                       </div>
                     )}
                   </div>
@@ -303,9 +305,9 @@ export const PropostaPublicaPage: React.FC = () => {
                       {proposta.expand.cliente_pf.nome}
                     </div>
                     <div>CPF: {proposta.expand.cliente_pf.cpf || 'Não informado'}</div>
-                    <div>
-                      {proposta.expand.cliente_pf.cidade} / {proposta.expand.cliente_pf.estado}
-                    </div>
+                    {proposta.expand.cliente_pf.endereco && (
+                      <div>{proposta.expand.cliente_pf.endereco}</div>
+                    )}
                   </div>
                 ) : (
                   <span className="text-slate-400">Dados do contratante sob consulta</span>
@@ -319,9 +321,9 @@ export const PropostaPublicaPage: React.FC = () => {
                 {proposta.expand?.contrato ? (
                   <div>
                     <div className="font-semibold text-slate-900">
-                      {proposta.expand.contrato.numero_contrato}
+                      {proposta.expand.contrato.numero}
                     </div>
-                    <div>{proposta.expand.contrato.orgao_contratante}</div>
+                    <div>{proposta.expand.contrato.orgao}</div>
                   </div>
                 ) : (
                   <div>Contratação Direta de Serviços Técnicos Especializados</div>

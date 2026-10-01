@@ -483,6 +483,8 @@ export const PropostasPage: React.FC = () => {
                               </div>
                               <div className="text-[11px] text-slate-500">
                                 CNPJ: {p.expand.empresa.cnpj}
+                                {p.expand.empresa.municipio &&
+                                  ` • ${p.expand.empresa.municipio}/${p.expand.empresa.uf || ''}`}
                               </div>
                             </div>
                           ) : p.expand?.cliente_pf ? (
@@ -491,7 +493,10 @@ export const PropostasPage: React.FC = () => {
                                 {p.expand.cliente_pf.nome}
                               </div>
                               <div className="text-[11px] text-slate-500">
-                                PF • {p.expand.cliente_pf.cidade}/{p.expand.cliente_pf.estado}
+                                PF{' '}
+                                {p.expand.cliente_pf.endereco
+                                  ? `• ${p.expand.cliente_pf.endereco}`
+                                  : ''}
                               </div>
                             </div>
                           ) : (
@@ -503,10 +508,10 @@ export const PropostasPage: React.FC = () => {
                           {p.expand?.contrato ? (
                             <div>
                               <div className="font-medium text-slate-800 line-clamp-1">
-                                {p.expand.contrato.numero_contrato}
+                                {p.expand.contrato.numero}
                               </div>
                               <div className="text-[11px] text-slate-500 line-clamp-1">
-                                {p.expand.contrato.orgao_contratante}
+                                {p.expand.contrato.orgao}
                               </div>
                             </div>
                           ) : (

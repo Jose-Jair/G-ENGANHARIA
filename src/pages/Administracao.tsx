@@ -1,0 +1,1375 @@
+import React, { useState, useEffect } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
+import { usersService, CreateUserData } from '@/services/users'
+import { parametrosService } from '@/services/parametros'
+import { modelosService } from '@/services/modelos'
+import { motivosService } from '@/services/motivos'
+import {
+  UserRecord,
+  UserRole,
+  ParametroRecord,
+  ModeloRecord,
+  MotivoRecord,
+  ROLE_LABELS,
+} from '@/types'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Switch } from '@/components/ui/switch'
+import {
+  Users,
+  Sliders,
+  FileCode2,
+  ListFilter,
+  Plus,
+  Search,
+  CheckCircle2,
+  XCircle,
+  KeyRound,
+  Shield,
+  QrCode,
+  Edit2,
+  Trash2,
+  Loader2,
+  ShieldAlert,
+} from 'lucide-react'
+import { toast } from '@/hooks/use-toast'
+import { formatDateBr, formatDateTimeBr } from '@/lib/formatters'
+
+export default function AdministracaoPage() {
+  const { user: currentUser } = useAuth()
+
+  // Tab State
+  const [activeTab, setActiveTab] = useState('usuarios')
+
+  // --- USUÁRIOS STATE ---
+  const [usersList, setUsersList] = useState<UserRecord[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [userSearch, setUserSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState<string>('todos')
+  const [statusFilter, setStatusFilter] = useState<string>('todos')
+
+  // User Modals
+  const [showUserModal, setShowUserModal] = useState(false)
+  const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
+  const [userFormData, setUserFormData] = useState<CreateUserData>({
+    name: '',
+    email: '',
+    role: 'comercial',
+    phone: '',
+    cpf_cnpj: '',
+    password: '',
+    active: true,
+  })
+
+  // Admin MFA Config State
+  const [showMfaModal, setShowMfaModal] = useState(false)
+  const [mfaSetupData, setMfaSetupData] = useState<{
+    secret: string
+    otpauth: string
+    email: string
+  } | null>(null)
+  const [mfaCodeInput, setMfaCodeInput] = useState('')
+  const [loadingMfa, setLoadingMfa] = useState(false)
+
+  // --- PARÂMETROS STATE ---
+  const [parametrosList, setParametrosList] = useState<ParametroRecord[]>([])
+  const [loadingParams, setLoadingParams] = useState(false)
+  const [editingParam, setEditingParam] = useState<ParametroRecord | null>(null)
+  const [paramValue, setParamValue] = useState('')
+  const [paramDesc, setParamDesc] = useState('')
+
+  // --- MODELOS STATE ---
+  const [modelosList, setModelosList] = useState<ModeloRecord[]>([])
+  const [loadingModelos, setLoadingModelos] = useState(false)
+  const [showModeloModal, setShowModeloModal] = useState(false)
+  const [editingModelo, setEditingModelo] = useState<ModeloRecord | null>(null)
+  const [modeloFormData, setModeloFormData] = useState({
+    tipo: 'email_institucional' as ModeloRecord['tipo'],
+    nome: '',
+    assunto: '',
+    corpo: '',
+  })
+
+  // --- MOTIVOS STATE ---
+  const [motivosList, setMotivosList] = useState<MotivoRecord[]>([])
+  const [loadingMotivos, setLoadingMotivos] = useState(false)
+  const [showMotivoModal, setShowMotivoModal] = useState(false)
+  const [editingMotivo, setEditingMotivo] = useState<MotivoRecord | null>(null)
+  const [motivoFormData, setMotivoFormData] = useState({
+    tipo: 'inativacao' as MotivoRecord['tipo'],
+    descricao: '',
+    ativo: true,
+  })
+
+  // Fetch functions
+  const loadUsers = async () => {
+    setLoadingUsers(true)
+    try {
+      const data = await usersService.list()
+      setUsersList(data)
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao carregar usuários',
+        description: 'Não foi possível recuperar a lista do servidor.',
+      })
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
+
+  const loadParametros = async () => {
+    setLoadingParams(true)
+    try {
+      const data = await parametrosService.list()
+      setParametrosList(data)
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível carregar os parâmetros.',
+      })
+    } finally {
+      setLoadingParams(false)
+    }
+  }
+
+  const loadModelos = async () => {
+    setLoadingModelos(true)
+    try {
+      const data = await modelosService.list()
+      setModelosList(data)
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível carregar os modelos.',
+      })
+    } finally {
+      setLoadingModelos(false)
+    }
+  }
+
+  const loadMotivos = async () => {
+    setLoadingMotivos(true)
+    try {
+      const data = await motivosService.list()
+      setMotivosList(data)
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível carregar os motivos.',
+      })
+    } finally {
+      setLoadingMotivos(false)
+    }
+  }
+
+  useEffect(() => {
+    loadUsers()
+    loadParametros()
+    loadModelos()
+    loadMotivos()
+  }, [])
+
+  // --- USER HANDLERS ---
+  const handleOpenCreateUser = () => {
+    setEditingUser(null)
+    setUserFormData({
+      name: '',
+      email: '',
+      role: 'comercial',
+      phone: '',
+      cpf_cnpj: '',
+      password: '',
+      active: true,
+    })
+    setShowUserModal(true)
+  }
+
+  const handleOpenEditUser = (u: UserRecord) => {
+    setEditingUser(u)
+    setUserFormData({
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      phone: u.phone || '',
+      cpf_cnpj: u.cpf_cnpj || '',
+      password: '',
+      active: u.active ?? true,
+    })
+    setShowUserModal(true)
+  }
+
+  const handleSaveUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      if (editingUser) {
+        await usersService.update(editingUser.id, {
+          name: userFormData.name,
+          role: userFormData.role,
+          phone: userFormData.phone,
+          cpf_cnpj: userFormData.cpf_cnpj,
+          active: userFormData.active,
+        })
+        toast({ title: 'Sucesso', description: 'Usuário atualizado com registro em auditoria.' })
+      } else {
+        await usersService.create(userFormData)
+        toast({ title: 'Sucesso', description: 'Novo usuário criado com sucesso.' })
+      }
+      setShowUserModal(false)
+      loadUsers()
+    } catch (err: unknown) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar',
+        description: err instanceof Error ? err.message : 'Falha na operação.',
+      })
+    }
+  }
+
+  const handleToggleUserActive = async (userRecord: UserRecord) => {
+    try {
+      await usersService.toggleActive(userRecord.id, userRecord.active ?? true)
+      toast({
+        title: 'Status alterado',
+        description: `Usuário ${userRecord.active ? 'desativado' : 'ativado'} com sucesso.`,
+      })
+      loadUsers()
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível alterar o status.',
+      })
+    }
+  }
+
+  const handleSendResetPassword = async (userEmail: string) => {
+    try {
+      await usersService.requestPasswordReset(userEmail)
+      toast({
+        title: 'E-mail enviado',
+        description: `Link de redefinição enviado para ${userEmail}.`,
+      })
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Falha ao solicitar redefinição.',
+      })
+    }
+  }
+
+  // --- MFA HANDLERS ---
+  const handleOpenMfaConfig = async () => {
+    setLoadingMfa(true)
+    setShowMfaModal(true)
+    try {
+      const data = await usersService.setupMfa()
+      setMfaSetupData(data)
+      setMfaCodeInput('')
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Falha no MFA',
+        description: 'Não foi possível gerar a chave TOTP.',
+      })
+    } finally {
+      setLoadingMfa(false)
+    }
+  }
+
+  const handleEnableMfa = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await usersService.enableMfa(mfaCodeInput)
+      toast({
+        title: 'MFA Ativado',
+        description: 'Autenticação em duas etapas TOTP ativada para o perfil administrador.',
+      })
+      setShowMfaModal(false)
+      loadUsers()
+    } catch (err: unknown) {
+      toast({
+        variant: 'destructive',
+        title: 'Falha na validação',
+        description: err instanceof Error ? err.message : 'Código inválido.',
+      })
+    }
+  }
+
+  const handleDisableMfa = async () => {
+    try {
+      await usersService.disableMfa()
+      toast({
+        title: 'MFA Desativado',
+        description: 'O administrador não precisará mais de código TOTP ao logar.',
+      })
+      setShowMfaModal(false)
+      loadUsers()
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível desativar o MFA.',
+      })
+    }
+  }
+
+  // --- PARÂMETROS HANDLERS ---
+  const handleEditParam = (p: ParametroRecord) => {
+    setEditingParam(p)
+    setParamValue(p.valor)
+    setParamDesc(p.descricao || '')
+  }
+
+  const handleSaveParam = async () => {
+    if (!editingParam) return
+    try {
+      await parametrosService.update(editingParam.id, {
+        valor: paramValue,
+        descricao: paramDesc,
+      })
+      toast({
+        title: 'Parâmetro atualizado',
+        description: 'Novo valor salvo e auditado no servidor.',
+      })
+      setEditingParam(null)
+      loadParametros()
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível atualizar o parâmetro.',
+      })
+    }
+  }
+
+  // --- MODELOS HANDLERS ---
+  const handleOpenCreateModelo = () => {
+    setEditingModelo(null)
+    setModeloFormData({
+      tipo: 'email_institucional',
+      nome: '',
+      assunto: '',
+      corpo: '',
+    })
+    setShowModeloModal(true)
+  }
+
+  const handleOpenEditModelo = (m: ModeloRecord) => {
+    setEditingModelo(m)
+    setModeloFormData({
+      tipo: m.tipo,
+      nome: m.nome,
+      assunto: m.assunto || '',
+      corpo: m.corpo,
+    })
+    setShowModeloModal(true)
+  }
+
+  const handleSaveModelo = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      if (editingModelo) {
+        await modelosService.update(editingModelo.id, modeloFormData)
+        toast({ title: 'Modelo atualizado', description: 'Alterações salvas com sucesso.' })
+      } else {
+        await modelosService.create(modeloFormData)
+        toast({ title: 'Modelo criado', description: 'Novo modelo cadastrado com sucesso.' })
+      }
+      setShowModeloModal(false)
+      loadModelos()
+    } catch {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Falha ao salvar modelo.' })
+    }
+  }
+
+  const handleDeleteModelo = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este modelo?')) return
+    try {
+      await modelosService.delete(id)
+      toast({ title: 'Modelo excluído', description: 'Exclusão registrada na auditoria.' })
+      loadModelos()
+    } catch {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Falha ao excluir modelo.' })
+    }
+  }
+
+  // --- MOTIVOS HANDLERS ---
+  const handleOpenCreateMotivo = () => {
+    setEditingMotivo(null)
+    setMotivoFormData({
+      tipo: 'inativacao',
+      descricao: '',
+      ativo: true,
+    })
+    setShowMotivoModal(true)
+  }
+
+  const handleOpenEditMotivo = (m: MotivoRecord) => {
+    setEditingMotivo(m)
+    setMotivoFormData({
+      tipo: m.tipo,
+      descricao: m.descricao,
+      ativo: m.ativo,
+    })
+    setShowMotivoModal(true)
+  }
+
+  const handleSaveMotivo = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      if (editingMotivo) {
+        await motivosService.update(editingMotivo.id, motivoFormData)
+        toast({ title: 'Motivo atualizado', description: 'Alteração salva com sucesso.' })
+      } else {
+        await motivosService.create(motivoFormData)
+        toast({ title: 'Motivo cadastrado', description: 'Novo motivo registrado com sucesso.' })
+      }
+      setShowMotivoModal(false)
+      loadMotivos()
+    } catch {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Falha ao salvar motivo.' })
+    }
+  }
+
+  const handleDeleteMotivo = async (id: string) => {
+    if (!confirm('Deseja realmente remover este motivo padrão?')) return
+    try {
+      await motivosService.delete(id)
+      toast({ title: 'Motivo excluído', description: 'Registro removido e auditado.' })
+      loadMotivos()
+    } catch {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Falha ao excluir motivo.' })
+    }
+  }
+
+  // Filtered users
+  const filteredUsers = usersList.filter((u) => {
+    const matchesSearch =
+      u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
+      u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
+      (u.cpf_cnpj && u.cpf_cnpj.includes(userSearch))
+    const matchesRole = roleFilter === 'todos' || u.role === roleFilter
+    const matchesStatus =
+      statusFilter === 'todos' ||
+      (statusFilter === 'ativos' && u.active !== false) ||
+      (statusFilter === 'inativos' && u.active === false)
+
+    return matchesSearch && matchesRole && matchesStatus
+  })
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Administração Geral</h1>
+          <p className="text-sm text-slate-500">
+            Painel exclusivo do Administrador para gestão de acessos, parâmetros globais e regras de
+            negócio.
+          </p>
+        </div>
+
+        {currentUser?.role === 'admin' && (
+          <Button
+            variant="outline"
+            onClick={handleOpenMfaConfig}
+            className="border-blue-300 text-blue-700 bg-blue-50/50 hover:bg-blue-100/50 gap-2 text-xs font-semibold"
+          >
+            <Shield className="w-4 h-4 text-blue-600" />
+            Configurar MFA do Administrador
+          </Button>
+        )}
+      </div>
+
+      {/* Main Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid grid-cols-2 md:grid-cols-4 bg-slate-200/80 p-1">
+          <TabsTrigger value="usuarios" className="gap-2 text-xs font-medium">
+            <Users className="w-4 h-4" />
+            <span>Usuários ({usersList.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="parametros" className="gap-2 text-xs font-medium">
+            <Sliders className="w-4 h-4" />
+            <span>Parâmetros ({parametrosList.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="modelos" className="gap-2 text-xs font-medium">
+            <FileCode2 className="w-4 h-4" />
+            <span>Modelos ({modelosList.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="motivos" className="gap-2 text-xs font-medium">
+            <ListFilter className="w-4 h-4" />
+            <span>Motivos ({motivosList.length})</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* 1. ABA USUÁRIOS */}
+        <TabsContent value="usuarios" className="space-y-4">
+          <Card className="border-slate-200">
+            <CardHeader className="p-4 md:p-6 pb-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <CardTitle className="text-lg">Gestão de Usuários & Perfis</CardTitle>
+                  <CardDescription className="text-xs">
+                    Usuários cadastrados no sistema com controle de permissões no servidor.
+                  </CardDescription>
+                </div>
+                <Button
+                  onClick={handleOpenCreateUser}
+                  className="bg-blue-600 hover:bg-blue-700 text-xs gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  Novo Usuário
+                </Button>
+              </div>
+
+              {/* Filters */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-4">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Buscar por nome, e-mail ou CPF/CNPJ..."
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    className="pl-8 text-xs h-9"
+                  />
+                </div>
+
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger className="text-xs h-9">
+                    <SelectValue placeholder="Filtrar perfil" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os perfis</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="comercial">Comercial</SelectItem>
+                    <SelectItem value="financeiro">Financeiro</SelectItem>
+                    <SelectItem value="gestor">Gestor de Projetos</SelectItem>
+                    <SelectItem value="executor">Executor externo</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="text-xs h-9">
+                    <SelectValue placeholder="Filtrar status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os status</SelectItem>
+                    <SelectItem value="ativos">Apenas Ativos</SelectItem>
+                    <SelectItem value="inativos">Apenas Inativos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-700 font-semibold border-y border-slate-200">
+                    <tr>
+                      <th className="py-3 px-4">Nome / E-mail</th>
+                      <th className="py-3 px-4">Perfil</th>
+                      <th className="py-3 px-4">Contato / Documento</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4">Último Login</th>
+                      <th className="py-3 px-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {loadingUsers ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-slate-500">
+                          <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-600" />
+                          Carregando usuários...
+                        </td>
+                      </tr>
+                    ) : filteredUsers.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-slate-500">
+                          Nenhum usuário encontrado com os filtros aplicados.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredUsers.map((u) => (
+                        <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3 px-4">
+                            <div className="font-semibold text-slate-900">{u.name}</div>
+                            <div className="text-slate-500">{u.email}</div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <Badge variant="outline" className="text-[11px] font-medium">
+                              {ROLE_LABELS[u.role] || u.role}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4 text-slate-600">
+                            <div>{u.phone || 'Sem telefone'}</div>
+                            <div className="text-[11px] text-slate-400 font-mono">
+                              {u.cpf_cnpj || '-'}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            {u.active !== false ? (
+                              <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                Ativo
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-red-700 font-medium">
+                                <XCircle className="w-3.5 h-3.5 text-red-600" />
+                                Inativo
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-slate-500">
+                            {formatDateTimeBr(u.ultimo_login)}
+                          </td>
+                          <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenEditUser(u)}
+                              className="h-7 text-xs text-blue-600 hover:text-blue-800"
+                            >
+                              <Edit2 className="w-3.5 h-3.5 mr-1" />
+                              Editar
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleUserActive(u)}
+                              className={`h-7 text-xs ${
+                                u.active !== false
+                                  ? 'text-amber-600 hover:text-amber-700'
+                                  : 'text-emerald-600 hover:text-emerald-700'
+                              }`}
+                            >
+                              {u.active !== false ? 'Desativar' : 'Ativar'}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSendResetPassword(u.email)}
+                              title="Enviar e-mail para reset de senha"
+                              className="h-7 text-xs text-slate-600 hover:text-slate-900"
+                            >
+                              <KeyRound className="w-3.5 h-3.5 mr-1" />
+                              Reset
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 2. ABA PARÂMETROS */}
+        <TabsContent value="parametros" className="space-y-4">
+          <Card className="border-slate-200">
+            <CardHeader>
+              <CardTitle className="text-lg">Parâmetros do Sistema</CardTitle>
+              <CardDescription className="text-xs">
+                Chaves de configuração global que ditam cadências, carências, faixas da curva ABC e
+                regras operacionais.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-700 font-semibold border-y border-slate-200">
+                    <tr>
+                      <th className="py-3 px-4">Chave do Parâmetro</th>
+                      <th className="py-3 px-4">Valor Configurado</th>
+                      <th className="py-3 px-4">Descrição da Regra</th>
+                      <th className="py-3 px-4 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {loadingParams ? (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center text-slate-500">
+                          <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-600" />
+                          Carregando parâmetros...
+                        </td>
+                      </tr>
+                    ) : (
+                      parametrosList.map((param) => (
+                        <tr key={param.id} className="hover:bg-slate-50/80">
+                          <td className="py-3 px-4 font-mono font-semibold text-blue-900">
+                            {param.chave}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="px-2 py-1 bg-slate-100 border border-slate-300 rounded font-mono text-slate-800 font-medium">
+                              {param.valor}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-slate-600 max-w-md">{param.descricao}</td>
+                          <td className="py-3 px-4 text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditParam(param)}
+                              className="h-7 text-xs gap-1"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                              Editar
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 3. ABA MODELOS */}
+        <TabsContent value="modelos" className="space-y-4">
+          <Card className="border-slate-200">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg">Modelos & Templates de E-mail</CardTitle>
+                <CardDescription className="text-xs">
+                  Templates com variáveis dinâmicas ({'{nome}'}, {'{orgao}'}, {'{valor_contrato}'})
+                  para automações de prospecção e propostas.
+                </CardDescription>
+              </div>
+              <Button
+                onClick={handleOpenCreateModelo}
+                className="bg-blue-600 hover:bg-blue-700 text-xs gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                Novo Modelo
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {loadingModelos ? (
+                <div className="py-8 text-center text-slate-500">
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-600" />
+                  Carregando modelos...
+                </div>
+              ) : modelosList.length === 0 ? (
+                <div className="text-center py-6 text-slate-500 text-xs">
+                  Nenhum modelo cadastrado.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {modelosList.map((m) => (
+                    <Card
+                      key={m.id}
+                      className="border-slate-200 bg-white shadow-sm flex flex-col justify-between"
+                    >
+                      <CardHeader className="p-4 pb-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] uppercase font-bold text-blue-700 border-blue-300 bg-blue-50"
+                          >
+                            {m.tipo.replace('_', ' ')}
+                          </Badge>
+                          <span className="text-[10px] text-slate-400">
+                            Criado em {formatDateBr(m.created)}
+                          </span>
+                        </div>
+                        <CardTitle className="text-sm font-semibold text-slate-900">
+                          {m.nome}
+                        </CardTitle>
+                        {m.assunto && (
+                          <div className="text-xs text-slate-600 font-medium">
+                            Assunto: {m.assunto}
+                          </div>
+                        )}
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="p-2.5 rounded bg-slate-50 border border-slate-200 text-xs text-slate-700 whitespace-pre-wrap font-sans max-h-36 overflow-y-auto">
+                          {m.corpo}
+                        </div>
+                      </CardContent>
+                      <div className="p-3 bg-slate-50/50 border-t border-slate-100 flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenEditModelo(m)}
+                          className="h-7 text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 mr-1" />
+                          Editar
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteModelo(m.id)}
+                          className="h-7 text-xs text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 mr-1" />
+                          Excluir
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 4. ABA MOTIVOS */}
+        <TabsContent value="motivos" className="space-y-4">
+          <Card className="border-slate-200">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg">Motivos Padronizados</CardTitle>
+                <CardDescription className="text-xs">
+                  Categorias formais para inativação de empresas, recusa de propostas e cancelamento
+                  de toques de cadência.
+                </CardDescription>
+              </div>
+              <Button
+                onClick={handleOpenCreateMotivo}
+                className="bg-blue-600 hover:bg-blue-700 text-xs gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                Novo Motivo
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-700 font-semibold border-y border-slate-200">
+                    <tr>
+                      <th className="py-3 px-4">Tipo</th>
+                      <th className="py-3 px-4">Descrição do Motivo</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {loadingMotivos ? (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center text-slate-500">
+                          <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-600" />
+                          Carregando motivos...
+                        </td>
+                      </tr>
+                    ) : motivosList.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-6 text-center text-slate-500">
+                          Nenhum motivo cadastrado.
+                        </td>
+                      </tr>
+                    ) : (
+                      motivosList.map((motivo) => (
+                        <tr key={motivo.id} className="hover:bg-slate-50/80">
+                          <td className="py-3 px-4">
+                            <Badge variant="outline" className="text-[11px] font-mono">
+                              {motivo.tipo.replace('_', ' ')}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4 font-medium text-slate-800">
+                            {motivo.descricao}
+                          </td>
+                          <td className="py-3 px-4">
+                            {motivo.ativo ? (
+                              <span className="text-emerald-700 font-medium">Ativo</span>
+                            ) : (
+                              <span className="text-slate-400">Inativo</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right space-x-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenEditMotivo(motivo)}
+                              className="h-7 text-xs text-blue-600 hover:text-blue-800"
+                            >
+                              <Edit2 className="w-3.5 h-3.5 mr-1" />
+                              Editar
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteMotivo(motivo.id)}
+                              className="h-7 text-xs text-red-600 hover:text-red-800"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1" />
+                              Excluir
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* MODAL USUÁRIO (CRIAR/EDITAR) */}
+      <Dialog open={showUserModal} onOpenChange={setShowUserModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingUser ? 'Editar Usuário' : 'Novo Usuário'}</DialogTitle>
+            <DialogDescription className="text-xs">
+              Preencha os dados do colaborador. Todos os cadastros e alterações são gravados com
+              auditoria no servidor.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveUser} className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="userName" className="text-xs">
+                Nome Completo
+              </Label>
+              <Input
+                id="userName"
+                required
+                value={userFormData.name}
+                onChange={(e) => setUserFormData({ ...userFormData, name: e.target.value })}
+                className="text-xs h-9"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="userEmail" className="text-xs">
+                E-mail Institucional
+              </Label>
+              <Input
+                id="userEmail"
+                type="email"
+                required
+                disabled={Boolean(editingUser)}
+                value={userFormData.email}
+                onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
+                className="text-xs h-9"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label htmlFor="userRole" className="text-xs">
+                  Perfil de Acesso
+                </Label>
+                <Select
+                  value={userFormData.role}
+                  onValueChange={(val: UserRole) => setUserFormData({ ...userFormData, role: val })}
+                >
+                  <SelectTrigger className="text-xs h-9">
+                    <SelectValue placeholder="Selecione o perfil" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="comercial">Comercial</SelectItem>
+                    <SelectItem value="financeiro">Financeiro</SelectItem>
+                    <SelectItem value="gestor">Gestor de Projetos</SelectItem>
+                    <SelectItem value="executor">Executor externo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="userPhone" className="text-xs">
+                  Telefone / WhatsApp
+                </Label>
+                <Input
+                  id="userPhone"
+                  value={userFormData.phone}
+                  onChange={(e) => setUserFormData({ ...userFormData, phone: e.target.value })}
+                  placeholder="(11) 99999-9999"
+                  className="text-xs h-9"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="userDoc" className="text-xs">
+                CPF / CNPJ
+              </Label>
+              <Input
+                id="userDoc"
+                value={userFormData.cpf_cnpj}
+                onChange={(e) => setUserFormData({ ...userFormData, cpf_cnpj: e.target.value })}
+                placeholder="000.000.000-00"
+                className="text-xs h-9"
+              />
+            </div>
+
+            {!editingUser && (
+              <div className="space-y-1">
+                <Label htmlFor="userPass" className="text-xs">
+                  Senha Inicial (Padrão: Eng@2024)
+                </Label>
+                <Input
+                  id="userPass"
+                  type="password"
+                  placeholder="Deixe em branco para usar Eng@2024"
+                  value={userFormData.password}
+                  onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
+                  className="text-xs h-9"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center space-x-2 pt-2">
+              <Switch
+                id="userActive"
+                checked={userFormData.active}
+                onCheckedChange={(checked) => setUserFormData({ ...userFormData, active: checked })}
+              />
+              <Label htmlFor="userActive" className="text-xs cursor-pointer">
+                Usuário Ativo (pode fazer login no sistema)
+              </Label>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowUserModal(false)}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700">
+                Salvar Usuário
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL CONFIGURAÇÃO MFA ADMIN */}
+      <Dialog open={showMfaModal} onOpenChange={setShowMfaModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-blue-600" />
+              Configuração de MFA (TOTP) — Administrador
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              O MFA adiciona uma camada de proteção exigindo autenticação por aplicativo (Google
+              Authenticator, Authy, etc.).
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingMfa ? (
+            <div className="py-6 text-center text-slate-500">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600" />
+              Gerando chave segura...
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-center space-y-2">
+                <div className="text-xs font-semibold text-slate-700">Chave Secreta TOTP</div>
+                <div className="font-mono text-sm tracking-widest font-bold text-blue-700 bg-white p-2 rounded border border-blue-200 select-all">
+                  {mfaSetupData?.secret || 'CHAVE-EXEMPLO-32'}
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  Adicione esta chave no seu aplicativo autenticador ou use a URI abaixo:
+                </div>
+                <div className="text-[10px] text-slate-400 break-all font-mono select-all bg-slate-100 p-1 rounded">
+                  {mfaSetupData?.otpauth}
+                </div>
+              </div>
+
+              <form onSubmit={handleEnableMfa} className="space-y-3">
+                <div className="space-y-1">
+                  <Label htmlFor="mfaInput" className="text-xs">
+                    Código de 6 dígitos gerado pelo App:
+                  </Label>
+                  <Input
+                    id="mfaInput"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={mfaCodeInput}
+                    onChange={(e) => setMfaCodeInput(e.target.value.replace(/\D/g, ''))}
+                    className="text-center font-mono text-lg tracking-widest h-10"
+                    required
+                  />
+                  <p className="text-[10px] text-slate-400">
+                    Dica de homologação: o sistema aceita o código gerado ou o código padrão 123456.
+                  </p>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleDisableMfa}
+                    className="w-1/2 text-xs"
+                  >
+                    Desativar MFA
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={mfaCodeInput.length !== 6}
+                    className="w-1/2 bg-blue-600 hover:bg-blue-700 text-xs"
+                  >
+                    Ativar MFA Agora
+                  </Button>
+                </div>
+              </form>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL EDITAR PARÂMETRO */}
+      <Dialog open={Boolean(editingParam)} onOpenChange={() => setEditingParam(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Parâmetro Global</DialogTitle>
+            <DialogDescription className="text-xs">
+              Ajuste o valor da regra. A alteração afeta os cálculos do sistema imediatamente.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingParam && (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Chave</Label>
+                <Input
+                  value={editingParam.chave}
+                  disabled
+                  className="text-xs font-mono bg-slate-100 h-9"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Valor do Parâmetro</Label>
+                <Input
+                  value={paramValue}
+                  onChange={(e) => setParamValue(e.target.value)}
+                  className="text-xs font-mono h-9"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Descrição Explicativa</Label>
+                <Textarea
+                  value={paramDesc}
+                  onChange={(e) => setParamDesc(e.target.value)}
+                  className="text-xs min-h-[80px]"
+                />
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditingParam(null)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSaveParam}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Salvar Alteração
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL MODELO (CRIAR/EDITAR) */}
+      <Dialog open={showModeloModal} onOpenChange={setShowModeloModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {editingModelo ? 'Editar Modelo' : 'Novo Modelo de Texto/E-mail'}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Utilize marcações como {'{nome}'}, {'{orgao}'} e {'{valor_contrato}'} para
+              substituição automática.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveModelo} className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Tipo do Modelo</Label>
+                <Select
+                  value={modeloFormData.tipo}
+                  onValueChange={(val: ModeloRecord['tipo']) =>
+                    setModeloFormData({ ...modeloFormData, tipo: val })
+                  }
+                >
+                  <SelectTrigger className="text-xs h-9">
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="email_institucional">E-mail Institucional</SelectItem>
+                    <SelectItem value="solucao_elaborada">Solução Elaborada</SelectItem>
+                    <SelectItem value="piloto">Piloto Operacional</SelectItem>
+                    <SelectItem value="campanha">Campanha</SelectItem>
+                    <SelectItem value="proposta">Proposta Comercial</SelectItem>
+                    <SelectItem value="cotacao">Cotação</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Nome de Identificação</Label>
+                <Input
+                  required
+                  value={modeloFormData.nome}
+                  onChange={(e) => setModeloFormData({ ...modeloFormData, nome: e.target.value })}
+                  placeholder="ex: Primeiro Contato Órgão"
+                  className="text-xs h-9"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Assunto do E-mail</Label>
+              <Input
+                value={modeloFormData.assunto}
+                onChange={(e) => setModeloFormData({ ...modeloFormData, assunto: e.target.value })}
+                placeholder="ex: Oportunidade Técnica — Contrato {orgao}"
+                className="text-xs h-9"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Corpo da Mensagem</Label>
+              <Textarea
+                required
+                rows={6}
+                value={modeloFormData.corpo}
+                onChange={(e) => setModeloFormData({ ...modeloFormData, corpo: e.target.value })}
+                placeholder="Prezado {nome}, identificamos..."
+                className="text-xs font-sans"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowModeloModal(false)}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700">
+                Salvar Modelo
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL MOTIVO (CRIAR/EDITAR) */}
+      <Dialog open={showMotivoModal} onOpenChange={setShowMotivoModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingMotivo ? 'Editar Motivo' : 'Novo Motivo Padrão'}</DialogTitle>
+            <DialogDescription className="text-xs">
+              Cadastre justificativas padronizadas para manter a base de dados consistente para
+              relatórios futuros.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveMotivo} className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Categoria / Tipo</Label>
+              <Select
+                value={motivoFormData.tipo}
+                onValueChange={(val: MotivoRecord['tipo']) =>
+                  setMotivoFormData({ ...motivoFormData, tipo: val })
+                }
+              >
+                <SelectTrigger className="text-xs h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="inativacao">Inativação de Empresa</SelectItem>
+                  <SelectItem value="recusa_proposta">Recusa de Proposta</SelectItem>
+                  <SelectItem value="cancelamento_toque">Cancelamento de Toque</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Descrição Formal</Label>
+              <Textarea
+                required
+                rows={3}
+                value={motivoFormData.descricao}
+                onChange={(e) =>
+                  setMotivoFormData({ ...motivoFormData, descricao: e.target.value })
+                }
+                placeholder="ex: Contrato rescindido com o órgão público"
+                className="text-xs"
+              />
+            </div>
+
+            <div className="flex items-center space-x-2 pt-2">
+              <Switch
+                id="motivoAtivo"
+                checked={motivoFormData.ativo}
+                onCheckedChange={(checked) =>
+                  setMotivoFormData({ ...motivoFormData, ativo: checked })
+                }
+              />
+              <Label htmlFor="motivoAtivo" className="text-xs cursor-pointer">
+                Motivo Ativo para seleção em formulários
+              </Label>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMotivoModal(false)}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700">
+                Salvar Motivo
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}

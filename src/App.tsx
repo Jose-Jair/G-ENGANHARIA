@@ -1,27 +1,61 @@
-/* Main App Component - Handles routing (using react-router-dom), query client and other providers - use this file to add all routes */
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import Index from './pages/Index'
+import { AuthProvider } from './contexts/AuthContext'
+import { ProtectedRoute } from './components/ProtectedRoute'
+import AppLayout from './components/AppLayout'
+import LoginPage from './pages/Login'
+import IndexPage from './pages/Index'
+import WelcomePage from './pages/Welcome'
+import AdministracaoPage from './pages/Administracao'
+import AuditoriaPage from './pages/Auditoria'
 import NotFound from './pages/NotFound'
-import Layout from './components/Layout'
-
-// ONLY IMPORT AND RENDER WORKING PAGES, NEVER ADD PLACEHOLDER COMPONENTS OR PAGES IN THIS FILE
-// AVOID REMOVING ANY CONTEXT PROVIDERS FROM THIS FILE (e.g. TooltipProvider, Toaster, Sonner)
 
 const App = () => (
   <BrowserRouter>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES MUST BE ADDED HERE */}
-        </Route>
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <AuthProvider>
+        <Toaster />
+        <Sonner />
+        <Routes>
+          {/* Public login route */}
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* Authenticated routes wrapped with AppLayout */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/" element={<IndexPage />} />
+            <Route path="/boas-vindas" element={<WelcomePage />} />
+
+            {/* Admin only routes */}
+            <Route
+              path="/administracao"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdministracaoPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/auditoria"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AuditoriaPage />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
+
+          {/* Catch-all */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AuthProvider>
     </TooltipProvider>
   </BrowserRouter>
 )

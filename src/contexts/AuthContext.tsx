@@ -8,6 +8,10 @@ interface AuthContextType {
   role: UserRole | null
   isLoading: boolean
   isAdmin: boolean
+  isComercial: boolean
+  isFinanceiro: boolean
+  isGestor: boolean
+  isExecutor: boolean
   login: (email: string, password: string) => Promise<{ user: UserRecord; requiresMfa: boolean }>
   confirmMfaLogin: (code: string) => Promise<boolean>
   logout: () => Promise<void>
@@ -124,6 +128,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     role: user?.role || null,
     isLoading,
     isAdmin: user?.role === 'admin',
+    isComercial: user?.role === 'comercial',
+    isFinanceiro: user?.role === 'financeiro',
+    isGestor: user?.role === 'gestor',
+    isExecutor: user?.role === 'executor',
     login,
     confirmMfaLogin,
     logout,

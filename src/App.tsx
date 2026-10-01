@@ -10,6 +10,8 @@ import IndexPage from './pages/Index'
 import WelcomePage from './pages/Welcome'
 import AdministracaoPage from './pages/Administracao'
 import AuditoriaPage from './pages/Auditoria'
+import EmpresasPage from './pages/Empresas'
+import EmpresasImportarPage from './pages/EmpresasImportar'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -32,6 +34,24 @@ const App = () => (
           >
             <Route path="/" element={<IndexPage />} />
             <Route path="/boas-vindas" element={<WelcomePage />} />
+
+            {/* Rotas de Empresas / Cadastros (Etapa 2) */}
+            <Route
+              path="/empresas"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'comercial', 'financeiro', 'gestor']}>
+                  <EmpresasPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/empresas/importar"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'comercial']}>
+                  <EmpresasImportarPage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Admin only routes */}
             <Route

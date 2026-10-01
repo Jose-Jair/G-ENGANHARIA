@@ -72,6 +72,30 @@ export default function AppLayout() {
             <span>Página Inicial</span>
           </NavLink>
 
+          {/* Módulo de Empresas / Cadastros (Admin, Comercial, Financeiro, Gestor) */}
+          {user?.role && user.role !== 'executor' && (
+            <NavLink
+              to="/empresas"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`
+              }
+            >
+              <Building2 className="w-4 h-4" />
+              <div className="flex items-center justify-between flex-1">
+                <span>Empresas</span>
+                {(user.role === 'financeiro' || user.role === 'gestor') && (
+                  <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                    Leitura
+                  </span>
+                )}
+              </div>
+            </NavLink>
+          )}
+
           {/* Admin Exclusive Links */}
           {isAdmin && (
             <>
@@ -109,11 +133,11 @@ export default function AppLayout() {
             </>
           )}
 
-          {!isAdmin && (
+          {user?.role === 'executor' && (
             <div className="mt-6 p-3 rounded-lg bg-slate-800/60 border border-slate-700/60 text-xs text-slate-400">
-              <span className="font-semibold text-slate-300 block mb-1">Etapa 1 em Andamento:</span>
-              Módulos operacionais (Funil Comercial, Propostas, Gestão de Projetos e Financeiro)
-              serão liberados na Etapa 2.
+              <span className="font-semibold text-slate-300 block mb-1">Acesso Restrito:</span>
+              Como executor externo, suas ordens de serviço e demandas de engenharia serão
+              disponibilizadas na Etapa 5 (Execução).
             </div>
           )}
         </div>

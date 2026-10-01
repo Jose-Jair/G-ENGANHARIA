@@ -1,0 +1,970 @@
+import React, { useState, useEffect } from 'react'
+import {
+  EmpresaRecord,
+  ContratoRecord,
+  ContatoRecord,
+  CenarioEntrada,
+  UserRecord,
+  AuditLogRecord,
+} from '@/types'
+import { empresasService, CreateEmpresaData } from '@/services/empresas'
+import { contratosService } from '@/services/contratos'
+import { contatosService } from '@/services/contatos'
+import { empresaTimelineService } from '@/services/empresaTimeline'
+import { brasilApiService } from '@/services/brasilApi'
+import { cleanCnpj, formatCnpj, isValidCnpj, cleanPhoneForWa } from '@/lib/cnpj'
+import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
+import { EmpresaContratosTab } from './EmpresaContratosTab'
+import { EmpresaContatosTab } from './EmpresaContatosTab'
+import { EmpresaTimelineTab } from './EmpresaTimelineTab'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Building2,
+  Mail,
+  Phone,
+  Globe,
+  Instagram,
+  Linkedin,
+  MessageSquare,
+  AlertTriangle,
+  CheckCircle,
+  FileText,
+  Users,
+  History,
+  Sparkles,
+  ArrowRight,
+  ShieldAlert,
+} from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
+
+interface EmpresaDetailModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  empresa: EmpresaRecord | null
+  users: UserRecord[]
+  diasAlerta: number
+  readOnly: boolean
+  onSuccess: () => void
+}
+
+export function EmpresaDetailModal({
+  open,
+  onOpenChange,
+  empresa,
+  users,
+  diasAlerta,
+  readOnly,
+  onSuccess,
+}: EmpresaDetailModalProps) {
+  const { toast } = useToast()
+
+  const [activeTab, setActiveTab] = useState<'dados' | 'contratos' | 'contatos' | 'timeline'>(
+    'dados',
+  )
+  const [submitting, setSubmitting] = useState(false)
+  const [consultandoCnpj, setConsultandoCnpj] = useState(false)
+  const [avisoApi, setAvisoApi] = useState<string | null>(null)
+
+  // Sub-entidades carregadas
+  const [contratos, setContratos] = useState<ContratoRecord[]>([])
+  const [contatos, setContatos] = useState<ContatoRecord[]>([])
+  const [timelineLogs, setTimelineLogs] = useState<AuditLogRecord[]>([])
+  const [loadingTimeline, setLoadingTimeline] = useState(false)
+
+  // Form Fields
+  const [razaoSocial, setRazaoSocial] = useState('')
+  const [nomeFantasia, setNomeFantasia] = useState('')
+  const [cnpj, setCnpj] = useState('')
+  const [situacaoCadastral, setSituacaoCadastral] = useState('ATIVA')
+  const [cnae, setCnae] = useState('')
+  const [porte, setPorte] = useState('')
+  const [uf, setUf] = useState('')
+  const [municipio, setMunicipio] = useState('')
+  const [email, setEmail] = useState('')
+  const [telefone, setTelefone] = useState('')
+  const [instagram, setInstagram] = useState('')
+  const [linkedin, setLinkedin] = useState('')
+  const [site, setSite] = useState('')
+  const [etapaFunil, setEtapaFunil] = useState<EmpresaRecord['etapa_funil']>('identificada')
+  const [curva, setCurva] = useState<EmpresaRecord['curva']>('C')
+  const [responsavel, setResponsavel] = useState('')
+  const [status, setStatus] = useState<EmpresaRecord['status']>('ativa')
+  const [observacoes, setObservacoes] = useState('')
+
+  // Detecção dos 3 Cenários
+  const [cenarioDetectado, setCenarioDetectado] = useState<CenarioEntrada>('nova')
+  const [empresaExistenteDetectada, setEmpresaExistenteDetectada] = useState<EmpresaRecord | null>(
+    null,
+  )
+  const [cnpjErro, setCnpjErro] = useState<string | null>(null)
+
+  // WhatsApp quick text dialog para o contato geral da empresa
+  const [waModalOpen, setWaModalOpen] = useState(false)
+  const [waMessage, setWaMessage] = useState('')
+
+  // Ao abrir ou trocar de empresa
+  useEffect(() => {
+    if (!open) return
+    setActiveTab('dados')
+    setAvisoApi(null)
+    setCnpjErro(null)
+
+    if (empresa) {
+      // Modo edição/visualização
+      setRazaoSocial(empresa.razao_social || '')
+      setNomeFantasia(empresa.nome_fantasia || '')
+      setCnpj(formatCnpj(empresa.cnpj || ''))
+      setSituacaoCadastral(empresa.situacao_cadastral || 'ATIVA')
+      setCnae(empresa.cnae || '')
+      setPorte(empresa.porte || '')
+      setUf(empresa.uf || '')
+      setMunicipio(empresa.municipio || '')
+      setEmail(empresa.email || '')
+      setTelefone(empresa.telefone || '')
+      setInstagram(empresa.instagram || '')
+      setLinkedin(empresa.linkedin || '')
+      setSite(empresa.site || '')
+      setEtapaFunil(empresa.etapa_funil || 'identificada')
+      setCurva(empresa.curva || 'C')
+      setResponsavel(empresa.responsavel || '')
+      setStatus(empresa.status || 'ativa')
+      setObservacoes(empresa.observacoes || '')
+      setCenarioDetectado(empresa.etapa_funil === 'parceira' ? 'parceira' : 'cadastrada')
+      setEmpresaExistenteDetectada(empresa)
+
+      loadSubData(empresa.id)
+    } else {
+      // Modo novo cadastro
+      setRazaoSocial('')
+      setNomeFantasia('')
+      setCnpj('')
+      setSituacaoCadastral('ATIVA')
+      setCnae('')
+      setPorte('')
+      setUf('')
+      setMunicipio('')
+      setEmail('')
+      setTelefone('')
+      setInstagram('')
+      setLinkedin('')
+      setSite('')
+      setEtapaFunil('identificada')
+      setCurva('C')
+      setResponsavel(users[0]?.id || '')
+      setStatus('ativa')
+      setObservacoes('')
+      setCenarioDetectado('nova')
+      setEmpresaExistenteDetectada(null)
+      setContratos([])
+      setContatos([])
+      setTimelineLogs([])
+    }
+  }, [open, empresa])
+
+  const loadSubData = async (empId: string) => {
+    try {
+      const [cts, ctos] = await Promise.all([
+        contratosService.listByEmpresa(empId),
+        contatosService.listByEmpresa(empId),
+      ])
+      setContratos(cts)
+      setContatos(ctos)
+
+      setLoadingTimeline(true)
+      const logs = await empresaTimelineService.getTimeline(
+        empId,
+        cts.map((c) => c.id),
+        ctos.map((ct) => ct.id),
+      )
+      setTimelineLogs(logs)
+    } catch (err) {
+      console.error('Erro ao carregar dados relacionados:', err)
+    } finally {
+      setLoadingTimeline(false)
+    }
+  }
+
+  // Detectar cenário e consultar BrasilAPI ao alterar o CNPJ
+  const handleCnpjChange = async (val: string) => {
+    const formatted = formatCnpj(val)
+    setCnpj(formatted)
+    const raw = cleanCnpj(val)
+
+    if (raw.length < 14) {
+      setCnpjErro(null)
+      setAvisoApi(null)
+      if (!empresa) {
+        setCenarioDetectado('nova')
+        setEmpresaExistenteDetectada(null)
+      }
+      return
+    }
+
+    // Validar dígitos verificadores
+    if (!isValidCnpj(raw)) {
+      setCnpjErro('CNPJ inválido (dígitos verificadores incorretos).')
+      return
+    }
+    setCnpjErro(null)
+
+    // Se estamos cadastrando uma nova empresa, checar duplicidade no banco
+    if (!empresa) {
+      try {
+        const existente = await empresasService.findByCnpj(raw)
+        if (existente) {
+          setEmpresaExistenteDetectada(existente)
+          if (existente.etapa_funil === 'parceira') {
+            setCenarioDetectado('parceira')
+          } else {
+            setCenarioDetectado('cadastrada')
+          }
+          toast({
+            title: 'CNPJ já cadastrado no sistema!',
+            description: `A empresa "${existente.razao_social}" já existe. O sistema orientará para inclusão de contratos mantendo a etapa do funil.`,
+          })
+          return
+        } else {
+          setCenarioDetectado('nova')
+          setEmpresaExistenteDetectada(null)
+        }
+      } catch (e) {
+        console.warn('Erro ao checar CNPJ existente:', e)
+      }
+    }
+
+    // Consultar BrasilAPI
+    consultarApiReceita(raw)
+  }
+
+  const consultarApiReceita = async (rawCnpj: string) => {
+    setConsultandoCnpj(true)
+    setAvisoApi(null)
+    try {
+      const data = await brasilApiService.consultarCnpj(rawCnpj)
+
+      // Preencher campos automaticamente mantendo-os editáveis
+      if (data.razao_social) setRazaoSocial(data.razao_social)
+      if (data.nome_fantasia) setNomeFantasia(data.nome_fantasia)
+      if (data.situacao_cadastral) setSituacaoCadastral(data.situacao_cadastral)
+      if (data.cnae_fiscal_descricao) {
+        setCnae(`${data.cnae_fiscal || ''} - ${data.cnae_fiscal_descricao}`)
+      }
+      if (data.porte) setPorte(data.porte)
+      if (data.uf) setUf(data.uf)
+      if (data.municipio) setMunicipio(data.municipio)
+      if (data.email) setEmail(data.email.toLowerCase())
+      if (data.ddd_telefone_1) setTelefone(data.ddd_telefone_1)
+
+      toast({
+        title: 'Dados sincronizados via BrasilAPI',
+        description: 'Razão social, situação cadastral, CNAE, porte e endereço preenchidos.',
+      })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha na consulta'
+      setAvisoApi(
+        `Não foi possível consultar os dados automaticamente (${msg}) — preencha manualmente.`,
+      )
+    } finally {
+      setConsultandoCnpj(false)
+    }
+  }
+
+  const handleSaveEmpresa = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!razaoSocial.trim()) {
+      toast({
+        title: 'Razão Social obrigatória',
+        description: 'Informe a razão social da empresa.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const rawCnpj = cleanCnpj(cnpj)
+    if (rawCnpj) {
+      if (!isValidCnpj(rawCnpj)) {
+        toast({
+          title: 'CNPJ Inválido',
+          description: 'Corrija os dígitos verificadores do CNPJ antes de salvar.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      // Bloqueio de duplicidade se for nova empresa
+      if (!empresa) {
+        const existente = await empresasService.findByCnpj(rawCnpj)
+        if (existente) {
+          toast({
+            title: 'CNPJ já cadastrado',
+            description: `Já existe uma empresa cadastrada com este CNPJ (${existente.razao_social}).`,
+            variant: 'destructive',
+          })
+          return
+        }
+      }
+    }
+
+    setSubmitting(true)
+    try {
+      const payload: CreateEmpresaData = {
+        razao_social: razaoSocial.trim(),
+        nome_fantasia: nomeFantasia.trim(),
+        cnpj: formatCnpj(cnpj) || '',
+        situacao_cadastral: situacaoCadastral.trim() || 'ATIVA',
+        cnae: cnae.trim(),
+        porte: porte.trim(),
+        uf: uf.trim().toUpperCase(),
+        municipio: municipio.trim(),
+        email: email.trim().toLowerCase(),
+        telefone: telefone.trim(),
+        instagram: instagram.trim(),
+        linkedin: linkedin.trim(),
+        site: site.trim(),
+        etapa_funil: etapaFunil,
+        curva,
+        responsavel: responsavel || undefined,
+        status,
+        observacoes: observacoes.trim(),
+      }
+
+      if (empresa) {
+        await empresasService.update(empresa.id, payload)
+        toast({
+          title: 'Empresa atualizada',
+          description: 'Dados cadastrais salvos com sucesso.',
+        })
+      } else {
+        // Cenário 1: Nova empresa -> etapa_funil = "identificada"
+        payload.etapa_funil = 'identificada'
+        const created = await empresasService.create(payload)
+        toast({
+          title: 'Empresa cadastrada',
+          description: 'Nova empresa cadastrada na etapa Identificada.',
+        })
+      }
+
+      onSuccess()
+      onOpenChange(false)
+    } catch (err: unknown) {
+      toast({
+        title: 'Erro ao salvar empresa',
+        description: err instanceof Error ? err.message : 'Falha na gravação dos dados.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const openWaEmpresa = () => {
+    const rawNum = cleanPhoneForWa(telefone)
+    if (!rawNum) {
+      toast({
+        title: 'Sem telefone comercial',
+        description: 'Cadastre o telefone da empresa para abrir conversa.',
+        variant: 'destructive',
+      })
+      return
+    }
+    setWaMessage(
+      `Olá! Somos da Engenharia Contratos. Gostaríamos de apresentar nossas soluções técnicas em projetos e orçamentos para a ${nomeFantasia || razaoSocial}. Com quem podemos conversar?`,
+    )
+    setWaModalOpen(true)
+  }
+
+  const confirmSendWaEmpresa = () => {
+    const rawNum = cleanPhoneForWa(telefone)
+    if (!rawNum) return
+    window.open(`https://wa.me/${rawNum}?text=${encodeURIComponent(waMessage)}`, '_blank')
+    setWaModalOpen(false)
+  }
+
+  const isSituacaoInativa = situacaoCadastral && situacaoCadastral.toUpperCase() !== 'ATIVA'
+
+  const totalAtivo = contratos
+    .filter((c) => contratosService.isContratoAtivo(c))
+    .reduce((acc, c) => acc + (c.valor || 0), 0)
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 overflow-hidden">
+        {/* Cabeçalho da Empresa */}
+        <DialogHeader className="p-6 pb-4 border-b border-slate-200 bg-slate-50/70 shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <DialogTitle className="text-xl font-bold text-slate-900">
+                  {empresa ? razaoSocial || 'Detalhes da Empresa' : 'Cadastrar Nova Empresa'}
+                </DialogTitle>
+                {empresa && (
+                  <Badge
+                    variant="outline"
+                    className={
+                      status === 'ativa'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                        : 'bg-red-50 text-red-700 border-red-300'
+                    }
+                  >
+                    {status === 'ativa' ? 'Ativa' : 'Inativa'}
+                  </Badge>
+                )}
+                {empresa && (
+                  <Badge
+                    variant="outline"
+                    className="font-mono bg-blue-50 text-blue-700 border-blue-300"
+                  >
+                    Curva {curva}
+                  </Badge>
+                )}
+              </div>
+              <DialogDescription className="text-xs text-slate-500 mt-1">
+                {empresa ? (
+                  <>
+                    CNPJ: {formatCnpj(cnpj) || 'Não informado'} |{' '}
+                    {municipio ? `${municipio}/${uf}` : 'Localização não informada'}
+                  </>
+                ) : (
+                  'Informe o CNPJ para preenchimento automático via BrasilAPI e identificação de cenário de entrada.'
+                )}
+              </DialogDescription>
+            </div>
+
+            {/* Botões de Ação Rápida de Contato no Cabeçalho (aparecem somente se preenchidos) */}
+            {empresa && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                {email && (
+                  <a
+                    href={`mailto:${email}?subject=Intermediação Técnica de Contratos - ${razaoSocial}`}
+                    className="p-2 rounded-md bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 hover:text-blue-600 transition-colors shadow-xs"
+                    title={`Enviar e-mail para ${email}`}
+                  >
+                    <Mail className="w-4 h-4" />
+                  </a>
+                )}
+
+                {telefone && (
+                  <button
+                    type="button"
+                    onClick={openWaEmpresa}
+                    className="p-2 rounded-md bg-white border border-slate-200 hover:bg-emerald-50 text-slate-700 hover:text-emerald-600 transition-colors shadow-xs"
+                    title={`Abrir WhatsApp (${telefone})`}
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                  </button>
+                )}
+
+                {instagram && (
+                  <a
+                    href={
+                      instagram.startsWith('http')
+                        ? instagram
+                        : `https://instagram.com/${instagram.replace('@', '')}`
+                    }
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2 rounded-md bg-white border border-slate-200 hover:bg-pink-50 text-slate-700 hover:text-pink-600 transition-colors shadow-xs"
+                    title="Abrir Instagram"
+                  >
+                    <Instagram className="w-4 h-4" />
+                  </a>
+                )}
+
+                {linkedin && (
+                  <a
+                    href={linkedin.startsWith('http') ? linkedin : `https://${linkedin}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2 rounded-md bg-white border border-slate-200 hover:bg-blue-50 text-slate-700 hover:text-blue-700 transition-colors shadow-xs"
+                    title="Abrir LinkedIn"
+                  >
+                    <Linkedin className="w-4 h-4" />
+                  </a>
+                )}
+
+                {site && (
+                  <a
+                    href={site.startsWith('http') ? site : `https://${site}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2 rounded-md bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 hover:text-blue-600 transition-colors shadow-xs"
+                    title="Abrir Website"
+                  >
+                    <Globe className="w-4 h-4" />
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Banner de Alerta se Situação Cadastral != ATIVA */}
+          {isSituacaoInativa && (
+            <div className="mt-3 px-3 py-2 bg-red-100/90 border border-red-300 rounded-md text-red-900 text-xs flex items-center gap-2 font-medium">
+              <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
+              <span>
+                <strong>Atenção Cadastral:</strong> A situação deste CNPJ na Receita Federal é{' '}
+                <strong className="uppercase underline">{situacaoCadastral}</strong> (não está
+                ATIVA).
+              </span>
+            </div>
+          )}
+        </DialogHeader>
+
+        {/* Abas do Modal */}
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as any)}
+          className="flex-1 flex flex-col overflow-hidden"
+        >
+          <div className="px-6 border-b border-slate-200 bg-white shrink-0">
+            <TabsList className="bg-transparent space-x-2 h-11 p-0">
+              <TabsTrigger
+                value="dados"
+                className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
+              >
+                <Building2 className="w-3.5 h-3.5 mr-1.5" /> Dados da Empresa
+              </TabsTrigger>
+
+              {empresa && (
+                <>
+                  <TabsTrigger
+                    value="contratos"
+                    className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
+                  >
+                    <FileText className="w-3.5 h-3.5 mr-1.5" /> Contratos Públicos (
+                    {contratos.length})
+                  </TabsTrigger>
+
+                  <TabsTrigger
+                    value="contatos"
+                    className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
+                  >
+                    <Users className="w-3.5 h-3.5 mr-1.5" /> Contatos ({contatos.length})
+                  </TabsTrigger>
+
+                  <TabsTrigger
+                    value="timeline"
+                    className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
+                  >
+                    <History className="w-3.5 h-3.5 mr-1.5" /> Linha do Tempo ({timelineLogs.length}
+                    )
+                  </TabsTrigger>
+                </>
+              )}
+            </TabsList>
+          </div>
+
+          {/* Conteúdo scrollável */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {/* ABA DADOS DA EMPRESA */}
+            <TabsContent value="dados" className="m-0 space-y-4">
+              {/* Box de Orientação dos 3 Cenários (quando cadastrando novo ou CNPJ já detectado) */}
+              {!empresa && (
+                <div
+                  className={`p-4 rounded-lg border text-xs ${
+                    cenarioDetectado === 'parceira'
+                      ? 'bg-purple-50 border-purple-300 text-purple-900'
+                      : cenarioDetectado === 'cadastrada'
+                        ? 'bg-amber-50 border-amber-300 text-amber-900'
+                        : 'bg-blue-50 border-blue-200 text-blue-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 font-bold text-sm mb-1">
+                    <Sparkles className="w-4 h-4" />
+                    {cenarioDetectado === 'nova' && 'Cenário 1 — Nova Empresa Identificada'}
+                    {cenarioDetectado === 'cadastrada' &&
+                      'Cenário 2 — Empresa já Cadastrada no Sistema'}
+                    {cenarioDetectado === 'parceira' &&
+                      'Cenário 3 — Empresa Parceira (Alerta de Oportunidade)'}
+                  </div>
+                  <p>
+                    {cenarioDetectado === 'nova' &&
+                      'Empresa não localizada no banco. Ao salvar, ela entrará no funil comercial com a etapa inicial "Identificada" e você poderá lançar seus contratos ativos.'}
+                    {cenarioDetectado === 'cadastrada' &&
+                      `O CNPJ informado já pertence a "${empresaExistenteDetectada?.razao_social}". A etapa do funil será preservada (não reinicia). Você pode incluir novos contratos ativos.`}
+                    {cenarioDetectado === 'parceira' &&
+                      `A empresa "${empresaExistenteDetectada?.razao_social}" já é uma PARCEIRA homologada! A inclusão de novo contrato gerará alerta de oportunidade ao time Comercial sem retroceder o funil.`}
+                  </p>
+                </div>
+              )}
+
+              {/* Aviso da BrasilAPI se houve falha ou necessidade de preenchimento manual */}
+              {avisoApi && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-800 text-xs flex items-center justify-between">
+                  <span>{avisoApi}</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => consultarApiReceita(cleanCnpj(cnpj))}
+                    className="text-xs text-amber-900 hover:bg-amber-100"
+                  >
+                    Tentar Novamente
+                  </Button>
+                </div>
+              )}
+
+              <form id="empresaForm" onSubmit={handleSaveEmpresa} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* CNPJ */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="empCnpj" className="flex items-center justify-between">
+                      <span>CNPJ</span>
+                      {consultandoCnpj && (
+                        <span className="text-[10px] text-blue-600 animate-pulse font-normal">
+                          Consultando BrasilAPI...
+                        </span>
+                      )}
+                    </Label>
+                    <Input
+                      id="empCnpj"
+                      placeholder="00.000.000/0000-00"
+                      value={cnpj}
+                      onChange={(e) => handleCnpjChange(e.target.value)}
+                      disabled={readOnly}
+                    />
+                    {cnpjErro && <p className="text-[11px] text-red-600 font-medium">{cnpjErro}</p>}
+                  </div>
+
+                  {/* Razão Social */}
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label htmlFor="empRazao">Razão Social *</Label>
+                    <Input
+                      id="empRazao"
+                      placeholder="Ex: Construtora Sulamericana de Infraestrutura Ltda"
+                      value={razaoSocial}
+                      onChange={(e) => setRazaoSocial(e.target.value)}
+                      required
+                      disabled={readOnly}
+                    />
+                  </div>
+
+                  {/* Nome Fantasia */}
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label htmlFor="empFantasia">Nome Fantasia</Label>
+                    <Input
+                      id="empFantasia"
+                      placeholder="Ex: Sulamericana Engenharia"
+                      value={nomeFantasia}
+                      onChange={(e) => setNomeFantasia(e.target.value)}
+                      disabled={readOnly}
+                    />
+                  </div>
+
+                  {/* Situação Cadastral */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="empSit">Situação Cadastral</Label>
+                    <Input
+                      id="empSit"
+                      placeholder="Ex: ATIVA, BAIXADA, SUSPENSA"
+                      value={situacaoCadastral}
+                      onChange={(e) => setSituacaoCadastral(e.target.value)}
+                      disabled={readOnly}
+                      className={
+                        isSituacaoInativa ? 'border-red-400 bg-red-50 text-red-800 font-bold' : ''
+                      }
+                    />
+                  </div>
+
+                  {/* CNAE */}
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label htmlFor="empCnae">CNAE Principal</Label>
+                    <Input
+                      id="empCnae"
+                      placeholder="Ex: 42.11-1-01 - Construção de rodovias"
+                      value={cnae}
+                      onChange={(e) => setCnae(e.target.value)}
+                      disabled={readOnly}
+                    />
+                  </div>
+
+                  {/* Porte */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="empPorte">Porte da Empresa</Label>
+                    <Input
+                      id="empPorte"
+                      placeholder="Ex: DEMAIS, MEDIO, ME, EPP"
+                      value={porte}
+                      onChange={(e) => setPorte(e.target.value)}
+                      disabled={readOnly}
+                    />
+                  </div>
+
+                  {/* Município */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="empMun">Município</Label>
+                    <Input
+                      id="empMun"
+                      placeholder="Ex: Belo Horizonte"
+                      value={municipio}
+                      onChange={(e) => setMunicipio(e.target.value)}
+                      disabled={readOnly}
+                    />
+                  </div>
+
+                  {/* UF */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="empUf">UF</Label>
+                    <Input
+                      id="empUf"
+                      maxLength={2}
+                      placeholder="MG"
+                      value={uf}
+                      onChange={(e) => setUf(e.target.value.toUpperCase())}
+                      disabled={readOnly}
+                    />
+                  </div>
+
+                  {/* Responsável Comercial */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="empResp">Responsável</Label>
+                    <select
+                      id="empResp"
+                      className="w-full h-10 px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={responsavel}
+                      onChange={(e) => setResponsavel(e.target.value)}
+                      disabled={readOnly}
+                    >
+                      <option value="">Selecione um responsável...</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} ({u.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Curva ABC */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="empCurva">Curva ABC</Label>
+                    <select
+                      id="empCurva"
+                      className="w-full h-10 px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                      value={curva}
+                      onChange={(e) => setCurva(e.target.value as any)}
+                      disabled={readOnly}
+                    >
+                      <option value="A">Curva A (&gt; R$ 5M)</option>
+                      <option value="B">Curva B (R$ 1M a R$ 5M)</option>
+                      <option value="C">Curva C (&lt; R$ 1M)</option>
+                    </select>
+                  </div>
+
+                  {/* Etapa do Funil */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="empEtapa">Etapa do Funil</Label>
+                    <select
+                      id="empEtapa"
+                      className="w-full h-10 px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={etapaFunil}
+                      onChange={(e) => setEtapaFunil(e.target.value as any)}
+                      disabled={readOnly}
+                    >
+                      <option value="identificada">Identificada</option>
+                      <option value="qualificada">Qualificada</option>
+                      <option value="em_cadencia">Em Cadência</option>
+                      <option value="em_conversa">Em Conversa</option>
+                      <option value="com_proposta_elaborada">Proposta Elaborada</option>
+                      <option value="proposta_enviada">Proposta Enviada</option>
+                      <option value="parceira">Parceira</option>
+                      <option value="nutricao_mensal">Nutrição Mensal</option>
+                      <option value="inativa">Inativa</option>
+                    </select>
+                  </div>
+
+                  {/* Status */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="empStatus">Status</Label>
+                    <select
+                      id="empStatus"
+                      className="w-full h-10 px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value as any)}
+                      disabled={readOnly}
+                    >
+                      <option value="ativa">Ativa</option>
+                      <option value="inativa">Inativa</option>
+                    </select>
+                  </div>
+
+                  {/* Canais de Comunicação da Empresa */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="empEmail">E-mail Comercial</Label>
+                    <Input
+                      id="empEmail"
+                      type="email"
+                      placeholder="contato@empresa.com.br"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={readOnly}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="empTel">Telefone / WhatsApp Geral</Label>
+                    <Input
+                      id="empTel"
+                      placeholder="(11) 3333-2222"
+                      value={telefone}
+                      onChange={(e) => setTelefone(e.target.value)}
+                      disabled={readOnly}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="empSite">Site Oficial</Label>
+                    <Input
+                      id="empSite"
+                      placeholder="https://empresa.com.br"
+                      value={site}
+                      onChange={(e) => setSite(e.target.value)}
+                      disabled={readOnly}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="empIg">Instagram</Label>
+                    <Input
+                      id="empIg"
+                      placeholder="@empresa ou https://instagram.com/empresa"
+                      value={instagram}
+                      onChange={(e) => setInstagram(e.target.value)}
+                      disabled={readOnly}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label htmlFor="empLi">LinkedIn</Label>
+                    <Input
+                      id="empLi"
+                      placeholder="https://linkedin.com/company/empresa"
+                      value={linkedin}
+                      onChange={(e) => setLinkedin(e.target.value)}
+                      disabled={readOnly}
+                    />
+                  </div>
+
+                  {/* Observações */}
+                  <div className="space-y-1.5 md:col-span-3">
+                    <Label htmlFor="empObs">Observações / Contexto da Engenharia</Label>
+                    <Textarea
+                      id="empObs"
+                      rows={2}
+                      placeholder="Pontos de atenção, nichos de atuação, demandas frequentes em licitações..."
+                      value={observacoes}
+                      onChange={(e) => setObservacoes(e.target.value)}
+                      disabled={readOnly}
+                    />
+                  </div>
+                </div>
+              </form>
+            </TabsContent>
+
+            {/* ABA CONTRATOS */}
+            {empresa && (
+              <TabsContent value="contratos" className="m-0">
+                <EmpresaContratosTab
+                  empresaId={empresa.id}
+                  contratos={contratos}
+                  diasAlerta={diasAlerta}
+                  readOnly={readOnly}
+                  onContratosChange={() => loadSubData(empresa.id)}
+                />
+              </TabsContent>
+            )}
+
+            {/* ABA CONTATOS */}
+            {empresa && (
+              <TabsContent value="contatos" className="m-0">
+                <EmpresaContatosTab
+                  empresaId={empresa.id}
+                  empresaNome={nomeFantasia || razaoSocial}
+                  contatos={contatos}
+                  readOnly={readOnly}
+                  onContatosChange={() => loadSubData(empresa.id)}
+                />
+              </TabsContent>
+            )}
+
+            {/* ABA TIMELINE */}
+            {empresa && (
+              <TabsContent value="timeline" className="m-0">
+                <EmpresaTimelineTab logs={timelineLogs} loading={loadingTimeline} />
+              </TabsContent>
+            )}
+          </div>
+        </Tabs>
+
+        {/* Rodapé do Modal */}
+        <DialogFooter className="p-4 border-t border-slate-200 bg-slate-50 shrink-0 flex items-center justify-between">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {readOnly ? 'Fechar' : 'Cancelar'}
+          </Button>
+
+          {!readOnly && (
+            <Button
+              type="submit"
+              form="empresaForm"
+              disabled={submitting}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {submitting ? 'Salvando...' : empresa ? 'Atualizar Empresa' : 'Cadastrar Empresa'}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+
+      {/* Modal Rápido de WhatsApp Geral da Empresa */}
+      <Dialog open={waModalOpen} onOpenChange={setWaModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-emerald-600" />
+              WhatsApp — {nomeFantasia || razaoSocial}
+            </DialogTitle>
+            <DialogDescription>
+              Mensagem para o telefone comercial <strong>{telefone}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-2">
+            <Label htmlFor="waEmpEdit">Mensagem inicial:</Label>
+            <textarea
+              id="waEmpEdit"
+              rows={4}
+              className="w-full text-xs p-2.5 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
+              value={waMessage}
+              onChange={(e) => setWaMessage(e.target.value)}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWaModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={confirmSendWaEmpresa}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <MessageSquare className="w-4 h-4 mr-1.5" /> Enviar no WhatsApp
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Dialog>
+  )
+}

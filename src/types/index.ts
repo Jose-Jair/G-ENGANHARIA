@@ -72,3 +72,98 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   gestor: 'Gestor de Projetos',
   executor: 'Executor externo',
 }
+
+export type EtapaFunil =
+  | 'identificada'
+  | 'qualificada'
+  | 'em_cadencia'
+  | 'em_conversa'
+  | 'com_proposta_elaborada'
+  | 'proposta_enviada'
+  | 'parceira'
+  | 'nutricao_mensal'
+  | 'inativa'
+
+export const ETAPA_FUNIL_LABELS: Record<EtapaFunil, string> = {
+  identificada: 'Identificada',
+  qualificada: 'Qualificada',
+  em_cadencia: 'Em Cadência',
+  em_conversa: 'Em Conversa',
+  com_proposta_elaborada: 'Proposta Elaborada',
+  proposta_enviada: 'Proposta Enviada',
+  parceira: 'Parceira',
+  nutricao_mensal: 'Nutrição Mensal',
+  inativa: 'Inativa',
+}
+
+export type CurvaABC = 'A' | 'B' | 'C'
+
+export type StatusEmpresa = 'ativa' | 'inativa'
+
+export interface EmpresaRecord {
+  id: string
+  razao_social: string
+  nome_fantasia?: string
+  cnpj?: string
+  situacao_cadastral?: string
+  cnae?: string
+  porte?: string
+  uf?: string
+  municipio?: string
+  email?: string
+  telefone?: string
+  instagram?: string
+  linkedin?: string
+  site?: string
+  etapa_funil?: EtapaFunil
+  curva?: CurvaABC
+  score?: number
+  responsavel?: string
+  status?: StatusEmpresa
+  motivo_inativacao?: string
+  observacoes?: string
+  created: string
+  updated: string
+  expand?: {
+    responsavel?: UserRecord
+    'contratos(empresa)'?: ContratoRecord[]
+    'contatos(empresa)'?: ContatoRecord[]
+  }
+}
+
+export interface ContatoRecord {
+  id: string
+  empresa: string
+  nome: string
+  cargo?: string
+  email?: string
+  telefone?: string
+  whatsapp?: string
+  decisor?: boolean
+  verificado?: boolean
+  created: string
+  updated: string
+}
+
+export interface ContratoRecord {
+  id: string
+  empresa: string
+  orgao: string
+  numero: string
+  objeto?: string
+  modalidade?: string
+  valor?: number
+  saldo?: number
+  vigencia_inicio?: string
+  vigencia_fim?: string
+  situacao?: string
+  link_edital?: string
+  fonte?: string
+  created: string
+  updated: string
+  expand?: {
+    empresa?: EmpresaRecord
+  }
+}
+
+export type CenarioEntrada = 'nova' | 'cadastrada' | 'parceira'

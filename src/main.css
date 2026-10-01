@@ -288,3 +288,38 @@
     animation: spotlight 2s ease forwards;
   }
 }
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm 15mm 15mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Ocultar elementos desnecessários da aplicação durante a impressão */
+  header,
+  nav,
+  aside,
+  button:not(.print-include),
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  /* Quebras de página controladas */
+  .page-break-after {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .avoid-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

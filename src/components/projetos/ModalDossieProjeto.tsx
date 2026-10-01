@@ -170,7 +170,7 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
             </div>
 
             {/* SEÇÃO 1: DADOS DO PROJETO E CLIENTE */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 avoid-break">
               <div className="p-4 rounded-lg border border-slate-200 bg-slate-50/50">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
                   1. Informações do Projeto
@@ -257,7 +257,7 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
             </div>
 
             {/* SEÇÃO 2: RESUMO FINANCEIRO OPERACIONAL */}
-            <div className="p-4 rounded-lg border border-slate-200 bg-slate-900 text-white">
+            <div className="p-4 rounded-lg border border-slate-200 bg-slate-900 text-white avoid-break print:bg-slate-100 print:text-slate-950 print:border-slate-300">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3">
                 3. Síntese Financeira do Projeto
               </span>
@@ -290,7 +290,7 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
             </div>
 
             {/* SEÇÃO 3: ETAPAS E ENTREGÁVEIS */}
-            <div className="space-y-3">
+            <div className="space-y-3 avoid-break">
               <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
                 <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-blue-600" />
@@ -361,7 +361,7 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
             </div>
 
             {/* SEÇÃO 4: ENTREGÁVEIS DAS ETAPAS */}
-            <div className="space-y-3">
+            <div className="space-y-3 avoid-break">
               <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
                 <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
                   <FileCheck2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -405,7 +405,7 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
             </div>
 
             {/* SEÇÃO 5: DOCUMENTOS E ANOTAÇÕES DE CLASSE */}
-            <div className="space-y-3">
+            <div className="space-y-3 avoid-break">
               <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
                 <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
                   <FileText className="w-3.5 h-3.5 text-cyan-600" />
@@ -450,7 +450,7 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
             </div>
 
             {/* SEÇÃO 6: RISCOS ATIVOS E MITIGAÇÕES */}
-            <div className="space-y-3">
+            <div className="space-y-3 avoid-break">
               <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
                 <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />

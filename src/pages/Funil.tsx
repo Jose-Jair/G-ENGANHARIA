@@ -15,7 +15,8 @@ import { usersService } from '@/services/users'
 import { parametrosService } from '@/services/parametros'
 import { reativacoesService } from '@/services/reativacoes'
 import { scoreCurvaService } from '@/services/scoreCurva'
-import { formatCurrencyBr } from '@/lib/formatters'
+import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
+import { formatCnpj } from '@/lib/cnpj'
 import { useToast } from '@/hooks/use-toast'
 import { FunilEmpresaCard } from '@/components/funil/FunilEmpresaCard'
 import { InativarEmpresaModal } from '@/components/funil/InativarEmpresaModal'
@@ -198,7 +199,14 @@ export default function FunilPage() {
             },
           },
           { header: 'Curva ABC', accessor: (e) => e.curva || 'C' },
-          { header: 'Score Calculado', accessor: (e) => e.score_prioridade ?? 0 },
+          {
+            header: 'Score Calculado',
+            accessor: (e) => {
+              const cts = contratosPorEmpresa.get(e.id)?.contratos || []
+              return scoreCurvaService.calcular(cts, e.cnae, undefined, faixaCorteA, faixaCorteB)
+                .score
+            },
+          },
           {
             header: 'Valor Contratos Ativos (R$)',
             accessor: (e) => {

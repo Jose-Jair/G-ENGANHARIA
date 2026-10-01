@@ -30,10 +30,11 @@ const businessCollections = [
   'proposta_itens',
 ]
 for (let i = 0; i < businessCollections.length; i++) {
-  const colName = businessCollections[i]
+  const targetCol = businessCollections[i]
 
   onRecordCreate((e) => {
     try {
+      const collectionName = e.record.collection().name
       const auditCol = $app.findCollectionByNameOrId('audit_logs')
       const record = new Record(auditCol)
 
@@ -53,7 +54,7 @@ for (let i = 0; i < businessCollections.length; i++) {
       } catch (_) {}
 
       // If user was creating users collection or auth was not in reqInfo
-      if (!userId && colName === 'users') {
+      if (!userId && collectionName === 'users') {
         userId = e.record.id
         userEmail = e.record.getString('email')
       }
@@ -70,7 +71,7 @@ for (let i = 0; i < businessCollections.length; i++) {
       record.set('user', userId)
       record.set('user_email', userEmail)
       record.set('acao', 'CRIACAO')
-      record.set('entidade', colName)
+      record.set('entidade', collectionName)
       record.set('registro_id', e.record.id)
       record.set('detalhes', { depois: recData })
       record.set('ip', ip)
@@ -81,10 +82,11 @@ for (let i = 0; i < businessCollections.length; i++) {
     }
 
     e.next()
-  }, colName)
+  }, targetCol)
 
   onRecordUpdate((e) => {
     try {
+      const collectionName = e.record.collection().name
       const auditCol = $app.findCollectionByNameOrId('audit_logs')
       const record = new Record(auditCol)
 
@@ -128,7 +130,7 @@ for (let i = 0; i < businessCollections.length; i++) {
       record.set('user', userId)
       record.set('user_email', userEmail)
       record.set('acao', 'EDICAO')
-      record.set('entidade', colName)
+      record.set('entidade', collectionName)
       record.set('registro_id', e.record.id)
       record.set('detalhes', { antes: antes, depois: depois })
       record.set('ip', ip)
@@ -139,10 +141,11 @@ for (let i = 0; i < businessCollections.length; i++) {
     }
 
     e.next()
-  }, colName)
+  }, targetCol)
 
   onRecordDelete((e) => {
     try {
+      const collectionName = e.record.collection().name
       const auditCol = $app.findCollectionByNameOrId('audit_logs')
       const record = new Record(auditCol)
 
@@ -173,7 +176,7 @@ for (let i = 0; i < businessCollections.length; i++) {
       record.set('user', userId)
       record.set('user_email', userEmail)
       record.set('acao', 'EXCLUSAO')
-      record.set('entidade', colName)
+      record.set('entidade', collectionName)
       record.set('registro_id', e.record.id)
       record.set('detalhes', { antes: antes })
       record.set('ip', ip)
@@ -184,5 +187,5 @@ for (let i = 0; i < businessCollections.length; i++) {
     }
 
     e.next()
-  }, colName)
+  }, targetCol)
 }

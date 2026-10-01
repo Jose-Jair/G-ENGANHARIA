@@ -178,7 +178,6 @@ export const ExecutoresPage: React.FC = () => {
                   tela: 'executores',
                   descricao: 'Exportação de parceiros executores técnicos, notas e conselhos',
                   filtros: {
-                    tipo: filtroTipo,
                     status: filtroStatus,
                     alerta: filtroAlerta,
                     busca: busca || undefined,

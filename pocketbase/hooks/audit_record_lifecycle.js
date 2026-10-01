@@ -23,6 +23,8 @@ const businessCollections = [
   'parametros',
   'modelos',
   'motivos',
+  'sugestoes_funil',
+  'reativacoes_sugeridas',
 ]
 
 for (let i = 0; i < businessCollections.length; i++) {

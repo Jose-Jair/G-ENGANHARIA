@@ -13,6 +13,9 @@ import {
   Shield,
   Home,
   CheckCircle,
+  Kanban,
+  Sparkles,
+  ShieldAlert,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -94,6 +97,57 @@ export default function AppLayout() {
                 )}
               </div>
             </NavLink>
+          )}
+
+          {/* ETAPA 3: MÓDULO FUNIL COMERCIAL (Admin e Comercial exclusivamente) */}
+          {user?.role && (user.role === 'admin' || user.role === 'comercial') && (
+            <>
+              <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Funil de Intermediação
+              </div>
+
+              <NavLink
+                to="/funil"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`
+                }
+              >
+                <Kanban className="w-4 h-4 text-blue-400" />
+                <span>Funil (9 Etapas)</span>
+              </NavLink>
+
+              <NavLink
+                to="/funil/sugestoes"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`
+                }
+              >
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span>Fila de Sugestões</span>
+              </NavLink>
+
+              <NavLink
+                to="/nao-contatar"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`
+                }
+              >
+                <ShieldAlert className="w-4 h-4 text-rose-400" />
+                <span>Não Contatar</span>
+              </NavLink>
+            </>
           )}
 
           {/* Admin Exclusive Links */}

@@ -121,6 +121,9 @@ export interface EmpresaRecord {
   responsavel?: string
   status?: StatusEmpresa
   motivo_inativacao?: string
+  etapa_anterior?: string
+  proxima_acao_data?: string
+  proxima_acao_desc?: string
   observacoes?: string
   created: string
   updated: string
@@ -129,6 +132,81 @@ export interface EmpresaRecord {
     'contratos(empresa)'?: ContratoRecord[]
     'contatos(empresa)'?: ContatoRecord[]
   }
+}
+
+export type SugestaoFonte = 'planilha' | 'pncp' | 'manual'
+export type SugestaoStatus = 'pendente' | 'aprovada_para_inclusao' | 'incorporada' | 'descartada'
+
+export interface SugestaoFunilRecord {
+  id: string
+  razao_social: string
+  nome_fantasia?: string
+  cnpj?: string
+  uf?: string
+  municipio?: string
+  email?: string
+  telefone?: string
+  cnae?: string
+  porte?: string
+  orgao_contrato?: string
+  numero_contrato?: string
+  objeto_contrato?: string
+  valor_estimado?: number
+  fonte: SugestaoFonte
+  status: SugestaoStatus
+  motivo_descarte?: string
+  observacoes?: string
+  empresa_criada?: string
+  decidido_por?: string
+  data_decisao?: string
+  created: string
+  updated: string
+  expand?: {
+    empresa_criada?: EmpresaRecord
+    decidido_por?: UserRecord
+  }
+}
+
+export interface ReativacaoSugeridaRecord {
+  id: string
+  empresa: string
+  contrato?: string
+  contrato_numero?: string
+  contrato_orgao?: string
+  contrato_valor?: number
+  etapa_origem?: string
+  status: 'pendente' | 'aceita' | 'descartada'
+  destino_aceito?: string
+  observacao_decisao?: string
+  decidido_por?: string
+  data_decisao?: string
+  created: string
+  updated: string
+  expand?: {
+    empresa?: EmpresaRecord
+    contrato?: ContratoRecord
+    decidido_por?: UserRecord
+  }
+}
+
+export interface NaoContatarRecord {
+  id: string
+  empresa?: string
+  email: string
+  motivo?: string
+  data_inclusao?: string
+  created: string
+  updated: string
+  expand?: {
+    empresa?: EmpresaRecord
+  }
+}
+
+export interface PesosScoreCurva {
+  peso_valor: number // ex: 40
+  peso_vigencia: number // ex: 25
+  peso_qtd_contratos: number // ex: 20
+  peso_aderencia_disciplinas: number // ex: 15
 }
 
 export interface ContatoRecord {

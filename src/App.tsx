@@ -12,6 +12,9 @@ import AdministracaoPage from './pages/Administracao'
 import AuditoriaPage from './pages/Auditoria'
 import EmpresasPage from './pages/Empresas'
 import EmpresasImportarPage from './pages/EmpresasImportar'
+import FunilPage from './pages/Funil'
+import FunilSugestoesPage from './pages/FunilSugestoes'
+import NaoContatarPage from './pages/NaoContatar'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -49,6 +52,32 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['admin', 'comercial']}>
                   <EmpresasImportarPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Rotas do Funil de Intermediação (Etapa 3 - Admin e Comercial) */}
+            <Route
+              path="/funil"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'comercial']}>
+                  <FunilPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/funil/sugestoes"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'comercial']}>
+                  <FunilSugestoesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/nao-contatar"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'comercial']}>
+                  <NaoContatarPage />
                 </ProtectedRoute>
               }
             />

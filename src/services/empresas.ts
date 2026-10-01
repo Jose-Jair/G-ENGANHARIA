@@ -31,6 +31,9 @@ export interface CreateEmpresaData {
   responsavel?: string
   status?: StatusEmpresa
   motivo_inativacao?: string
+  etapa_anterior?: string
+  proxima_acao_data?: string
+  proxima_acao_desc?: string
   observacoes?: string
 }
 

@@ -8,6 +8,17 @@ export const motivosService = {
     })
   },
 
+  async listAtivos(tipo?: string): Promise<MotivoRecord[]> {
+    const filters: string[] = ['ativo = true']
+    if (tipo) {
+      filters.push(`tipo = '${tipo}'`)
+    }
+    return await pb.collection('motivos').getFullList<MotivoRecord>({
+      filter: filters.join(' && '),
+      sort: 'descricao',
+    })
+  },
+
   async create(data: Omit<MotivoRecord, 'id' | 'created' | 'updated'>): Promise<MotivoRecord> {
     return await pb.collection('motivos').create<MotivoRecord>(data)
   },

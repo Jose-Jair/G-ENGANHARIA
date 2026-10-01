@@ -280,6 +280,28 @@ export default function AppLayout() {
                   )}
                 </div>
               </NavLink>
+
+              {/* ETAPA 7: Módulo Propostas (Admin/Comercial gravam; Financeiro/Gestor leem) */}
+              <NavLink
+                to="/propostas"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`
+                }
+              >
+                <FileText className="w-4 h-4 text-emerald-400" />
+                <div className="flex items-center justify-between flex-1">
+                  <span>Propostas</span>
+                  {(user.role === 'financeiro' || user.role === 'gestor') && (
+                    <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                      Leitura
+                    </span>
+                  )}
+                </div>
+              </NavLink>
             </>
           )}
 

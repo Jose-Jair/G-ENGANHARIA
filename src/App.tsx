@@ -20,6 +20,8 @@ import CampanhasPage from './pages/Campanhas'
 import DescadastroPage from './pages/Descadastro'
 import { ParceirosPage } from './pages/Parceiros'
 import { ClientesPfPage } from './pages/ClientesPf'
+import { PropostasPage } from './pages/Propostas'
+import { PropostaPublicaPage } from './pages/PropostaPublica'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -36,6 +38,9 @@ const App = () => (
           <Route path="/descadastro/:token" element={<DescadastroPage />} />
           <Route path="/descadastro" element={<DescadastroPage />} />
 
+          {/* Rota pública de aceite/recusa de proposta (Etapa 7) - sem login */}
+          <Route path="/proposta/:token" element={<PropostaPublicaPage />} />
+
           {/* Authenticated routes wrapped with AppLayout */}
           <Route
             element={
@@ -46,6 +51,16 @@ const App = () => (
           >
             <Route path="/" element={<IndexPage />} />
             <Route path="/boas-vindas" element={<WelcomePage />} />
+
+            {/* ETAPA 7: Módulo Propostas (Admin e Comercial gravam; Financeiro e Gestor leem) */}
+            <Route
+              path="/propostas"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'comercial', 'financeiro', 'gestor']}>
+                  <PropostasPage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Rotas de Empresas / Cadastros (Etapa 2) */}
             <Route

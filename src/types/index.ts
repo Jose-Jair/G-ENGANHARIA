@@ -395,12 +395,65 @@ export interface ClientePfRecord {
   updated: string
 }
 
+export interface CatalogoServicoRecord {
+  id: string
+  nome: string
+  disciplina: string
+  unidade: string
+  preco_base: number
+  descricao?: string
+  ativo: boolean
+  created: string
+  updated: string
+}
+
+export interface PropostaItemRecord {
+  id?: string
+  proposta?: string
+  servico?: string
+  descricao: string
+  disciplina?: string
+  unidade?: string
+  quantidade: number
+  custo_unitario: number
+  custo_total: number
+  bdi_percentual?: number
+  preco_total?: number
+  created?: string
+  updated?: string
+  expand?: {
+    servico?: CatalogoServicoRecord
+  }
+}
+
+export interface PropostaRevisaoHistorico {
+  revisao: string
+  data: string
+  responsavel_nome?: string
+  preco: number
+  custo: number
+  margem: number
+  impostos: number
+  conteudo_snapshot: {
+    escopo: string
+    disciplinas?: string
+    entregaveis?: string
+    prazo?: string
+    condicoes_pagamento?: string
+    premissas?: string
+    exclusoes?: string
+    itens_json?: PropostaItemRecord[]
+  }
+}
+
 export interface PropostaRecord {
   id: string
   numero: string
   revisao?: string
   empresa?: string
   cliente_pf?: string
+  contrato?: string
+  modelo?: string
   escopo: string
   disciplinas?: string
   entregaveis?: string
@@ -423,12 +476,30 @@ export interface PropostaRecord {
     | 'recusada'
     | 'expirada'
   motivo_recusa?: string
+  detalhe_recusa?: string
   token_aceite?: string
+  itens_json?: PropostaItemRecord[]
+  historico_revisoes?: PropostaRevisaoHistorico[]
+  data_visualizacao?: string
+  data_aceite?: string
+  data_recusa?: string
+  parecer_financeiro?: string
+  aprovador_financeiro?: string
+  data_aprovacao_financeira?: string
+  requer_aprovacao_admin?: boolean
+  aprovador_admin?: string
+  data_aprovacao_admin?: string
+  criado_por?: string
   created: string
   updated: string
   expand?: {
     empresa?: EmpresaRecord
     cliente_pf?: ClientePfRecord
+    contrato?: ContratoRecord
+    modelo?: ModeloRecord
+    criado_por?: UserRecord
+    aprovador_financeiro?: UserRecord
+    aprovador_admin?: UserRecord
   }
 }
 

@@ -956,9 +956,24 @@ export function EmpresaDetailModal({
 
         {/* Rodapé do Modal */}
         <DialogFooter className="p-4 border-t border-slate-200 bg-slate-50 shrink-0 flex items-center justify-between">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {readOnly ? 'Fechar' : 'Cancelar'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {readOnly ? 'Fechar' : 'Cancelar'}
+            </Button>
+            {empresa && empresa.status !== 'inativa' && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  window.location.href = `/propostas?nova=true&empresaId=${empresa.id}`
+                }}
+                className="text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 gap-1.5"
+              >
+                <FileText className="w-4 h-4 text-amber-600" />
+                Elaborar Proposta
+              </Button>
+            )}
+          </div>
 
           {!readOnly && (
             <Button

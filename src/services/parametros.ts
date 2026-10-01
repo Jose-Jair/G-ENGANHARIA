@@ -21,4 +21,9 @@ export const parametrosService = {
       return null
     }
   },
+
+  async get(chave: string, defaultValue: string = ''): Promise<string> {
+    const p = await this.getByKey(chave)
+    return p?.valor || defaultValue
+  },
 }

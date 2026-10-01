@@ -11,7 +11,10 @@ import {
   ModeloRecord,
   MotivoRecord,
   ROLE_LABELS,
+  CatalogoServicoRecord,
 } from '@/types'
+import { catalogoServicosService } from '@/services/catalogoServicos'
+import { formatCurrencyBr } from '@/lib/formatters'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -51,6 +54,7 @@ import {
   Trash2,
   Loader2,
   ShieldAlert,
+  Wrench,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { formatDateBr, formatDateTimeBr } from '@/lib/formatters'
@@ -121,6 +125,21 @@ export default function AdministracaoPage() {
     ativo: true,
   })
 
+  // --- CATÁLOGO DE SERVIÇOS STATE ---
+  const [catalogoList, setCatalogoList] = useState<CatalogoServicoRecord[]>([])
+  const [loadingCatalogo, setLoadingCatalogo] = useState(false)
+  const [showCatalogoModal, setShowCatalogoModal] = useState(false)
+  const [editingCatalogo, setEditingCatalogo] = useState<CatalogoServicoRecord | null>(null)
+  const [catalogoSearch, setCatalogoSearch] = useState('')
+  const [catalogoFormData, setCatalogoFormData] = useState({
+    nome: '',
+    disciplina: 'Estruturas',
+    unidade: 'un',
+    preco_base: 0,
+    descricao: '',
+    ativo: true,
+  })
+
   // Fetch functions
   const loadUsers = async () => {
     setLoadingUsers(true)
@@ -186,11 +205,28 @@ export default function AdministracaoPage() {
     }
   }
 
+  const loadCatalogo = async () => {
+    setLoadingCatalogo(true)
+    try {
+      const data = await catalogoServicosService.list()
+      setCatalogoList(data)
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível carregar o catálogo de serviços.',
+      })
+    } finally {
+      setLoadingCatalogo(false)
+    }
+  }
+
   useEffect(() => {
     loadUsers()
     loadParametros()
     loadModelos()
     loadMotivos()
+    loadCatalogo()
   }, [])
 
   // --- USER HANDLERS ---
@@ -467,6 +503,72 @@ export default function AdministracaoPage() {
     }
   }
 
+  // --- CATÁLOGO HANDLERS ---
+  const handleOpenCreateCatalogo = () => {
+    setEditingCatalogo(null)
+    setCatalogoFormData({
+      nome: '',
+      disciplina: 'Estruturas',
+      unidade: 'un',
+      preco_base: 0,
+      descricao: '',
+      ativo: true,
+    })
+    setShowCatalogoModal(true)
+  }
+
+  const handleOpenEditCatalogo = (item: CatalogoServicoRecord) => {
+    setEditingCatalogo(item)
+    setCatalogoFormData({
+      nome: item.nome,
+      disciplina: item.disciplina,
+      unidade: item.unidade,
+      preco_base: item.preco_base,
+      descricao: item.descricao || '',
+      ativo: item.ativo !== false,
+    })
+    setShowCatalogoModal(true)
+  }
+
+  const handleSaveCatalogo = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      if (editingCatalogo) {
+        await catalogoServicosService.update(editingCatalogo.id, catalogoFormData)
+        toast({
+          title: 'Item atualizado',
+          description: 'Serviço do catálogo atualizado com auditoria.',
+        })
+      } else {
+        await catalogoServicosService.create(catalogoFormData)
+        toast({ title: 'Item cadastrado', description: 'Novo serviço adicionado ao catálogo.' })
+      }
+      setShowCatalogoModal(false)
+      loadCatalogo()
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Falha ao salvar item no catálogo.',
+      })
+    }
+  }
+
+  const handleDeleteCatalogo = async (id: string) => {
+    if (!confirm('Deseja realmente remover este item do catálogo de serviços?')) return
+    try {
+      await catalogoServicosService.delete(id)
+      toast({ title: 'Item excluído', description: 'Serviço removido e auditado.' })
+      loadCatalogo()
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Falha ao excluir item do catálogo.',
+      })
+    }
+  }
+
   // Filtered users
   const filteredUsers = usersList.filter((u) => {
     const matchesSearch =
@@ -508,10 +610,14 @@ export default function AdministracaoPage() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-2 md:grid-cols-4 bg-slate-200/80 p-1">
+        <TabsList className="grid grid-cols-2 md:grid-cols-5 bg-slate-200/80 p-1">
           <TabsTrigger value="usuarios" className="gap-2 text-xs font-medium">
             <Users className="w-4 h-4" />
             <span>Usuários ({usersList.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="catalogo" className="gap-2 text-xs font-medium">
+            <Wrench className="w-4 h-4" />
+            <span>Catálogo ({catalogoList.length})</span>
           </TabsTrigger>
           <TabsTrigger value="parametros" className="gap-2 text-xs font-medium">
             <Sliders className="w-4 h-4" />
@@ -682,6 +788,132 @@ export default function AdministracaoPage() {
                           </td>
                         </tr>
                       ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ABA CATÁLOGO DE SERVIÇOS */}
+        <TabsContent value="catalogo" className="space-y-4">
+          <Card className="border-slate-200">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <CardTitle className="text-lg">Catálogo de Serviços de Engenharia</CardTitle>
+                <CardDescription className="text-xs">
+                  Serviços padrão de engenharia consultiva com preços base de referência, unidades e
+                  disciplinas.
+                </CardDescription>
+              </div>
+              <Button
+                onClick={handleOpenCreateCatalogo}
+                className="bg-blue-600 hover:bg-blue-700 text-xs gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                Novo Serviço
+              </Button>
+            </CardHeader>
+            <div className="px-6 pb-3">
+              <div className="relative max-w-sm">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Filtrar por nome ou disciplina..."
+                  value={catalogoSearch}
+                  onChange={(e) => setCatalogoSearch(e.target.value)}
+                  className="pl-8 text-xs h-9"
+                />
+              </div>
+            </div>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-700 font-semibold border-y border-slate-200">
+                    <tr>
+                      <th className="py-3 px-4">Nome do Serviço</th>
+                      <th className="py-3 px-4">Disciplina</th>
+                      <th className="py-3 px-4">Unidade</th>
+                      <th className="py-3 px-4 text-right">Preço Base (Ref.)</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {loadingCatalogo ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-slate-500">
+                          <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-600" />
+                          Carregando catálogo...
+                        </td>
+                      </tr>
+                    ) : catalogoList.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-slate-500">
+                          Nenhum serviço cadastrado no catálogo.
+                        </td>
+                      </tr>
+                    ) : (
+                      catalogoList
+                        .filter(
+                          (c) =>
+                            c.nome.toLowerCase().includes(catalogoSearch.toLowerCase()) ||
+                            c.disciplina.toLowerCase().includes(catalogoSearch.toLowerCase()),
+                        )
+                        .map((servico) => (
+                          <tr key={servico.id} className="hover:bg-slate-50/80">
+                            <td className="py-3 px-4">
+                              <div className="font-semibold text-slate-900">{servico.nome}</div>
+                              {servico.descricao && (
+                                <div className="text-[11px] text-slate-400 line-clamp-1">
+                                  {servico.descricao}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              <Badge variant="outline" className="text-[11px] bg-slate-50">
+                                {servico.disciplina}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4 font-mono text-slate-700">
+                              {servico.unidade}
+                            </td>
+                            <td className="py-3 px-4 font-mono font-semibold text-right text-slate-900">
+                              {formatCurrencyBr(servico.preco_base)}
+                            </td>
+                            <td className="py-3 px-4">
+                              {servico.ativo ? (
+                                <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Ativo
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-slate-400 font-medium">
+                                  Inativo
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenEditCatalogo(servico)}
+                                className="h-7 text-xs text-blue-600 hover:text-blue-800"
+                              >
+                                <Edit2 className="w-3.5 h-3.5 mr-1" />
+                                Editar
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteCatalogo(servico.id)}
+                                className="h-7 text-xs text-red-600 hover:text-red-800"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                                Excluir
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
                     )}
                   </tbody>
                 </table>
@@ -1291,6 +1523,144 @@ export default function AdministracaoPage() {
               </Button>
               <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700">
                 Salvar Modelo
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL CATÁLOGO DE SERVIÇOS (CRIAR/EDITAR) */}
+      <Dialog open={showCatalogoModal} onOpenChange={setShowCatalogoModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingCatalogo ? 'Editar Serviço do Catálogo' : 'Novo Serviço no Catálogo'}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Cadastre serviços de engenharia com disciplinas e preços base de referência. Apenas
+              administradores podem editar.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveCatalogo} className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="catNome" className="text-xs">
+                Nome do Serviço
+              </Label>
+              <Input
+                id="catNome"
+                required
+                placeholder="Ex: Projeto Executivo de Fundações e Contenções"
+                value={catalogoFormData.nome}
+                onChange={(e) => setCatalogoFormData({ ...catalogoFormData, nome: e.target.value })}
+                className="text-xs h-9"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label htmlFor="catDisc" className="text-xs">
+                  Disciplina
+                </Label>
+                <Input
+                  id="catDisc"
+                  required
+                  placeholder="Ex: Estruturas, BIM, Geotecnia"
+                  value={catalogoFormData.disciplina}
+                  onChange={(e) =>
+                    setCatalogoFormData({ ...catalogoFormData, disciplina: e.target.value })
+                  }
+                  className="text-xs h-9"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="catUnid" className="text-xs">
+                  Unidade
+                </Label>
+                <Input
+                  id="catUnid"
+                  required
+                  placeholder="Ex: un, m², km, mês"
+                  value={catalogoFormData.unidade}
+                  onChange={(e) =>
+                    setCatalogoFormData({ ...catalogoFormData, unidade: e.target.value })
+                  }
+                  className="text-xs h-9"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label htmlFor="catPreco" className="text-xs">
+                  Preço Base de Referência (R$)
+                </Label>
+                <Input
+                  id="catPreco"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  required
+                  value={catalogoFormData.preco_base}
+                  onChange={(e) =>
+                    setCatalogoFormData({
+                      ...catalogoFormData,
+                      preco_base: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  className="text-xs h-9 font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="catAtivo" className="text-xs">
+                  Status
+                </Label>
+                <Select
+                  value={catalogoFormData.ativo ? 'true' : 'false'}
+                  onValueChange={(val) =>
+                    setCatalogoFormData({ ...catalogoFormData, ativo: val === 'true' })
+                  }
+                >
+                  <SelectTrigger className="text-xs h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">Ativo</SelectItem>
+                    <SelectItem value="false">Inativo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="catDesc" className="text-xs">
+                Descrição Técnica / Entregáveis do Serviço
+              </Label>
+              <Textarea
+                id="catDesc"
+                rows={3}
+                placeholder="Ex: Dimensionamento estrutural completo, modelos IFC e pranchas detalhadas..."
+                value={catalogoFormData.descricao}
+                onChange={(e) =>
+                  setCatalogoFormData({ ...catalogoFormData, descricao: e.target.value })
+                }
+                className="text-xs"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCatalogoModal(false)}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700">
+                {editingCatalogo ? 'Atualizar Serviço' : 'Cadastrar Serviço'}
               </Button>
             </DialogFooter>
           </form>

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T02:24:04.427Z",
+  "generatedAt": "2026-10-01T02:46:46.996Z",
   "collections": [
     {
       "name": "users",
@@ -1023,10 +1023,10 @@
       "name": "propostas",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')",
-        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')",
+        "list": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')) || (token_aceite != '' && @request.query.token = token_aceite)",
+        "view": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')) || (token_aceite != '' && (@request.query.token = token_aceite || token_aceite = @request.headers.x_token_aceite))",
         "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
-        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor')",
+        "update": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || @request.auth.role = 'gestor')) || (token_aceite != '' && token_aceite = @request.body.token_aceite)",
         "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
       },
       "fields": [
@@ -1169,6 +1169,101 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "contrato",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "contratos"
+        },
+        {
+          "name": "modelo",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "modelos"
+        },
+        {
+          "name": "itens_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "historico_revisoes",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_visualizacao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_aceite",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_recusa",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "detalhe_recusa",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "parecer_financeiro",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aprovador_financeiro",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "data_aprovacao_financeira",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requer_aprovacao_admin",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aprovador_admin",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "data_aprovacao_admin",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
         }
       ],
       "indexes": [
@@ -2262,6 +2357,160 @@
         "CREATE INDEX idx_campanha_envios_empresa ON campanha_envios (empresa)",
         "CREATE UNIQUE INDEX idx_campanha_envios_token ON campanha_envios (token_rastreamento)"
       ]
+    },
+    {
+      "name": "catalogo_servicos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "update": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "disciplina",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "unidade",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "preco_base",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_catalogo_servicos_disciplina ON catalogo_servicos (disciplina)"]
+    },
+    {
+      "name": "proposta_itens",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')"
+      },
+      "fields": [
+        {
+          "name": "proposta",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "propostas"
+        },
+        {
+          "name": "servico",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "catalogo_servicos"
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "disciplina",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unidade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quantidade",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "custo_unitario",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "custo_total",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "bdi_percentual",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "preco_total",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_proposta_itens_proposta ON proposta_itens (proposta)"]
     }
   ]
 }

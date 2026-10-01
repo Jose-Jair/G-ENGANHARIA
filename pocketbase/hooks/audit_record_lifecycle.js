@@ -26,6 +26,8 @@ const businessCollections = [
   'motivos',
   'sugestoes_funil',
   'reativacoes_sugeridas',
+  'catalogo_servicos',
+  'proposta_itens',
 ]
 for (let i = 0; i < businessCollections.length; i++) {
   const colName = businessCollections[i]

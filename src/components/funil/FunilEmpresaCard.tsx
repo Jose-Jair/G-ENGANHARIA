@@ -18,13 +18,13 @@ interface FunilEmpresaCardProps {
   empresa: EmpresaRecord
   totalContratosAtivos: number
   hasReativacaoPendente?: boolean
-  onEditProximaAcao: (emp: EmpresaRecord) => void
-  onOpenTimeline: (emp: EmpresaRecord) => void
-  onOpenDetalhes: (emp: EmpresaRecord) => void
-  onDragStart: (e: React.DragEvent, empresaId: string) => void
+  onEditProximaAcao: (empresa: EmpresaRecord) => void
+  onOpenTimeline: (empresa: EmpresaRecord) => void
+  onOpenDetalhes: (empresa: EmpresaRecord) => void
+  onElaborarProposta?: (empresa: EmpresaRecord) => void
+  onDragStart: (e: React.DragEvent, id: string) => void
   canDrag?: boolean
 }
-
 export const FunilEmpresaCard: React.FC<FunilEmpresaCardProps> = ({
   empresa,
   totalContratosAtivos,
@@ -32,6 +32,7 @@ export const FunilEmpresaCard: React.FC<FunilEmpresaCardProps> = ({
   onEditProximaAcao,
   onOpenTimeline,
   onOpenDetalhes,
+  onElaborarProposta,
   onDragStart,
   canDrag = true,
 }) => {
@@ -168,6 +169,22 @@ export const FunilEmpresaCard: React.FC<FunilEmpresaCardProps> = ({
           )}
         </p>
       </div>
+
+      {/* Botão Elaborar Proposta (Etapa 7 - Origem no Funil) */}
+      {onElaborarProposta && empresa.status !== 'inativa' && (
+        <div className="mt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onElaborarProposta(empresa)}
+            className="w-full h-6.5 text-[10px] font-semibold text-amber-800 bg-amber-50/80 hover:bg-amber-100/90 border-amber-300 hover:border-amber-400 gap-1 shadow-2xs"
+            title="Elaborar nova proposta técnica/comercial para esta empresa"
+          >
+            <FileText className="w-3 h-3 text-amber-600" />
+            Elaborar Proposta
+          </Button>
+        </div>
+      )}
 
       {/* Ações Rápidas de Rodapé */}
       <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">

@@ -852,9 +852,12 @@ export default function FunilPage() {
                               onEditProximaAcao={(e) => setEmpresaProximaAcao(e)}
                               onOpenTimeline={(e) => setEmpresaTimeline(e)}
                               onOpenDetalhes={(e) => setEmpresaDetalhe(e)}
+                              onElaborarProposta={(e) => {
+                                navigate(`/propostas?nova=true&empresaId=${e.id}`)
+                              }}
                               onDragStart={handleDragStart}
                               canDrag={true}
-                            />
+                            />{' '}
                             {/* Ação especial na coluna Inativa: Restaurar etapa anterior */}
                             {col.id === 'inativa' && emp.etapa_anterior && (
                               <button
@@ -864,7 +867,6 @@ export default function FunilPage() {
                                 Restaurar para "{emp.etapa_anterior}"
                               </button>
                             )}
-
                             {/* Ação especial na coluna Nutrição Mensal: Reativar retorno ao funil para Em Conversa */}
                             {col.id === 'nutricao_mensal' && (
                               <button

@@ -544,13 +544,39 @@ export const ProjetosPage: React.FC = () => {
           <p className="text-xs text-slate-400">Carregando projetos de engenharia...</p>
         </div>
       ) : projetosFiltrados.length === 0 ? (
-        <div className="text-center py-16 bg-white border border-dashed border-slate-200 rounded-lg">
-          <Briefcase className="w-12 h-12 text-slate-300 mx-auto mb-2" />
-          <p className="text-sm font-semibold text-slate-700">Nenhum projeto encontrado</p>
-          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-            Projetos são gerados automaticamente pelo aceite de propostas ou pelo botão "Novo
-            Projeto Direto".
-          </p>
+        <div className="text-center py-16 bg-white border border-slate-200 rounded-xl max-w-md mx-auto space-y-3 shadow-xs">
+          <div className="w-12 h-12 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center mx-auto">
+            <Briefcase className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="font-bold text-slate-800 text-sm">
+              {busca ||
+              filtroSaude !== 'todos' ||
+              filtroDisciplina !== 'todas' ||
+              filtroExecutor !== 'todos'
+                ? 'Nenhum projeto encontrado para estes filtros'
+                : 'Inicie seu primeiro Projeto de Engenharia'}
+            </p>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+              {busca ||
+              filtroSaude !== 'todos' ||
+              filtroDisciplina !== 'todas' ||
+              filtroExecutor !== 'todos'
+                ? 'Ajuste os filtros de saúde, disciplina ou executor para exibir os projetos.'
+                : 'Projetos são gerados automaticamente após o aceite formal de uma proposta ou criados diretamente aqui, com gestão de etapas por disciplina, cotações, documentos e riscos.'}
+            </p>
+          </div>
+          {canCreate && (
+            <div className="pt-2">
+              <Button
+                size="sm"
+                onClick={() => setModalCriarOpen(true)}
+                className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs font-semibold"
+              >
+                <Plus className="w-4 h-4 mr-1.5" /> Criar Projeto Direto
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

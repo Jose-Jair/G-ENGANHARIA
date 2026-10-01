@@ -533,8 +533,33 @@ export function FinanceiroPage() {
             </div>
 
             {contasReceberFiltradas.length === 0 ? (
-              <div className="p-12 text-center text-slate-500 text-xs">
-                Nenhuma conta a receber encontrada com os filtros selecionados.
+              <div className="p-12 text-center max-w-md mx-auto space-y-3">
+                <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+                  <TrendingUp className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="font-bold text-slate-800 text-sm">
+                    {termoBusca || filtroStatus !== 'todos'
+                      ? 'Nenhuma conta a receber encontrada com estes filtros'
+                      : 'Nenhuma receita ou conta a receber pendente'}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    {termoBusca || filtroStatus !== 'todos'
+                      ? 'Ajuste os filtros de busca ou status para exibir os lançamentos.'
+                      : 'Contas a receber são geradas quando propostas comerciais são aprovadas pelos parceiros/clientes ou adicionadas avulsas manualmente.'}
+                  </p>
+                </div>
+                {canManage && (
+                  <div className="pt-2">
+                    <Button
+                      size="sm"
+                      onClick={() => setModalNovaContaOpen(true)}
+                      className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs font-semibold"
+                    >
+                      <Plus className="w-4 h-4 mr-1.5" /> Lançar Nova Receita
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -661,8 +686,33 @@ export function FinanceiroPage() {
             </div>
 
             {contasPagarFiltradas.length === 0 ? (
-              <div className="p-12 text-center text-slate-500 text-xs">
-                Nenhuma conta a pagar encontrada com os filtros selecionados.
+              <div className="p-12 text-center max-w-md mx-auto space-y-3">
+                <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+                  <TrendingDown className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="font-bold text-slate-800 text-sm">
+                    {termoBusca || filtroStatus !== 'todos'
+                      ? 'Nenhuma conta a pagar encontrada com estes filtros'
+                      : 'Nenhuma conta a pagar ou subcontratação pendente'}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    {termoBusca || filtroStatus !== 'todos'
+                      ? 'Ajuste os filtros de busca ou status para exibir as contas.'
+                      : 'Contas a pagar são alimentadas pelas medições de executores aprovadas nos projetos e por despesas operacionais da empresa lançadas manualmente.'}
+                  </p>
+                </div>
+                {canManage && (
+                  <div className="pt-2">
+                    <Button
+                      size="sm"
+                      onClick={() => setModalNovaContaOpen(true)}
+                      className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs font-semibold"
+                    >
+                      <Plus className="w-4 h-4 mr-1.5" /> Lançar Conta a Pagar
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="overflow-x-auto">

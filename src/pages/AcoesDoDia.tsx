@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   ToqueRecord,
@@ -51,6 +52,7 @@ import { exportService } from '@/services/exportService'
 
 export default function AcoesDoDiaPage() {
   const { user, isAdmin } = useAuth()
+  const navigate = useNavigate()
   const { toast } = useToast()
 
   const [loading, setLoading] = useState(true)
@@ -617,15 +619,37 @@ export default function AcoesDoDiaPage() {
               Sincronizando toques e regras de auditoria...
             </div>
           ) : toquesFiltradosEOrdenados.length === 0 ? (
-            <div className="p-12 text-center text-slate-500 text-xs space-y-2">
-              <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
-              <p className="font-semibold text-slate-700 text-sm">
-                Nenhuma ação pendente no momento!
-              </p>
-              <p className="text-slate-400 max-w-sm mx-auto">
-                Todas as ações para hoje e atrasos foram processados. Mova novas empresas para "Em
-                cadência" no funil para alimentar a esteira.
-              </p>
+            <div className="p-12 text-center max-w-md mx-auto space-y-3">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="font-bold text-slate-800 text-sm">
+                  Nenhuma ação da cadência para hoje
+                </p>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Quando você qualificar empresas e movê-las para a etapa{' '}
+                  <strong>Em Cadência</strong> no funil, os toques multicanal (E-mail e WhatsApp)
+                  serão gerados automaticamente e aparecerão listados aqui ordenados por prioridade.
+                </p>
+              </div>
+              <div className="pt-1 flex items-center justify-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => navigate('/funil')}
+                  className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs font-semibold"
+                >
+                  Ir para o Funil de Vendas
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate('/empresas')}
+                  className="text-xs text-slate-700"
+                >
+                  Ver Empresas
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">

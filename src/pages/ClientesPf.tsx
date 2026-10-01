@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Filter,
   Download,
+  UserCheck,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { exportService } from '@/services/exportService'
@@ -336,9 +337,35 @@ export function ClientesPfPage() {
                   </tr>
                 ) : clientesFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-500">
-                      <User className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                      Nenhum cliente PF encontrado com os filtros aplicados.
+                    <td colSpan={7} className="py-12 text-center">
+                      <div className="max-w-md mx-auto space-y-3">
+                        <div className="w-12 h-12 rounded-full bg-cyan-100 text-cyan-600 flex items-center justify-center mx-auto">
+                          <UserCheck className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800 text-sm">
+                            {busca || filtroBaseLegal !== 'todos'
+                              ? 'Nenhum cliente encontrado com os filtros'
+                              : 'Cadastre o primeiro Cliente Pessoa Física'}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                            {busca || filtroBaseLegal !== 'todos'
+                              ? 'Tente ajustar sua busca ou selecionar outra base legal.'
+                              : 'Atenda clientes diretos de engenharia (projetos residenciais, laudos ou vistorias particulares) com conformidade LGPD e consentimento auditado.'}
+                          </p>
+                        </div>
+                        {canWrite && (
+                          <div className="pt-2">
+                            <Button
+                              size="sm"
+                              onClick={() => setShowCreateModal(true)}
+                              className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs font-semibold"
+                            >
+                              <Plus className="w-4 h-4 mr-1.5" /> Cadastrar Cliente PF
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ) : (

@@ -27,7 +27,9 @@ import {
   DollarSign,
   LayoutDashboard,
   BookOpen,
+  KeyRound,
 } from 'lucide-react'
+import { ModalTrocarSenha } from '@/components/ModalTrocarSenha'
 import { GPlusLogo } from '@/components/GPlusLogo'
 import { projetosService } from '@/services/projetos'
 import { toquesService } from '@/services/toques'
@@ -58,6 +60,7 @@ export default function AppLayout() {
   const [badgeParceirosSemDemandaCount, setBadgeParceirosSemDemandaCount] = useState<number>(0)
   const [badgeDocumentosVencendoCount, setBadgeDocumentosVencendoCount] = useState<number>(0)
   const [badgeFinanceiroAlertasCount, setBadgeFinanceiroAlertasCount] = useState<number>(0)
+  const [modalSenhaOpen, setModalSenhaOpen] = useState(false)
 
   // Carregar contagem de ações do dia + atrasos para a badge de notificações no sininho
   const carregarNotificacoes = async () => {
@@ -200,6 +203,15 @@ export default function AppLayout() {
         <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <NavLink to={isAdmin ? '/dashboard' : '/'} className="flex items-center gap-3 group">
             <GPlusLogo variant="compact" theme="dark" size={32} />
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-sm tracking-tight text-white">GESTÃO G+</span>
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#D95A2B] text-white tracking-wider uppercase">
+                  BETA
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-mono">v1.0.0-beta</span>
+            </div>
           </NavLink>
         </div>
 
@@ -627,19 +639,30 @@ export default function AppLayout() {
           <div className="flex items-center gap-1.5">
             <NavLink
               to="/manual"
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-slate-200 hover:text-white bg-white/5 hover:bg-white/10 rounded-md transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-1 px-1.5 py-1.5 text-[11px] text-slate-200 hover:text-white bg-white/5 hover:bg-white/10 rounded-md transition-colors"
+              title="Manual de Uso da Plataforma"
             >
-              <BookOpen className="w-3.5 h-3.5 text-orange-400" />
-              Manual
+              <BookOpen className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+              <span>Manual</span>
             </NavLink>
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => setModalSenhaOpen(true)}
+              className="px-2 text-[11px] text-slate-300 hover:text-white hover:bg-white/10 h-8"
+              title="Alterar minha senha de acesso"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-amber-300 mr-1 shrink-0" />
+              <span>Senha</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleLogout}
-              className="px-2 text-xs text-rose-300 hover:text-rose-100 hover:bg-rose-900/40 h-8"
+              className="px-2 text-[11px] text-rose-300 hover:text-rose-100 hover:bg-rose-900/40 h-8"
               title="Encerrar Sessão"
             >
-              <LogOut className="w-3.5 h-3.5 mr-1" />
+              <LogOut className="w-3.5 h-3.5 mr-1 shrink-0" />
               Sair
             </Button>
           </div>
@@ -754,6 +777,14 @@ export default function AppLayout() {
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
           <Outlet />
         </main>
+
+        {/* Modal de Troca de Senha Própria */}
+        <ModalTrocarSenha
+          open={modalSenhaOpen}
+          onOpenChange={setModalSenhaOpen}
+          userName={user?.name}
+          userEmail={user?.email}
+        />
       </div>
     </div>
   )

@@ -486,16 +486,47 @@ export default function EmpresasPage() {
             Carregando empresas e contratos...
           </div>
         ) : empresas.length === 0 ? (
-          <div className="p-12 text-center">
-            <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm font-semibold text-slate-700">Nenhuma empresa localizada</p>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-              Ajuste os filtros de busca ou cadastre uma nova empresa parceira ou prospect público.
-            </p>
+          <div className="p-12 text-center max-w-lg mx-auto space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-orange-50 border border-orange-200 text-[#D95A2B] flex items-center justify-center mx-auto shadow-xs">
+              <Building2 className="w-7 h-7" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">
+                {busca ||
+                etapaFunil !== 'todas' ||
+                curva !== 'todas' ||
+                uf !== 'todas' ||
+                status !== 'todas'
+                  ? 'Nenhuma empresa encontrada com estes filtros'
+                  : 'Cadastre sua primeira empresa ou importe uma base'}
+              </h3>
+              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                {busca ||
+                etapaFunil !== 'todas' ||
+                curva !== 'todas' ||
+                uf !== 'todas' ||
+                status !== 'todas'
+                  ? 'Tente limpar os filtros ou realizar uma busca mais ampla para localizar registros.'
+                  : 'O sistema GESTÃO G+ está pronto na versão BETA. Comece cadastrando uma empresa contratada por órgãos públicos ou importando uma lista de prospects para acionar o funil comercial.'}
+              </p>
+            </div>
             {canEdit && (
-              <Button onClick={openNewEmpresa} variant="outline" size="sm" className="mt-4">
-                <Plus className="w-4 h-4 mr-1.5" /> Cadastrar Empresa
-              </Button>
+              <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
+                <Button
+                  onClick={openNewEmpresa}
+                  className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs h-9 font-semibold shadow-sm"
+                >
+                  <Plus className="w-4 h-4 mr-1.5" /> Cadastrar Minha Primeira Empresa
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/empresas/importar')}
+                  className="text-xs h-9 border-slate-300 text-slate-700 hover:text-emerald-700 hover:border-emerald-300"
+                >
+                  <FileSpreadsheet className="w-4 h-4 mr-1.5 text-emerald-600" /> Importar Planilha
+                  de Prospects
+                </Button>
+              </div>
             )}
           </div>
         ) : (

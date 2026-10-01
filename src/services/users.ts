@@ -77,4 +77,36 @@ export const usersService = {
       /* intentionally ignored */
     }
   },
+
+  async changePassword(
+    oldPassword: string,
+    newPassword: string,
+    newPasswordConfirm: string,
+  ): Promise<UserRecord> {
+    const currentUserId = pb.authStore.model?.id
+    if (!currentUserId) {
+      throw new Error('Usuário não autenticado.')
+    }
+    const updated = await pb.collection('users').update<UserRecord>(currentUserId, {
+      oldPassword,
+      password: newPassword,
+      passwordConfirm: newPasswordConfirm,
+    })
+    // Audit log da alteração de senha
+    try {
+      await pb.collection('audit_logs').create({
+        user: currentUserId,
+        user_email: updated.email,
+        acao: 'TROCA_SENHA_PROPRIA',
+        entidade: 'users',
+        registro_id: currentUserId,
+        detalhes: {
+          mensagem: 'Usuário alterou a própria senha com sucesso',
+        },
+      })
+    } catch {
+      /* audit fail-safe */
+    }
+    return updated
+  },
 }

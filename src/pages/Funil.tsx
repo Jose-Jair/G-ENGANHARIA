@@ -717,6 +717,46 @@ export default function FunilPage() {
         </div>
       )}
 
+      {/* Estado Vazio Orientado do Funil (quando não há empresas cadastradas no sistema) */}
+      {!loading && empresas.length === 0 && (
+        <div className="bg-white border-2 border-dashed border-orange-200 rounded-2xl p-8 text-center max-w-2xl mx-auto shadow-xs my-4">
+          <div className="w-14 h-14 rounded-2xl bg-orange-100 text-[#D95A2B] flex items-center justify-center mx-auto mb-3">
+            <Kanban className="w-7 h-7" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900">
+            Seu Funil de Intermediação está Pronto
+          </h2>
+          <p className="text-xs text-slate-500 mt-2 max-w-lg mx-auto leading-relaxed">
+            Nenhuma empresa foi cadastrada ainda. Para alimentar as 9 colunas do funil (da
+            Identificação ao Fechamento), cadastre sua primeira empresa ou importe uma planilha de
+            prospects públicos.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3 mt-5">
+            <Button
+              onClick={() => navigate('/empresas')}
+              className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs font-semibold h-9 shadow-sm"
+            >
+              <Plus className="w-4 h-4 mr-1.5" /> Cadastrar Primeira Empresa
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate('/empresas/importar')}
+              className="text-xs h-9 border-slate-300 text-slate-700 hover:text-emerald-700 hover:border-emerald-300"
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-1.5 text-emerald-600" /> Importar Planilha de
+              Prospects
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate('/funil/sugestoes')}
+              className="text-xs h-9 border-slate-300 text-slate-700 hover:text-blue-700 hover:border-blue-300"
+            >
+              <Sparkles className="w-4 h-4 mr-1.5 text-amber-500" /> Ver Fila de Sugestões PNCP
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* CABEÇALHO DO FUNIL: Valor Total Recalculado e Contadores */}
       <div className="bg-slate-900 text-white rounded-xl p-4 sm:p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

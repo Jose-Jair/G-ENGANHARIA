@@ -140,10 +140,16 @@ export default function LoginPage() {
               <GPlusLogo variant="vertical" theme="dark" size={88} showSlogan={true} />
             </div>
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-white">GESTÃO G+</h1>
+          <div className="flex items-center justify-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-white">GESTÃO G+</h1>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#D95A2B]/20 text-[#D95A2B] border border-[#D95A2B]/40 uppercase tracking-wider">
+              BETA
+            </span>
+          </div>
           <p className="text-xs text-slate-400">
             Plataforma de Intermediação Técnica de Engenharia & Gestão de Demandas
           </p>
+          <div className="text-[11px] font-mono text-slate-500">Versão v1.0.0-beta</div>
         </div>
 
         <Card className="border-slate-800 bg-[#1E2A4A]/90 backdrop-blur text-slate-100 shadow-2xl">
@@ -331,8 +337,11 @@ export default function LoginPage() {
           </CardFooter>
         </Card>
 
-        <div className="text-center text-xs text-slate-400">
-          GESTÃO G+ • Conectando ideias, somando resultados
+        <div className="text-center text-xs text-slate-400 space-y-1">
+          <div>GESTÃO G+ • Conectando ideias, somando resultados</div>
+          <div className="text-[11px] text-slate-500 font-mono">
+            v1.0.0-beta • Ambiente de Operação & Testes Reais
+          </div>
         </div>
       </div>
 

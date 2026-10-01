@@ -658,8 +658,33 @@ export default function CampanhasPage() {
             <span className="text-xs">Carregando campanhas de nutrição...</span>
           </div>
         ) : campanhasFiltradas.length === 0 ? (
-          <div className="p-8 text-center bg-white border border-slate-200 rounded-xl text-slate-500 text-xs">
-            Nenhuma campanha encontrada para os filtros selecionados.
+          <div className="p-10 text-center bg-white border border-slate-200 rounded-xl max-w-md mx-auto space-y-3 shadow-xs">
+            <div className="w-12 h-12 rounded-full bg-orange-100 text-[#D95A2B] flex items-center justify-center mx-auto">
+              <Megaphone className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">
+                Nenhuma campanha de nutrição mensal cadastrada
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                As campanhas de nutrição mantêm contato recorrente com empresas parceiras e
+                prospects em carência contratual, com links de descadastro automáticos.
+              </p>
+            </div>
+            {(isAdmin || isComercial) && (
+              <div className="pt-2">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setCampanhaParaEditar(null)
+                    setModalCriarOpen(true)
+                  }}
+                  className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs font-semibold"
+                >
+                  <Plus className="w-4 h-4 mr-1.5" /> Criar Primeira Campanha
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           campanhasFiltradas.map((camp) => {

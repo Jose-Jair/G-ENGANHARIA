@@ -41,6 +41,12 @@ import {
   ChevronRight,
   Calendar,
   PieChart as PieChartIcon,
+  Sparkles,
+  Rocket,
+  Compass,
+  Check,
+  EyeOff,
+  Users,
 } from 'lucide-react'
 
 export function DashboardPage() {
@@ -51,6 +57,9 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [periodoPropostas, setPeriodoPropostas] = useState<PeriodoFiltroPropostas>('mes_corrente')
   const [dados, setDados] = useState<DashboardDados | null>(null)
+  const [guiaOculto, setGuiaOculto] = useState<boolean>(() => {
+    return localStorage.getItem('gestao_gplus_guia_oculto') === 'true'
+  })
 
   // Carregar dados e registrar auditoria de acesso do Admin
   const carregarDashboard = async (periodo = periodoPropostas) => {
@@ -96,6 +105,222 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* GUIA DE PRIMEIROS PASSOS (BETA ONBOARDING PARA O ADMIN) */}
+      {!guiaOculto && (
+        <Card className="border-orange-200 bg-gradient-to-r from-orange-50/90 via-amber-50/50 to-white shadow-xs overflow-hidden">
+          <CardHeader className="p-5 pb-3 border-b border-orange-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-[#D95A2B] text-white rounded-xl shadow-xs">
+                <Rocket className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-base font-bold text-slate-900">
+                    Guia de Primeiros Passos — Ativação Operacional
+                  </CardTitle>
+                  <Badge className="bg-[#D95A2B] text-white text-[10px] font-bold uppercase tracking-wider">
+                    Versão Beta
+                  </Badge>
+                </div>
+                <CardDescription className="text-xs text-slate-600 mt-0.5">
+                  Ordem recomendada para colocar a esteira do GESTÃO G+ em produção com seus dados
+                  reais.
+                </CardDescription>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setGuiaOculto(true)
+                  localStorage.setItem('gestao_gplus_guia_oculto', 'true')
+                }}
+                className="text-xs text-slate-500 hover:text-slate-800 h-8"
+                title="Ocultar este guia do painel"
+              >
+                <EyeOff className="w-3.5 h-3.5 mr-1" />
+                Ocultar Guia
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-5 pt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {/* Passo 1: Empresas */}
+              <div
+                onClick={() => navigate('/empresas')}
+                className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between group ${
+                  (dados?.funil.totalEmpresasAtivas ?? 0) > 0
+                    ? 'bg-emerald-50/50 border-emerald-200 hover:border-emerald-300'
+                    : 'bg-white border-orange-200 hover:border-orange-400 hover:shadow-xs'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="w-6 h-6 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
+                      1
+                    </span>
+                    {(dados?.funil.totalEmpresasAtivas ?? 0) > 0 ? (
+                      <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                        <Check className="w-3 h-3 mr-0.5" /> Concluído
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded">
+                        Iniciar
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-900 group-hover:text-[#D95A2B] transition-colors flex items-center gap-1.5">
+                    <Building2 className="w-4 h-4 text-orange-500" />
+                    1. Empresas & Contratos
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                    Cadastre empresas vencedoras de licitações ou importe planilha de prospects.
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-[#D95A2B] font-semibold group-hover:underline">
+                  <span>Cadastrar empresas</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+
+              {/* Passo 2: Funil */}
+              <div
+                onClick={() => navigate('/funil')}
+                className="p-3.5 rounded-xl border bg-white border-slate-200 hover:border-blue-400 hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between group"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="w-6 h-6 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
+                      2
+                    </span>
+                    <span className="text-[10px] font-semibold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
+                      Comercial
+                    </span>
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors flex items-center gap-1.5">
+                    <Kanban className="w-4 h-4 text-blue-500" />
+                    2. Funil & Cadência
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                    Qualifique empresas, envie toques multicanal e classifique por Curva ABC.
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-blue-600 font-semibold group-hover:underline">
+                  <span>Abrir funil</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+
+              {/* Passo 3: Propostas */}
+              <div
+                onClick={() => navigate('/propostas')}
+                className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between group ${
+                  (dados?.propostas.totalEnviadas ?? 0) > 0
+                    ? 'bg-emerald-50/50 border-emerald-200 hover:border-emerald-300'
+                    : 'bg-white border-slate-200 hover:border-emerald-400 hover:shadow-xs'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="w-6 h-6 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
+                      3
+                    </span>
+                    {(dados?.propostas.totalEnviadas ?? 0) > 0 ? (
+                      <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                        <Check className="w-3 h-3 mr-0.5" /> Concluído
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                        Orçamentos
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-900 group-hover:text-emerald-600 transition-colors flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-emerald-500" />
+                    3. Propostas Comerciais
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                    Monte propostas pelo catálogo de serviços com margens e links públicos.
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-emerald-700 font-semibold group-hover:underline">
+                  <span>Criar proposta</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+
+              {/* Passo 4: Projetos */}
+              <div
+                onClick={() => navigate('/projetos')}
+                className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between group ${
+                  (dados?.projetos.emExecucaoCount ?? 0) > 0
+                    ? 'bg-emerald-50/50 border-emerald-200 hover:border-emerald-300'
+                    : 'bg-white border-slate-200 hover:border-indigo-400 hover:shadow-xs'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="w-6 h-6 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
+                      4
+                    </span>
+                    {(dados?.projetos.emExecucaoCount ?? 0) > 0 ? (
+                      <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                        <Check className="w-3 h-3 mr-0.5" /> Concluído
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded">
+                        Operação
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors flex items-center gap-1.5">
+                    <Briefcase className="w-4 h-4 text-indigo-500" />
+                    4. Projetos & Executores
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                    Vincule executores homologados, controle etapas por disciplina, ARTs e
+                    entregáveis.
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-indigo-700 font-semibold group-hover:underline">
+                  <span>Ver projetos</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+
+              {/* Passo 5: Financeiro */}
+              <div
+                onClick={() => navigate('/financeiro')}
+                className="p-3.5 rounded-xl border bg-white border-slate-200 hover:border-emerald-400 hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between group"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="w-6 h-6 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
+                      5
+                    </span>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                      Caixa
+                    </span>
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-900 group-hover:text-emerald-600 transition-colors flex items-center gap-1.5">
+                    <DollarSign className="w-4 h-4 text-emerald-600" />
+                    5. Gestão Financeira
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                    Acompanhe receitas de propostas, subcontratações de medições e o fluxo 12 meses.
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-emerald-700 font-semibold group-hover:underline">
+                  <span>Acessar finanças</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* CABEÇALHO DO DASHBOARD EXECUTIVO */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

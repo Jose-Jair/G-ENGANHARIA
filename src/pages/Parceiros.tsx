@@ -44,6 +44,7 @@ import {
   BarChart3,
   HelpCircle,
   Download,
+  Handshake,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { exportService } from '@/services/exportService'
@@ -584,9 +585,35 @@ export function ParceirosPage() {
                   </tr>
                 ) : parceirosFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-500">
-                      <Building2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                      Nenhum parceiro encontrado com os filtros aplicados.
+                    <td colSpan={8} className="py-12 text-center">
+                      <div className="max-w-md mx-auto space-y-3">
+                        <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+                          <Handshake className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800 text-sm">
+                            {busca || filtroCurva !== 'todos' || filtroAlerta !== 'todos'
+                              ? 'Nenhum parceiro encontrado para estes filtros'
+                              : 'Cadastre seu primeiro Parceiro Demandante'}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                            {busca || filtroCurva !== 'todos' || filtroAlerta !== 'todos'
+                              ? 'Ajuste os filtros acima ou limpe a busca para visualizar os parceiros.'
+                              : 'Parceiros demandantes são as empresas contratadas por entes públicos para as quais o G+ intermedia e gerencia projetos de engenharia.'}
+                          </p>
+                        </div>
+                        {canWrite && (
+                          <div className="pt-2">
+                            <Button
+                              size="sm"
+                              onClick={() => setShowCreateModal(true)}
+                              className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs font-semibold"
+                            >
+                              <Plus className="w-4 h-4 mr-1.5" /> Cadastrar Parceiro
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ) : (

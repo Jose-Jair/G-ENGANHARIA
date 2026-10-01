@@ -200,7 +200,10 @@ export default function EmpresasPage() {
           { header: 'Situação Cadastral', accessor: (e) => e.situacao_cadastral || 'Ativa' },
           { header: 'Status no Funil', accessor: (e) => e.status || 'ativa' },
           { header: 'E-mail', accessor: (e) => e.email || '' },
-          { header: 'Telefone', accessor: (e) => e.telefone || '' },
+          {
+            header: 'Telefone',
+            accessor: (e) => e.telefones?.[0]?.numero || e.telefone || '—',
+          },
         ],
         data: empresas,
       })

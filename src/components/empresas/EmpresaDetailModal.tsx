@@ -12,6 +12,7 @@ import { contratosService } from '@/services/contratos'
 import { contatosService } from '@/services/contatos'
 import { empresaTimelineService } from '@/services/empresaTimeline'
 import { brasilApiService } from '@/services/brasilApi'
+import { useAuth } from '@/contexts/AuthContext'
 import { cleanCnpj, formatCnpj, isValidCnpj, cleanPhoneForWa, formatPhoneBr } from '@/lib/cnpj'
 import { scoreCurvaService } from '@/services/scoreCurva'
 import { TelefoneEmpresaItem } from '@/types'
@@ -91,6 +92,7 @@ export function EmpresaDetailModal({
 
   const empresa = currentEmpresa
   const { toast } = useToast()
+  const { user } = useAuth()
 
   const [activeTab, setActiveTab] = useState<
     'dados' | 'contratos' | 'contatos' | 'cadencia' | 'timeline'
@@ -119,7 +121,6 @@ export function EmpresaDetailModal({
   const [uf, setUf] = useState('')
   const [municipio, setMunicipio] = useState('')
   const [email, setEmail] = useState('')
-  const [telefone, setTelefone] = useState('')
   const [telefones, setTelefones] = useState<import('@/types').TelefoneEmpresaItem[]>([])
   const [instagram, setInstagram] = useState('')
   const [linkedin, setLinkedin] = useState('')
@@ -151,6 +152,20 @@ export function EmpresaDetailModal({
   const [waModalOpen, setWaModalOpen] = useState(false)
   const [waMessage, setWaMessage] = useState('')
 
+  const handleSendEmailEmpresa = () => {
+    if (!email || !email.trim()) {
+      toast({
+        title: 'Sem e-mail cadastrado',
+        description:
+          'Esta empresa não possui e-mail cadastrado. Informe um e-mail nos dados da empresa antes de enviar.',
+      })
+      return
+    }
+    const nomeEmpresa = nomeFantasia || razaoSocial || 'Empresa'
+    const subject = encodeURIComponent(`Contato G+ Engenharia — ${nomeEmpresa}`)
+    window.location.href = `mailto:${email.trim()}?subject=${subject}`
+  }
+
   // Ao abrir ou trocar de empresa
   useEffect(() => {
     if (!open) return
@@ -169,7 +184,6 @@ export function EmpresaDetailModal({
       setUf(empresa.uf || '')
       setMunicipio(empresa.municipio || '')
       setEmail(empresa.email || '')
-      setTelefone(empresa.telefone || '')
 
       // Múltiplos telefones: carregar do JSON ou inicializar com o telefone principal
       if (Array.isArray(empresa.telefones) && empresa.telefones.length > 0) {
@@ -211,7 +225,6 @@ export function EmpresaDetailModal({
       setUf('')
       setMunicipio('')
       setEmail('')
-      setTelefone('')
       setTelefones([])
       setNovoTelefoneNumero('')
       setNovoTelefoneTipo('celular')
@@ -319,10 +332,6 @@ export function EmpresaDetailModal({
 
     const atualizados = [...telefones, item]
     setTelefones(atualizados)
-    // Se ainda não tiver telefone geral, define este
-    if (!telefone) {
-      setTelefone(item.numero)
-    }
     setNovoTelefoneNumero('')
     setNovoTelefoneDesc('')
     setNovoTelefoneTipo('celular')
@@ -331,9 +340,6 @@ export function EmpresaDetailModal({
   const handleRemoverTelefone = (id: string) => {
     const atualizados = telefones.filter((t) => t.id !== id)
     setTelefones(atualizados)
-    if (telefone && !atualizados.some((t) => t.numero === telefone)) {
-      setTelefone(atualizados[0]?.numero || '')
-    }
   }
 
   // Detectar cenário e consultar BrasilAPI ao alterar o CNPJ
@@ -415,7 +421,6 @@ export function EmpresaDetailModal({
       const telsEncontrados: TelefoneEmpresaItem[] = []
       if (data.ddd_telefone_1) {
         const formatted1 = formatPhoneBr(String(data.ddd_telefone_1))
-        setTelefone(formatted1)
         telsEncontrados.push({
           id: `tel_api_1_${Date.now()}`,
           numero: formatted1,
@@ -495,13 +500,13 @@ export function EmpresaDetailModal({
 
     setSubmitting(true)
     try {
-      const telPrincipal = telefone.trim() || telefones[0]?.numero || ''
+      const telPrincipal = telefones[0]?.numero || ''
 
       const payload: CreateEmpresaData = {
         razao_social: razaoSocial.trim(),
         nome_fantasia: nomeFantasia.trim(),
         cnpj: formatCnpj(cnpj) || '',
-        situacao_cadastral: situacaoCadastral.trim() || 'ATIVA',
+        situacao_cadastral: (situacaoCadastral || 'ATIVA').toUpperCase().trim(),
         cnae: cnae.trim(),
         porte: porte.trim(),
         uf: uf.trim().toUpperCase(),
@@ -515,7 +520,7 @@ export function EmpresaDetailModal({
         etapa_funil: etapaFunil,
         curva,
         score: scoreCalculado,
-        responsavel: responsavel || undefined,
+        responsavel: responsavel || user?.id || undefined,
         status,
         observacoes: observacoes.trim(),
       }
@@ -559,12 +564,14 @@ export function EmpresaDetailModal({
     }
   }
 
+  const primeiroTelefone = telefones[0]?.numero || ''
+
   const openWaEmpresa = () => {
-    const rawNum = cleanPhoneForWa(telefone)
+    const rawNum = cleanPhoneForWa(primeiroTelefone)
     if (!rawNum) {
       toast({
         title: 'Sem telefone comercial',
-        description: 'Cadastre o telefone da empresa para abrir conversa.',
+        description: 'Cadastre ao menos um telefone da empresa para abrir conversa.',
         variant: 'destructive',
       })
       return
@@ -576,7 +583,7 @@ export function EmpresaDetailModal({
   }
 
   const confirmSendWaEmpresa = () => {
-    const rawNum = cleanPhoneForWa(telefone)
+    const rawNum = cleanPhoneForWa(primeiroTelefone)
     if (!rawNum) return
     window.open(`https://wa.me/${rawNum}?text=${encodeURIComponent(waMessage)}`, '_blank')
     setWaModalOpen(false)
@@ -644,21 +651,22 @@ export function EmpresaDetailModal({
             {/* Botões de Ação Rápida de Contato no Cabeçalho (aparecem somente se preenchidos) */}
             {empresa && (
               <div className="flex items-center gap-1.5 shrink-0">
-                {/* Item 11: Botão Enviar e-mail com mailto:grupomais.sae@gmail.com */}
-                <a
-                  href="mailto:grupomais.sae@gmail.com"
-                  className="p-2 rounded-md bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 hover:text-blue-600 transition-colors shadow-xs"
-                  title="Enviar e-mail oficial (grupomais.sae@gmail.com)"
+                {/* Botão Enviar e-mail: abre mailto para a empresa ou avisa se não cadastrado */}
+                <button
+                  type="button"
+                  onClick={handleSendEmailEmpresa}
+                  className="p-2 rounded-md bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 hover:text-blue-600 transition-colors shadow-xs cursor-pointer"
+                  title={email ? `Enviar e-mail para ${email}` : 'Enviar e-mail para a empresa'}
                 >
                   <Mail className="w-4 h-4" />
-                </a>
+                </button>
 
-                {telefone && (
+                {telefones.length > 0 && (
                   <button
                     type="button"
                     onClick={openWaEmpresa}
                     className="p-2 rounded-md bg-white border border-slate-200 hover:bg-emerald-50 text-slate-700 hover:text-emerald-600 transition-colors shadow-xs"
-                    title={`Abrir WhatsApp (${telefone})`}
+                    title={`Abrir WhatsApp (${telefones[0]?.numero})`}
                   >
                     <MessageSquare className="w-4 h-4" />
                   </button>
@@ -872,16 +880,21 @@ export function EmpresaDetailModal({
                   {/* Situação Cadastral */}
                   <div className="space-y-1.5">
                     <Label htmlFor="empSit">Situação Cadastral</Label>
-                    <Input
+                    <select
                       id="empSit"
-                      placeholder="Ex: ATIVA, BAIXADA, SUSPENSA"
+                      className={`w-full h-10 px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isSituacaoInativa ? 'border-red-400 bg-red-50 text-red-800 font-bold' : ''
+                      }`}
                       value={situacaoCadastral}
                       onChange={(e) => setSituacaoCadastral(e.target.value)}
                       disabled={readOnly}
-                      className={
-                        isSituacaoInativa ? 'border-red-400 bg-red-50 text-red-800 font-bold' : ''
-                      }
-                    />
+                    >
+                      <option value="ATIVA">Ativa</option>
+                      <option value="SUSPENSA">Suspensa</option>
+                      <option value="INAPTA">Inapta</option>
+                      <option value="BAIXADA">Baixada</option>
+                      <option value="NULA">Nula</option>
+                    </select>
                   </div>
 
                   {/* Município */}
@@ -907,25 +920,6 @@ export function EmpresaDetailModal({
                       onChange={(e) => setUf(e.target.value.toUpperCase())}
                       disabled={readOnly}
                     />
-                  </div>
-
-                  {/* Responsável Comercial */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="empResp">Responsável</Label>
-                    <select
-                      id="empResp"
-                      className="w-full h-10 px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={responsavel}
-                      onChange={(e) => setResponsavel(e.target.value)}
-                      disabled={readOnly}
-                    >
-                      <option value="">Selecione um responsável...</option>
-                      {users.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.name} ({u.role})
-                        </option>
-                      ))}
-                    </select>
                   </div>
 
                   {/* Curva ABC e Índice Composto (Classificação 100% Automática com transparência) */}
@@ -988,7 +982,7 @@ export function EmpresaDetailModal({
                   </div>
 
                   {/* Canais de Comunicação da Empresa */}
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 md:col-span-2">
                     <Label htmlFor="empEmail">E-mail Comercial</Label>
                     <Input
                       id="empEmail"
@@ -996,17 +990,6 @@ export function EmpresaDetailModal({
                       placeholder="contato@empresa.com.br"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      disabled={readOnly}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="empTel">Telefone Principal (com DDI +55)</Label>
-                    <Input
-                      id="empTel"
-                      placeholder="+55 (00) 00000-0000"
-                      value={telefone}
-                      onChange={(e) => setTelefone(formatPhoneBr(e.target.value, true))}
                       disabled={readOnly}
                     />
                   </div>
@@ -1310,7 +1293,7 @@ export function EmpresaDetailModal({
               WhatsApp — {nomeFantasia || razaoSocial}
             </DialogTitle>
             <DialogDescription>
-              Mensagem para o telefone comercial <strong>{telefone}</strong>.
+              Mensagem para o telefone comercial <strong>{primeiroTelefone}</strong>.
             </DialogDescription>
           </DialogHeader>
 

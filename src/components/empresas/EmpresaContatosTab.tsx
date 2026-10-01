@@ -282,9 +282,9 @@ export function EmpresaContatosTab({
                         <span className="truncate">{c.email}</span>
                       </span>
                       <a
-                        href="mailto:grupomais.sae@gmail.com"
+                        href={`mailto:${c.email}?subject=${encodeURIComponent(`Contato G+ Engenharia — ${empresaNome}`)}`}
                         className="text-blue-600 hover:text-blue-800 text-[11px] font-medium shrink-0 ml-2"
-                        title="Enviar e-mail oficial (grupomais.sae@gmail.com)"
+                        title={`Enviar e-mail para ${c.email}`}
                       >
                         Enviar E-mail
                       </a>

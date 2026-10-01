@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { ROLE_LABELS, UserRole } from '@/types'
@@ -16,7 +16,12 @@ import {
   Kanban,
   Sparkles,
   ShieldAlert,
+  Bell,
+  CalendarCheck,
 } from 'lucide-react'
+import { toquesService } from '@/services/toques'
+import { empresasService } from '@/services/empresas'
+import { parametrosService } from '@/services/parametros'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDateBr } from '@/lib/formatters'
@@ -32,6 +37,72 @@ const ROLE_BADGE_VARIANTS: Record<UserRole, string> = {
 export default function AppLayout() {
   const { user, isAdmin, logout } = useAuth()
   const navigate = useNavigate()
+
+  const [badgeAcoesCount, setBadgeAcoesCount] = useState<number>(0)
+  const [badgeCriticosCount, setBadgeCriticosCount] = useState<number>(0)
+
+  // Carregar contagem de ações do dia + atrasos para a badge de notificações no sininho
+  const carregarNotificacoes = async () => {
+    if (!user?.role || (user.role !== 'admin' && user.role !== 'comercial')) {
+      return
+    }
+
+    try {
+      let diasLim = 5
+      try {
+        const p = await parametrosService.getByKey('dias_limite_atraso_toque')
+        if (p?.valor) diasLim = parseInt(p.valor, 10) || 5
+      } catch {
+        /* intentionally ignored */
+      }
+
+      const [toquesData, empresasData] = await Promise.all([
+        toquesService.listAtivos(),
+        empresasService.list(),
+      ])
+
+      const empresasCadencia = new Set(
+        empresasData
+          .filter((e) => e.status === 'ativa' && e.etapa_funil === 'em_cadencia')
+          .map((e) => e.id),
+      )
+
+      const porEmpresa: Record<string, typeof toquesData> = {}
+      for (const t of toquesData) {
+        if (empresasCadencia.has(t.empresa)) {
+          if (!porEmpresa[t.empresa]) porEmpresa[t.empresa] = []
+          porEmpresa[t.empresa].push(t)
+        }
+      }
+
+      let countAcoes = 0
+      let countCriticos = 0
+
+      for (const empId of Object.keys(porEmpresa)) {
+        const calc = toquesService.calcularStatusToques(porEmpresa[empId], diasLim)
+        for (const item of calc) {
+          if (
+            item.isLiberadoParaExecucao &&
+            (item.statusCalculado === 'para_hoje' || item.statusCalculado === 'em_atraso')
+          ) {
+            countAcoes++
+            if (item.isCriticoAdmin) countCriticos++
+          }
+        }
+      }
+
+      setBadgeAcoesCount(countAcoes)
+      setBadgeCriticosCount(countCriticos)
+    } catch {
+      /* intentionally ignored */
+    }
+  }
+
+  React.useEffect(() => {
+    carregarNotificacoes()
+    const timer = setInterval(carregarNotificacoes, 30000)
+    return () => clearInterval(timer)
+  }, [user])
 
   const handleLogout = async () => {
     await logout()
@@ -105,6 +176,27 @@ export default function AppLayout() {
               <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 Funil de Intermediação
               </div>
+
+              <NavLink
+                to="/acoes-do-dia"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`
+                }
+              >
+                <CalendarCheck className="w-4 h-4 text-amber-400" />
+                <div className="flex items-center justify-between flex-1">
+                  <span>Ações do Dia</span>
+                  {badgeAcoesCount > 0 && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-rose-600 text-white shadow-xs">
+                      {badgeAcoesCount}
+                    </span>
+                  )}
+                </div>
+              </NavLink>
 
               <NavLink
                 to="/funil"
@@ -237,6 +329,26 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Sininho com Badge de Notificações de Ações do Dia e Atrasos */}
+            {user?.role && (user.role === 'admin' || user.role === 'comercial') && (
+              <NavLink
+                to="/acoes-do-dia"
+                className="relative p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-full transition-colors"
+                title={`${badgeAcoesCount} ações da cadência aguardando intervenção hoje`}
+              >
+                <Bell className="w-5 h-5" />
+                {badgeAcoesCount > 0 && (
+                  <span
+                    className={`absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full text-[10px] font-bold text-white shadow-xs ${
+                      badgeCriticosCount > 0 ? 'bg-rose-600 animate-pulse' : 'bg-blue-600'
+                    }`}
+                  >
+                    {badgeAcoesCount}
+                  </span>
+                )}
+              </NavLink>
+            )}
+
             {user && (
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-slate-700 hidden sm:inline">

@@ -17,6 +17,11 @@ import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
 import { EmpresaContratosTab } from './EmpresaContratosTab'
 import { EmpresaContatosTab } from './EmpresaContatosTab'
 import { EmpresaTimelineTab } from './EmpresaTimelineTab'
+import { EmpresaCadenciaTab } from './EmpresaCadenciaTab'
+import { toquesService } from '@/services/toques'
+import { modelosService } from '@/services/modelos'
+import { motivosService } from '@/services/motivos'
+import { ToqueComCalculo, ModeloRecord, MotivoRecord } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -47,6 +52,7 @@ import {
   Sparkles,
   ArrowRight,
   ShieldAlert,
+  CalendarCheck,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -54,9 +60,9 @@ interface EmpresaDetailModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   empresa: EmpresaRecord | null
-  users: UserRecord[]
-  diasAlerta: number
-  readOnly: boolean
+  users?: UserRecord[]
+  diasAlerta?: number
+  readOnly?: boolean
   onSuccess: () => void
 }
 
@@ -64,16 +70,16 @@ export function EmpresaDetailModal({
   open,
   onOpenChange,
   empresa,
-  users,
-  diasAlerta,
-  readOnly,
+  users = [],
+  diasAlerta = 5,
+  readOnly = false,
   onSuccess,
 }: EmpresaDetailModalProps) {
   const { toast } = useToast()
 
-  const [activeTab, setActiveTab] = useState<'dados' | 'contratos' | 'contatos' | 'timeline'>(
-    'dados',
-  )
+  const [activeTab, setActiveTab] = useState<
+    'dados' | 'contratos' | 'contatos' | 'cadencia' | 'timeline'
+  >('dados')
   const [submitting, setSubmitting] = useState(false)
   const [consultandoCnpj, setConsultandoCnpj] = useState(false)
   const [avisoApi, setAvisoApi] = useState<string | null>(null)
@@ -81,6 +87,10 @@ export function EmpresaDetailModal({
   // Sub-entidades carregadas
   const [contratos, setContratos] = useState<ContratoRecord[]>([])
   const [contatos, setContatos] = useState<ContatoRecord[]>([])
+  const [toquesCalculados, setToquesCalculados] = useState<ToqueComCalculo[]>([])
+  const [modelos, setModelos] = useState<ModeloRecord[]>([])
+  const [motivosInativacao, setMotivosInativacao] = useState<MotivoRecord[]>([])
+  const [motivosCancelamento, setMotivosCancelamento] = useState<MotivoRecord[]>([])
   const [timelineLogs, setTimelineLogs] = useState<AuditLogRecord[]>([])
   const [loadingTimeline, setLoadingTimeline] = useState(false)
 
@@ -176,12 +186,22 @@ export function EmpresaDetailModal({
 
   const loadSubData = async (empId: string) => {
     try {
-      const [cts, ctos] = await Promise.all([
+      const [cts, ctos, tqs, mods, motsInat, motsCanc] = await Promise.all([
         contratosService.listByEmpresa(empId),
         contatosService.listByEmpresa(empId),
+        toquesService.getByEmpresa(empId),
+        modelosService.list(),
+        motivosService.listAtivos('inativacao'),
+        motivosService.listAtivos('cancelamento_toque'),
       ])
       setContratos(cts)
       setContatos(ctos)
+      setModelos(mods)
+      setMotivosInativacao(motsInat)
+      setMotivosCancelamento(motsCanc)
+
+      const calc = toquesService.calcularStatusToques(tqs, diasAlerta || 5)
+      setToquesCalculados(calc)
 
       setLoadingTimeline(true)
       const logs = await empresaTimelineService.getTimeline(
@@ -557,6 +577,14 @@ export function EmpresaDetailModal({
                   </TabsTrigger>
 
                   <TabsTrigger
+                    value="cadencia"
+                    className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
+                  >
+                    <CalendarCheck className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Cadência de 5
+                    Toques ({toquesCalculados.length})
+                  </TabsTrigger>
+
+                  <TabsTrigger
                     value="timeline"
                     className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
                   >
@@ -896,6 +924,23 @@ export function EmpresaDetailModal({
                   contatos={contatos}
                   readOnly={readOnly}
                   onContatosChange={() => loadSubData(empresa.id)}
+                />
+              </TabsContent>
+            )}
+
+            {/* ABA CADÊNCIA DE 5 TOQUES */}
+            {empresa && (
+              <TabsContent value="cadencia" className="m-0">
+                <EmpresaCadenciaTab
+                  empresa={empresa}
+                  toques={toquesCalculados}
+                  contatos={contatos}
+                  contratos={contratos}
+                  modelos={modelos}
+                  motivosInativacao={motivosInativacao}
+                  motivosCancelamento={motivosCancelamento}
+                  readOnly={readOnly}
+                  onToquesChange={() => loadSubData(empresa.id)}
                 />
               </TabsContent>
             )}

@@ -127,22 +127,44 @@ export const FunilEmpresaCard: React.FC<FunilEmpresaCardProps> = ({
         </span>
       </div>
 
-      {/* Próxima Ação Comercial */}
+      {/* Próxima Ação Real da Cadência ou Comercial */}
       <div
         onClick={() => onEditProximaAcao(empresa)}
-        className="mt-2 p-1.5 rounded bg-slate-50 hover:bg-blue-50/70 border border-slate-200/80 hover:border-blue-200 text-[11px] transition-colors cursor-pointer"
-        title="Clique para editar ou agendar próxima ação"
+        className={`mt-2 p-1.5 rounded border text-[11px] transition-colors cursor-pointer ${
+          empresa.proxima_acao_desc?.includes('PENDÊNCIA')
+            ? 'bg-rose-50/80 hover:bg-rose-100/80 border-rose-300 text-rose-950'
+            : empresa.etapa_funil === 'em_cadencia'
+              ? 'bg-blue-50/60 hover:bg-blue-100/60 border-blue-200 text-blue-950'
+              : 'bg-slate-50 hover:bg-blue-50/70 border-slate-200/80 hover:border-blue-200 text-slate-700'
+        }`}
+        title="Próxima ação real calculada pela cadência"
       >
-        <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium mb-0.5">
-          <span className="flex items-center gap-1 text-blue-700">
-            <Clock className="w-3 h-3 text-blue-600 shrink-0" />
-            Próxima ação:
+        <div className="flex items-center justify-between text-[10px] font-medium mb-0.5">
+          <span
+            className={`flex items-center gap-1 ${
+              empresa.proxima_acao_desc?.includes('PENDÊNCIA')
+                ? 'text-rose-700 font-bold'
+                : empresa.etapa_funil === 'em_cadencia'
+                  ? 'text-blue-700 font-bold'
+                  : 'text-slate-600'
+            }`}
+          >
+            {empresa.proxima_acao_desc?.includes('PENDÊNCIA') ? (
+              <AlertCircle className="w-3 h-3 text-rose-600 shrink-0" />
+            ) : (
+              <Clock className="w-3 h-3 text-blue-600 shrink-0" />
+            )}
+            {empresa.etapa_funil === 'em_cadencia' ? 'Próximo Toque:' : 'Próxima ação:'}
           </span>
-          <span className="font-mono text-slate-600">{dataAcaoFormatada || 'Não agendada'}</span>
+          <span className="font-mono text-[10px] text-slate-600">
+            {dataAcaoFormatada || 'Não agendada'}
+          </span>
         </div>
-        <p className="text-[10px] text-slate-700 line-clamp-2">
+        <p className="text-[10px] line-clamp-2 font-medium">
           {empresa.proxima_acao_desc || (
-            <span className="text-slate-400 italic">+ Definir próxima intervenção...</span>
+            <span className="text-slate-400 italic font-normal">
+              + Definir próxima intervenção...
+            </span>
           )}
         </p>
       </div>

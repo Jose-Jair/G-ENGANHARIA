@@ -15,6 +15,7 @@ import EmpresasImportarPage from './pages/EmpresasImportar'
 import FunilPage from './pages/Funil'
 import FunilSugestoesPage from './pages/FunilSugestoes'
 import NaoContatarPage from './pages/NaoContatar'
+import AcoesDoDiaPage from './pages/AcoesDoDia'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -56,7 +57,15 @@ const App = () => (
               }
             />
 
-            {/* Rotas do Funil de Intermediação (Etapa 3 - Admin e Comercial) */}
+            {/* Rotas do Funil de Intermediação e Cadência (Etapas 3 e 4 - Admin e Comercial) */}
+            <Route
+              path="/acoes-do-dia"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'comercial']}>
+                  <AcoesDoDiaPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/funil"
               element={

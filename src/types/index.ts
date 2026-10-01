@@ -244,4 +244,45 @@ export interface ContratoRecord {
   }
 }
 
+export type StatusToque =
+  | 'agendado'
+  | 'para_hoje'
+  | 'em_atraso'
+  | 'realizado'
+  | 'respondido'
+  | 'cancelado'
+
+export type StatusVisualToque =
+  | 'bloqueado'
+  | 'para_hoje'
+  | 'em_atraso'
+  | 'agendado'
+  | 'realizado'
+  | 'respondido'
+  | 'cancelado'
+
+export interface ToqueRecord {
+  id: string
+  empresa: string
+  numero_toque: number
+  data_prevista: string
+  data_realizada?: string
+  canal: 'email' | 'whatsapp' | string
+  status: StatusToque
+  resultado?: string
+  observacao?: string
+  created: string
+  updated: string
+  expand?: {
+    empresa?: EmpresaRecord
+  }
+}
+
+export interface ToqueComCalculo extends ToqueRecord {
+  statusCalculado: StatusVisualToque
+  isLiberadoParaExecucao: boolean
+  diasAtraso: number
+  isCriticoAdmin: boolean
+}
+
 export type CenarioEntrada = 'nova' | 'cadastrada' | 'parceira'

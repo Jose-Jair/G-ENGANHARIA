@@ -11,4 +11,14 @@ export const parametrosService = {
   async update(id: string, data: Partial<ParametroRecord>): Promise<ParametroRecord> {
     return await pb.collection('parametros').update<ParametroRecord>(id, data)
   },
+
+  async getByKey(chave: string): Promise<ParametroRecord | null> {
+    try {
+      return await pb
+        .collection('parametros')
+        .getFirstListItem<ParametroRecord>(`chave = "${chave}"`)
+    } catch (_) {
+      return null
+    }
+  },
 }

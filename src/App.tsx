@@ -22,6 +22,9 @@ import { ParceirosPage } from './pages/Parceiros'
 import { ClientesPfPage } from './pages/ClientesPf'
 import { PropostasPage } from './pages/Propostas'
 import { PropostaPublicaPage } from './pages/PropostaPublica'
+import { ProjetosPage } from './pages/Projetos'
+import { ExecutoresPage } from './pages/Executores'
+import { CotacaoPublicaPage } from './pages/CotacaoPublica'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -41,6 +44,9 @@ const App = () => (
           {/* Rota pública de aceite/recusa de proposta (Etapa 7) - sem login */}
           <Route path="/proposta/:token" element={<PropostaPublicaPage />} />
 
+          {/* Rota pública de resposta de cotação do executor (Etapa 8) - sem login */}
+          <Route path="/cotacao/:token" element={<CotacaoPublicaPage />} />
+
           {/* Authenticated routes wrapped with AppLayout */}
           <Route
             element={
@@ -58,6 +64,26 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['admin', 'comercial', 'financeiro', 'gestor']}>
                   <PropostasPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ETAPA 8: Módulo Projetos (Leitura: Admin, Comercial, Financeiro, Gestor; Gravação: Admin e Gestor) */}
+            <Route
+              path="/projetos"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'comercial', 'financeiro', 'gestor']}>
+                  <ProjetosPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ETAPA 8: Módulo Executores (Admin e Gestor gravam; Comercial leitura; Financeiro sem acesso) */}
+            <Route
+              path="/executores"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'gestor', 'comercial']}>
+                  <ExecutoresPage />
                 </ProtectedRoute>
               }
             />

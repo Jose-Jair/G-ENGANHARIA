@@ -22,7 +22,10 @@ import {
   Handshake,
   UserCheck,
   FileText,
+  Briefcase,
+  HardHat,
 } from 'lucide-react'
+import { projetosService } from '@/services/projetos'
 import { toquesService } from '@/services/toques'
 import { empresasService } from '@/services/empresas'
 import { parametrosService } from '@/services/parametros'
@@ -49,6 +52,7 @@ export default function AppLayout() {
   const [badgeCriticosCount, setBadgeCriticosCount] = useState<number>(0)
   const [badgeCampanhasPendentesCount, setBadgeCampanhasPendentesCount] = useState<number>(0)
   const [badgeParceirosSemDemandaCount, setBadgeParceirosSemDemandaCount] = useState<number>(0)
+  const [badgeDocumentosVencendoCount, setBadgeDocumentosVencendoCount] = useState<number>(0)
 
   // Carregar contagem de ações do dia + atrasos para a badge de notificações no sininho
   const carregarNotificacoes = async () => {
@@ -145,6 +149,14 @@ export default function AppLayout() {
 
         const semDemandaCriticos = inds.filter((i) => i.isSemDemandaCritica).length
         setBadgeParceirosSemDemandaCount(semDemandaCriticos)
+      } catch {
+        /* intentionally ignored */
+      }
+
+      // Regra da Etapa 8: Alertas de Documentos do Projeto D-30 / D-15 / D-7 / D-1 calculados ao abrir o sistema
+      try {
+        const docsAlerta = await projetosService.listDocumentosComAlertaGeral()
+        setBadgeDocumentosVencendoCount(docsAlerta.length)
       } catch {
         /* intentionally ignored */
       }
@@ -303,6 +315,65 @@ export default function AppLayout() {
                   )}
                 </div>
               </NavLink>
+
+              {/* ETAPA 8: PROJETOS E EXECUTORES */}
+              <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Operação de Engenharia
+              </div>
+
+              {/* Projetos: Leitura por Admin, Comercial, Financeiro, Gestor */}
+              <NavLink
+                to="/projetos"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`
+                }
+              >
+                <Briefcase className="w-4 h-4 text-blue-400" />
+                <div className="flex items-center justify-between flex-1">
+                  <span>Projetos</span>
+                  {badgeDocumentosVencendoCount > 0 && (
+                    <span
+                      className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 shadow-xs"
+                      title={`${badgeDocumentosVencendoCount} documento(s) com alerta de vencimento`}
+                    >
+                      {badgeDocumentosVencendoCount}
+                    </span>
+                  )}
+                  {(user.role === 'financeiro' || user.role === 'comercial') && (
+                    <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                      Leitura
+                    </span>
+                  )}
+                </div>
+              </NavLink>
+
+              {/* Executores: Admin, Gestor, Comercial (Financeiro sem acesso) */}
+              {user.role !== 'financeiro' && (
+                <NavLink
+                  to="/executores"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    }`
+                  }
+                >
+                  <HardHat className="w-4 h-4 text-amber-400" />
+                  <div className="flex items-center justify-between flex-1">
+                    <span>Executores</span>
+                    {user.role === 'comercial' && (
+                      <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                        Leitura
+                      </span>
+                    )}
+                  </div>
+                </NavLink>
+              )}
             </>
           )}
 
@@ -489,26 +560,32 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Sininho com Badge de Notificações: Ações do Dia, Atrasos, Campanhas Pendentes e Parceiros sem Demanda (A6) */}
-            {user?.role && (user.role === 'admin' || user.role === 'comercial') && (
+            {/* Sininho com Badge de Notificações: Ações do Dia, Atrasos, Campanhas Pendentes, Parceiros sem Demanda e Documentos Vencendo (Etapa 8) */}
+            {user?.role && user.role !== 'executor' && (
               <NavLink
                 to={
-                  badgeParceirosSemDemandaCount > 0
-                    ? '/parceiros'
-                    : isAdmin && badgeCampanhasPendentesCount > 0
-                      ? '/campanhas'
-                      : '/acoes-do-dia'
+                  badgeDocumentosVencendoCount > 0 &&
+                  (user.role === 'admin' || user.role === 'gestor')
+                    ? '/projetos'
+                    : badgeParceirosSemDemandaCount > 0
+                      ? '/parceiros'
+                      : isAdmin && badgeCampanhasPendentesCount > 0
+                        ? '/campanhas'
+                        : '/acoes-do-dia'
                 }
                 className="relative p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-full transition-colors"
-                title={`Notificações: ${badgeAcoesCount} ações cadência, ${badgeCampanhasPendentesCount} campanhas pendentes, ${badgeParceirosSemDemandaCount} parceiros sem demanda (+180d)`}
+                title={`Notificações: ${badgeAcoesCount} ações cadência, ${badgeCampanhasPendentesCount} campanhas pendentes, ${badgeParceirosSemDemandaCount} parceiros sem demanda (+180d), ${badgeDocumentosVencendoCount} documentos com alerta de vencimento (D-30/15/7/1)`}
               >
                 <Bell className="w-5 h-5" />
                 {(badgeAcoesCount > 0 ||
                   (isAdmin && badgeCampanhasPendentesCount > 0) ||
-                  badgeParceirosSemDemandaCount > 0) && (
+                  badgeParceirosSemDemandaCount > 0 ||
+                  badgeDocumentosVencendoCount > 0) && (
                   <span
                     className={`absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full text-[10px] font-bold text-white shadow-xs ${
-                      badgeCriticosCount > 0 || badgeParceirosSemDemandaCount > 0
+                      badgeCriticosCount > 0 ||
+                      badgeParceirosSemDemandaCount > 0 ||
+                      badgeDocumentosVencendoCount > 0
                         ? 'bg-rose-600 animate-pulse'
                         : isAdmin && badgeCampanhasPendentesCount > 0
                           ? 'bg-amber-600'
@@ -517,7 +594,8 @@ export default function AppLayout() {
                   >
                     {badgeAcoesCount +
                       (isAdmin ? badgeCampanhasPendentesCount : 0) +
-                      badgeParceirosSemDemandaCount}
+                      badgeParceirosSemDemandaCount +
+                      badgeDocumentosVencendoCount}
                   </span>
                 )}
               </NavLink>

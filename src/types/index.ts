@@ -503,21 +503,209 @@ export interface PropostaRecord {
   }
 }
 
+export type SaudeProjeto = 'verde' | 'amarelo' | 'vermelho'
+export type TipoExecucaoEtapa = 'direta' | 'terceirizada' | 'mista'
+export type StatusEtapa =
+  | 'a_iniciar'
+  | 'cotacao'
+  | 'em_andamento'
+  | 'revisao'
+  | 'concluida'
+  | 'cancelada'
+export type StatusEntregavel =
+  | 'elaborando'
+  | 'revisao_interna'
+  | 'enviado_cliente'
+  | 'aprovado'
+  | 'reprovado'
+export type TipoDocumento = 'ART' | 'RRT' | 'TRT' | 'OS' | 'medicao'
+export type ProbabilidadeRisco = 'baixa' | 'media' | 'alta'
+export type ImpactoRisco = 'baixo' | 'medio' | 'alto'
+export type StatusRisco = 'aberto' | 'mitigado' | 'realizado'
+export type TipoExecutor = 'PF' | 'PJ'
+export type ConselhoClasse = 'CREA' | 'CAU' | 'CFT' | 'OUTRO'
+export type StatusExecutor = 'homologacao' | 'ativo' | 'suspenso'
+export type StatusCotacao =
+  | 'convite_enviado'
+  | 'respondida'
+  | 'escolhida'
+  | 'nao_escolhida'
+  | 'recusada'
+
 export interface ProjetoRecord {
   id: string
   codigo: string
+  nome?: string
+  descricao?: string
+  disciplinas?: string
   proposta?: string
   contrato?: string
+  empresa?: string
+  cliente_pf?: string
+  valor_total?: number
+  prazo_final?: string
   subcontratacao_autorizada?: boolean
   anexo_autorizacao?: string
-  saude?: 'verde' | 'amarelo' | 'vermelho'
+  saude?: SaudeProjeto
+  justificativa_saude?: string
   status?: string
   created: string
   updated: string
   expand?: {
     proposta?: PropostaRecord
     contrato?: ContratoRecord
+    empresa?: EmpresaRecord
+    cliente_pf?: ClientePfRecord
   }
+}
+
+export interface ExecutorRecord {
+  id: string
+  tipo: TipoExecutor
+  nome: string
+  cpf_cnpj?: string
+  email?: string
+  telefone?: string
+  conselho?: ConselhoClasse
+  numero_registro?: string
+  conselho_validade?: string
+  disciplinas?: string
+  regiao?: string
+  capacidade_simultanea?: number
+  dados_bancarios?: string
+  nda_contrato?: string
+  status: StatusExecutor
+  motivo_suspensao?: string
+  nota_geral?: number
+  total_avaliacoes?: number
+  created: string
+  updated: string
+}
+
+export interface ProjetoEtapaRecord {
+  id: string
+  projeto: string
+  nome: string
+  descricao?: string
+  ordem?: number
+  disciplina?: string
+  tipo_execucao: TipoExecucaoEtapa
+  executor?: string
+  prazo?: string
+  data_inicio?: string
+  data_conclusao?: string
+  custo_estimado?: number
+  status: StatusEtapa
+  created: string
+  updated: string
+  expand?: {
+    projeto?: ProjetoRecord
+    executor?: ExecutorRecord
+  }
+}
+
+export interface EntregavelRecord {
+  id: string
+  etapa: string
+  nome: string
+  descricao?: string
+  versao?: string
+  status: StatusEntregavel
+  arquivo?: string
+  data_aprovacao?: string
+  observacoes_revisao?: string
+  created: string
+  updated: string
+  expand?: {
+    etapa?: ProjetoEtapaRecord
+  }
+}
+
+export interface DocumentoRecord {
+  id: string
+  projeto?: string
+  etapa?: string
+  tipo: TipoDocumento
+  numero?: string
+  descricao?: string
+  responsavel_tecnico?: string
+  arquivo?: string
+  vencimento?: string
+  created: string
+  updated: string
+  expand?: {
+    projeto?: ProjetoRecord
+    etapa?: ProjetoEtapaRecord
+  }
+}
+
+export interface RiscoRecord {
+  id: string
+  projeto: string
+  descricao: string
+  probabilidade: ProbabilidadeRisco
+  impacto: ImpactoRisco
+  mitigacao?: string
+  status: StatusRisco
+  created: string
+  updated: string
+  expand?: {
+    projeto?: ProjetoRecord
+  }
+}
+
+export interface CotacaoRecord {
+  id: string
+  etapa: string
+  executor: string
+  escopo?: string
+  prazo_resposta?: string
+  data_limite?: string
+  preco_ofertado?: number
+  prazo_ofertado?: string
+  observacoes?: string
+  status?: StatusCotacao
+  escolhida?: boolean
+  token?: string
+  data_resposta?: string
+  created: string
+  updated: string
+  expand?: {
+    etapa?: ProjetoEtapaRecord
+    executor?: ExecutorRecord
+  }
+}
+
+export interface AvaliacaoRecord {
+  id: string
+  executor: string
+  etapa: string
+  avaliado_por?: string
+  pontualidade: number // 1 a 5
+  qualidade: number // 1 a 5
+  desvio_custo: number // 1 a 5
+  responsividade: number // 1 a 5
+  nota_final?: number
+  comentario?: string
+  created: string
+  updated: string
+  expand?: {
+    executor?: ExecutorRecord
+    etapa?: ProjetoEtapaRecord
+    avaliado_por?: UserRecord
+  }
+}
+
+export interface PesosAvaliacaoExecutor {
+  peso_pontualidade: number // default 30%
+  peso_qualidade: number // default 35%
+  peso_desvio_custo: number // default 20%
+  peso_responsividade: number // default 15%
+}
+
+export interface ModeloEtapaDisciplina {
+  disciplina: string
+  etapas: string[]
 }
 
 export interface ContaRecord {

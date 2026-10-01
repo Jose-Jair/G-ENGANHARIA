@@ -38,17 +38,22 @@ import { ModalCriarProjeto } from '@/components/projetos/ModalCriarProjeto'
 import { ModalSaudeProjeto } from '@/components/projetos/ModalSaudeProjeto'
 import { ModalDossieProjeto } from '@/components/projetos/ModalDossieProjeto'
 
+import { useSearchParams } from 'react-router-dom'
+
 export const ProjetosPage: React.FC = () => {
   const { user } = useAuth()
   const { toast } = useToast()
+  const [searchParams] = useSearchParams()
 
   const [projetos, setProjetos] = useState<ProjetoRecord[]>([])
   const [carregando, setCarregando] = useState(true)
 
   // Filtros
-  const [busca, setBusca] = useState('')
-  const [filtroSaude, setFiltroSaude] = useState<string>('todos')
-  const [filtroStatus, setFiltroStatus] = useState<string>('todos')
+  const [busca, setBusca] = useState(() => searchParams.get('busca') || '')
+  const [filtroSaude, setFiltroSaude] = useState<string>(() => searchParams.get('saude') || 'todos')
+  const [filtroStatus, setFiltroStatus] = useState<string>(
+    () => searchParams.get('status') || 'todos',
+  )
 
   // Modais
   const [modalCriarOpen, setModalCriarOpen] = useState(false)

@@ -50,8 +50,12 @@ export const PropostasPage: React.FC = () => {
   const [loading, setLoading] = useState(true)
 
   // Filtros
-  const [filtroStatus, setFiltroStatus] = useState<string>('todos')
-  const [filtroBusca, setFiltroBusca] = useState<string>('')
+  const [filtroStatus, setFiltroStatus] = useState<string>(() => {
+    return searchParams.get('status') || 'todos'
+  })
+  const [filtroBusca, setFiltroBusca] = useState<string>(() => {
+    return searchParams.get('busca') || ''
+  })
 
   // Modais
   const [showEditorModal, setShowEditorModal] = useState(false)

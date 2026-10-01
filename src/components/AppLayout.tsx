@@ -25,6 +25,7 @@ import {
   Briefcase,
   HardHat,
   DollarSign,
+  LayoutDashboard,
 } from 'lucide-react'
 import { projetosService } from '@/services/projetos'
 import { toquesService } from '@/services/toques'
@@ -212,20 +213,42 @@ export default function AppLayout() {
             Navegação Principal
           </div>
 
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`
-            }
-          >
-            <Home className="w-4 h-4" />
-            <span>Página Inicial</span>
-          </NavLink>
+          {/* ETAPA 11: DASHBOARD EXECUTIVO (Acesso exclusivo do Admin) */}
+          {isAdmin ? (
+            <NavLink
+              to="/dashboard"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`
+              }
+            >
+              <LayoutDashboard className="w-4 h-4 text-blue-400" />
+              <div className="flex items-center justify-between flex-1">
+                <span>Dashboard</span>
+                <span className="text-[9px] bg-red-950 text-red-300 border border-red-800/80 px-1.5 py-0.2 rounded font-bold uppercase">
+                  Admin
+                </span>
+              </div>
+            </NavLink>
+          ) : (
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`
+              }
+            >
+              <Home className="w-4 h-4" />
+              <span>Página Inicial</span>
+            </NavLink>
+          )}
 
           {/* Módulo de Empresas / Cadastros (Admin, Comercial, Financeiro, Gestor) */}
           {user?.role && user.role !== 'executor' && (

@@ -10,6 +10,7 @@ import IndexPage from './pages/Index'
 import WelcomePage from './pages/Welcome'
 import AdministracaoPage from './pages/Administracao'
 import AuditoriaPage from './pages/Auditoria'
+import DashboardPage from './pages/Dashboard'
 import EmpresasPage from './pages/Empresas'
 import EmpresasImportarPage from './pages/EmpresasImportar'
 import FunilPage from './pages/Funil'
@@ -57,6 +58,15 @@ const App = () => (
             }
           >
             <Route path="/" element={<IndexPage />} />
+            {/* ETAPA 11: Dashboard Executivo (Acesso Exclusivo do Admin) */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/boas-vindas" element={<WelcomePage />} />
 
             {/* ETAPA 7: Módulo Propostas (Admin e Comercial gravam; Financeiro e Gestor leem) */}

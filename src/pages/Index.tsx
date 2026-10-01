@@ -6,11 +6,9 @@ import WelcomePage from './Welcome'
 export default function IndexPage() {
   const { user, isAdmin } = useAuth()
 
-  // If admin, can directly see administration or welcome
-  // The task specifies:
-  // 5. / : redireciona para o módulo padrão do perfil (admin → administração; outros → boas-vindas).
+  // If admin, redireciona para a tela inicial padrão: /dashboard (Etapa 11)
   if (isAdmin) {
-    return <Navigate to="/administracao" replace />
+    return <Navigate to="/dashboard" replace />
   }
 
   return <WelcomePage />

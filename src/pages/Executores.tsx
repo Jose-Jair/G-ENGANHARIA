@@ -38,18 +38,25 @@ import { ModalCriarEditarExecutor } from '@/components/executores/ModalCriarEdit
 import { ModalSuspenderExecutor } from '@/components/executores/ModalSuspenderExecutor'
 import { ModalHistoricoAvaliacoes } from '@/components/executores/ModalHistoricoAvaliacoes'
 
+import { useSearchParams } from 'react-router-dom'
+
 export const ExecutoresPage: React.FC = () => {
   const { user } = useAuth()
   const { toast } = useToast()
+  const [searchParams] = useSearchParams()
 
   const [executores, setExecutores] = useState<ExecutorComMetricas[]>([])
   const [carregando, setCarregando] = useState(true)
   const [notaCorte, setNotaCorte] = useState<number>(3.0)
 
   // Filtros
-  const [busca, setBusca] = useState('')
-  const [filtroStatus, setFiltroStatus] = useState<string>('todos')
-  const [filtroAlerta, setFiltroAlerta] = useState<string>('todos')
+  const [busca, setBusca] = useState(() => searchParams.get('busca') || '')
+  const [filtroStatus, setFiltroStatus] = useState<string>(
+    () => searchParams.get('status') || 'todos',
+  )
+  const [filtroAlerta, setFiltroAlerta] = useState<string>(
+    () => searchParams.get('alerta') || 'todos',
+  )
 
   // Modais
   const [modalCriarEditarOpen, setModalCriarEditarOpen] = useState(false)

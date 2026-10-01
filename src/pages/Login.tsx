@@ -48,7 +48,7 @@ export default function LoginPage() {
   const getRedirectPath = (role: string) => {
     const from = (location.state as { from?: { pathname?: string } })?.from?.pathname
     if (from && from !== '/login') return from
-    return role === 'admin' ? '/administracao' : '/'
+    return role === 'admin' ? '/dashboard' : '/'
   }
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -91,7 +91,7 @@ export default function LoginPage() {
         title: 'MFA Confirmado',
         description: 'Autenticação de dois fatores aprovada.',
       })
-      navigate('/administracao', { replace: true })
+      navigate('/dashboard', { replace: true })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Código MFA inválido.'
       setErrorMessage(msg)

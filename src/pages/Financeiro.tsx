@@ -47,9 +47,12 @@ import { ModalNovaConta } from '@/components/financeiro/ModalNovaConta'
 import { ModalDetalhesConta } from '@/components/financeiro/ModalDetalhesConta'
 import { ModalRelatoriosFinanceiros } from '@/components/financeiro/ModalRelatoriosFinanceiros'
 
+import { useSearchParams } from 'react-router-dom'
+
 export function FinanceiroPage() {
   const { user, isAdmin } = useAuth()
   const { toast } = useToast()
+  const [searchParams] = useSearchParams()
 
   const [loading, setLoading] = useState(true)
   const [contas, setContas] = useState<ContaRecord[]>([])
@@ -57,9 +60,15 @@ export function FinanceiroPage() {
   const [executores, setExecutores] = useState<ExecutorRecord[]>([])
   const [medicoesAprovadas, setMedicoesAprovadas] = useState<DocumentoRecord[]>([])
 
-  const [activeTab, setActiveTab] = useState<'receber' | 'pagar' | 'fluxo_caixa'>('receber')
-  const [termoBusca, setTermoBusca] = useState('')
-  const [filtroStatus, setFiltroStatus] = useState<string>('todos')
+  const [activeTab, setActiveTab] = useState<'receber' | 'pagar' | 'fluxo_caixa'>(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'pagar' || tab === 'fluxo_caixa' || tab === 'receber') return tab
+    return 'receber'
+  })
+  const [termoBusca, setTermoBusca] = useState(() => searchParams.get('busca') || '')
+  const [filtroStatus, setFiltroStatus] = useState<string>(
+    () => searchParams.get('status') || 'todos',
+  )
 
   // Modais
   const [modalNovaContaOpen, setModalNovaContaOpen] = useState(false)

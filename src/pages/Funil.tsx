@@ -864,6 +864,47 @@ export default function FunilPage() {
                                 Restaurar para "{emp.etapa_anterior}"
                               </button>
                             )}
+
+                            {/* Ação especial na coluna Nutrição Mensal: Reativar retorno ao funil para Em Conversa */}
+                            {col.id === 'nutricao_mensal' && (
+                              <button
+                                onClick={async () => {
+                                  if (
+                                    confirm(
+                                      `Mover ${
+                                        emp.nome_fantasia || emp.razao_social
+                                      } de volta ao funil ativo na etapa "Em conversa"?`,
+                                    )
+                                  ) {
+                                    try {
+                                      await empresasService.update(emp.id, {
+                                        etapa_funil: 'em_conversa',
+                                        etapa_anterior: 'nutricao_mensal',
+                                        proxima_acao_data: new Date().toISOString(),
+                                        proxima_acao_desc:
+                                          'Retorno manual de Nutrição Mensal para Em conversa',
+                                      })
+                                      toast({
+                                        title: 'Empresa reativada!',
+                                        description:
+                                          'A empresa retornou para a etapa Em conversa no funil.',
+                                      })
+                                      loadData()
+                                    } catch (err: unknown) {
+                                      toast({
+                                        title: 'Erro ao mover',
+                                        description:
+                                          err instanceof Error ? err.message : 'Falha na alteração',
+                                        variant: 'destructive',
+                                      })
+                                    }
+                                  }
+                                }}
+                                className="mt-1 w-full text-center text-[10px] font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 py-1 rounded border border-teal-200 transition-colors"
+                              >
+                                Retornar para "Em conversa"
+                              </button>
+                            )}
                           </div>
                         )
                       })

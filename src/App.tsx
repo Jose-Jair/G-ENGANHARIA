@@ -16,6 +16,8 @@ import FunilPage from './pages/Funil'
 import FunilSugestoesPage from './pages/FunilSugestoes'
 import NaoContatarPage from './pages/NaoContatar'
 import AcoesDoDiaPage from './pages/AcoesDoDia'
+import CampanhasPage from './pages/Campanhas'
+import DescadastroPage from './pages/Descadastro'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -27,6 +29,10 @@ const App = () => (
         <Routes>
           {/* Public login route */}
           <Route path="/login" element={<LoginPage />} />
+
+          {/* Public opt-out route for campaigns (LGPD) */}
+          <Route path="/descadastro/:token" element={<DescadastroPage />} />
+          <Route path="/descadastro" element={<DescadastroPage />} />
 
           {/* Authenticated routes wrapped with AppLayout */}
           <Route
@@ -71,6 +77,15 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['admin', 'comercial']}>
                   <FunilPage />
+                </ProtectedRoute>
+              }
+            />
+            {/* ETAPA 5: Módulo de Campanhas de Nutrição Mensal (Admin e Comercial) */}
+            <Route
+              path="/campanhas"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'comercial']}>
+                  <CampanhasPage />
                 </ProtectedRoute>
               }
             />

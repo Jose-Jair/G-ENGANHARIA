@@ -8,6 +8,7 @@ const businessCollections = [
   'contratos',
   'toques',
   'campanhas',
+  'campanha_envios',
   'nao_contatar',
   'clientes_pf',
   'propostas',
@@ -26,7 +27,6 @@ const businessCollections = [
   'sugestoes_funil',
   'reativacoes_sugeridas',
 ]
-
 for (let i = 0; i < businessCollections.length; i++) {
   const colName = businessCollections[i]
 

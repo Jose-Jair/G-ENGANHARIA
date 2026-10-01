@@ -18,10 +18,12 @@ import {
   ShieldAlert,
   Bell,
   CalendarCheck,
+  Megaphone,
 } from 'lucide-react'
 import { toquesService } from '@/services/toques'
 import { empresasService } from '@/services/empresas'
 import { parametrosService } from '@/services/parametros'
+import { campanhasService } from '@/services/campanhas'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDateBr } from '@/lib/formatters'
@@ -40,6 +42,7 @@ export default function AppLayout() {
 
   const [badgeAcoesCount, setBadgeAcoesCount] = useState<number>(0)
   const [badgeCriticosCount, setBadgeCriticosCount] = useState<number>(0)
+  const [badgeCampanhasPendentesCount, setBadgeCampanhasPendentesCount] = useState<number>(0)
 
   // Carregar contagem de ações do dia + atrasos para a badge de notificações no sininho
   const carregarNotificacoes = async () => {
@@ -93,6 +96,19 @@ export default function AppLayout() {
 
       setBadgeAcoesCount(countAcoes)
       setBadgeCriticosCount(countCriticos)
+
+      // Regra da Etapa 5: Sininho alerta o Admin quando há campanha pendente de aprovação
+      if (isAdmin) {
+        try {
+          const camps = await campanhasService.list()
+          const pendentes = camps.filter((c) => c.status === 'rascunho' || c.status === 'devolvida')
+          setBadgeCampanhasPendentesCount(pendentes.length)
+        } catch {
+          /* intentionally ignored */
+        }
+      } else {
+        setBadgeCampanhasPendentesCount(0)
+      }
     } catch {
       /* intentionally ignored */
     }
@@ -213,6 +229,30 @@ export default function AppLayout() {
               </NavLink>
 
               <NavLink
+                to="/campanhas"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`
+                }
+              >
+                <Megaphone className="w-4 h-4 text-violet-400" />
+                <div className="flex items-center justify-between flex-1">
+                  <span>Nutrição Mensal</span>
+                  {isAdmin && badgeCampanhasPendentesCount > 0 && (
+                    <span
+                      className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 shadow-xs"
+                      title={`${badgeCampanhasPendentesCount} campanha(s) aguardando aprovação do Admin`}
+                    >
+                      {badgeCampanhasPendentesCount}
+                    </span>
+                  )}
+                </div>
+              </NavLink>
+
+              <NavLink
                 to="/funil/sugestoes"
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -329,21 +369,29 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Sininho com Badge de Notificações de Ações do Dia e Atrasos */}
+            {/* Sininho com Badge de Notificações: Ações do Dia, Atrasos e Campanhas Pendentes de Aprovação */}
             {user?.role && (user.role === 'admin' || user.role === 'comercial') && (
               <NavLink
-                to="/acoes-do-dia"
+                to={isAdmin && badgeCampanhasPendentesCount > 0 ? '/campanhas' : '/acoes-do-dia'}
                 className="relative p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-full transition-colors"
-                title={`${badgeAcoesCount} ações da cadência aguardando intervenção hoje`}
+                title={
+                  isAdmin && badgeCampanhasPendentesCount > 0
+                    ? `${badgeCampanhasPendentesCount} campanha(s) aguardando aprovação do Admin | ${badgeAcoesCount} ações do dia`
+                    : `${badgeAcoesCount} ações da cadência aguardando intervenção hoje`
+                }
               >
                 <Bell className="w-5 h-5" />
-                {badgeAcoesCount > 0 && (
+                {(badgeAcoesCount > 0 || (isAdmin && badgeCampanhasPendentesCount > 0)) && (
                   <span
                     className={`absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full text-[10px] font-bold text-white shadow-xs ${
-                      badgeCriticosCount > 0 ? 'bg-rose-600 animate-pulse' : 'bg-blue-600'
+                      badgeCriticosCount > 0
+                        ? 'bg-rose-600 animate-pulse'
+                        : isAdmin && badgeCampanhasPendentesCount > 0
+                          ? 'bg-amber-600'
+                          : 'bg-blue-600'
                     }`}
                   >
-                    {badgeAcoesCount}
+                    {badgeAcoesCount + (isAdmin ? badgeCampanhasPendentesCount : 0)}
                   </span>
                 )}
               </NavLink>

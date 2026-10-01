@@ -286,3 +286,79 @@ export interface ToqueComCalculo extends ToqueRecord {
 }
 
 export type CenarioEntrada = 'nova' | 'cadastrada' | 'parceira'
+
+export type StatusCampanha = 'rascunho' | 'devolvida' | 'aprovada' | 'agendada' | 'enviada'
+export type SegmentoCampanha = 'A' | 'B' | 'C' | 'todos'
+
+export interface CampanhaRecord {
+  id: string
+  nome: string
+  segmento: SegmentoCampanha
+  status: StatusCampanha
+  data_envio?: string
+  template?: string
+  assunto?: string
+  corpo?: string
+  observacao_devolucao?: string
+  aprovado_por?: string
+  aprovado_em?: string
+  enviados?: number
+  abertos?: number
+  cliques?: number
+  respostas?: number
+  descadastros?: number
+  created: string
+  updated: string
+  expand?: {
+    template?: ModeloRecord
+    aprovado_por?: UserRecord
+  }
+}
+
+export type StatusEnvioCampanha = 'pendente' | 'enviado' | 'falha' | 'bloqueado_nao_contatar'
+
+export interface CampanhaEnvioRecord {
+  id: string
+  campanha: string
+  empresa: string
+  destinatario_email: string
+  destinatario_nome?: string
+  status: StatusEnvioCampanha
+  token_rastreamento: string
+  enviado_em?: string
+  aberto_em?: string
+  total_aberturas?: number
+  cliques?: number
+  ultimo_clique_em?: string
+  resposta_em?: string
+  resposta_observacao?: string
+  descadastro_em?: string
+  erro_mensagem?: string
+  created: string
+  updated: string
+  expand?: {
+    empresa?: EmpresaRecord
+    campanha?: CampanhaRecord
+  }
+}
+
+export interface CampanhaCalculada extends CampanhaRecord {
+  isProntaParaDisparo: boolean // Aprovada ou Agendada com data_envio <= hoje
+  taxaAbertura: number // %
+  taxaClique: number // %
+  taxaResposta: number // %
+  taxaDescadastro: number // %
+}
+
+export interface MetricasConsolidadasCampanhas {
+  totalCampanhas: number
+  totalEnviados: number
+  totalAbertos: number
+  totalCliques: number
+  totalRespostas: number
+  totalDescadastros: number
+  taxaAberturaGeral: number
+  taxaCliqueGeral: number
+  taxaRespostaGeral: number
+  taxaDescadastroGeral: number
+}

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T02:01:42.216Z",
+  "generatedAt": "2026-10-01T02:09:19.945Z",
   "collections": [
     {
       "name": "users",
@@ -791,7 +791,7 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["rascunho", "aprovada", "agendada", "enviada"]
+          "selectValues": ["rascunho", "devolvida", "aprovada", "agendada", "enviada"]
         },
         {
           "name": "data_envio",
@@ -849,6 +849,37 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "assunto",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "corpo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacao_devolucao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aprovado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "aprovado_em",
+          "type": "date",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": []
@@ -2093,6 +2124,131 @@
       "indexes": [
         "CREATE INDEX idx_reativacoes_empresa ON reativacoes_sugeridas (empresa)",
         "CREATE INDEX idx_reativacoes_status ON reativacoes_sugeridas (status)"
+      ]
+    },
+    {
+      "name": "campanha_envios",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "campanha",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "campanhas"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "destinatario_email",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "destinatario_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["pendente", "enviado", "falha", "bloqueado_nao_contatar"]
+        },
+        {
+          "name": "token_rastreamento",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "enviado_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aberto_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_aberturas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cliques",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultimo_clique_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resposta_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resposta_observacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "descadastro_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "erro_mensagem",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_campanha_envios_campanha ON campanha_envios (campanha)",
+        "CREATE INDEX idx_campanha_envios_empresa ON campanha_envios (empresa)",
+        "CREATE UNIQUE INDEX idx_campanha_envios_token ON campanha_envios (token_rastreamento)"
       ]
     }
   ]

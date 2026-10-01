@@ -237,9 +237,14 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
                   {dossie.proposta && (
                     <div className="flex justify-between border-t border-slate-200/80 pt-1">
                       <span className="text-slate-500">Proposta de Origem:</span>
-                      <strong className="font-mono text-blue-700">
-                        {dossie.proposta.numero} ({dossie.proposta.revisao || 'Rev.00'})
-                      </strong>
+                      <div className="text-right">
+                        <strong className="font-mono text-blue-700 block">
+                          {dossie.proposta.numero} ({dossie.proposta.revisao || 'Rev.00'})
+                        </strong>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          Valor: {formatCurrencyBr(dossie.proposta.preco || 0)}
+                        </span>
+                      </div>
                     </div>
                   )}
                   {dossie.proposta && (
@@ -261,7 +266,7 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3">
                 3. Síntese Financeira do Projeto
               </span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
                 <div className="p-2 bg-slate-800/80 rounded border border-slate-700">
                   <span className="text-[10px] text-slate-400 block">Valor Contratado</span>
                   <span className="text-sm font-bold text-white font-mono mt-0.5 block">
@@ -275,6 +280,12 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
                   </span>
                 </div>
                 <div className="p-2 bg-slate-800/80 rounded border border-slate-700">
+                  <span className="text-[10px] text-cyan-400 block">Saldo a Receber</span>
+                  <span className="text-sm font-bold text-cyan-400 font-mono mt-0.5 block">
+                    {formatCurrencyBr(dossie.financeiro.total_a_receber)}
+                  </span>
+                </div>
+                <div className="p-2 bg-slate-800/80 rounded border border-slate-700">
                   <span className="text-[10px] text-rose-400 block">Pago a Executores</span>
                   <span className="text-sm font-bold text-rose-400 font-mono mt-0.5 block">
                     {formatCurrencyBr(dossie.financeiro.total_pago_executores)}
@@ -283,7 +294,10 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
                 <div className="p-2 bg-slate-800/80 rounded border border-slate-700">
                   <span className="text-[10px] text-blue-400 block">Margem Projetada</span>
                   <span className="text-sm font-bold text-blue-400 font-mono mt-0.5 block">
-                    {dossie.financeiro.margem_projetada.toFixed(1)}%
+                    {dossie.financeiro.margem_projetada
+                      ? dossie.financeiro.margem_projetada.toFixed(1)
+                      : '0.0'}
+                    %
                   </span>
                 </div>
               </div>
@@ -409,7 +423,7 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
               <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
                 <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
                   <FileText className="w-3.5 h-3.5 text-cyan-600" />
-                  6. Documentos Obrigatórios, ART/RRT e Medições ({dossie.documentos.length})
+                  6. Documentos Obrigatórios, ART/RRT e Validades ({dossie.documentos.length})
                 </h3>
               </div>
 
@@ -423,7 +437,7 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
                         <th className="p-2">Tipo</th>
                         <th className="p-2">Identificação / Número</th>
                         <th className="p-2">Responsável Técnico</th>
-                        <th className="p-2">Vencimento</th>
+                        <th className="p-2">Validade / Vencimento</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-mono">
@@ -439,7 +453,13 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
                             {doc.responsavel_tecnico || 'Não informado'}
                           </td>
                           <td className="p-2 text-slate-600">
-                            {doc.vencimento ? formatDateBr(doc.vencimento) : 'Sem expiração'}
+                            {doc.vencimento ? (
+                              <span className="font-semibold text-slate-800">
+                                {formatDateBr(doc.vencimento)}
+                              </span>
+                            ) : (
+                              'Sem expiração / permanente'
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -449,12 +469,59 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
               )}
             </div>
 
-            {/* SEÇÃO 6: RISCOS ATIVOS E MITIGAÇÕES */}
+            {/* SEÇÃO 6: MEDIÇÕES DE CAMPO E PROGRESSO */}
+            <div className="space-y-3 avoid-break">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+                <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+                  7. Medições e Registros Técnicos ({dossie.medicoes?.length || 0})
+                </h3>
+              </div>
+
+              {!dossie.medicoes || dossie.medicoes.length === 0 ? (
+                <p className="text-slate-400 italic text-[11px]">
+                  Nenhum boletim de medição técnica registrado até o momento.
+                </p>
+              ) : (
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-left text-[11px]">
+                    <thead className="bg-slate-100 text-slate-600 font-semibold uppercase text-[10px] border-b border-slate-200">
+                      <tr>
+                        <th className="p-2">Boletim / Número</th>
+                        <th className="p-2">Descrição da Medição</th>
+                        <th className="p-2">Responsável Técnico</th>
+                        <th className="p-2">Data de Registro</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-mono">
+                      {dossie.medicoes.map((med: any) => (
+                        <tr key={med.id}>
+                          <td className="p-2 font-sans font-bold text-indigo-700">
+                            {med.numero || `MED-${med.id.slice(0, 5)}`}
+                          </td>
+                          <td className="p-2 font-sans text-slate-700">
+                            {med.descricao || 'Medição de campo de entregáveis'}
+                          </td>
+                          <td className="p-2 font-sans text-slate-600">
+                            {med.responsavel_tecnico || 'Não informado'}
+                          </td>
+                          <td className="p-2 text-slate-600">
+                            {med.created ? formatDateBr(med.created) : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* SEÇÃO 7: RISCOS ATIVOS E MITIGAÇÕES */}
             <div className="space-y-3 avoid-break">
               <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
                 <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                  7. Gestão de Riscos Operacionais ({dossie.riscos.length})
+                  8. Gestão de Riscos Operacionais ({dossie.riscos.length})
                 </h3>
               </div>
 

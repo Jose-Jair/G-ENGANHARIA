@@ -36,6 +36,7 @@ import { formatCnpj, formatCpf } from '@/lib/cnpj'
 import { ModalDetalheProjeto } from '@/components/projetos/ModalDetalheProjeto'
 import { ModalCriarProjeto } from '@/components/projetos/ModalCriarProjeto'
 import { ModalSaudeProjeto } from '@/components/projetos/ModalSaudeProjeto'
+import { ModalDossieProjeto } from '@/components/projetos/ModalDossieProjeto'
 
 export const ProjetosPage: React.FC = () => {
   const { user } = useAuth()
@@ -57,7 +58,13 @@ export const ProjetosPage: React.FC = () => {
   const [modalSaudeRapidaOpen, setModalSaudeRapidaOpen] = useState(false)
   const [projetoSaudeRapida, setProjetoSaudeRapida] = useState<ProjetoRecord | null>(null)
 
+  const [modalDossieCardOpen, setModalDossieCardOpen] = useState(false)
+  const [projetoDossieCardId, setProjetoDossieCardId] = useState<string | null>(null)
+
   const canCreate = !!(user && (user.role === 'admin' || user.role === 'gestor'))
+  const canViewDossie = !!(
+    user && ['admin', 'gestor', 'financeiro', 'comercial'].includes(user.role)
+  )
 
   const carregarProjetos = async () => {
     setCarregando(true)
@@ -427,17 +434,35 @@ export const ProjetosPage: React.FC = () => {
                     {prj.status || 'em_andamento'}
                   </Badge>
 
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      setProjetoSelecionadoId(prj.id)
-                      setModalDetalheOpen(true)
-                    }}
-                    className="bg-slate-900 hover:bg-slate-800 text-white text-xs h-8"
-                  >
-                    <Eye className="w-3.5 h-3.5 mr-1" />
-                    Abrir Projeto
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    {canViewDossie && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setProjetoDossieCardId(prj.id)
+                          setModalDossieCardOpen(true)
+                        }}
+                        className="text-xs h-8 text-blue-700 hover:bg-blue-50 border-blue-200"
+                        title="Ver dossiê consolidado e imprimir/salvar em PDF"
+                      >
+                        <FileText className="w-3.5 h-3.5 mr-1 text-blue-600" />
+                        Dossiê (PDF)
+                      </Button>
+                    )}
+
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setProjetoSelecionadoId(prj.id)
+                        setModalDetalheOpen(true)
+                      }}
+                      className="bg-slate-900 hover:bg-slate-800 text-white text-xs h-8"
+                    >
+                      <Eye className="w-3.5 h-3.5 mr-1" />
+                      Abrir Projeto
+                    </Button>
+                  </div>
                 </div>
               </div>
             )
@@ -475,6 +500,13 @@ export const ProjetosPage: React.FC = () => {
           }}
         />
       )}
+
+      {/* Modal Dossiê do Projeto acionado pelo card da listagem */}
+      <ModalDossieProjeto
+        open={modalDossieCardOpen}
+        onOpenChange={setModalDossieCardOpen}
+        projetoId={projetoDossieCardId}
+      />
     </div>
   )
 }

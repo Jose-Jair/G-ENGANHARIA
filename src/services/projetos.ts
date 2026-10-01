@@ -6,6 +6,7 @@ import {
   EntregavelRecord,
   DocumentoRecord,
   RiscoRecord,
+  ContaRecord,
 } from '@/types'
 
 export interface CreateProjetoData {

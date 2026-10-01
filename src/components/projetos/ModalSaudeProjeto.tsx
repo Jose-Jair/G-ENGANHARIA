@@ -54,16 +54,19 @@ export const ModalSaudeProjeto: React.FC<ModalSaudeProjetoProps> = ({
     if (!projetoId) return
     setCarregandoSugestao(true)
     try {
-      const [completo, contasPagar] = await Promise.all([
+      const [completo, todasContas] = await Promise.all([
         projetosService.getProjetoCompleto(projetoId),
-        financeiroService.listContas({ tipo: 'pagar', projeto: projetoId }),
+        financeiroService.listAll(),
       ])
+      const contasPagarDoProjeto = todasContas.filter(
+        (c) => c.tipo === 'pagar' && c.projeto === projetoId,
+      )
       const resultado = projetosService.calcularSugestaoSaude(
         completo.projeto,
         completo.etapas,
         completo.riscos,
         completo.documentos,
-        contasPagar,
+        contasPagarDoProjeto,
       )
       setSugestao(resultado)
       // Se não havia saúde ou se está abrindo, sugere a calculada por padrão

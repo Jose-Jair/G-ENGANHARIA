@@ -28,6 +28,14 @@ export interface CreateExecutorData {
   motivo_suspensao?: string
 }
 
+export interface ExecutorProjetoResumo {
+  projetoId: string
+  codigo: string
+  nome: string
+  etapaNome: string
+  statusEtapa: string
+}
+
 export interface ExecutorComMetricas extends ExecutorRecord {
   etapasAtivasCount: number
   isCapacidadeEsgotada: boolean
@@ -35,12 +43,14 @@ export interface ExecutorComMetricas extends ExecutorRecord {
   isRegistroVencendoBreve: boolean
   isAbaixoNotaCorte: boolean
   tendenciaNota?: 'subindo' | 'caindo' | 'estavel' | 'sem_historico'
-  taxaOcupacaoPercent?: number
-  capacidadeLivre?: number
+  taxaOcupacaoPercent: number
+  capacidadeLivre: number
+  ultimosProjetos: ExecutorProjetoResumo[]
   ultimaAvaliacao?: {
     data: string
     nota: number
     projetoCodigo?: string
+    comentario?: string
   }
 }
 export const executoresService = {
@@ -122,26 +132,47 @@ export const executoresService = {
 
   // Listar executores com métricas de validação em tela, tendência e mapa de disponibilidade
   async listComMetricas(notaCorte: number = 3.0): Promise<ExecutorComMetricas[]> {
-    const [executores, etapasAtivas, todasAvaliacoes] = await Promise.all([
+    const [executores, todasEtapas, todasAvaliacoes] = await Promise.all([
       this.list(),
       pb.collection('projeto_etapas').getFullList({
-        filter: "executor != '' && status != 'concluida' && status != 'cancelada'",
-        fields: 'id,executor',
+        filter: "executor != ''",
+        expand: 'projeto',
+        sort: '-created',
       }),
       pb.collection('avaliacoes').getFullList<AvaliacaoRecord>({
         sort: '-created',
-        fields: 'id,executor,nota_final,created,etapa',
+        expand: 'etapa,etapa.projeto',
       }),
     ])
 
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
 
-    // Agrupar etapas por executor
-    const contagemEtapas: Record<string, number> = {}
-    for (const e of etapasAtivas) {
+    // Agrupar etapas por executor e calcular ativas vs projetos
+    const contagemEtapasAtivas: Record<string, number> = {}
+    const projetosPorExec: Record<string, ExecutorProjetoResumo[]> = {}
+
+    for (const e of todasEtapas) {
       const execId = (e as any).executor
-      contagemEtapas[execId] = (contagemEtapas[execId] || 0) + 1
+      const status = (e as any).status
+      if (status !== 'concluida' && status !== 'cancelada') {
+        contagemEtapasAtivas[execId] = (contagemEtapasAtivas[execId] || 0) + 1
+      }
+
+      if (!projetosPorExec[execId]) {
+        projetosPorExec[execId] = []
+      }
+
+      const prj = (e as any).expand?.projeto
+      if (prj && !projetosPorExec[execId].some((p) => p.projetoId === prj.id)) {
+        projetosPorExec[execId].push({
+          projetoId: prj.id,
+          codigo: prj.codigo || '',
+          nome: prj.nome || '',
+          etapaNome: (e as any).nome || '',
+          statusEtapa: status || '',
+        })
+      }
     }
 
     // Agrupar avaliações por executor
@@ -154,7 +185,7 @@ export const executoresService = {
     }
 
     return executores.map((ex) => {
-      const ativas = contagemEtapas[ex.id] || 0
+      const ativas = contagemEtapasAtivas[ex.id] || 0
       const cap = ex.capacidade_simultanea || 1
       const isCapacidadeEsgotada = ativas >= cap
       const taxaOcupacaoPercent = Math.min(100, Math.round((ativas / cap) * 100))
@@ -182,7 +213,14 @@ export const executoresService = {
       // Calcular tendência comparando a última avaliação com a média das anteriores
       const avs = avaliacoesPorExec[ex.id] || []
       let tendenciaNota: 'subindo' | 'caindo' | 'estavel' | 'sem_historico' = 'sem_historico'
-      let ultimaAvaliacao: { data: string; nota: number; projetoCodigo?: string } | undefined
+      let ultimaAvaliacao:
+        | {
+            data: string
+            nota: number
+            projetoCodigo?: string
+            comentario?: string
+          }
+        | undefined
 
       if (avs.length >= 2) {
         const ultimaNota = avs[0].nota_final || 0
@@ -191,17 +229,25 @@ export const executoresService = {
         else if (ultimaNota < penultimaNota - 0.1) tendenciaNota = 'caindo'
         else tendenciaNota = 'estavel'
 
+        const prjCodigo = (avs[0].expand as any)?.etapa?.expand?.projeto?.codigo
         ultimaAvaliacao = {
           data: avs[0].created || '',
           nota: ultimaNota,
+          projetoCodigo: prjCodigo,
+          comentario: avs[0].comentario,
         }
       } else if (avs.length === 1) {
         tendenciaNota = 'estavel'
+        const prjCodigo = (avs[0].expand as any)?.etapa?.expand?.projeto?.codigo
         ultimaAvaliacao = {
           data: avs[0].created || '',
           nota: avs[0].nota_final || 0,
+          projetoCodigo: prjCodigo,
+          comentario: avs[0].comentario,
         }
       }
+
+      const ultimosProjetos = (projetosPorExec[ex.id] || []).slice(0, 3)
 
       return {
         ...ex,
@@ -213,6 +259,7 @@ export const executoresService = {
         tendenciaNota,
         taxaOcupacaoPercent,
         capacidadeLivre,
+        ultimosProjetos,
         ultimaAvaliacao,
       }
     })

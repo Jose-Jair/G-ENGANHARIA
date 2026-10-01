@@ -211,7 +211,7 @@ export const parceirosService = {
       projetosPorAno: number
       contratosAtivosQtd: number
       contratosAtivosValor: number
-      scoreDemanda: number
+      scoreDemanda?: number
     }
 
     const preLista: PreIndicador[] = parceiros.map((emp) => {

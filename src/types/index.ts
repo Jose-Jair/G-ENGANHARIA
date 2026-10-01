@@ -592,9 +592,11 @@ export interface ProjetoEtapaRecord {
   tipo_execucao: TipoExecucaoEtapa
   executor?: string
   prazo?: string
+  prazo_fim?: string
   data_inicio?: string
   data_conclusao?: string
   custo_estimado?: number
+  valor_executor?: number
   status: StatusEtapa
   created: string
   updated: string

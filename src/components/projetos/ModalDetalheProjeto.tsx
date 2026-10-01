@@ -146,8 +146,12 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
   }).length
   const etapasNoPrazoCount = etapas.length - etapasAtrasadasCount - etapasConcluidasCount
 
-  const riscosAltos = riscos.filter((r) => r.impacto === 'alto' || r.impacto === 'alta').length
-  const riscosMedios = riscos.filter((r) => r.impacto === 'medio' || r.impacto === 'media').length
+  const riscosAltos = riscos.filter(
+    (r) => (r.impacto as string) === 'alto' || (r.impacto as string) === 'alta',
+  ).length
+  const riscosMedios = riscos.filter(
+    (r) => (r.impacto as string) === 'medio' || (r.impacto as string) === 'media',
+  ).length
   const riscosBaixos = riscos.length - riscosAltos - riscosMedios
 
   const totalPagoExecutores = etapas.reduce((acc, e) => acc + (Number(e.valor_executor) || 0), 0)

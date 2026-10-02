@@ -92,6 +92,8 @@ export function EmpresaContratosTab({
   React.useEffect(() => {
     if (autoOpenNovoContrato && !readOnly) {
       openCreateModal()
+    } else if (!autoOpenNovoContrato) {
+      // Se resetado para false, garante que o modal possa fechar se não estiver editando
     }
   }, [autoOpenNovoContrato, readOnly])
 

@@ -95,8 +95,8 @@ export function EmpresaDetailModal({
   const { user } = useAuth()
 
   const [activeTab, setActiveTab] = useState<
-    'dados' | 'contratos' | 'contatos' | 'cadencia' | 'timeline'
-  >('dados')
+    'contratos' | 'contatos' | 'cadencia' | 'timeline' | 'dados'
+  >('contratos')
   const [submitting, setSubmitting] = useState(false)
   const [consultandoCnpj, setConsultandoCnpj] = useState(false)
   const [avisoApi, setAvisoApi] = useState<string | null>(null)
@@ -174,7 +174,7 @@ export function EmpresaDetailModal({
   // Ao abrir ou trocar de empresa
   useEffect(() => {
     if (!open) return
-    setActiveTab('dados')
+    setActiveTab(empresa ? 'contratos' : 'dados')
     setAvisoApi(null)
     setCnpjErro(null)
 
@@ -437,33 +437,8 @@ export function EmpresaDetailModal({
       if (data.municipio) setMunicipio(String(data.municipio).trim())
       if (data.email) setEmail(String(data.email).toLowerCase().trim())
 
-      const telsEncontrados: TelefoneEmpresaItem[] = []
-      if (data.ddd_telefone_1) {
-        const formatted1 = formatPhoneBr(String(data.ddd_telefone_1))
-        telsEncontrados.push({
-          id: `tel_api_1_${Date.now()}`,
-          numero: formatted1,
-          tipo: 'fixo',
-          ramalOuDescricao: 'Receita Federal 1',
-        })
-      }
-      if (data.ddd_telefone_2) {
-        const formatted2 = formatPhoneBr(String(data.ddd_telefone_2))
-        telsEncontrados.push({
-          id: `tel_api_2_${Date.now()}`,
-          numero: formatted2,
-          tipo: 'fixo',
-          ramalOuDescricao: 'Receita Federal 2',
-        })
-      }
-
-      if (telsEncontrados.length > 0) {
-        setTelefones((prev) => {
-          const jaExistem = new Set(prev.map((t) => cleanPhoneForWa(t.numero)))
-          const novos = telsEncontrados.filter((t) => !jaExistem.has(cleanPhoneForWa(t.numero)))
-          return [...prev, ...novos]
-        })
-      }
+      // Solicitação: NÃO injetar número fixo automático da Receita Federal.
+      // A lista de telefones da empresa deve ser preenchida exclusivamente pelo usuário.
 
       toast({
         title: 'Dados sincronizados via BrasilAPI',
@@ -490,7 +465,11 @@ export function EmpresaDetailModal({
     }
     loadSubData(alvo.id)
     setActiveTab('contratos')
-    setAutoOpenNovoContrato(true)
+    // Assegura que o trigger ocorra mesmo se o estado anterior já fosse true
+    setAutoOpenNovoContrato(false)
+    setTimeout(() => {
+      setAutoOpenNovoContrato(true)
+    }, 50)
     toast({
       title: 'Empresa já cadastrada localizada',
       description: `Abrindo a ficha de "${alvo.razao_social}" diretamente na aba Contratos para cadastrar o novo contrato.`,
@@ -569,13 +548,16 @@ export function EmpresaDetailModal({
       }
 
       if (empresa) {
-        await empresasService.update(empresa.id, payload)
+        const updated = await empresasService.update(empresa.id, payload)
+        setCurrentEmpresa(updated)
         toast({
           title: 'Empresa atualizada com sucesso',
           description: 'Os dados cadastrais foram salvos no sistema.',
         })
         onSuccess()
-        onOpenChange(false)
+        // Volta para a ficha de leitura na aba Contratos Públicos com as 4 abas acessíveis
+        await loadSubData(updated.id)
+        setActiveTab('contratos')
       } else {
         // Cenário 1: Nova empresa -> etapa_funil = "identificada"
         payload.etapa_funil = 'identificada'
@@ -783,14 +765,7 @@ export function EmpresaDetailModal({
         >
           <div className="px-6 border-b border-slate-200 bg-white shrink-0">
             <TabsList className="bg-transparent space-x-2 h-11 p-0">
-              <TabsTrigger
-                value="dados"
-                className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
-              >
-                <Building2 className="w-3.5 h-3.5 mr-1.5" /> Dados da Empresa
-              </TabsTrigger>
-
-              {empresa && (
+              {empresa ? (
                 <>
                   <TabsTrigger
                     value="contratos"
@@ -822,7 +797,21 @@ export function EmpresaDetailModal({
                     <History className="w-3.5 h-3.5 mr-1.5" /> Linha do Tempo ({timelineLogs.length}
                     )
                   </TabsTrigger>
+
+                  <TabsTrigger
+                    value="dados"
+                    className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
+                  >
+                    <Building2 className="w-3.5 h-3.5 mr-1.5" /> Dados da Empresa
+                  </TabsTrigger>
                 </>
+              ) : (
+                <TabsTrigger
+                  value="dados"
+                  className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
+                >
+                  <Building2 className="w-3.5 h-3.5 mr-1.5" /> Dados da Empresa
+                </TabsTrigger>
               )}
             </TabsList>
           </div>

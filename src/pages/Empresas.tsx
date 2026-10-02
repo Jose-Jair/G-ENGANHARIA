@@ -685,6 +685,7 @@ export default function EmpresasPage() {
           setSelectedEmpresa(created)
           loadData()
         }}
+        onEmpresaUpdate={(updated) => setSelectedEmpresa(updated)}
       />
     </div>
   )

@@ -14,6 +14,8 @@ export interface CreateContratoData {
   situacao?: string
   link_edital?: string
   fonte?: string
+  confirmado_duplicidade?: boolean
+  contrato_similar_id?: string
 }
 
 export const contratosService = {

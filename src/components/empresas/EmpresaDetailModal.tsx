@@ -60,6 +60,7 @@ import {
   Trash2,
   Plus,
   Info,
+  Edit,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -72,6 +73,7 @@ interface EmpresaDetailModalProps {
   readOnly?: boolean
   onSuccess: () => void
   onCreatedEmpresaSelect?: (empresa: EmpresaRecord) => void
+  onEmpresaUpdate?: (empresa: EmpresaRecord) => void
 }
 
 export function EmpresaDetailModal({
@@ -83,12 +85,10 @@ export function EmpresaDetailModal({
   readOnly = false,
   onSuccess,
   onCreatedEmpresaSelect,
+  onEmpresaUpdate,
 }: EmpresaDetailModalProps) {
   const [currentEmpresa, setCurrentEmpresa] = useState<EmpresaRecord | null>(initialEmpresa)
-
-  useEffect(() => {
-    setCurrentEmpresa(initialEmpresa)
-  }, [initialEmpresa])
+  const [modoEdicaoDados, setModoEdicaoDados] = useState(false)
 
   const empresa = currentEmpresa
   const { toast } = useToast()
@@ -171,33 +171,26 @@ export function EmpresaDetailModal({
     window.location.href = `mailto:${email.trim()}?subject=${subject}`
   }
 
-  // Ao abrir ou trocar de empresa
-  useEffect(() => {
-    if (!open) return
-    setActiveTab(empresa ? 'contratos' : 'dados')
-    setAvisoApi(null)
-    setCnpjErro(null)
+  // Carrega ou reseta os dados do formulário a partir de uma empresa
+  const popularCamposFormulario = (emp: EmpresaRecord | null) => {
+    if (emp) {
+      setRazaoSocial(emp.razao_social || '')
+      setNomeFantasia(emp.nome_fantasia || '')
+      setCnpj(formatCnpj(emp.cnpj || ''))
+      setSituacaoCadastral(emp.situacao_cadastral || 'ATIVA')
+      setCnae(emp.cnae || '')
+      setPorte(emp.porte || '')
+      setUf(emp.uf || '')
+      setMunicipio(emp.municipio || '')
+      setEmail(emp.email || '')
 
-    if (empresa) {
-      // Modo edição/visualização
-      setRazaoSocial(empresa.razao_social || '')
-      setNomeFantasia(empresa.nome_fantasia || '')
-      setCnpj(formatCnpj(empresa.cnpj || ''))
-      setSituacaoCadastral(empresa.situacao_cadastral || 'ATIVA')
-      setCnae(empresa.cnae || '')
-      setPorte(empresa.porte || '')
-      setUf(empresa.uf || '')
-      setMunicipio(empresa.municipio || '')
-      setEmail(empresa.email || '')
-
-      // Múltiplos telefones: carregar do JSON ou inicializar com o telefone principal
-      if (Array.isArray(empresa.telefones) && empresa.telefones.length > 0) {
-        setTelefones(empresa.telefones)
-      } else if (empresa.telefone) {
+      if (Array.isArray(emp.telefones) && emp.telefones.length > 0) {
+        setTelefones(emp.telefones)
+      } else if (emp.telefone) {
         setTelefones([
           {
             id: 'tel_1',
-            numero: empresa.telefone,
+            numero: emp.telefone,
             tipo: 'celular',
             ramalOuDescricao: 'Principal',
           },
@@ -206,21 +199,18 @@ export function EmpresaDetailModal({
         setTelefones([])
       }
 
-      setInstagram(empresa.instagram || '')
-      setLinkedin(empresa.linkedin || '')
-      setSite(empresa.site || '')
-      setEtapaFunil(empresa.etapa_funil || 'identificada')
-      setCurva(empresa.curva || 'C')
-      setScoreCalculado(empresa.score || 0)
-      setResponsavel(empresa.responsavel || '')
-      setStatus(empresa.status || 'ativa')
-      setObservacoes(empresa.observacoes || '')
-      setCenarioDetectado(empresa.etapa_funil === 'parceira' ? 'parceira' : 'cadastrada')
-      setEmpresaExistenteDetectada(empresa)
-
-      loadSubData(empresa.id)
+      setInstagram(emp.instagram || '')
+      setLinkedin(emp.linkedin || '')
+      setSite(emp.site || '')
+      setEtapaFunil(emp.etapa_funil || 'identificada')
+      setCurva(emp.curva || 'C')
+      setScoreCalculado(emp.score || 0)
+      setResponsavel(emp.responsavel || '')
+      setStatus(emp.status || 'ativa')
+      setObservacoes(emp.observacoes || '')
+      setCenarioDetectado(emp.etapa_funil === 'parceira' ? 'parceira' : 'cadastrada')
+      setEmpresaExistenteDetectada(emp)
     } else {
-      // Modo novo cadastro
       setRazaoSocial('')
       setNomeFantasia('')
       setCnpj('')
@@ -253,7 +243,28 @@ export function EmpresaDetailModal({
       setEmpresaDuplicadaAlvo(null)
       setAutoOpenNovoContrato(false)
     }
-  }, [open, empresa])
+  }
+
+  // Ao abrir o modal ou receber nova initialEmpresa
+  useEffect(() => {
+    if (!open) {
+      setModoEdicaoDados(false)
+      return
+    }
+
+    setCurrentEmpresa(initialEmpresa)
+    popularCamposFormulario(initialEmpresa)
+    setModoEdicaoDados(!initialEmpresa) // Nova empresa inicia em modo edição
+
+    // Define aba inicial: contratos se empresa existente, dados se nova
+    setActiveTab(initialEmpresa ? 'contratos' : 'dados')
+    setAvisoApi(null)
+    setCnpjErro(null)
+
+    if (initialEmpresa) {
+      loadSubData(initialEmpresa.id)
+    }
+  }, [open, initialEmpresa?.id])
 
   const loadSubData = async (empId: string) => {
     try {
@@ -550,12 +561,16 @@ export function EmpresaDetailModal({
       if (empresa) {
         const updated = await empresasService.update(empresa.id, payload)
         setCurrentEmpresa(updated)
+        popularCamposFormulario(updated)
+        setModoEdicaoDados(false)
         toast({
           title: 'Empresa atualizada com sucesso',
           description: 'Os dados cadastrais foram salvos no sistema.',
         })
+        if (onEmpresaUpdate) {
+          onEmpresaUpdate(updated)
+        }
         onSuccess()
-        // Volta para a ficha de leitura na aba Contratos Públicos com as 4 abas acessíveis
         await loadSubData(updated.id)
         setActiveTab('contratos')
       } else {
@@ -570,10 +585,15 @@ export function EmpresaDetailModal({
         onSuccess()
         // Item 9: Ao salvar empresa nova, redireciona para a ficha completa dela abrindo a aba contratos
         setCurrentEmpresa(created)
+        popularCamposFormulario(created)
+        setModoEdicaoDados(false)
         setCenarioDetectado('cadastrada')
         setEmpresaExistenteDetectada(created)
         if (onCreatedEmpresaSelect) {
           onCreatedEmpresaSelect(created)
+        }
+        if (onEmpresaUpdate) {
+          onEmpresaUpdate(created)
         }
         loadSubData(created.id)
         setActiveTab('contratos')
@@ -850,6 +870,49 @@ export function EmpresaDetailModal({
                 </div>
               )}
 
+              {/* Botão de alternância Leitura / Edição quando visualizando empresa existente */}
+              {empresa && !readOnly && (
+                <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-800">
+                      {modoEdicaoDados
+                        ? 'Modo de Edição Ativo'
+                        : 'Visualização dos Dados Cadastrais'}
+                    </span>
+                    <p className="text-[11px] text-slate-500">
+                      {modoEdicaoDados
+                        ? 'Altere os campos abaixo e clique em "Atualizar Empresa" para salvar.'
+                        : 'Clique em "Editar Dados" para habilitar a alteração cadastral desta empresa.'}
+                    </p>
+                  </div>
+                  {modoEdicaoDados ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        popularCamposFormulario(empresa)
+                        setModoEdicaoDados(false)
+                      }}
+                      className="text-xs"
+                    >
+                      Cancelar Edição
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setModoEdicaoDados(true)}
+                      className="bg-white border-blue-200 text-blue-700 hover:bg-blue-50 text-xs font-semibold"
+                    >
+                      <Edit className="w-3.5 h-3.5 mr-1 text-blue-600" />
+                      Editar Dados
+                    </Button>
+                  )}
+                </div>
+              )}
+
               {/* Aviso da BrasilAPI se houve falha ou necessidade de preenchimento manual */}
               {avisoApi && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-800 text-xs flex items-center justify-between">
@@ -883,7 +946,7 @@ export function EmpresaDetailModal({
                       placeholder="00.000.000/0000-00"
                       value={cnpj}
                       onChange={(e) => handleCnpjChange(e.target.value)}
-                      disabled={readOnly}
+                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
                     />
                     {cnpjErro && <p className="text-[11px] text-red-600 font-medium">{cnpjErro}</p>}
                   </div>
@@ -897,7 +960,7 @@ export function EmpresaDetailModal({
                       value={razaoSocial}
                       onChange={(e) => setRazaoSocial(e.target.value)}
                       required
-                      disabled={readOnly}
+                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
                     />
                   </div>
 
@@ -909,7 +972,7 @@ export function EmpresaDetailModal({
                       placeholder="Ex: Sulamericana Engenharia"
                       value={nomeFantasia}
                       onChange={(e) => setNomeFantasia(e.target.value)}
-                      disabled={readOnly}
+                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
                     />
                   </div>
 
@@ -923,7 +986,7 @@ export function EmpresaDetailModal({
                       }`}
                       value={situacaoCadastral}
                       onChange={(e) => setSituacaoCadastral(e.target.value)}
-                      disabled={readOnly}
+                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
                     >
                       <option value="ATIVA">Ativa</option>
                       <option value="SUSPENSA">Suspensa</option>
@@ -941,7 +1004,7 @@ export function EmpresaDetailModal({
                       placeholder="Ex: Belo Horizonte"
                       value={municipio}
                       onChange={(e) => setMunicipio(e.target.value)}
-                      disabled={readOnly}
+                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
                     />
                   </div>
 
@@ -954,7 +1017,7 @@ export function EmpresaDetailModal({
                       placeholder="MG"
                       value={uf}
                       onChange={(e) => setUf(e.target.value.toUpperCase())}
-                      disabled={readOnly}
+                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
                     />
                   </div>
 
@@ -988,7 +1051,7 @@ export function EmpresaDetailModal({
                       className="w-full h-10 px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={etapaFunil}
                       onChange={(e) => setEtapaFunil(e.target.value as any)}
-                      disabled={readOnly}
+                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
                     >
                       <option value="identificada">Identificada</option>
                       <option value="qualificada">Qualificada</option>
@@ -1010,7 +1073,7 @@ export function EmpresaDetailModal({
                       className="w-full h-10 px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={status}
                       onChange={(e) => setStatus(e.target.value as any)}
-                      disabled={readOnly}
+                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
                     >
                       <option value="ativa">Ativa</option>
                       <option value="inativa">Inativa</option>
@@ -1026,7 +1089,7 @@ export function EmpresaDetailModal({
                       placeholder="contato@empresa.com.br"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      disabled={readOnly}
+                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
                     />
                   </div>
 
@@ -1037,7 +1100,7 @@ export function EmpresaDetailModal({
                       placeholder="https://empresa.com.br"
                       value={site}
                       onChange={(e) => setSite(e.target.value)}
-                      disabled={readOnly}
+                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
                     />
                   </div>
 
@@ -1048,7 +1111,7 @@ export function EmpresaDetailModal({
                       placeholder="@empresa ou https://instagram.com/empresa"
                       value={instagram}
                       onChange={(e) => setInstagram(e.target.value)}
-                      disabled={readOnly}
+                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
                     />
                   </div>
 
@@ -1059,7 +1122,7 @@ export function EmpresaDetailModal({
                       placeholder="https://linkedin.com/company/empresa"
                       value={linkedin}
                       onChange={(e) => setLinkedin(e.target.value)}
-                      disabled={readOnly}
+                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
                     />
                   </div>
 
@@ -1072,7 +1135,7 @@ export function EmpresaDetailModal({
                       placeholder="Pontos de atenção, nichos de atuação, demandas frequentes em licitações..."
                       value={observacoes}
                       onChange={(e) => setObservacoes(e.target.value)}
-                      disabled={readOnly}
+                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
                     />
                   </div>
                 </div>
@@ -1147,7 +1210,7 @@ export function EmpresaDetailModal({
                                   <MessageSquare className="w-3.5 h-3.5" />
                                 </a>
                               ) : null}
-                              {!readOnly && (
+                              {!readOnly && (!empresa || modoEdicaoDados) && (
                                 <button
                                   type="button"
                                   onClick={() => handleRemoverTelefone(t.id)}
@@ -1169,7 +1232,7 @@ export function EmpresaDetailModal({
                   )}
 
                   {/* Adicionar novo telefone */}
-                  {!readOnly && (
+                  {!readOnly && (!empresa || modoEdicaoDados) && (
                     <div className="flex flex-wrap items-end gap-2 p-3 bg-slate-50 border border-slate-200 rounded-md">
                       <div className="w-36 space-y-1">
                         <Label className="text-[11px]">Tipo</Label>
@@ -1315,15 +1378,29 @@ export function EmpresaDetailModal({
             )}
           </div>
 
-          {!readOnly && (
-            <Button
-              type="submit"
-              form="empresaForm"
-              disabled={submitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {submitting ? 'Salvando...' : empresa ? 'Atualizar Empresa' : 'Cadastrar Empresa'}
-            </Button>
+          {/* O botão de submissão do formulário só é exibido na aba "dados" */}
+          {!readOnly && activeTab === 'dados' && (
+            <>
+              {empresa && !modoEdicaoDados ? (
+                <Button
+                  type="button"
+                  onClick={() => setModoEdicaoDados(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Edit className="w-4 h-4 mr-1.5" />
+                  Editar Dados
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  form="empresaForm"
+                  disabled={submitting}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {submitting ? 'Salvando...' : empresa ? 'Atualizar Empresa' : 'Cadastrar Empresa'}
+                </Button>
+              )}
+            </>
           )}
         </DialogFooter>
       </DialogContent>

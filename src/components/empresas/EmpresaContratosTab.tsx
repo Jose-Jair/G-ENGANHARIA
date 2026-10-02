@@ -63,13 +63,22 @@ export function EmpresaContratosTab({
   const [situacao, setSituacao] = useState('Em Execução')
   const [fonte, setFonte] = useState('')
 
-  // Campos suprimidos do formulário mantidos internamente para preservação em edição
+  // Campos adicionais do formulário (número e vigências)
   const [numero, setNumero] = useState('')
   const [modalidade, setModalidade] = useState('')
   const [saldo, setSaldo] = useState<number | ''>('')
   const [vigenciaInicio, setVigenciaInicio] = useState('')
   const [vigenciaFim, setVigenciaFim] = useState('')
   const [linkEdital, setLinkEdital] = useState('')
+
+  // Estados de detecção de duplicidade
+  const [duplicidadeModalOpen, setDuplicidadeModalOpen] = useState(false)
+  const [contratoExistenteConflito, setContratoExistenteConflito] = useState<ContratoRecord | null>(
+    null,
+  )
+  const [motivoDuplicidade, setMotivoDuplicidade] = useState<string>('')
+  const [highlightedContratoId, setHighlightedContratoId] = useState<string | null>(null)
+  const [pendentePayload, setPendentePayload] = useState<any>(null)
 
   const openCreateModal = () => {
     setEditingContrato(null)
@@ -78,7 +87,6 @@ export function EmpresaContratosTab({
     setValorInput('')
     setSituacao('Em Execução')
     setFonte('')
-    // Defaults para campos suprimidos do formulário
     setNumero('')
     setModalidade('')
     setSaldo('')
@@ -113,6 +121,131 @@ export function EmpresaContratosTab({
     setModalOpen(true)
   }
 
+  // Helpers para normalização e detecção de duplicidade
+  const normalizeText = (text?: string): string => {
+    if (!text) return ''
+    return text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim()
+  }
+
+  const checkJaccardSimilarity = (s1: string, s2: string): number => {
+    const t1 = normalizeText(s1).replace(/[^a-z0-9\s]/g, ' ')
+    const t2 = normalizeText(s2).replace(/[^a-z0-9\s]/g, ' ')
+    const words1 = new Set(t1.split(/\s+/).filter((w) => w.length >= 3))
+    const words2 = new Set(t2.split(/\s+/).filter((w) => w.length >= 3))
+    if (words1.size === 0 || words2.size === 0) return 0
+    let inter = 0
+    for (const w of words1) {
+      if (words2.has(w)) inter++
+    }
+    const union = new Set([...words1, ...words2]).size
+    return union > 0 ? inter / union : 0
+  }
+
+  const checkDuplicidade = (
+    num: string,
+    org: string,
+    val: number,
+    vIni?: string,
+    vFim?: string,
+    obj?: string,
+  ): { conflito: ContratoRecord; motivo: string } | null => {
+    const normOrg = normalizeText(org)
+    const normNum = normalizeText(num)
+
+    for (const existente of contratos) {
+      if (editingContrato && existente.id === editingContrato.id) continue
+
+      const existOrg = normalizeText(existente.orgao)
+      const existNum = normalizeText(existente.numero)
+      const existVal = Number(existente.valor) || 0
+
+      // (a) Mesmo número informado
+      if (normNum && existNum && normNum === existNum) {
+        return {
+          conflito: existente,
+          motivo: `Mesmo número de contrato (${existente.numero || num}).`,
+        }
+      }
+
+      // Se for para o mesmo órgão
+      if (normOrg && existOrg && normOrg === existOrg) {
+        // (b) Mesmo órgão + mesmo valor
+        if (val > 0 && Math.abs(val - existVal) < 0.01) {
+          return {
+            conflito: existente,
+            motivo: `Mesmo órgão e mesmo valor (${formatCurrencyBr(val)}).`,
+          }
+        }
+
+        // (c) Mesmo órgão + vigência com sobreposição de datas
+        if (vIni && vFim && existente.vigencia_inicio && existente.vigencia_fim) {
+          const start1 = new Date(vIni).getTime()
+          const end1 = new Date(vFim).getTime()
+          const start2 = new Date(existente.vigencia_inicio).getTime()
+          const end2 = new Date(existente.vigencia_fim).getTime()
+          if (!isNaN(start1) && !isNaN(end1) && !isNaN(start2) && !isNaN(end2)) {
+            const overlap = Math.max(start1, start2) <= Math.min(end1, end2)
+            if (overlap) {
+              return {
+                conflito: existente,
+                motivo: `Mesmo órgão com vigências sobrepostas (${formatDateBr(vIni)} a ${formatDateBr(vFim)}).`,
+              }
+            }
+          }
+        }
+
+        // (d) Objeto substancialmente igual para o mesmo órgão
+        if (obj && existente.objeto) {
+          const sim = checkJaccardSimilarity(obj, existente.objeto)
+          if (sim >= 0.55) {
+            return {
+              conflito: existente,
+              motivo: `Mesmo órgão e objeto substancialmente igual (${Math.round(sim * 100)}% similaridade).`,
+            }
+          }
+        }
+      }
+    }
+
+    return null
+  }
+
+  const salvarContratoFinal = async (payload: any) => {
+    setLoading(true)
+    try {
+      if (editingContrato) {
+        await contratosService.update(editingContrato.id, payload)
+        toast({
+          title: 'Contrato atualizado',
+          description: `Contrato salvo com sucesso (${formatCurrencyBr(payload.valor)}).`,
+        })
+      } else {
+        await contratosService.create(payload)
+        toast({
+          title: 'Contrato lançado',
+          description: `Novo contrato adicionado com sucesso (${formatCurrencyBr(payload.valor)}).`,
+        })
+      }
+      setModalOpen(false)
+      setDuplicidadeModalOpen(false)
+      setPendentePayload(null)
+      setContratoExistenteConflito(null)
+      onContratosChange()
+    } catch (err: unknown) {
+      toast({
+        title: 'Erro ao salvar contrato',
+        description: err instanceof Error ? err.message : 'Falha na comunicação com o banco.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!orgao.trim()) {
@@ -125,51 +258,74 @@ export function EmpresaContratosTab({
     }
 
     const valorNumerico = parseCurrencyInput(valorInput)
-    // Se não tiver número de contrato (campo suprimido), gera um identificador padrão único e limpo
     const numeroFinal =
       numero.trim() || editingContrato?.numero || `CT-${Date.now().toString().slice(-6)}`
 
-    setLoading(true)
-    try {
-      const payload = {
-        empresa: empresaId,
-        orgao: orgao.trim(),
-        numero: numeroFinal,
-        objeto: objeto.trim(),
-        modalidade: modalidade.trim(),
-        valor: valorNumerico,
-        saldo: typeof saldo === 'number' && saldo > 0 ? saldo : valorNumerico,
-        vigencia_inicio: vigenciaInicio ? `${vigenciaInicio} 00:00:00.000Z` : undefined,
-        vigencia_fim: vigenciaFim ? `${vigenciaFim} 00:00:00.000Z` : undefined,
-        situacao: situacao.trim() || 'Em Execução',
-        link_edital: linkEdital.trim(),
-        fonte: fonte.trim(),
-      }
-
-      if (editingContrato) {
-        await contratosService.update(editingContrato.id, payload)
-        toast({
-          title: 'Contrato atualizado',
-          description: `Contrato salvo com sucesso (${formatCurrencyBr(valorNumerico)}).`,
-        })
-      } else {
-        await contratosService.create(payload)
-        toast({
-          title: 'Contrato lançado',
-          description: `Novo contrato adicionado à empresa com sucesso (${formatCurrencyBr(valorNumerico)}).`,
-        })
-      }
-      setModalOpen(false)
-      onContratosChange()
-    } catch (err: unknown) {
-      toast({
-        title: 'Erro ao salvar contrato',
-        description: err instanceof Error ? err.message : 'Falha na comunicação com o banco.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
+    const payload: any = {
+      empresa: empresaId,
+      orgao: orgao.trim(),
+      numero: numeroFinal,
+      objeto: objeto.trim(),
+      modalidade: modalidade.trim(),
+      valor: valorNumerico,
+      saldo: typeof saldo === 'number' && saldo > 0 ? saldo : valorNumerico,
+      vigencia_inicio: vigenciaInicio ? `${vigenciaInicio} 00:00:00.000Z` : undefined,
+      vigencia_fim: vigenciaFim ? `${vigenciaFim} 00:00:00.000Z` : undefined,
+      situacao: situacao.trim() || 'Em Execução',
+      link_edital: linkEdital.trim(),
+      fonte: fonte.trim(),
     }
+
+    // Apenas na criação de novo contrato verificamos duplicidade preliminarmente
+    if (!editingContrato) {
+      const dup = checkDuplicidade(
+        numeroFinal,
+        orgao.trim(),
+        valorNumerico,
+        vigenciaInicio,
+        vigenciaFim,
+        objeto.trim(),
+      )
+      if (dup) {
+        setContratoExistenteConflito(dup.conflito)
+        setMotivoDuplicidade(dup.motivo)
+        setPendentePayload(payload)
+        setDuplicidadeModalOpen(true)
+        return
+      }
+    }
+
+    await salvarContratoFinal(payload)
+  }
+
+  const handleConfirmarDuplicidade = async () => {
+    if (!pendentePayload) return
+    const payloadConfirmado = {
+      ...pendentePayload,
+      confirmado_duplicidade: true,
+      contrato_similar_id: contratoExistenteConflito?.id,
+    }
+    await salvarContratoFinal(payloadConfirmado)
+  }
+
+  const handleVerContratoExistente = () => {
+    if (!contratoExistenteConflito) return
+    const id = contratoExistenteConflito.id
+    setDuplicidadeModalOpen(false)
+    setModalOpen(false)
+    setHighlightedContratoId(id)
+
+    setTimeout(() => {
+      const el = document.getElementById(`contrato-card-${id}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 150)
+
+    // Remove o highlight após 5 segundos
+    setTimeout(() => {
+      setHighlightedContratoId((current) => (current === id ? null : current))
+    }, 5000)
   }
 
   const handleDelete = async (contratoId: string, numeroContrato: string) => {
@@ -251,12 +407,22 @@ export function EmpresaContratosTab({
             return (
               <div
                 key={c.id}
-                className="bg-white border border-slate-200 hover:border-slate-300 rounded-lg p-4 transition-all"
+                id={`contrato-card-${c.id}`}
+                className={`border rounded-lg p-4 transition-all duration-300 ${
+                  highlightedContratoId === c.id
+                    ? 'bg-amber-50 border-2 border-amber-500 shadow-md ring-2 ring-amber-300 ring-offset-1'
+                    : 'bg-white border-slate-200 hover:border-slate-300'
+                }`}
               >
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                   <div className="space-y-1.5 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-bold text-slate-900 text-sm">{c.orgao}</span>
+                      {c.numero && (
+                        <span className="text-xs font-mono font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                          Nº {c.numero}
+                        </span>
+                      )}
                       <Badge
                         variant="outline"
                         className={`text-[11px] font-medium ${
@@ -267,8 +433,20 @@ export function EmpresaContratosTab({
                       >
                         {c.situacao || 'Em Execução'}
                       </Badge>
+                      {(c.vigencia_inicio || c.vigencia_fim) && (
+                        <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          {c.vigencia_inicio ? formatDateBr(c.vigencia_inicio) : '—'} a{' '}
+                          {c.vigencia_fim ? formatDateBr(c.vigencia_fim) : '—'}
+                        </span>
+                      )}
                       {c.fonte && (
                         <span className="text-[11px] text-slate-400">Fonte: {c.fonte}</span>
+                      )}
+                      {highlightedContratoId === c.id && (
+                        <Badge className="bg-amber-600 text-white text-[10px] uppercase font-bold animate-pulse">
+                          Contrato em Destaque
+                        </Badge>
                       )}
                     </div>
 
@@ -401,6 +579,38 @@ export function EmpresaContratosTab({
                   />
                 </div>
               </div>
+
+              {/* Número e Vigência */}
+              <div className="space-y-1.5">
+                <Label htmlFor="numero">Número do Contrato (opcional)</Label>
+                <Input
+                  id="numero"
+                  placeholder="Ex: 045/2024, Pregão 12/2023"
+                  value={numero}
+                  onChange={(e) => setNumero(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="vigenciaInicio">Início da Vigência</Label>
+                  <Input
+                    id="vigenciaInicio"
+                    type="date"
+                    value={vigenciaInicio}
+                    onChange={(e) => setVigenciaInicio(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="vigenciaFim">Término da Vigência</Label>
+                  <Input
+                    id="vigenciaFim"
+                    type="date"
+                    value={vigenciaFim}
+                    onChange={(e) => setVigenciaFim(e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
 
             <DialogFooter className="pt-3">
@@ -420,6 +630,178 @@ export function EmpresaContratosTab({
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de Conferência de Duplicidade de Contrato */}
+      <Dialog open={duplicidadeModalOpen} onOpenChange={setDuplicidadeModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+              <DialogTitle className="text-slate-900">
+                Alerta de Possível Contrato Duplicado
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-slate-600 pt-1">
+              Já existe um contrato semelhante cadastrado para esta empresa. Deseja cadastrar mesmo
+              assim?
+            </DialogDescription>
+          </DialogHeader>
+
+          {motivoDuplicidade && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-900 font-medium">
+              <strong>Motivo detectado:</strong> {motivoDuplicidade}
+            </div>
+          )}
+
+          {/* Comparativo lado a lado */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-2">
+            {/* Contrato Existente */}
+            <div className="border border-slate-200 rounded-lg p-3.5 bg-slate-50 space-y-2">
+              <div className="flex items-center justify-between border-b pb-1.5">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-700">
+                  Contrato Existente
+                </span>
+                <Badge variant="outline" className="text-[10px] bg-white">
+                  {contratoExistenteConflito?.situacao || 'Cadastrado'}
+                </Badge>
+              </div>
+
+              <div className="space-y-1 text-xs">
+                <div>
+                  <span className="text-slate-500 font-medium">Órgão:</span>
+                  <div className="font-semibold text-slate-900">
+                    {contratoExistenteConflito?.orgao || '—'}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-slate-500 font-medium">Número:</span>
+                  <div className="font-mono text-slate-900">
+                    {contratoExistenteConflito?.numero || 'Não informado'}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-slate-500 font-medium">Valor:</span>
+                  <div className="font-mono font-bold text-slate-900">
+                    {formatCurrencyBr(contratoExistenteConflito?.valor || 0)}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-slate-500 font-medium">Vigência:</span>
+                  <div className="text-slate-800">
+                    {contratoExistenteConflito?.vigencia_inicio
+                      ? formatDateBr(contratoExistenteConflito.vigencia_inicio)
+                      : '—'}{' '}
+                    até{' '}
+                    {contratoExistenteConflito?.vigencia_fim
+                      ? formatDateBr(contratoExistenteConflito.vigencia_fim)
+                      : '—'}
+                  </div>
+                </div>
+
+                {contratoExistenteConflito?.objeto && (
+                  <div>
+                    <span className="text-slate-500 font-medium">Objeto:</span>
+                    <div className="text-[11px] text-slate-600 italic bg-white p-1.5 rounded border border-slate-200 line-clamp-3">
+                      "{contratoExistenteConflito.objeto}"
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Novo Contrato */}
+            <div className="border border-blue-200 rounded-lg p-3.5 bg-blue-50/40 space-y-2">
+              <div className="flex items-center justify-between border-b border-blue-200 pb-1.5">
+                <span className="text-xs font-bold uppercase tracking-wide text-blue-900">
+                  Novo Contrato (em preenchimento)
+                </span>
+                <Badge className="text-[10px] bg-blue-600 text-white">Novo</Badge>
+              </div>
+
+              <div className="space-y-1 text-xs">
+                <div>
+                  <span className="text-blue-600 font-medium">Órgão:</span>
+                  <div className="font-semibold text-slate-900">
+                    {pendentePayload?.orgao || orgao || '—'}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-blue-600 font-medium">Número:</span>
+                  <div className="font-mono text-slate-900">
+                    {pendentePayload?.numero || numero || 'Não informado'}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-blue-600 font-medium">Valor:</span>
+                  <div className="font-mono font-bold text-blue-950">
+                    {formatCurrencyBr(pendentePayload?.valor || parseCurrencyInput(valorInput))}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-blue-600 font-medium">Vigência:</span>
+                  <div className="text-slate-800">
+                    {pendentePayload?.vigencia_inicio
+                      ? formatDateBr(pendentePayload.vigencia_inicio)
+                      : vigenciaInicio
+                        ? formatDateBr(vigenciaInicio)
+                        : '—'}{' '}
+                    até{' '}
+                    {pendentePayload?.vigencia_fim
+                      ? formatDateBr(pendentePayload.vigencia_fim)
+                      : vigenciaFim
+                        ? formatDateBr(vigenciaFim)
+                        : '—'}
+                  </div>
+                </div>
+
+                {(pendentePayload?.objeto || objeto) && (
+                  <div>
+                    <span className="text-blue-600 font-medium">Objeto:</span>
+                    <div className="text-[11px] text-slate-600 italic bg-white p-1.5 rounded border border-blue-200 line-clamp-3">
+                      "{pendentePayload?.objeto || objeto}"
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-2 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleVerContratoExistente}
+              className="text-slate-700 text-xs"
+            >
+              Ver Contrato Existente
+            </Button>
+            <div className="flex items-center gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDuplicidadeModalOpen(false)}
+                className="text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleConfirmarDuplicidade}
+                disabled={loading}
+                className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+              >
+                {loading ? 'Cadastrando...' : 'Cadastrar Mesmo Assim'}
+              </Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

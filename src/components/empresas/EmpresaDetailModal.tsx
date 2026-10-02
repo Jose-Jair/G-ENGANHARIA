@@ -211,6 +211,8 @@ export function EmpresaDetailModal({
       setObservacoes(emp.observacoes || '')
       setCenarioDetectado(emp.etapa_funil === 'parceira' ? 'parceira' : 'cadastrada')
       setEmpresaExistenteDetectada(emp)
+      setCnpjErro(null)
+      setAvisoApi(null)
     } else {
       setRazaoSocial('')
       setNomeFantasia('')
@@ -243,6 +245,8 @@ export function EmpresaDetailModal({
       setDuplicadaModalOpen(false)
       setEmpresaDuplicadaAlvo(null)
       setAutoOpenNovoContrato(false)
+      setCnpjErro(null)
+      setAvisoApi(null)
     }
   }
 
@@ -421,6 +425,11 @@ export function EmpresaDetailModal({
       } catch (e) {
         console.warn('Erro ao checar CNPJ existente:', e)
       }
+    } else {
+      // Se já estamos com empresa selecionada, não reabrimos duplicidade se for o mesmo CNPJ
+      if (cleanCnpj(empresa.cnpj || '') === raw) {
+        return
+      }
     }
 
     // Consultar BrasilAPI
@@ -471,7 +480,10 @@ export function EmpresaDetailModal({
 
   const navegarParaContratosPublicos = (alvo: EmpresaRecord) => {
     setDuplicadaModalOpen(false)
+    setEmpresaDuplicadaAlvo(null)
     setCurrentEmpresa(alvo)
+    popularCamposFormulario(alvo)
+    setModoEdicaoDados(false)
     setCenarioDetectado(alvo.etapa_funil === 'parceira' ? 'parceira' : 'cadastrada')
     setEmpresaExistenteDetectada(alvo)
     onCreatedEmpresaSelect?.(alvo)
@@ -487,12 +499,14 @@ export function EmpresaDetailModal({
 
   const migrarParaEmpresaExistenteComNovoContrato = (alvo: EmpresaRecord) => {
     setDuplicadaModalOpen(false)
+    setEmpresaDuplicadaAlvo(null)
     setCurrentEmpresa(alvo)
+    popularCamposFormulario(alvo)
+    setModoEdicaoDados(false)
     setCenarioDetectado(alvo.etapa_funil === 'parceira' ? 'parceira' : 'cadastrada')
     setEmpresaExistenteDetectada(alvo)
-    if (onCreatedEmpresaSelect) {
-      onCreatedEmpresaSelect(alvo)
-    }
+    onCreatedEmpresaSelect?.(alvo)
+    onEmpresaUpdate?.(alvo)
     loadSubData(alvo.id)
     setActiveTab('contratos')
     // Assegura que o trigger ocorra mesmo se o estado anterior já fosse true
@@ -538,15 +552,15 @@ export function EmpresaDetailModal({
           return
         }
       }
-    }
 
-    // Checagem de duplicidade por Razão Social se for nova empresa
-    if (!empresa && razaoSocial.trim().length >= 3) {
-      const existentePorRazao = await empresasService.findByRazaoSocial(razaoSocial.trim())
-      if (existentePorRazao && (!rawCnpj || cleanCnpj(existentePorRazao.cnpj) === rawCnpj)) {
-        setEmpresaDuplicadaAlvo(existentePorRazao)
-        setDuplicadaModalOpen(true)
-        return
+      // Checagem de duplicidade por Razão Social se for nova empresa
+      if (!empresa && razaoSocial.trim().length >= 3) {
+        const existentePorRazao = await empresasService.findByRazaoSocial(razaoSocial.trim())
+        if (existentePorRazao && (!rawCnpj || cleanCnpj(existentePorRazao.cnpj) === rawCnpj)) {
+          setEmpresaDuplicadaAlvo(existentePorRazao)
+          setDuplicadaModalOpen(true)
+          return
+        }
       }
     }
 
@@ -664,769 +678,815 @@ export function EmpresaDetailModal({
     .reduce((acc, c) => acc + (c.valor || 0), 0)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 overflow-hidden">
-        {/* Cabeçalho da Empresa */}
-        <DialogHeader className="p-6 pb-4 border-b border-slate-200 bg-slate-50/70 shrink-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <DialogTitle className="text-xl font-bold text-slate-900">
-                  {empresa ? razaoSocial || 'Detalhes da Empresa' : 'Cadastrar Nova Empresa'}
-                </DialogTitle>
-                {empresa && (
-                  <Badge
-                    variant="outline"
-                    className={
-                      status === 'ativa'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                        : 'bg-red-50 text-red-700 border-red-300'
-                    }
-                  >
-                    {status === 'ativa' ? 'Ativa' : 'Inativa'}
-                  </Badge>
-                )}
-                {empresa && (
-                  <div className="flex items-center gap-1.5">
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 overflow-hidden">
+          {/* Cabeçalho da Empresa */}
+          <DialogHeader className="p-6 pb-4 border-b border-slate-200 bg-slate-50/70 shrink-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <DialogTitle className="text-xl font-bold text-slate-900">
+                    {empresa ? razaoSocial || 'Detalhes da Empresa' : 'Cadastrar Nova Empresa'}
+                  </DialogTitle>
+                  {empresa && (
                     <Badge
                       variant="outline"
-                      className="font-mono bg-blue-50 text-blue-700 border-blue-300"
+                      className={
+                        status === 'ativa'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                          : 'bg-red-50 text-red-700 border-red-300'
+                      }
                     >
-                      Curva {curva} (Automática)
+                      {status === 'ativa' ? 'Ativa' : 'Inativa'}
                     </Badge>
-                    <Badge
-                      variant="secondary"
-                      className="font-mono text-[10px] bg-slate-100 text-slate-700 border border-slate-300"
-                      title="Índice Composto: 50% Valor Ativo + 30% Vigência Restante + 20% Qtd Contratos"
-                    >
-                      Índice: {empresa.score || 0}/100
-                    </Badge>
-                  </div>
-                )}
+                  )}
+                  {empresa && (
+                    <div className="flex items-center gap-1.5">
+                      <Badge
+                        variant="outline"
+                        className="font-mono bg-blue-50 text-blue-700 border-blue-300"
+                      >
+                        Curva {curva} (Automática)
+                      </Badge>
+                      <Badge
+                        variant="secondary"
+                        className="font-mono text-[10px] bg-slate-100 text-slate-700 border border-slate-300"
+                        title="Índice Composto: 50% Valor Ativo + 30% Vigência Restante + 20% Qtd Contratos"
+                      >
+                        Índice: {empresa.score || 0}/100
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+                <DialogDescription className="text-xs text-slate-500 mt-1">
+                  {empresa ? (
+                    <>
+                      CNPJ: {formatCnpj(cnpj) || 'Não informado'} |{' '}
+                      {municipio ? `${municipio}/${uf}` : 'Localização não informada'}
+                    </>
+                  ) : (
+                    'Informe o CNPJ para preenchimento automático via BrasilAPI e identificação de cenário de entrada.'
+                  )}
+                </DialogDescription>
               </div>
-              <DialogDescription className="text-xs text-slate-500 mt-1">
-                {empresa ? (
-                  <>
-                    CNPJ: {formatCnpj(cnpj) || 'Não informado'} |{' '}
-                    {municipio ? `${municipio}/${uf}` : 'Localização não informada'}
-                  </>
-                ) : (
-                  'Informe o CNPJ para preenchimento automático via BrasilAPI e identificação de cenário de entrada.'
-                )}
-              </DialogDescription>
-            </div>
 
-            {/* Botões de Ação Rápida de Contato no Cabeçalho (aparecem somente se preenchidos) */}
-            {empresa && (
-              <div className="flex items-center gap-1.5 shrink-0">
-                {/* Botão Enviar e-mail: abre mailto para a empresa ou avisa se não cadastrado */}
-                <button
-                  type="button"
-                  onClick={handleSendEmailEmpresa}
-                  className="p-2 rounded-md bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 hover:text-blue-600 transition-colors shadow-xs cursor-pointer"
-                  title={email ? `Enviar e-mail para ${email}` : 'Enviar e-mail para a empresa'}
-                >
-                  <Mail className="w-4 h-4" />
-                </button>
-
-                {telefones.length > 0 && (
+              {/* Botões de Ação Rápida de Contato no Cabeçalho (aparecem somente se preenchidos) */}
+              {empresa && (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Botão Enviar e-mail: abre mailto para a empresa ou avisa se não cadastrado */}
                   <button
                     type="button"
-                    onClick={openWaEmpresa}
-                    className="p-2 rounded-md bg-white border border-slate-200 hover:bg-emerald-50 text-slate-700 hover:text-emerald-600 transition-colors shadow-xs"
-                    title={`Abrir WhatsApp (${telefones[0]?.numero})`}
+                    onClick={handleSendEmailEmpresa}
+                    className="p-2 rounded-md bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 hover:text-blue-600 transition-colors shadow-xs cursor-pointer"
+                    title={email ? `Enviar e-mail para ${email}` : 'Enviar e-mail para a empresa'}
                   >
-                    <MessageSquare className="w-4 h-4" />
+                    <Mail className="w-4 h-4" />
                   </button>
-                )}
 
-                {instagram && (
-                  <a
-                    href={
-                      instagram.startsWith('http')
-                        ? instagram
-                        : `https://instagram.com/${instagram.replace('@', '')}`
-                    }
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-2 rounded-md bg-white border border-slate-200 hover:bg-pink-50 text-slate-700 hover:text-pink-600 transition-colors shadow-xs"
-                    title="Abrir Instagram"
-                  >
-                    <Instagram className="w-4 h-4" />
-                  </a>
-                )}
+                  {telefones.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={openWaEmpresa}
+                      className="p-2 rounded-md bg-white border border-slate-200 hover:bg-emerald-50 text-slate-700 hover:text-emerald-600 transition-colors shadow-xs"
+                      title={`Abrir WhatsApp (${telefones[0]?.numero})`}
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                    </button>
+                  )}
 
-                {linkedin && (
-                  <a
-                    href={linkedin.startsWith('http') ? linkedin : `https://${linkedin}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-2 rounded-md bg-white border border-slate-200 hover:bg-blue-50 text-slate-700 hover:text-blue-700 transition-colors shadow-xs"
-                    title="Abrir LinkedIn"
-                  >
-                    <Linkedin className="w-4 h-4" />
-                  </a>
-                )}
+                  {instagram && (
+                    <a
+                      href={
+                        instagram.startsWith('http')
+                          ? instagram
+                          : `https://instagram.com/${instagram.replace('@', '')}`
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-2 rounded-md bg-white border border-slate-200 hover:bg-pink-50 text-slate-700 hover:text-pink-600 transition-colors shadow-xs"
+                      title="Abrir Instagram"
+                    >
+                      <Instagram className="w-4 h-4" />
+                    </a>
+                  )}
 
-                {site && (
-                  <a
-                    href={site.startsWith('http') ? site : `https://${site}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-2 rounded-md bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 hover:text-blue-600 transition-colors shadow-xs"
-                    title="Abrir Website"
-                  >
-                    <Globe className="w-4 h-4" />
-                  </a>
-                )}
+                  {linkedin && (
+                    <a
+                      href={linkedin.startsWith('http') ? linkedin : `https://${linkedin}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-2 rounded-md bg-white border border-slate-200 hover:bg-blue-50 text-slate-700 hover:text-blue-700 transition-colors shadow-xs"
+                      title="Abrir LinkedIn"
+                    >
+                      <Linkedin className="w-4 h-4" />
+                    </a>
+                  )}
+
+                  {site && (
+                    <a
+                      href={site.startsWith('http') ? site : `https://${site}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-2 rounded-md bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 hover:text-blue-600 transition-colors shadow-xs"
+                      title="Abrir Website"
+                    >
+                      <Globe className="w-4 h-4" />
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Banner de Alerta se Situação Cadastral != ATIVA */}
+            {isSituacaoInativa && (
+              <div className="mt-3 px-3 py-2 bg-red-100/90 border border-red-300 rounded-md text-red-900 text-xs flex items-center gap-2 font-medium">
+                <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
+                <span>
+                  <strong>Atenção Cadastral:</strong> A situação deste CNPJ na Receita Federal é{' '}
+                  <strong className="uppercase underline">{situacaoCadastral}</strong> (não está
+                  ATIVA).
+                </span>
               </div>
             )}
-          </div>
+          </DialogHeader>
 
-          {/* Banner de Alerta se Situação Cadastral != ATIVA */}
-          {isSituacaoInativa && (
-            <div className="mt-3 px-3 py-2 bg-red-100/90 border border-red-300 rounded-md text-red-900 text-xs flex items-center gap-2 font-medium">
-              <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
-              <span>
-                <strong>Atenção Cadastral:</strong> A situação deste CNPJ na Receita Federal é{' '}
-                <strong className="uppercase underline">{situacaoCadastral}</strong> (não está
-                ATIVA).
-              </span>
-            </div>
-          )}
-        </DialogHeader>
+          {/* Abas do Modal */}
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as any)}
+            className="flex-1 flex flex-col overflow-hidden"
+          >
+            <div className="px-6 border-b border-slate-200 bg-white shrink-0">
+              <TabsList className="bg-transparent space-x-2 h-11 p-0">
+                {empresa ? (
+                  <>
+                    <TabsTrigger
+                      value="contratos"
+                      className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
+                    >
+                      <FileText className="w-3.5 h-3.5 mr-1.5" /> Contratos Públicos (
+                      {contratos.length})
+                    </TabsTrigger>
 
-        {/* Abas do Modal */}
-        <Tabs
-          value={activeTab}
-          onValueChange={(v) => setActiveTab(v as any)}
-          className="flex-1 flex flex-col overflow-hidden"
-        >
-          <div className="px-6 border-b border-slate-200 bg-white shrink-0">
-            <TabsList className="bg-transparent space-x-2 h-11 p-0">
-              {empresa ? (
-                <>
-                  <TabsTrigger
-                    value="contratos"
-                    className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
-                  >
-                    <FileText className="w-3.5 h-3.5 mr-1.5" /> Contratos Públicos (
-                    {contratos.length})
-                  </TabsTrigger>
+                    <TabsTrigger
+                      value="contatos"
+                      className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
+                    >
+                      <Users className="w-3.5 h-3.5 mr-1.5" /> Contatos ({contatos.length})
+                    </TabsTrigger>
 
-                  <TabsTrigger
-                    value="contatos"
-                    className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
-                  >
-                    <Users className="w-3.5 h-3.5 mr-1.5" /> Contatos ({contatos.length})
-                  </TabsTrigger>
+                    <TabsTrigger
+                      value="cadencia"
+                      className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
+                    >
+                      <CalendarCheck className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Cadência de 5
+                      Toques ({toquesCalculados.length})
+                    </TabsTrigger>
 
-                  <TabsTrigger
-                    value="cadencia"
-                    className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
-                  >
-                    <CalendarCheck className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Cadência de 5
-                    Toques ({toquesCalculados.length})
-                  </TabsTrigger>
+                    <TabsTrigger
+                      value="timeline"
+                      className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
+                    >
+                      <History className="w-3.5 h-3.5 mr-1.5" /> Linha do Tempo (
+                      {timelineLogs.length})
+                    </TabsTrigger>
 
-                  <TabsTrigger
-                    value="timeline"
-                    className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
-                  >
-                    <History className="w-3.5 h-3.5 mr-1.5" /> Linha do Tempo ({timelineLogs.length}
-                    )
-                  </TabsTrigger>
-
+                    <TabsTrigger
+                      value="dados"
+                      className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
+                    >
+                      <Building2 className="w-3.5 h-3.5 mr-1.5" /> Dados da Empresa
+                    </TabsTrigger>
+                  </>
+                ) : (
                   <TabsTrigger
                     value="dados"
                     className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
                   >
                     <Building2 className="w-3.5 h-3.5 mr-1.5" /> Dados da Empresa
                   </TabsTrigger>
-                </>
-              ) : (
-                <TabsTrigger
-                  value="dados"
-                  className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
-                >
-                  <Building2 className="w-3.5 h-3.5 mr-1.5" /> Dados da Empresa
-                </TabsTrigger>
-              )}
-            </TabsList>
-          </div>
+                )}
+              </TabsList>
+            </div>
 
-          {/* Conteúdo scrollável */}
-          <div className="flex-1 overflow-y-auto p-6">
-            {/* ABA DADOS DA EMPRESA */}
-            <TabsContent value="dados" className="m-0 space-y-4">
-              {/* Box de Orientação dos 3 Cenários (quando cadastrando novo ou CNPJ já detectado) */}
-              {!empresa && (
-                <div
-                  className={`p-4 rounded-lg border text-xs ${
-                    cenarioDetectado === 'parceira'
-                      ? 'bg-purple-50 border-purple-300 text-purple-900'
-                      : cenarioDetectado === 'cadastrada'
-                        ? 'bg-amber-50 border-amber-300 text-amber-900'
-                        : 'bg-blue-50 border-blue-200 text-blue-900'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 font-bold text-sm mb-1">
-                    <Sparkles className="w-4 h-4" />
-                    {cenarioDetectado === 'nova' && 'Cenário 1 — Nova Empresa Identificada'}
-                    {cenarioDetectado === 'cadastrada' &&
-                      'Cenário 2 — Empresa já Cadastrada no Sistema'}
-                    {cenarioDetectado === 'parceira' &&
-                      'Cenário 3 — Empresa Parceira (Alerta de Oportunidade)'}
-                  </div>
-                  <p>
-                    {cenarioDetectado === 'nova' &&
-                      'Empresa não localizada no banco. Ao salvar, ela entrará no funil comercial com a etapa inicial "Identificada" e você poderá lançar seus contratos ativos.'}
-                    {cenarioDetectado === 'cadastrada' &&
-                      `O CNPJ informado já pertence a "${empresaExistenteDetectada?.razao_social}". A etapa do funil será preservada (não reinicia). Você pode incluir novos contratos ativos.`}
-                    {cenarioDetectado === 'parceira' &&
-                      `A empresa "${empresaExistenteDetectada?.razao_social}" já é uma PARCEIRA homologada! A inclusão de novo contrato gerará alerta de oportunidade ao time Comercial sem retroceder o funil.`}
-                  </p>
-                </div>
-              )}
-
-              {/* Botão de alternância Leitura / Edição quando visualizando empresa existente */}
-              {empresa && !readOnly && (
-                <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                  <div>
-                    <span className="text-xs font-semibold text-slate-800">
-                      {modoEdicaoDados
-                        ? 'Modo de Edição Ativo'
-                        : 'Visualização dos Dados Cadastrais'}
-                    </span>
-                    <p className="text-[11px] text-slate-500">
-                      {modoEdicaoDados
-                        ? 'Altere os campos abaixo e clique em "Atualizar Empresa" para salvar.'
-                        : 'Clique em "Editar Dados" para habilitar a alteração cadastral desta empresa.'}
-                    </p>
-                  </div>
-                  {modoEdicaoDados ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        popularCamposFormulario(empresa)
-                        setModoEdicaoDados(false)
-                      }}
-                      className="text-xs"
-                    >
-                      Cancelar Edição
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setModoEdicaoDados(true)}
-                      className="bg-white border-blue-200 text-blue-700 hover:bg-blue-50 text-xs font-semibold"
-                    >
-                      <Edit className="w-3.5 h-3.5 mr-1 text-blue-600" />
-                      Editar Dados
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {/* Aviso da BrasilAPI se houve falha ou necessidade de preenchimento manual */}
-              {avisoApi && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-800 text-xs flex items-center justify-between">
-                  <span>{avisoApi}</span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => consultarApiReceita(cleanCnpj(cnpj))}
-                    className="text-xs text-amber-900 hover:bg-amber-100"
+            {/* Conteúdo scrollável */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {/* ABA DADOS DA EMPRESA */}
+              <TabsContent value="dados" className="m-0 space-y-4">
+                {/* Box de Orientação dos 3 Cenários (quando cadastrando novo ou CNPJ já detectado) */}
+                {!empresa && (
+                  <div
+                    className={`p-4 rounded-lg border text-xs ${
+                      cenarioDetectado === 'parceira'
+                        ? 'bg-purple-50 border-purple-300 text-purple-900'
+                        : cenarioDetectado === 'cadastrada'
+                          ? 'bg-amber-50 border-amber-300 text-amber-900'
+                          : 'bg-blue-50 border-blue-200 text-blue-900'
+                    }`}
                   >
-                    Tentar Novamente
-                  </Button>
-                </div>
-              )}
-
-              <form id="empresaForm" onSubmit={handleSaveEmpresa} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* CNPJ */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="empCnpj" className="flex items-center justify-between">
-                      <span>CNPJ</span>
-                      {consultandoCnpj && (
-                        <span className="text-[10px] text-blue-600 animate-pulse font-normal">
-                          Consultando BrasilAPI...
-                        </span>
-                      )}
-                    </Label>
-                    <Input
-                      id="empCnpj"
-                      placeholder="00.000.000/0000-00"
-                      value={cnpj}
-                      onChange={(e) => handleCnpjChange(e.target.value)}
-                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
-                    />
-                    {cnpjErro && <p className="text-[11px] text-red-600 font-medium">{cnpjErro}</p>}
-                  </div>
-
-                  {/* Razão Social */}
-                  <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="empRazao">Razão Social *</Label>
-                    <Input
-                      id="empRazao"
-                      placeholder="Ex: Construtora Sulamericana de Infraestrutura Ltda"
-                      value={razaoSocial}
-                      onChange={(e) => setRazaoSocial(e.target.value)}
-                      required
-                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
-                    />
-                  </div>
-
-                  {/* Nome Fantasia */}
-                  <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="empFantasia">Nome Fantasia</Label>
-                    <Input
-                      id="empFantasia"
-                      placeholder="Ex: Sulamericana Engenharia"
-                      value={nomeFantasia}
-                      onChange={(e) => setNomeFantasia(e.target.value)}
-                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
-                    />
-                  </div>
-
-                  {/* Situação Cadastral */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="empSit">Situação Cadastral</Label>
-                    <select
-                      id="empSit"
-                      className={`w-full h-10 px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isSituacaoInativa ? 'border-red-400 bg-red-50 text-red-800 font-bold' : ''
-                      }`}
-                      value={situacaoCadastral}
-                      onChange={(e) => setSituacaoCadastral(e.target.value)}
-                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
-                    >
-                      <option value="ATIVA">Ativa</option>
-                      <option value="SUSPENSA">Suspensa</option>
-                      <option value="INAPTA">Inapta</option>
-                      <option value="BAIXADA">Baixada</option>
-                      <option value="NULA">Nula</option>
-                    </select>
-                  </div>
-
-                  {/* Município */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="empMun">Município</Label>
-                    <Input
-                      id="empMun"
-                      placeholder="Ex: Belo Horizonte"
-                      value={municipio}
-                      onChange={(e) => setMunicipio(e.target.value)}
-                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
-                    />
-                  </div>
-
-                  {/* UF */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="empUf">UF</Label>
-                    <Input
-                      id="empUf"
-                      maxLength={2}
-                      placeholder="MG"
-                      value={uf}
-                      onChange={(e) => setUf(e.target.value.toUpperCase())}
-                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
-                    />
-                  </div>
-
-                  {/* Curva ABC e Índice Composto (Classificação 100% Automática com transparência) */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="empCurva">Curva ABC & Índice (Automático)</Label>
-                    <div className="flex items-center gap-2 h-10 px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-xs font-medium text-slate-800">
-                      <Badge
-                        variant="outline"
-                        className={`font-bold ${
-                          curva === 'A'
-                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                            : curva === 'B'
-                              ? 'bg-amber-100 text-amber-800 border-amber-300'
-                              : 'bg-slate-100 text-slate-700 border-slate-300'
-                        }`}
-                      >
-                        Curva {curva}
-                      </Badge>
-                      <span className="text-slate-500 font-mono">
-                        Índice: <strong>{scoreCalculado || empresa?.score || 0}</strong>/100
-                      </span>
+                    <div className="flex items-center gap-2 font-bold text-sm mb-1">
+                      <Sparkles className="w-4 h-4" />
+                      {cenarioDetectado === 'nova' && 'Cenário 1 — Nova Empresa Identificada'}
+                      {cenarioDetectado === 'cadastrada' &&
+                        'Cenário 2 — Empresa já Cadastrada no Sistema'}
+                      {cenarioDetectado === 'parceira' &&
+                        'Cenário 3 — Empresa Parceira (Alerta de Oportunidade)'}
                     </div>
-                  </div>
-
-                  {/* Etapa do Funil */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="empEtapa">Etapa do Funil</Label>
-                    <select
-                      id="empEtapa"
-                      className="w-full h-10 px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={etapaFunil}
-                      onChange={(e) => setEtapaFunil(e.target.value as any)}
-                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
-                    >
-                      <option value="identificada">Identificada</option>
-                      <option value="qualificada">Qualificada</option>
-                      <option value="em_cadencia">Em Cadência</option>
-                      <option value="em_conversa">Em Conversa</option>
-                      <option value="com_proposta_elaborada">Proposta Elaborada</option>
-                      <option value="proposta_enviada">Proposta Enviada</option>
-                      <option value="parceira">Parceira</option>
-                      <option value="nutricao_mensal">Nutrição Mensal</option>
-                      <option value="inativa">Inativa</option>
-                    </select>
-                  </div>
-
-                  {/* Status */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="empStatus">Status</Label>
-                    <select
-                      id="empStatus"
-                      className="w-full h-10 px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value as any)}
-                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
-                    >
-                      <option value="ativa">Ativa</option>
-                      <option value="inativa">Inativa</option>
-                    </select>
-                  </div>
-
-                  {/* Canais de Comunicação da Empresa */}
-                  <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="empEmail">E-mail Comercial</Label>
-                    <Input
-                      id="empEmail"
-                      type="email"
-                      placeholder="contato@empresa.com.br"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="empSite">Site Oficial</Label>
-                    <Input
-                      id="empSite"
-                      placeholder="https://empresa.com.br"
-                      value={site}
-                      onChange={(e) => setSite(e.target.value)}
-                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="empIg">Instagram</Label>
-                    <Input
-                      id="empIg"
-                      placeholder="@empresa ou https://instagram.com/empresa"
-                      value={instagram}
-                      onChange={(e) => setInstagram(e.target.value)}
-                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="empLi">LinkedIn</Label>
-                    <Input
-                      id="empLi"
-                      placeholder="https://linkedin.com/company/empresa"
-                      value={linkedin}
-                      onChange={(e) => setLinkedin(e.target.value)}
-                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
-                    />
-                  </div>
-
-                  {/* Observações */}
-                  <div className="space-y-1.5 md:col-span-3">
-                    <Label htmlFor="empObs">Observações / Contexto da Engenharia</Label>
-                    <Textarea
-                      id="empObs"
-                      rows={2}
-                      placeholder="Pontos de atenção, nichos de atuação, demandas frequentes em licitações..."
-                      value={observacoes}
-                      onChange={(e) => setObservacoes(e.target.value)}
-                      disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
-                    />
-                  </div>
-                </div>
-
-                {/* Seção de Múltiplos Telefones (Item 8) */}
-                <div className="mt-4 pt-4 border-t border-slate-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                        Telefones da Empresa ({telefones.length})
-                      </h4>
-                      <p className="text-[11px] text-slate-500">
-                        Adicione múltiplos contatos (fixo, celular ou WhatsApp) com links diretos
-                        para ligação e mensagem.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Lista de Telefones cadastrados */}
-                  {telefones.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 mb-3">
-                      {telefones.map((t) => {
-                        const waNumero = cleanPhoneForWa(t.numero)
-                        return (
-                          <div
-                            key={t.id}
-                            className="p-2.5 rounded-md border border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2"
-                          >
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <Badge
-                                  variant="outline"
-                                  className={`text-[10px] font-semibold uppercase ${
-                                    t.tipo === 'whatsapp'
-                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                                      : t.tipo === 'celular'
-                                        ? 'bg-blue-50 text-blue-700 border-blue-300'
-                                        : 'bg-slate-100 text-slate-600'
-                                  }`}
-                                >
-                                  {t.tipo}
-                                </Badge>
-                                {t.ramalOuDescricao && (
-                                  <span className="text-[10px] text-slate-500 truncate">
-                                    {t.ramalOuDescricao}
-                                  </span>
-                                )}
-                              </div>
-                              <span className="font-mono text-xs font-bold text-slate-900 block mt-1">
-                                {t.numero}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-1 shrink-0">
-                              {/* Link tel: */}
-                              <a
-                                href={`tel:${cleanPhoneForWa(t.numero)}`}
-                                className="p-1.5 rounded hover:bg-slate-200 text-slate-600 hover:text-blue-700"
-                                title="Ligar para o telefone"
-                              >
-                                <PhoneCall className="w-3.5 h-3.5" />
-                              </a>
-                              {/* Link wa.me */}
-                              {t.tipo === 'whatsapp' || t.tipo === 'celular' ? (
-                                <a
-                                  href={`https://wa.me/${waNumero}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="p-1.5 rounded hover:bg-emerald-100 text-emerald-700"
-                                  title="Abrir no WhatsApp"
-                                >
-                                  <MessageSquare className="w-3.5 h-3.5" />
-                                </a>
-                              ) : null}
-                              {!readOnly && (!empresa || modoEdicaoDados) && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoverTelefone(t.id)}
-                                  className="p-1.5 rounded hover:bg-red-100 text-slate-400 hover:text-red-600"
-                                  title="Remover telefone"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-400 italic mb-3">
-                      Nenhum telefone adicional cadastrado.
-                    </p>
-                  )}
-
-                  {/* Adicionar novo telefone */}
-                  {!readOnly && (!empresa || modoEdicaoDados) && (
-                    <div className="flex flex-wrap items-end gap-2 p-3 bg-slate-50 border border-slate-200 rounded-md">
-                      <div className="w-36 space-y-1">
-                        <Label className="text-[11px]">Tipo</Label>
-                        <select
-                          className="w-full h-8 px-2 text-xs border border-slate-300 rounded bg-white"
-                          value={novoTelefoneTipo}
-                          onChange={(e) => setNovoTelefoneTipo(e.target.value as any)}
-                        >
-                          <option value="celular">Celular</option>
-                          <option value="whatsapp">WhatsApp</option>
-                          <option value="fixo">Fixo</option>
-                        </select>
-                      </div>
-
-                      <div className="flex-1 min-w-[180px] space-y-1">
-                        <Label className="text-[11px]">Número com DDD (DDI +55)</Label>
-                        <Input
-                          placeholder="(88) 92188-6547"
-                          value={novoTelefoneNumero}
-                          onChange={(e) =>
-                            setNovoTelefoneNumero(formatPhoneBr(e.target.value, false))
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault()
-                              handleAdicionarTelefone()
-                            }
-                          }}
-                          className="h-8 text-xs font-mono"
-                        />
-                      </div>
-
-                      <div className="flex-1 min-w-[140px] space-y-1">
-                        <Label className="text-[11px]">Descrição / Setor (opcional)</Label>
-                        <Input
-                          placeholder="Ex: Comercial, Recepção"
-                          value={novoTelefoneDesc}
-                          onChange={(e) => setNovoTelefoneDesc(e.target.value)}
-                          className="h-8 text-xs"
-                        />
-                      </div>
-
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleAdicionarTelefone}
-                        className="h-8 bg-blue-600 hover:bg-blue-700 text-white text-xs shrink-0"
-                      >
-                        <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar Telefone
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Bloco de Transparência da Curva ABC (Item 2) */}
-                {empresa && (
-                  <div className="mt-4 p-3 bg-blue-50/70 border border-blue-200 rounded-md text-xs text-blue-900">
-                    <div className="flex items-center gap-2 font-bold mb-1">
-                      <Info className="w-4 h-4 text-blue-700 shrink-0" />
-                      <span>Transparência do Cálculo — Curva ABC & Score Composto</span>
-                    </div>
-                    <p className="text-slate-700 leading-relaxed">
-                      {explicacaoCurva ||
-                        `Classificada na Curva ${curva} com Índice Composto ${scoreCalculado || empresa.score || 0}/100. Ponderação: 50% Valor dos Contratos Ativos, 30% Vigência Restante e 20% Quantidade de Contratos. Regra de piso aplicada: a maior empresa da base nunca é classificada como C.`}
+                    <p>
+                      {cenarioDetectado === 'nova' &&
+                        'Empresa não localizada no banco. Ao salvar, ela entrará no funil comercial com a etapa inicial "Identificada" e você poderá lançar seus contratos ativos.'}
+                      {cenarioDetectado === 'cadastrada' &&
+                        `O CNPJ informado já pertence a "${empresaExistenteDetectada?.razao_social}". A etapa do funil será preservada (não reinicia). Você pode incluir novos contratos ativos.`}
+                      {cenarioDetectado === 'parceira' &&
+                        `A empresa "${empresaExistenteDetectada?.razao_social}" já é uma PARCEIRA homologada! A inclusão de novo contrato gerará alerta de oportunidade ao time Comercial sem retroceder o funil.`}
                     </p>
                   </div>
                 )}
-              </form>
-            </TabsContent>
 
-            {/* ABA CONTRATOS */}
-            {empresa && (
-              <TabsContent value="contratos" className="m-0">
-                <EmpresaContratosTab
-                  empresaId={empresa.id}
-                  contratos={contratos}
-                  diasAlerta={diasAlerta}
-                  readOnly={readOnly}
-                  onContratosChange={() => loadSubData(empresa.id)}
-                  autoOpenNovoContrato={autoOpenNovoContrato}
-                  onNovoContratoModalClose={() => setAutoOpenNovoContrato(false)}
-                />
+                {/* Botão de alternância Leitura / Edição quando visualizando empresa existente */}
+                {empresa && !readOnly && (
+                  <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <div>
+                      <span className="text-xs font-semibold text-slate-800">
+                        {modoEdicaoDados
+                          ? 'Modo de Edição Ativo'
+                          : 'Visualização dos Dados Cadastrais'}
+                      </span>
+                      <p className="text-[11px] text-slate-500">
+                        {modoEdicaoDados
+                          ? 'Altere os campos abaixo e clique em "Atualizar Empresa" para salvar.'
+                          : 'Clique em "Editar Dados" para habilitar a alteração cadastral desta empresa.'}
+                      </p>
+                    </div>
+                    {modoEdicaoDados ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          popularCamposFormulario(empresa)
+                          setModoEdicaoDados(false)
+                        }}
+                        className="text-xs"
+                      >
+                        Cancelar Edição
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setModoEdicaoDados(true)}
+                        className="bg-white border-blue-200 text-blue-700 hover:bg-blue-50 text-xs font-semibold"
+                      >
+                        <Edit className="w-3.5 h-3.5 mr-1 text-blue-600" />
+                        Editar Dados
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {/* Aviso da BrasilAPI se houve falha ou necessidade de preenchimento manual */}
+                {avisoApi && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-800 text-xs flex items-center justify-between">
+                    <span>{avisoApi}</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => consultarApiReceita(cleanCnpj(cnpj))}
+                      className="text-xs text-amber-900 hover:bg-amber-100"
+                    >
+                      Tentar Novamente
+                    </Button>
+                  </div>
+                )}
+
+                <form id="empresaForm" onSubmit={handleSaveEmpresa} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* CNPJ */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="empCnpj" className="flex items-center justify-between">
+                        <span>CNPJ</span>
+                        {consultandoCnpj && (
+                          <span className="text-[10px] text-blue-600 animate-pulse font-normal">
+                            Consultando BrasilAPI...
+                          </span>
+                        )}
+                      </Label>
+                      <Input
+                        id="empCnpj"
+                        placeholder="00.000.000/0000-00"
+                        value={cnpj}
+                        onChange={(e) => handleCnpjChange(e.target.value)}
+                        disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
+                      />
+                      {cnpjErro && (
+                        <p className="text-[11px] text-red-600 font-medium">{cnpjErro}</p>
+                      )}
+                    </div>
+
+                    {/* Razão Social */}
+                    <div className="space-y-1.5 md:col-span-2">
+                      <Label htmlFor="empRazao">Razão Social *</Label>
+                      <Input
+                        id="empRazao"
+                        placeholder="Ex: Construtora Sulamericana de Infraestrutura Ltda"
+                        value={razaoSocial}
+                        onChange={(e) => setRazaoSocial(e.target.value)}
+                        required
+                        disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
+                      />
+                    </div>
+
+                    {/* Nome Fantasia */}
+                    <div className="space-y-1.5 md:col-span-2">
+                      <Label htmlFor="empFantasia">Nome Fantasia</Label>
+                      <Input
+                        id="empFantasia"
+                        placeholder="Ex: Sulamericana Engenharia"
+                        value={nomeFantasia}
+                        onChange={(e) => setNomeFantasia(e.target.value)}
+                        disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
+                      />
+                    </div>
+
+                    {/* Situação Cadastral */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="empSit">Situação Cadastral</Label>
+                      <select
+                        id="empSit"
+                        className={`w-full h-10 px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          isSituacaoInativa ? 'border-red-400 bg-red-50 text-red-800 font-bold' : ''
+                        }`}
+                        value={situacaoCadastral}
+                        onChange={(e) => setSituacaoCadastral(e.target.value)}
+                        disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
+                      >
+                        <option value="ATIVA">Ativa</option>
+                        <option value="SUSPENSA">Suspensa</option>
+                        <option value="INAPTA">Inapta</option>
+                        <option value="BAIXADA">Baixada</option>
+                        <option value="NULA">Nula</option>
+                      </select>
+                    </div>
+
+                    {/* Município */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="empMun">Município</Label>
+                      <Input
+                        id="empMun"
+                        placeholder="Ex: Belo Horizonte"
+                        value={municipio}
+                        onChange={(e) => setMunicipio(e.target.value)}
+                        disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
+                      />
+                    </div>
+
+                    {/* UF */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="empUf">UF</Label>
+                      <Input
+                        id="empUf"
+                        maxLength={2}
+                        placeholder="MG"
+                        value={uf}
+                        onChange={(e) => setUf(e.target.value.toUpperCase())}
+                        disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
+                      />
+                    </div>
+
+                    {/* Curva ABC e Índice Composto (Classificação 100% Automática com transparência) */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="empCurva">Curva ABC & Índice (Automático)</Label>
+                      <div className="flex items-center gap-2 h-10 px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-xs font-medium text-slate-800">
+                        <Badge
+                          variant="outline"
+                          className={`font-bold ${
+                            curva === 'A'
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : curva === 'B'
+                                ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                : 'bg-slate-100 text-slate-700 border-slate-300'
+                          }`}
+                        >
+                          Curva {curva}
+                        </Badge>
+                        <span className="text-slate-500 font-mono">
+                          Índice: <strong>{scoreCalculado || empresa?.score || 0}</strong>/100
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Etapa do Funil */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="empEtapa">Etapa do Funil</Label>
+                      <select
+                        id="empEtapa"
+                        className="w-full h-10 px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={etapaFunil}
+                        onChange={(e) => setEtapaFunil(e.target.value as any)}
+                        disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
+                      >
+                        <option value="identificada">Identificada</option>
+                        <option value="qualificada">Qualificada</option>
+                        <option value="em_cadencia">Em Cadência</option>
+                        <option value="em_conversa">Em Conversa</option>
+                        <option value="com_proposta_elaborada">Proposta Elaborada</option>
+                        <option value="proposta_enviada">Proposta Enviada</option>
+                        <option value="parceira">Parceira</option>
+                        <option value="nutricao_mensal">Nutrição Mensal</option>
+                        <option value="inativa">Inativa</option>
+                      </select>
+                    </div>
+
+                    {/* Status */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="empStatus">Status</Label>
+                      <select
+                        id="empStatus"
+                        className="w-full h-10 px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value as any)}
+                        disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
+                      >
+                        <option value="ativa">Ativa</option>
+                        <option value="inativa">Inativa</option>
+                      </select>
+                    </div>
+
+                    {/* Canais de Comunicação da Empresa */}
+                    <div className="space-y-1.5 md:col-span-2">
+                      <Label htmlFor="empEmail">E-mail Comercial</Label>
+                      <Input
+                        id="empEmail"
+                        type="email"
+                        placeholder="contato@empresa.com.br"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="empSite">Site Oficial</Label>
+                      <Input
+                        id="empSite"
+                        placeholder="https://empresa.com.br"
+                        value={site}
+                        onChange={(e) => setSite(e.target.value)}
+                        disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="empIg">Instagram</Label>
+                      <Input
+                        id="empIg"
+                        placeholder="@empresa ou https://instagram.com/empresa"
+                        value={instagram}
+                        onChange={(e) => setInstagram(e.target.value)}
+                        disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 md:col-span-2">
+                      <Label htmlFor="empLi">LinkedIn</Label>
+                      <Input
+                        id="empLi"
+                        placeholder="https://linkedin.com/company/empresa"
+                        value={linkedin}
+                        onChange={(e) => setLinkedin(e.target.value)}
+                        disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
+                      />
+                    </div>
+
+                    {/* Observações */}
+                    <div className="space-y-1.5 md:col-span-3">
+                      <Label htmlFor="empObs">Observações / Contexto da Engenharia</Label>
+                      <Textarea
+                        id="empObs"
+                        rows={2}
+                        placeholder="Pontos de atenção, nichos de atuação, demandas frequentes em licitações..."
+                        value={observacoes}
+                        onChange={(e) => setObservacoes(e.target.value)}
+                        disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Seção de Múltiplos Telefones (Item 8) */}
+                  <div className="mt-4 pt-4 border-t border-slate-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                          Telefones da Empresa ({telefones.length})
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          Adicione múltiplos contatos (fixo, celular ou WhatsApp) com links diretos
+                          para ligação e mensagem.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Lista de Telefones cadastrados */}
+                    {telefones.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 mb-3">
+                        {telefones.map((t) => {
+                          const waNumero = cleanPhoneForWa(t.numero)
+                          return (
+                            <div
+                              key={t.id}
+                              className="p-2.5 rounded-md border border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2"
+                            >
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] font-semibold uppercase ${
+                                      t.tipo === 'whatsapp'
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                        : t.tipo === 'celular'
+                                          ? 'bg-blue-50 text-blue-700 border-blue-300'
+                                          : 'bg-slate-100 text-slate-600'
+                                    }`}
+                                  >
+                                    {t.tipo}
+                                  </Badge>
+                                  {t.ramalOuDescricao && (
+                                    <span className="text-[10px] text-slate-500 truncate">
+                                      {t.ramalOuDescricao}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="font-mono text-xs font-bold text-slate-900 block mt-1">
+                                  {t.numero}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0">
+                                {/* Link tel: */}
+                                <a
+                                  href={`tel:${cleanPhoneForWa(t.numero)}`}
+                                  className="p-1.5 rounded hover:bg-slate-200 text-slate-600 hover:text-blue-700"
+                                  title="Ligar para o telefone"
+                                >
+                                  <PhoneCall className="w-3.5 h-3.5" />
+                                </a>
+                                {/* Link wa.me */}
+                                {t.tipo === 'whatsapp' || t.tipo === 'celular' ? (
+                                  <a
+                                    href={`https://wa.me/${waNumero}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1.5 rounded hover:bg-emerald-100 text-emerald-700"
+                                    title="Abrir no WhatsApp"
+                                  >
+                                    <MessageSquare className="w-3.5 h-3.5" />
+                                  </a>
+                                ) : null}
+                                {!readOnly && (!empresa || modoEdicaoDados) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoverTelefone(t.id)}
+                                    className="p-1.5 rounded hover:bg-red-100 text-slate-400 hover:text-red-600"
+                                    title="Remover telefone"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 italic mb-3">
+                        Nenhum telefone adicional cadastrado.
+                      </p>
+                    )}
+
+                    {/* Adicionar novo telefone */}
+                    {!readOnly && (!empresa || modoEdicaoDados) && (
+                      <div className="flex flex-wrap items-end gap-2 p-3 bg-slate-50 border border-slate-200 rounded-md">
+                        <div className="w-36 space-y-1">
+                          <Label className="text-[11px]">Tipo</Label>
+                          <select
+                            className="w-full h-8 px-2 text-xs border border-slate-300 rounded bg-white"
+                            value={novoTelefoneTipo}
+                            onChange={(e) => setNovoTelefoneTipo(e.target.value as any)}
+                          >
+                            <option value="celular">Celular</option>
+                            <option value="whatsapp">WhatsApp</option>
+                            <option value="fixo">Fixo</option>
+                          </select>
+                        </div>
+
+                        <div className="flex-1 min-w-[180px] space-y-1">
+                          <Label className="text-[11px]">Número com DDD (DDI +55)</Label>
+                          <Input
+                            placeholder="(88) 92188-6547"
+                            value={novoTelefoneNumero}
+                            onChange={(e) =>
+                              setNovoTelefoneNumero(formatPhoneBr(e.target.value, false))
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                handleAdicionarTelefone()
+                              }
+                            }}
+                            className="h-8 text-xs font-mono"
+                          />
+                        </div>
+
+                        <div className="flex-1 min-w-[140px] space-y-1">
+                          <Label className="text-[11px]">Descrição / Setor (opcional)</Label>
+                          <Input
+                            placeholder="Ex: Comercial, Recepção"
+                            value={novoTelefoneDesc}
+                            onChange={(e) => setNovoTelefoneDesc(e.target.value)}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleAdicionarTelefone}
+                          className="h-8 bg-blue-600 hover:bg-blue-700 text-white text-xs shrink-0"
+                        >
+                          <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar Telefone
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bloco de Transparência da Curva ABC (Item 2) */}
+                  {empresa && (
+                    <div className="mt-4 p-3 bg-blue-50/70 border border-blue-200 rounded-md text-xs text-blue-900">
+                      <div className="flex items-center gap-2 font-bold mb-1">
+                        <Info className="w-4 h-4 text-blue-700 shrink-0" />
+                        <span>Transparência do Cálculo — Curva ABC & Score Composto</span>
+                      </div>
+                      <p className="text-slate-700 leading-relaxed">
+                        {explicacaoCurva ||
+                          `Classificada na Curva ${curva} com Índice Composto ${scoreCalculado || empresa.score || 0}/100. Ponderação: 50% Valor dos Contratos Ativos, 30% Vigência Restante e 20% Quantidade de Contratos. Regra de piso aplicada: a maior empresa da base nunca é classificada como C.`}
+                      </p>
+                    </div>
+                  )}
+                </form>
               </TabsContent>
-            )}
 
-            {/* ABA CONTATOS */}
-            {empresa && (
-              <TabsContent value="contatos" className="m-0">
-                <EmpresaContatosTab
-                  empresaId={empresa.id}
-                  empresaNome={nomeFantasia || razaoSocial}
-                  contatos={contatos}
-                  readOnly={readOnly}
-                  onContatosChange={() => loadSubData(empresa.id)}
-                />
-              </TabsContent>
-            )}
+              {/* ABA CONTRATOS */}
+              {empresa && (
+                <TabsContent value="contratos" className="m-0">
+                  <EmpresaContratosTab
+                    empresaId={empresa.id}
+                    contratos={contratos}
+                    diasAlerta={diasAlerta}
+                    readOnly={readOnly}
+                    onContratosChange={() => loadSubData(empresa.id)}
+                    autoOpenNovoContrato={autoOpenNovoContrato}
+                    onNovoContratoModalClose={() => setAutoOpenNovoContrato(false)}
+                  />
+                </TabsContent>
+              )}
 
-            {/* ABA CADÊNCIA DE 5 TOQUES */}
-            {empresa && (
-              <TabsContent value="cadencia" className="m-0">
-                <EmpresaCadenciaTab
-                  empresa={empresa}
-                  toques={toquesCalculados}
-                  contatos={contatos}
-                  contratos={contratos}
-                  modelos={modelos}
-                  motivosInativacao={motivosInativacao}
-                  motivosCancelamento={motivosCancelamento}
-                  readOnly={readOnly}
-                  onToquesChange={() => loadSubData(empresa.id)}
-                />
-              </TabsContent>
-            )}
+              {/* ABA CONTATOS */}
+              {empresa && (
+                <TabsContent value="contatos" className="m-0">
+                  <EmpresaContatosTab
+                    empresaId={empresa.id}
+                    empresaNome={nomeFantasia || razaoSocial}
+                    contatos={contatos}
+                    readOnly={readOnly}
+                    onContatosChange={() => loadSubData(empresa.id)}
+                  />
+                </TabsContent>
+              )}
 
-            {/* ABA TIMELINE */}
-            {empresa && (
-              <TabsContent value="timeline" className="m-0">
-                <EmpresaTimelineTab logs={timelineLogs} loading={loadingTimeline} />
-              </TabsContent>
-            )}
-          </div>
-        </Tabs>
+              {/* ABA CADÊNCIA DE 5 TOQUES */}
+              {empresa && (
+                <TabsContent value="cadencia" className="m-0">
+                  <EmpresaCadenciaTab
+                    empresa={empresa}
+                    toques={toquesCalculados}
+                    contatos={contatos}
+                    contratos={contratos}
+                    modelos={modelos}
+                    motivosInativacao={motivosInativacao}
+                    motivosCancelamento={motivosCancelamento}
+                    readOnly={readOnly}
+                    onToquesChange={() => loadSubData(empresa.id)}
+                  />
+                </TabsContent>
+              )}
 
-        {/* Rodapé do Modal */}
-        <DialogFooter className="p-4 border-t border-slate-200 bg-slate-50 shrink-0 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              {readOnly ? 'Fechar' : 'Cancelar'}
-            </Button>
-            {empresa && empresa.status !== 'inativa' && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  window.location.href = `/propostas?nova=true&empresaId=${empresa.id}`
-                }}
-                className="text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 gap-1.5"
-              >
-                <FileText className="w-4 h-4 text-amber-600" />
-                Elaborar Proposta
+              {/* ABA TIMELINE */}
+              {empresa && (
+                <TabsContent value="timeline" className="m-0">
+                  <EmpresaTimelineTab logs={timelineLogs} loading={loadingTimeline} />
+                </TabsContent>
+              )}
+            </div>
+          </Tabs>
+
+          {/* Rodapé do Modal */}
+          <DialogFooter className="p-4 border-t border-slate-200 bg-slate-50 shrink-0 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                {readOnly ? 'Fechar' : 'Cancelar'}
               </Button>
-            )}
-          </div>
-
-          {/* O botão de submissão do formulário só é exibido na aba "dados" */}
-          {!readOnly && activeTab === 'dados' && (
-            <>
-              {empresa && !modoEdicaoDados ? (
+              {empresa && empresa.status !== 'inativa' && (
                 <Button
                   type="button"
-                  onClick={() => setModoEdicaoDados(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  variant="outline"
+                  onClick={() => {
+                    window.location.href = `/propostas?nova=true&empresaId=${empresa.id}`
+                  }}
+                  className="text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 gap-1.5"
                 >
-                  <Edit className="w-4 h-4 mr-1.5" />
-                  Editar Dados
-                </Button>
-              ) : (
-                <Button
-                  type="submit"
-                  form="empresaForm"
-                  disabled={submitting}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {submitting ? 'Salvando...' : empresa ? 'Atualizar Empresa' : 'Cadastrar Empresa'}
+                  <FileText className="w-4 h-4 text-amber-600" />
+                  Elaborar Proposta
                 </Button>
               )}
-            </>
-          )}
-        </DialogFooter>
-      </DialogContent>
+            </div>
+
+            {/* O botão de submissão do formulário só é exibido na aba "dados" */}
+            {!readOnly && activeTab === 'dados' && (
+              <>
+                {empresa && !modoEdicaoDados ? (
+                  <Button
+                    type="button"
+                    onClick={() => setModoEdicaoDados(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Edit className="w-4 h-4 mr-1.5" />
+                    Editar Dados
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    form="empresaForm"
+                    disabled={submitting}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {submitting
+                      ? 'Salvando...'
+                      : empresa
+                        ? 'Atualizar Empresa'
+                        : 'Cadastrar Empresa'}
+                  </Button>
+                )}
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Rápido de WhatsApp Geral da Empresa */}
+      <Dialog open={waModalOpen} onOpenChange={setWaModalOpen}>
+        <DialogContent className="max-w-md z-[70]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-emerald-600" />
+              WhatsApp — {nomeFantasia || razaoSocial}
+            </DialogTitle>
+            <DialogDescription>
+              Mensagem para o telefone comercial <strong>{primeiroTelefone}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-2">
+            <Label htmlFor="waEmpEdit">Mensagem inicial:</Label>
+            <textarea
+              id="waEmpEdit"
+              rows={4}
+              className="w-full text-xs p-2.5 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
+              value={waMessage}
+              onChange={(e) => setWaMessage(e.target.value)}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWaModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={confirmSendWaEmpresa}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <MessageSquare className="w-4 h-4 mr-1.5" /> Enviar no WhatsApp
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Confirmação: Empresa Já Cadastrada -> Deseja Cadastrar Novo Contrato? */}
       <Dialog open={duplicadaModalOpen} onOpenChange={setDuplicadaModalOpen}>
-        <DialogContent className="max-w-lg z-[60]">
+        <DialogContent className="max-w-lg z-[70]">
           <DialogHeader>
             <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center mb-2">
               <AlertTriangle className="w-6 h-6" />
@@ -1524,44 +1584,6 @@ export function EmpresaDetailModal({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Modal Rápido de WhatsApp Geral da Empresa */}
-      <Dialog open={waModalOpen} onOpenChange={setWaModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-emerald-600" />
-              WhatsApp — {nomeFantasia || razaoSocial}
-            </DialogTitle>
-            <DialogDescription>
-              Mensagem para o telefone comercial <strong>{primeiroTelefone}</strong>.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-2 space-y-2">
-            <Label htmlFor="waEmpEdit">Mensagem inicial:</Label>
-            <textarea
-              id="waEmpEdit"
-              rows={4}
-              className="w-full text-xs p-2.5 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
-              value={waMessage}
-              onChange={(e) => setWaMessage(e.target.value)}
-            />
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setWaModalOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={confirmSendWaEmpresa}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              <MessageSquare className="w-4 h-4 mr-1.5" /> Enviar no WhatsApp
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Dialog>
+    </>
   )
 }

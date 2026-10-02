@@ -883,6 +883,7 @@ export default function AcoesDoDiaPage() {
           empresa={empresaDetalhe}
           onSuccess={carregarDados}
           readOnly={user?.role !== 'admin' && user?.role !== 'comercial'}
+          onCreatedEmpresaSelect={(alvo) => setEmpresaDetalhe(alvo)}
           onEmpresaUpdate={(updated) => setEmpresaDetalhe(updated)}
         />
       )}

@@ -61,6 +61,7 @@ import {
   Plus,
   Info,
   Edit,
+  ExternalLink,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -464,6 +465,22 @@ export function EmpresaDetailModal({
     } finally {
       setConsultandoCnpj(false)
     }
+  }
+
+  const navegarParaContratosPublicos = (alvo: EmpresaRecord) => {
+    setDuplicadaModalOpen(false)
+    setCurrentEmpresa(alvo)
+    setCenarioDetectado(alvo.etapa_funil === 'parceira' ? 'parceira' : 'cadastrada')
+    setEmpresaExistenteDetectada(alvo)
+    onCreatedEmpresaSelect?.(alvo)
+    onEmpresaUpdate?.(alvo)
+    loadSubData(alvo.id)
+    setActiveTab('contratos')
+    setAutoOpenNovoContrato(false)
+    toast({
+      title: 'Ficha da empresa aberta',
+      description: `Visualizando a aba Contratos Públicos da empresa "${alvo.razao_social}".`,
+    })
   }
 
   const migrarParaEmpresaExistenteComNovoContrato = (alvo: EmpresaRecord) => {
@@ -1477,6 +1494,18 @@ export function EmpresaDetailModal({
               }}
             >
               Cancelar / Voltar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (empresaDuplicadaAlvo) {
+                  navegarParaContratosPublicos(empresaDuplicadaAlvo)
+                }
+              }}
+              className="bg-[#D95A2B] hover:bg-[#C44E22] text-white font-medium gap-1.5 shadow-sm"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Ir para Contratos Públicos
             </Button>
             <Button
               type="button"

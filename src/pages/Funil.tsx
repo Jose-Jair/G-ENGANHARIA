@@ -1090,6 +1090,7 @@ export default function FunilPage() {
           onSuccess={() => {
             loadData()
           }}
+          onCreatedEmpresaSelect={(alvo) => setEmpresaDetalhe(alvo)}
           onEmpresaUpdate={(updated) => setEmpresaDetalhe(updated)}
         />
       )}

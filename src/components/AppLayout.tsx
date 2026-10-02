@@ -43,6 +43,7 @@ import { contratosService } from '@/services/contratos'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDateBr } from '@/lib/formatters'
+import { openWhatsAppWithFallback } from '@/lib/whatsapp'
 
 const ROLE_BADGE_VARIANTS: Record<UserRole, string> = {
   admin: 'bg-red-500/10 text-red-600 border-red-500/20 hover:bg-red-500/20',
@@ -636,16 +637,15 @@ export default function AppLayout() {
               <Mail className="w-3 h-3 text-orange-400 shrink-0" />
               <span className="truncate">grupomais.sae@gmail.com</span>
             </a>
-            <a
-              href="https://wa.me/5588921886547"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-slate-300 hover:text-emerald-300 flex items-center gap-1.5 transition-colors"
-              title="WhatsApp Oficial (+55 88 92188-6547)"
+            <button
+              type="button"
+              onClick={() => openWhatsAppWithFallback({ phone: '5588921886547' })}
+              className="text-slate-300 hover:text-emerald-300 flex items-center gap-1.5 transition-colors text-left cursor-pointer w-full"
+              title="Abrir WhatsApp Oficial no aplicativo desktop (ou WhatsApp Web)"
             >
               <MessageSquare className="w-3 h-3 text-emerald-400 shrink-0" />
               <span>+55 88 92188-6547</span>
-            </a>
+            </button>
           </div>
         </div>
 

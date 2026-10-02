@@ -14,6 +14,7 @@ import { empresaTimelineService } from '@/services/empresaTimeline'
 import { brasilApiService } from '@/services/brasilApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { cleanCnpj, formatCnpj, isValidCnpj, cleanPhoneForWa, formatPhoneBr } from '@/lib/cnpj'
+import { openWhatsAppWithFallback } from '@/lib/whatsapp'
 import { scoreCurvaService } from '@/services/scoreCurva'
 import { TelefoneEmpresaItem } from '@/types'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
@@ -1272,9 +1273,14 @@ export function EmpresaDetailModal({
                                     </span>
                                   )}
                                 </div>
-                                <span className="font-mono text-xs font-bold text-slate-900 block mt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openWhatsAppWithFallback({ phone: t.numero })}
+                                  className="font-mono text-xs font-bold text-slate-900 hover:text-emerald-700 hover:underline block mt-1 text-left cursor-pointer transition-colors"
+                                  title="Clique para abrir no aplicativo WhatsApp desktop (ou WhatsApp Web)"
+                                >
                                   {t.numero}
-                                </span>
+                                </button>
                               </div>
 
                               <div className="flex items-center gap-1 shrink-0">
@@ -1286,17 +1292,16 @@ export function EmpresaDetailModal({
                                 >
                                   <PhoneCall className="w-3.5 h-3.5" />
                                 </a>
-                                {/* Link wa.me */}
+                                {/* Botão WhatsApp: aplicativo desktop com fallback Web */}
                                 {t.tipo === 'whatsapp' || t.tipo === 'celular' ? (
-                                  <a
-                                    href={`https://wa.me/${waNumero}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="p-1.5 rounded hover:bg-emerald-100 text-emerald-700"
-                                    title="Abrir no WhatsApp"
+                                  <button
+                                    type="button"
+                                    onClick={() => openWhatsAppWithFallback({ phone: t.numero })}
+                                    className="p-1.5 rounded hover:bg-emerald-100 text-emerald-700 cursor-pointer"
+                                    title="Abrir no WhatsApp desktop (ou WhatsApp Web)"
                                   >
                                     <MessageSquare className="w-3.5 h-3.5" />
-                                  </a>
+                                  </button>
                                 ) : null}
                                 {!readOnly && (!empresa || modoEdicaoDados) && (
                                   <button

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { ContatoRecord } from '@/types'
 import { contatosService } from '@/services/contatos'
 import { formatPhoneBr, cleanPhoneForWa } from '@/lib/cnpj'
+import { openWhatsAppWithFallback } from '@/lib/whatsapp'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -304,19 +305,31 @@ export function EmpresaContatosTab({
 
                   {c.telefone && (
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-600 flex items-center gap-1.5">
-                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>{formatPhoneBr(c.telefone)}</span>
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openWhatsAppWithFallback({ phone: c.telefone })}
+                        className="text-slate-600 hover:text-emerald-700 flex items-center gap-1.5 text-left cursor-pointer transition-colors group"
+                        title="Abrir no aplicativo WhatsApp desktop (ou WhatsApp Web)"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 shrink-0" />
+                        <span className="group-hover:underline">{formatPhoneBr(c.telefone)}</span>
+                      </button>
                     </div>
                   )}
 
                   {c.whatsapp && (
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-600 flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => openWhatsAppWithFallback({ phone: c.whatsapp })}
+                        className="text-slate-600 hover:text-emerald-700 flex items-center gap-1.5 text-left cursor-pointer transition-colors group"
+                        title="Abrir no aplicativo WhatsApp desktop (ou WhatsApp Web)"
+                      >
                         <MessageSquare className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>WA: {formatPhoneBr(c.whatsapp)}</span>
-                      </span>
+                        <span className="group-hover:underline">
+                          WA: {formatPhoneBr(c.whatsapp)}
+                        </span>
+                      </button>
                     </div>
                   )}
 

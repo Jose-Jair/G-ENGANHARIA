@@ -407,9 +407,11 @@ export function EmpresaDetailModal({
           } else {
             setCenarioDetectado('cadastrada')
           }
+          setEmpresaDuplicadaAlvo(existente)
+          setDuplicadaModalOpen(true)
           toast({
             title: 'CNPJ já cadastrado no sistema!',
-            description: `A empresa "${existente.razao_social}" já existe. O sistema orientará para inclusão de contratos mantendo a etapa do funil.`,
+            description: `A empresa "${existente.razao_social}" já existe. Escolha uma opção abaixo para prosseguir.`,
           })
           return
         } else {
@@ -1424,7 +1426,7 @@ export function EmpresaDetailModal({
 
       {/* Modal de Confirmação: Empresa Já Cadastrada -> Deseja Cadastrar Novo Contrato? */}
       <Dialog open={duplicadaModalOpen} onOpenChange={setDuplicadaModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg z-[60]">
           <DialogHeader>
             <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center mb-2">
               <AlertTriangle className="w-6 h-6" />

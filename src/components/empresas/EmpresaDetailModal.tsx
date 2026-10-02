@@ -64,6 +64,8 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { EmpresaDuplicadaModal } from './EmpresaDuplicadaModal'
+import { EmpresaWhatsAppModal } from './EmpresaWhatsAppModal'
 
 interface EmpresaDetailModalProps {
   open: boolean
@@ -153,6 +155,11 @@ export function EmpresaDetailModal({
   const [duplicadaModalOpen, setDuplicadaModalOpen] = useState(false)
   const [empresaDuplicadaAlvo, setEmpresaDuplicadaAlvo] = useState<EmpresaRecord | null>(null)
   const [autoOpenNovoContrato, setAutoOpenNovoContrato] = useState(false)
+
+  // Sub-modal ativo exclusivo que desmonta o diálogo principal
+  const [subModalAtivo, setSubModalAtivo] = useState<'nenhum' | 'duplicidade' | 'whatsapp'>(
+    'nenhum',
+  )
 
   // WhatsApp quick text dialog para o contato geral da empresa
   const [waModalOpen, setWaModalOpen] = useState(false)
@@ -244,6 +251,7 @@ export function EmpresaDetailModal({
       setTimelineLogs([])
       setDuplicadaModalOpen(false)
       setEmpresaDuplicadaAlvo(null)
+      setSubModalAtivo('nenhum')
       setAutoOpenNovoContrato(false)
       setCnpjErro(null)
       setAvisoApi(null)
@@ -253,16 +261,20 @@ export function EmpresaDetailModal({
   // Ao abrir o modal ou receber nova initialEmpresa
   useEffect(() => {
     if (!open) {
-      setModoEdicaoDados(false)
+      // Se fechou externamente e nenhum submodal ativo, reseta tudo
+      if (subModalAtivo === 'nenhum') {
+        setModoEdicaoDados(false)
+      }
       return
     }
 
-    setCurrentEmpresa(initialEmpresa)
-    popularCamposFormulario(initialEmpresa)
-    setModoEdicaoDados(!initialEmpresa) // Nova empresa inicia em modo edição
-
-    // Define aba inicial: contratos se empresa existente, dados se nova
-    setActiveTab(initialEmpresa ? 'contratos' : 'dados')
+    // Se está abrindo (e não é apenas retorno de submodal)
+    if (subModalAtivo === 'nenhum') {
+      setCurrentEmpresa(initialEmpresa)
+      popularCamposFormulario(initialEmpresa)
+      setModoEdicaoDados(!initialEmpresa) // Nova empresa inicia em modo edição
+      setActiveTab(initialEmpresa ? 'contratos' : 'dados')
+    }
     setAvisoApi(null)
     setCnpjErro(null)
 
@@ -412,10 +424,13 @@ export function EmpresaDetailModal({
             setCenarioDetectado('cadastrada')
           }
           setEmpresaDuplicadaAlvo(existente)
+          // RECONSTRUÇÃO: Fecha a ficha de nova empresa PRIMEIRO (subModalAtivo='duplicidade')
+          // garantindo um único portal Radix montado e ativo por vez na tela
+          setSubModalAtivo('duplicidade')
           setDuplicadaModalOpen(true)
           toast({
             title: 'CNPJ já cadastrado no sistema!',
-            description: `A empresa "${existente.razao_social}" já existe. Escolha uma opção abaixo para prosseguir.`,
+            description: `A empresa "${existente.razao_social}" já existe. Escolha uma opção para prosseguir.`,
           })
           return
         } else {
@@ -478,10 +493,18 @@ export function EmpresaDetailModal({
     }
   }
 
+  const handleCancelarVoltarDuplicidade = () => {
+    setDuplicadaModalOpen(false)
+    setEmpresaDuplicadaAlvo(null)
+    // Retorna para o formulário de nova empresa mantendo os dados digitados intactos
+    setSubModalAtivo('nenhum')
+  }
+
   const navegarParaContratosPublicos = (alvo: EmpresaRecord | null) => {
     const empresaEfetiva = alvo || empresaExistenteDetectada
     setDuplicadaModalOpen(false)
     setEmpresaDuplicadaAlvo(null)
+    setSubModalAtivo('nenhum')
     if (!empresaEfetiva) {
       toast({
         title: 'Aviso',
@@ -499,6 +522,8 @@ export function EmpresaDetailModal({
     loadSubData(empresaEfetiva.id)
     setActiveTab('contratos')
     setAutoOpenNovoContrato(false)
+    // Reabre a ficha principal sobre a empresa existente
+    onOpenChange(true)
     toast({
       title: 'Ficha da empresa aberta',
       description: `Visualizando a aba Contratos Públicos da empresa "${empresaEfetiva.razao_social}".`,
@@ -509,6 +534,7 @@ export function EmpresaDetailModal({
     const empresaEfetiva = alvo || empresaExistenteDetectada
     setDuplicadaModalOpen(false)
     setEmpresaDuplicadaAlvo(null)
+    setSubModalAtivo('nenhum')
     if (!empresaEfetiva) {
       toast({
         title: 'Aviso',
@@ -527,9 +553,11 @@ export function EmpresaDetailModal({
     setActiveTab('contratos')
     // Assegura que o trigger ocorra mesmo se o estado anterior já fosse true
     setAutoOpenNovoContrato(false)
+    // Reabre a ficha principal sobre a empresa existente com autoOpenNovoContrato
+    onOpenChange(true)
     setTimeout(() => {
       setAutoOpenNovoContrato(true)
-    }, 50)
+    }, 80)
     toast({
       title: 'Empresa já cadastrada localizada',
       description: `Abrindo a ficha de "${empresaEfetiva.razao_social}" diretamente na aba Contratos para cadastrar o novo contrato.`,
@@ -564,6 +592,7 @@ export function EmpresaDetailModal({
         const existente = await empresasService.findByCnpj(rawCnpj)
         if (existente) {
           setEmpresaDuplicadaAlvo(existente)
+          setSubModalAtivo('duplicidade')
           setDuplicadaModalOpen(true)
           return
         }
@@ -574,6 +603,7 @@ export function EmpresaDetailModal({
         const existentePorRazao = await empresasService.findByRazaoSocial(razaoSocial.trim())
         if (existentePorRazao && (!rawCnpj || cleanCnpj(existentePorRazao.cnpj) === rawCnpj)) {
           setEmpresaDuplicadaAlvo(existentePorRazao)
+          setSubModalAtivo('duplicidade')
           setDuplicadaModalOpen(true)
           return
         }
@@ -673,18 +703,14 @@ export function EmpresaDetailModal({
     setWaMessage(
       `Olá! Somos da Engenharia Contratos. Gostaríamos de apresentar nossas soluções técnicas em projetos e orçamentos para a ${nomeFantasia || razaoSocial}. Com quem podemos conversar?`,
     )
+    // Fecha a ficha temporariamente para dar exclusividade ao modal WhatsApp
+    setSubModalAtivo('whatsapp')
     setWaModalOpen(true)
   }
 
-  const confirmSendWaEmpresa = () => {
-    const rawNum = cleanPhoneForWa(primeiroTelefone)
-    if (!rawNum) return
-    window.open(
-      `https://wa.me/${rawNum}?text=${encodeURIComponent(waMessage)}`,
-      '_blank',
-      'noopener,noreferrer',
-    )
+  const handleCloseWaEmpresa = () => {
     setWaModalOpen(false)
+    setSubModalAtivo('nenhum')
   }
 
   const isSituacaoInativa = situacaoCadastral && situacaoCadastral.toUpperCase() !== 'ATIVA'
@@ -693,9 +719,19 @@ export function EmpresaDetailModal({
     .filter((c) => contratosService.isContratoAtivo(c))
     .reduce((acc, c) => acc + (c.valor || 0), 0)
 
+  // Exclusividade estrita: o diálogo principal só é aberto se open=true E nenhum submodal estiver ativo
+  const principalAberto = open && subModalAtivo === 'nenhum'
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog
+        open={principalAberto}
+        onOpenChange={(isOpen) => {
+          if (!isOpen && subModalAtivo === 'nenhum') {
+            onOpenChange(false)
+          }
+        }}
+      >
         <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 overflow-hidden">
           {/* Cabeçalho da Empresa */}
           <DialogHeader className="p-6 pb-4 border-b border-slate-200 bg-slate-50/70 shrink-0">
@@ -1462,140 +1498,27 @@ export function EmpresaDetailModal({
         </DialogContent>
       </Dialog>
 
-      {/* Modal Rápido de WhatsApp Geral da Empresa */}
-      <Dialog open={waModalOpen} onOpenChange={setWaModalOpen}>
-        <DialogContent className="max-w-md z-[70]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-emerald-600" />
-              WhatsApp — {nomeFantasia || razaoSocial}
-            </DialogTitle>
-            <DialogDescription>
-              Mensagem para o telefone comercial <strong>{primeiroTelefone}</strong>.
-            </DialogDescription>
-          </DialogHeader>
+      {/* Modal Rápido de WhatsApp Geral da Empresa (renderizado exclusivamente quando ativo) */}
+      <EmpresaWhatsAppModal
+        open={subModalAtivo === 'whatsapp' && waModalOpen}
+        empresaNome={nomeFantasia || razaoSocial}
+        telefoneFormatado={primeiroTelefone}
+        telefoneRaw={cleanPhoneForWa(primeiroTelefone)}
+        initialMessage={waMessage}
+        onClose={handleCloseWaEmpresa}
+      />
 
-          <div className="py-2 space-y-2">
-            <Label htmlFor="waEmpEdit">Mensagem inicial:</Label>
-            <textarea
-              id="waEmpEdit"
-              rows={4}
-              className="w-full text-xs p-2.5 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
-              value={waMessage}
-              onChange={(e) => setWaMessage(e.target.value)}
-            />
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setWaModalOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={confirmSendWaEmpresa}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              <MessageSquare className="w-4 h-4 mr-1.5" /> Enviar no WhatsApp
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Diálogo de confirmação para empresa duplicada */}
-      <Dialog open={duplicadaModalOpen} onOpenChange={setDuplicadaModalOpen}>
-        <DialogContent className="max-w-md z-[70]">
-          <DialogHeader>
-            <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center mb-2">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
-            <DialogTitle className="text-lg font-bold text-slate-900">
-              Empresa já cadastrada no sistema
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-600 space-y-2 mt-1">
-              <span>
-                Identificamos que a empresa{' '}
-                <strong className="text-slate-900 font-semibold">
-                  {empresaDuplicadaAlvo?.razao_social || razaoSocial}
-                </strong>
-                {empresaDuplicadaAlvo?.cnpj && (
-                  <>
-                    {' '}
-                    (CNPJ:{' '}
-                    <span className="font-mono">{formatCnpj(empresaDuplicadaAlvo.cnpj)}</span>)
-                  </>
-                )}{' '}
-                já possui cadastro ativo na base do GESTÃO G+.
-              </span>
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-lg text-xs text-amber-950 space-y-2">
-            <p className="font-semibold flex items-center gap-1.5 text-amber-900">
-              <Building2 className="w-4 h-4 text-amber-700 shrink-0" />
-              Deseja cadastrar um NOVO CONTRATO para esta empresa?
-            </p>
-            <p className="text-slate-600 leading-relaxed">
-              Em vez de duplicar o cadastro, o sistema abrirá diretamente a ficha desta empresa na
-              aba <strong className="text-slate-900">Contratos Públicos</strong> com o formulário
-              pronto para lançamento do novo contrato.
-            </p>
-            {empresaDuplicadaAlvo && (
-              <div className="pt-1 text-[11px] text-slate-500 border-t border-amber-200/60 flex flex-wrap gap-x-3 gap-y-1">
-                <span>
-                  <strong>Etapa:</strong>{' '}
-                  <Badge variant="outline" className="text-[10px] py-0 px-1 bg-white">
-                    {empresaDuplicadaAlvo.etapa_funil || 'identificada'}
-                  </Badge>
-                </span>
-                <span>
-                  <strong>Curva:</strong>{' '}
-                  <Badge variant="outline" className="text-[10px] py-0 px-1 bg-white">
-                    {empresaDuplicadaAlvo.curva || 'C'}
-                  </Badge>
-                </span>
-                {empresaDuplicadaAlvo.municipio && (
-                  <span>
-                    <strong>Local:</strong> {empresaDuplicadaAlvo.municipio}/
-                    {empresaDuplicadaAlvo.uf}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setDuplicadaModalOpen(false)
-                setEmpresaDuplicadaAlvo(null)
-              }}
-            >
-              Cancelar / Voltar
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                navegarParaContratosPublicos(empresaDuplicadaAlvo)
-              }}
-              className="bg-[#D95A2B] hover:bg-[#C44E22] text-white font-medium gap-1.5 shadow-sm"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Ir para Contratos Públicos
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                migrarParaEmpresaExistenteComNovoContrato(empresaDuplicadaAlvo)
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium gap-1.5"
-            >
-              <FileText className="w-4 h-4" />
-              Sim, Cadastrar Novo Contrato
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Diálogo de confirmação para empresa duplicada (componente autônomo, renderizado exclusivamente quando ativo) */}
+      <EmpresaDuplicadaModal
+        open={subModalAtivo === 'duplicidade' && duplicadaModalOpen}
+        empresaDuplicada={empresaDuplicadaAlvo}
+        nomeDigitado={nomeFantasia || razaoSocial}
+        onCancelarVoltar={handleCancelarVoltarDuplicidade}
+        onIrParaContratos={() => navegarParaContratosPublicos(empresaDuplicadaAlvo)}
+        onCadastrarNovoContrato={() =>
+          migrarParaEmpresaExistenteComNovoContrato(empresaDuplicadaAlvo)
+        }
+      />
     </>
   )
 }

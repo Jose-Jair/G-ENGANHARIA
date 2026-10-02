@@ -478,36 +478,52 @@ export function EmpresaDetailModal({
     }
   }
 
-  const navegarParaContratosPublicos = (alvo: EmpresaRecord) => {
+  const navegarParaContratosPublicos = (alvo: EmpresaRecord | null) => {
+    const empresaEfetiva = alvo || empresaExistenteDetectada
     setDuplicadaModalOpen(false)
     setEmpresaDuplicadaAlvo(null)
-    setCurrentEmpresa(alvo)
-    popularCamposFormulario(alvo)
+    if (!empresaEfetiva) {
+      toast({
+        title: 'Aviso',
+        description: 'Empresa não identificada.',
+      })
+      return
+    }
+    setCurrentEmpresa(empresaEfetiva)
+    popularCamposFormulario(empresaEfetiva)
     setModoEdicaoDados(false)
-    setCenarioDetectado(alvo.etapa_funil === 'parceira' ? 'parceira' : 'cadastrada')
-    setEmpresaExistenteDetectada(alvo)
-    onCreatedEmpresaSelect?.(alvo)
-    onEmpresaUpdate?.(alvo)
-    loadSubData(alvo.id)
+    setCenarioDetectado(empresaEfetiva.etapa_funil === 'parceira' ? 'parceira' : 'cadastrada')
+    setEmpresaExistenteDetectada(empresaEfetiva)
+    onCreatedEmpresaSelect?.(empresaEfetiva)
+    onEmpresaUpdate?.(empresaEfetiva)
+    loadSubData(empresaEfetiva.id)
     setActiveTab('contratos')
     setAutoOpenNovoContrato(false)
     toast({
       title: 'Ficha da empresa aberta',
-      description: `Visualizando a aba Contratos Públicos da empresa "${alvo.razao_social}".`,
+      description: `Visualizando a aba Contratos Públicos da empresa "${empresaEfetiva.razao_social}".`,
     })
   }
 
-  const migrarParaEmpresaExistenteComNovoContrato = (alvo: EmpresaRecord) => {
+  const migrarParaEmpresaExistenteComNovoContrato = (alvo: EmpresaRecord | null) => {
+    const empresaEfetiva = alvo || empresaExistenteDetectada
     setDuplicadaModalOpen(false)
     setEmpresaDuplicadaAlvo(null)
-    setCurrentEmpresa(alvo)
-    popularCamposFormulario(alvo)
+    if (!empresaEfetiva) {
+      toast({
+        title: 'Aviso',
+        description: 'Empresa não identificada.',
+      })
+      return
+    }
+    setCurrentEmpresa(empresaEfetiva)
+    popularCamposFormulario(empresaEfetiva)
     setModoEdicaoDados(false)
-    setCenarioDetectado(alvo.etapa_funil === 'parceira' ? 'parceira' : 'cadastrada')
-    setEmpresaExistenteDetectada(alvo)
-    onCreatedEmpresaSelect?.(alvo)
-    onEmpresaUpdate?.(alvo)
-    loadSubData(alvo.id)
+    setCenarioDetectado(empresaEfetiva.etapa_funil === 'parceira' ? 'parceira' : 'cadastrada')
+    setEmpresaExistenteDetectada(empresaEfetiva)
+    onCreatedEmpresaSelect?.(empresaEfetiva)
+    onEmpresaUpdate?.(empresaEfetiva)
+    loadSubData(empresaEfetiva.id)
     setActiveTab('contratos')
     // Assegura que o trigger ocorra mesmo se o estado anterior já fosse true
     setAutoOpenNovoContrato(false)
@@ -516,7 +532,7 @@ export function EmpresaDetailModal({
     }, 50)
     toast({
       title: 'Empresa já cadastrada localizada',
-      description: `Abrindo a ficha de "${alvo.razao_social}" diretamente na aba Contratos para cadastrar o novo contrato.`,
+      description: `Abrindo a ficha de "${empresaEfetiva.razao_social}" diretamente na aba Contratos para cadastrar o novo contrato.`,
     })
   }
 
@@ -1484,9 +1500,9 @@ export function EmpresaDetailModal({
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Confirmação: Empresa Já Cadastrada -> Deseja Cadastrar Novo Contrato? */}
+      {/* Diálogo de confirmação para empresa duplicada */}
       <Dialog open={duplicadaModalOpen} onOpenChange={setDuplicadaModalOpen}>
-        <DialogContent className="max-w-lg z-[70]">
+        <DialogContent className="max-w-md z-[70]">
           <DialogHeader>
             <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center mb-2">
               <AlertTriangle className="w-6 h-6" />
@@ -1560,9 +1576,7 @@ export function EmpresaDetailModal({
             <Button
               type="button"
               onClick={() => {
-                if (empresaDuplicadaAlvo) {
-                  navegarParaContratosPublicos(empresaDuplicadaAlvo)
-                }
+                navegarParaContratosPublicos(empresaDuplicadaAlvo)
               }}
               className="bg-[#D95A2B] hover:bg-[#C44E22] text-white font-medium gap-1.5 shadow-sm"
             >
@@ -1572,9 +1586,7 @@ export function EmpresaDetailModal({
             <Button
               type="button"
               onClick={() => {
-                if (empresaDuplicadaAlvo) {
-                  migrarParaEmpresaExistenteComNovoContrato(empresaDuplicadaAlvo)
-                }
+                migrarParaEmpresaExistenteComNovoContrato(empresaDuplicadaAlvo)
               }}
               className="bg-blue-600 hover:bg-blue-700 text-white font-medium gap-1.5"
             >

@@ -5,10 +5,12 @@ import { cleanCnpj, formatCnpj } from '@/lib/cnpj'
 export interface EmpresaFilters {
   busca?: string
   etapa_funil?: string
-  curva?: string
+  curva?: string | string[]
   uf?: string
   responsavel?: string
   status?: string
+  situacao_cadastral?: string
+  municipio?: string
 }
 
 export interface CreateEmpresaData {
@@ -58,8 +60,25 @@ export const empresasService = {
       filterParts.push(`etapa_funil = '${filters.etapa_funil}'`)
     }
 
-    if (filters?.curva && filters.curva !== 'todas') {
-      filterParts.push(`curva = '${filters.curva}'`)
+    if (filters?.curva) {
+      if (Array.isArray(filters.curva)) {
+        const validCurvas = filters.curva.filter((c) => c && c !== 'todas')
+        if (validCurvas.length > 0) {
+          const curvaConditions = validCurvas.map((c) => `curva = '${c}'`).join(' || ')
+          filterParts.push(`(${curvaConditions})`)
+        }
+      } else if (filters.curva !== 'todas') {
+        filterParts.push(`curva = '${filters.curva}'`)
+      }
+    }
+
+    if (filters?.situacao_cadastral && filters.situacao_cadastral !== 'todas') {
+      filterParts.push(`situacao_cadastral ~ '${filters.situacao_cadastral}'`)
+    }
+
+    if (filters?.municipio && filters.municipio !== 'todas') {
+      const escapedCity = filters.municipio.trim().replace(/'/g, "\\'")
+      filterParts.push(`municipio ~ '${escapedCity}'`)
     }
 
     if (filters?.uf && filters.uf !== 'todas') {

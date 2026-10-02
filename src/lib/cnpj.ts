@@ -88,7 +88,11 @@ export function cleanPhoneForWa(value: string | undefined | null): string {
   if (!value) return ''
   let clean = value.replace(/\D/g, '')
   if (!clean) return ''
-  // Se não tem DDI 55, adiciona
+  // Se já começa com 55 e possui 12 ou 13 dígitos (+55 DD 9XXXX-XXXX ou +55 DD XXXX-XXXX)
+  if (clean.startsWith('55') && (clean.length === 12 || clean.length === 13)) {
+    return clean
+  }
+  // Se não tem DDI 55, adiciona caso tenha 10 ou 11 dígitos
   if (clean.length === 10 || clean.length === 11) {
     clean = '55' + clean
   }

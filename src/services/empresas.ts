@@ -109,6 +109,30 @@ export const empresasService = {
     }
   },
 
+  async findByRazaoSocial(razao: string): Promise<EmpresaRecord | null> {
+    const trimmed = (razao || '').trim()
+    if (!trimmed || trimmed.length < 3) return null
+    const escaped = trimmed.replace(/'/g, "\\'")
+
+    try {
+      const filter = `razao_social ~ '${escaped}' || nome_fantasia ~ '${escaped}'`
+      const records = await pb.collection('empresas').getList<EmpresaRecord>(1, 10, {
+        filter,
+        expand: 'responsavel',
+      })
+      // Procura correspondência exata (case-insensitive) primeiro
+      const targetLower = trimmed.toLowerCase()
+      const exactMatch = records.items.find(
+        (r) =>
+          (r.razao_social || '').trim().toLowerCase() === targetLower ||
+          (r.nome_fantasia || '').trim().toLowerCase() === targetLower,
+      )
+      return exactMatch || records.items[0] || null
+    } catch (_) {
+      return null
+    }
+  },
+
   async create(data: CreateEmpresaData): Promise<EmpresaRecord> {
     return await pb.collection('empresas').create<EmpresaRecord>(data)
   },

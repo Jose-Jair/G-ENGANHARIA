@@ -177,7 +177,7 @@ export function EmpresaContatosTab({
   const handleSendWa = () => {
     if (!waTargetNumber) return
     const encoded = encodeURIComponent(waMessage)
-    window.open(`https://wa.me/${waTargetNumber}?text=${encoded}`, '_blank')
+    window.open(`https://wa.me/${waTargetNumber}?text=${encoded}`, '_blank', 'noopener,noreferrer')
     setWaModalOpen(false)
   }
 
@@ -285,6 +285,17 @@ export function EmpresaContatosTab({
                         href={`mailto:${c.email}?subject=${encodeURIComponent(`Contato G+ Engenharia — ${empresaNome}`)}`}
                         className="text-blue-600 hover:text-blue-800 text-[11px] font-medium shrink-0 ml-2"
                         title={`Enviar e-mail para ${c.email}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!c.email || !c.email.trim()) {
+                            e.preventDefault()
+                            toast({
+                              title: 'Contato sem e-mail',
+                              description: 'Este contato não possui endereço de e-mail cadastrado.',
+                              variant: 'destructive',
+                            })
+                          }
+                        }}
                       >
                         Enviar E-mail
                       </a>

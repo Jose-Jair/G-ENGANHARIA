@@ -148,6 +148,11 @@ export function EmpresaDetailModal({
   )
   const [cnpjErro, setCnpjErro] = useState<string | null>(null)
 
+  // Diálogo de confirmação para empresa duplicada (ponto 1)
+  const [duplicadaModalOpen, setDuplicadaModalOpen] = useState(false)
+  const [empresaDuplicadaAlvo, setEmpresaDuplicadaAlvo] = useState<EmpresaRecord | null>(null)
+  const [autoOpenNovoContrato, setAutoOpenNovoContrato] = useState(false)
+
   // WhatsApp quick text dialog para o contato geral da empresa
   const [waModalOpen, setWaModalOpen] = useState(false)
   const [waMessage, setWaMessage] = useState('')
@@ -244,6 +249,9 @@ export function EmpresaDetailModal({
       setContratos([])
       setContatos([])
       setTimelineLogs([])
+      setDuplicadaModalOpen(false)
+      setEmpresaDuplicadaAlvo(null)
+      setAutoOpenNovoContrato(false)
     }
   }, [open, empresa])
 
@@ -314,18 +322,25 @@ export function EmpresaDetailModal({
 
   // Funções para gerenciar múltiplos telefones
   const handleAdicionarTelefone = () => {
-    if (!novoTelefoneNumero.trim()) {
+    const rawDigits = novoTelefoneNumero.replace(/\D/g, '')
+    // Telefone válido deve ter pelo menos 10 dígitos (DDD + 8 ou 9 dígitos), desconsiderando o DDI 55
+    const digitsSemDdi =
+      rawDigits.startsWith('55') && rawDigits.length > 11 ? rawDigits.slice(2) : rawDigits
+    if (!novoTelefoneNumero.trim() || digitsSemDdi.length < 8) {
       toast({
-        title: 'Número obrigatório',
-        description: 'Digite o número do telefone com DDD.',
+        title: 'Número inválido',
+        description: 'Digite o número do telefone com DDD (mínimo 10 dígitos). Ex: (88) 92188-6547',
         variant: 'destructive',
       })
       return
     }
 
+    // Formata consistentemente com DDI +55 (00) 00000-0000
+    const numeroFormatado = formatPhoneBr(novoTelefoneNumero, true)
+
     const item: TelefoneEmpresaItem = {
       id: `tel_${Date.now()}`,
-      numero: novoTelefoneNumero.trim(),
+      numero: numeroFormatado,
       tipo: novoTelefoneTipo,
       ramalOuDescricao: novoTelefoneDesc.trim() || undefined,
     }
@@ -335,6 +350,10 @@ export function EmpresaDetailModal({
     setNovoTelefoneNumero('')
     setNovoTelefoneDesc('')
     setNovoTelefoneTipo('celular')
+    toast({
+      title: 'Telefone adicionado',
+      description: `${numeroFormatado} adicionado à lista. Lembre-se de salvar a empresa para persistir.`,
+    })
   }
 
   const handleRemoverTelefone = (id: string) => {
@@ -461,6 +480,23 @@ export function EmpresaDetailModal({
     }
   }
 
+  const migrarParaEmpresaExistenteComNovoContrato = (alvo: EmpresaRecord) => {
+    setDuplicadaModalOpen(false)
+    setCurrentEmpresa(alvo)
+    setCenarioDetectado(alvo.etapa_funil === 'parceira' ? 'parceira' : 'cadastrada')
+    setEmpresaExistenteDetectada(alvo)
+    if (onCreatedEmpresaSelect) {
+      onCreatedEmpresaSelect(alvo)
+    }
+    loadSubData(alvo.id)
+    setActiveTab('contratos')
+    setAutoOpenNovoContrato(true)
+    toast({
+      title: 'Empresa já cadastrada localizada',
+      description: `Abrindo a ficha de "${alvo.razao_social}" diretamente na aba Contratos para cadastrar o novo contrato.`,
+    })
+  }
+
   const handleSaveEmpresa = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -484,17 +520,24 @@ export function EmpresaDetailModal({
         return
       }
 
-      // Bloqueio de duplicidade se for nova empresa
+      // Checagem de duplicidade por CNPJ se for nova empresa
       if (!empresa) {
         const existente = await empresasService.findByCnpj(rawCnpj)
         if (existente) {
-          toast({
-            title: 'CNPJ já cadastrado',
-            description: `Já existe uma empresa cadastrada com este CNPJ (${existente.razao_social}).`,
-            variant: 'destructive',
-          })
+          setEmpresaDuplicadaAlvo(existente)
+          setDuplicadaModalOpen(true)
           return
         }
+      }
+    }
+
+    // Checagem de duplicidade por Razão Social se for nova empresa
+    if (!empresa && razaoSocial.trim().length >= 3) {
+      const existentePorRazao = await empresasService.findByRazaoSocial(razaoSocial.trim())
+      if (existentePorRazao && (!rawCnpj || cleanCnpj(existentePorRazao.cnpj) === rawCnpj)) {
+        setEmpresaDuplicadaAlvo(existentePorRazao)
+        setDuplicadaModalOpen(true)
+        return
       }
     }
 
@@ -585,7 +628,11 @@ export function EmpresaDetailModal({
   const confirmSendWaEmpresa = () => {
     const rawNum = cleanPhoneForWa(primeiroTelefone)
     if (!rawNum) return
-    window.open(`https://wa.me/${rawNum}?text=${encodeURIComponent(waMessage)}`, '_blank')
+    window.open(
+      `https://wa.me/${rawNum}?text=${encodeURIComponent(waMessage)}`,
+      '_blank',
+      'noopener,noreferrer',
+    )
     setWaModalOpen(false)
   }
 
@@ -1104,7 +1151,7 @@ export function EmpresaDetailModal({
                                 <a
                                   href={`https://wa.me/${waNumero}`}
                                   target="_blank"
-                                  rel="noreferrer"
+                                  rel="noopener noreferrer"
                                   className="p-1.5 rounded hover:bg-emerald-100 text-emerald-700"
                                   title="Abrir no WhatsApp"
                                 >
@@ -1151,11 +1198,17 @@ export function EmpresaDetailModal({
                       <div className="flex-1 min-w-[180px] space-y-1">
                         <Label className="text-[11px]">Número com DDD (DDI +55)</Label>
                         <Input
-                          placeholder="+55 (00) 00000-0000"
+                          placeholder="(88) 92188-6547"
                           value={novoTelefoneNumero}
                           onChange={(e) =>
-                            setNovoTelefoneNumero(formatPhoneBr(e.target.value, true))
+                            setNovoTelefoneNumero(formatPhoneBr(e.target.value, false))
                           }
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              handleAdicionarTelefone()
+                            }
+                          }}
                           className="h-8 text-xs font-mono"
                         />
                       </div>
@@ -1207,6 +1260,8 @@ export function EmpresaDetailModal({
                   diasAlerta={diasAlerta}
                   readOnly={readOnly}
                   onContratosChange={() => loadSubData(empresa.id)}
+                  autoOpenNovoContrato={autoOpenNovoContrato}
+                  onNovoContratoModalClose={() => setAutoOpenNovoContrato(false)}
                 />
               </TabsContent>
             )}
@@ -1283,6 +1338,95 @@ export function EmpresaDetailModal({
           )}
         </DialogFooter>
       </DialogContent>
+
+      {/* Modal de Confirmação: Empresa Já Cadastrada -> Deseja Cadastrar Novo Contrato? */}
+      <Dialog open={duplicadaModalOpen} onOpenChange={setDuplicadaModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center mb-2">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-lg font-bold text-slate-900">
+              Empresa já cadastrada no sistema
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-600 space-y-2 mt-1">
+              <span>
+                Identificamos que a empresa{' '}
+                <strong className="text-slate-900 font-semibold">
+                  {empresaDuplicadaAlvo?.razao_social || razaoSocial}
+                </strong>
+                {empresaDuplicadaAlvo?.cnpj && (
+                  <>
+                    {' '}
+                    (CNPJ:{' '}
+                    <span className="font-mono">{formatCnpj(empresaDuplicadaAlvo.cnpj)}</span>)
+                  </>
+                )}{' '}
+                já possui cadastro ativo na base do GESTÃO G+.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-lg text-xs text-amber-950 space-y-2">
+            <p className="font-semibold flex items-center gap-1.5 text-amber-900">
+              <Building2 className="w-4 h-4 text-amber-700 shrink-0" />
+              Deseja cadastrar um NOVO CONTRATO para esta empresa?
+            </p>
+            <p className="text-slate-600 leading-relaxed">
+              Em vez de duplicar o cadastro, o sistema abrirá diretamente a ficha desta empresa na
+              aba <strong className="text-slate-900">Contratos Públicos</strong> com o formulário
+              pronto para lançamento do novo contrato.
+            </p>
+            {empresaDuplicadaAlvo && (
+              <div className="pt-1 text-[11px] text-slate-500 border-t border-amber-200/60 flex flex-wrap gap-x-3 gap-y-1">
+                <span>
+                  <strong>Etapa:</strong>{' '}
+                  <Badge variant="outline" className="text-[10px] py-0 px-1 bg-white">
+                    {empresaDuplicadaAlvo.etapa_funil || 'identificada'}
+                  </Badge>
+                </span>
+                <span>
+                  <strong>Curva:</strong>{' '}
+                  <Badge variant="outline" className="text-[10px] py-0 px-1 bg-white">
+                    {empresaDuplicadaAlvo.curva || 'C'}
+                  </Badge>
+                </span>
+                {empresaDuplicadaAlvo.municipio && (
+                  <span>
+                    <strong>Local:</strong> {empresaDuplicadaAlvo.municipio}/
+                    {empresaDuplicadaAlvo.uf}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDuplicadaModalOpen(false)
+                setEmpresaDuplicadaAlvo(null)
+              }}
+            >
+              Cancelar / Voltar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (empresaDuplicadaAlvo) {
+                  migrarParaEmpresaExistenteComNovoContrato(empresaDuplicadaAlvo)
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium gap-1.5"
+            >
+              <FileText className="w-4 h-4" />
+              Sim, Cadastrar Novo Contrato
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal Rápido de WhatsApp Geral da Empresa */}
       <Dialog open={waModalOpen} onOpenChange={setWaModalOpen}>

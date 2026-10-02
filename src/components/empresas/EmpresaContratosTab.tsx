@@ -38,6 +38,8 @@ interface EmpresaContratosTabProps {
   diasAlerta: number
   readOnly: boolean
   onContratosChange: () => void
+  autoOpenNovoContrato?: boolean
+  onNovoContratoModalClose?: () => void
 }
 
 export function EmpresaContratosTab({
@@ -46,6 +48,8 @@ export function EmpresaContratosTab({
   diasAlerta,
   readOnly,
   onContratosChange,
+  autoOpenNovoContrato = false,
+  onNovoContratoModalClose,
 }: EmpresaContratosTabProps) {
   const { toast } = useToast()
   const [modalOpen, setModalOpen] = useState(false)
@@ -83,6 +87,13 @@ export function EmpresaContratosTab({
     setLinkEdital('')
     setModalOpen(true)
   }
+
+  // Se autoOpenNovoContrato for acionado pelo fluxo de duplicidade
+  React.useEffect(() => {
+    if (autoOpenNovoContrato && !readOnly) {
+      openCreateModal()
+    }
+  }, [autoOpenNovoContrato, readOnly])
 
   const openEditModal = (c: ContratoRecord) => {
     setEditingContrato(c)
@@ -305,7 +316,15 @@ export function EmpresaContratosTab({
       )}
 
       {/* Modal CRUD Contrato (com campos suprimidos do formulário) */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+      <Dialog
+        open={modalOpen}
+        onOpenChange={(isOpen) => {
+          setModalOpen(isOpen)
+          if (!isOpen && onNovoContratoModalClose) {
+            onNovoContratoModalClose()
+          }
+        }}
+      >
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>

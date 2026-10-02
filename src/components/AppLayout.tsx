@@ -639,7 +639,7 @@ export default function AppLayout() {
             <a
               href="https://wa.me/5588921886547"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="text-slate-300 hover:text-emerald-300 flex items-center gap-1.5 transition-colors"
               title="WhatsApp Oficial (+55 88 92188-6547)"
             >

@@ -46,15 +46,20 @@ export const auditService = {
     details?: Record<string, any>
   }) {
     try {
-      return await pb.collection('audit_logs').create({
-        usuario: pb.authStore.model?.id || undefined,
-        acao: data.action,
-        entidade: data.entity_type || 'sistema',
-        registro_id: data.entity_id || '',
-        detalhes: data.details || {},
+      // 100% no servidor via endpoint /backend/v1/auditoria/registrar com privilégio de sistema ($app.save)
+      return await pb.send('/backend/v1/auditoria/registrar', {
+        method: 'POST',
+        body: {
+          acao: data.action,
+          entidade: data.entity_type || 'sistema',
+          registro_id: data.entity_id || '',
+          detalhes: data.details || {},
+          user_id: pb.authStore.record?.id || pb.authStore.model?.id,
+          user_email: pb.authStore.record?.email || (pb.authStore.model as any)?.email,
+        },
       })
     } catch (err) {
-      console.warn('Falha ao gravar log de auditoria:', err)
+      console.warn('Falha ao gravar log de auditoria no servidor:', err)
       return null
     }
   },

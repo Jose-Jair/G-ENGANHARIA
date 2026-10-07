@@ -92,28 +92,28 @@ export const projetosService = {
       justificativa_saude: justificativa,
     })
 
-    // Auditoria com detalhes completos de concordância ou divergência
+    // Auditoria no servidor via endpoint dedicado /backend/v1/auditoria/registrar
     try {
-      const user = pb.authStore.record
       const concordouComSugestao = sugestaoCalculada ? saude === sugestaoCalculada : undefined
-      await pb.collection('audit_logs').create({
-        acao: 'ATUALIZACAO_SAUDE_PROJETO',
-        entidade: 'projetos',
-        registro_id: id,
-        user: user?.id,
-        user_email: user?.email,
-        detalhes: {
-          saude_anterior: atual.saude,
-          saude_nova: saude,
-          sugestao_calculada: sugestaoCalculada || null,
-          concordou_com_sugestao: concordouComSugestao,
-          tipo_decisao:
-            sugestaoCalculada && saude !== sugestaoCalculada
-              ? 'DIVERGENCIA_COM_JUSTIFICATIVA'
-              : 'CONCORDANCIA',
-          motivos_sugestao: motivosSugestao || [],
-          justificativa,
-          codigo: atualizado.codigo,
+      await pb.send('/backend/v1/auditoria/registrar', {
+        method: 'POST',
+        body: {
+          acao: 'ATUALIZACAO_SAUDE_PROJETO',
+          entidade: 'projetos',
+          registro_id: id,
+          detalhes: {
+            saude_anterior: atual.saude,
+            saude_nova: saude,
+            sugestao_calculada: sugestaoCalculada || null,
+            concordou_com_sugestao: concordouComSugestao,
+            tipo_decisao:
+              sugestaoCalculada && saude !== sugestaoCalculada
+                ? 'DIVERGENCIA_COM_JUSTIFICATIVA'
+                : 'CONCORDANCIA',
+            motivos_sugestao: motivosSugestao || [],
+            justificativa,
+            codigo: atualizado.codigo,
+          },
         },
       })
     } catch {

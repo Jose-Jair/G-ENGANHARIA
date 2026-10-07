@@ -203,12 +203,16 @@ onRecordUpdate((e) => {
       rec.getString('data_assinatura_admin') &&
       (!original || !original.getString('data_assinatura_admin'))
     ) {
-      if (newStatus === 'aguardando_assinatura_admin') {
+      if (!rec.getString('data_assinatura_cliente')) {
         rec.set('status', 'aguardando_assinatura_cliente')
+      } else {
+        rec.set('status', 'assinado')
       }
     }
 
-    // Quando cliente assina e admin já assinou -> status vira 'assinado'
+    // Quando cliente assina:
+    // Se admin já assinou -> status vira 'assinado'
+    // Se admin ainda não assinou -> fica 'aguardando_assinatura_admin'
     if (
       rec.getString('data_assinatura_cliente') &&
       (!original || !original.getString('data_assinatura_cliente'))
@@ -360,6 +364,34 @@ onRecordAfterUpdateSuccess((e) => {
       const clientePfId = rec.getString('cliente_pf')
       const preco = rec.getFloat('valor_total') || 0
 
+      // TRAVA DE IDEMPOTÊNCIA ESTRITA (1 proposta = 1 contrato = 1 projeto):
+      // Verificar se já existe projeto gerado para esta proposta
+      let projetoJaExiste = false
+      let projetoCriadoId = null
+
+      if (propostaId) {
+        try {
+          const projetosExistentes = $app.findRecordsByFilter(
+            'projetos',
+            "proposta = '" + propostaId + "'",
+            '-created',
+            1,
+            0,
+          )
+          if (projetosExistentes.length > 0) {
+            projetoJaExiste = true
+            projetoCriadoId = projetosExistentes[0].id
+            console.log(
+              'Projeto já existente para proposta ' +
+                propostaId +
+                ': ' +
+                projetoCriadoId +
+                ' (ignorado por idempotência)',
+            )
+          }
+        } catch (_) {}
+      }
+
       let propostaRec = null
       let propostaNumero = ''
       let condicoesPagamento = 'Conforme contrato assinado'
@@ -378,85 +410,242 @@ onRecordAfterUpdateSuccess((e) => {
         } catch (_) {}
       }
 
-      // 1. CRIAR PROJETO COM CÓDIGO PRJ-AAAA-NNNN SEQUENCIAL
-      let projetoCriadoId = null
-      try {
-        const projetosCol = $app.findCollectionByNameOrId('projetos')
-        const anoAtual = new Date().getFullYear()
-        const prefixo = 'PRJ-' + anoAtual + '-'
-
-        const projetosDoAno = $app.findRecordsByFilter(
-          'projetos',
-          "codigo ~ '" + prefixo + "'",
-          '-codigo',
-          1,
-          0,
-        )
-
-        let proximoSeq = 1
-        if (projetosDoAno.length > 0) {
-          const ultimoCodigo = projetosDoAno[0].getString('codigo')
-          const partes = ultimoCodigo.split('-')
-          const ultimoSeq = parseInt(partes[2], 10)
-          if (!isNaN(ultimoSeq)) {
-            proximoSeq = ultimoSeq + 1
-          }
-        }
-
-        const seqStr = ('0000' + proximoSeq).slice(-4)
-        const novoCodigo = prefixo + seqStr
-
-        let nomeCliente = 'Cliente'
-        if (empresaId) {
-          try {
-            const emp = $app.findRecordById('empresas', empresaId)
-            if (emp) nomeCliente = emp.getString('razao_social')
-          } catch (_) {}
-        } else if (clientePfId) {
-          try {
-            const pf = $app.findRecordById('clientes_pf', clientePfId)
-            if (pf) nomeCliente = pf.getString('nome')
-          } catch (_) {}
-        }
-
-        const novoProjeto = new Record(projetosCol)
-        novoProjeto.set('codigo', novoCodigo)
-        novoProjeto.set('nome', 'Projeto: ' + contratoNumero + ' — ' + nomeCliente)
-        novoProjeto.set('descricao', rec.getString('objeto'))
-        if (propostaId) novoProjeto.set('proposta', propostaId)
-        if (empresaId) novoProjeto.set('empresa', empresaId)
-        if (clientePfId) novoProjeto.set('cliente_pf', clientePfId)
-        novoProjeto.set('valor_total', preco)
-        novoProjeto.set('subcontratacao_autorizada', true)
-        novoProjeto.set('saude', 'verde')
-        novoProjeto.set('status', 'em_andamento')
-
-        $app.save(novoProjeto)
-        projetoCriadoId = novoProjeto.id
-
-        // Auditoria de criação do projeto
+      // 1. CRIAR PROJETO COM CÓDIGO PRJ-AAAA-NNNN SEQUENCIAL (apenas se ainda não existir)
+      if (!projetoJaExiste) {
         try {
-          const auditCol = $app.findCollectionByNameOrId('audit_logs')
-          const aRec = new Record(auditCol)
-          aRec.set('acao', 'CRIACAO_AUTOMATICA_PROJETO')
-          aRec.set('entidade', 'projetos')
-          aRec.set('registro_id', novoProjeto.id)
-          aRec.set('detalhes', {
-            mensagem:
-              'Projeto gerado automaticamente por assinatura do Contrato ' +
-              contratoNumero +
-              ' (Proposta ' +
-              propostaNumero +
-              ')',
-            codigo: novoCodigo,
-            contrato_id: contratoId,
-            contrato_numero: contratoNumero,
-            proposta_id: propostaId,
-          })
-          $app.save(aRec)
-        } catch (_) {}
-      } catch (errProj) {
-        console.log('Erro ao criar projeto a partir de contrato assinado: ' + errProj)
+          const projetosCol = $app.findCollectionByNameOrId('projetos')
+          const anoAtual = new Date().getFullYear()
+          const prefixo = 'PRJ-' + anoAtual + '-'
+
+          const projetosDoAno = $app.findRecordsByFilter(
+            'projetos',
+            "codigo ~ '" + prefixo + "'",
+            '-codigo',
+            1,
+            0,
+          )
+
+          let proximoSeq = 1
+          if (projetosDoAno.length > 0) {
+            const ultimoCodigo = projetosDoAno[0].getString('codigo')
+            const partes = ultimoCodigo.split('-')
+            const ultimoSeq = parseInt(partes[2], 10)
+            if (!isNaN(ultimoSeq)) {
+              proximoSeq = ultimoSeq + 1
+            }
+          }
+
+          const seqStr = ('0000' + proximoSeq).slice(-4)
+          const novoCodigo = prefixo + seqStr
+
+          let nomeCliente = 'Cliente'
+          if (empresaId) {
+            try {
+              const emp = $app.findRecordById('empresas', empresaId)
+              if (emp) nomeCliente = emp.getString('razao_social')
+            } catch (_) {}
+          } else if (clientePfId) {
+            try {
+              const pf = $app.findRecordById('clientes_pf', clientePfId)
+              if (pf) nomeCliente = pf.getString('nome')
+            } catch (_) {}
+          }
+
+          const novoProjeto = new Record(projetosCol)
+          novoProjeto.set('codigo', novoCodigo)
+          novoProjeto.set('nome', 'Projeto: ' + contratoNumero + ' — ' + nomeCliente)
+          novoProjeto.set('descricao', rec.getString('objeto'))
+          if (propostaId) novoProjeto.set('proposta', propostaId)
+          if (empresaId) novoProjeto.set('empresa', empresaId)
+          if (clientePfId) novoProjeto.set('cliente_pf', clientePfId)
+          novoProjeto.set('valor_total', preco)
+          novoProjeto.set('subcontratacao_autorizada', true)
+          novoProjeto.set('saude', 'verde')
+          novoProjeto.set('status', 'em_andamento')
+
+          $app.save(novoProjeto)
+          projetoCriadoId = novoProjeto.id
+
+          // Auditoria de criação do projeto
+          try {
+            const auditCol = $app.findCollectionByNameOrId('audit_logs')
+            const aRec = new Record(auditCol)
+            aRec.set('acao', 'CRIACAO_AUTOMATICA_PROJETO')
+            aRec.set('entidade', 'projetos')
+            aRec.set('registro_id', novoProjeto.id)
+            aRec.set('detalhes', {
+              mensagem:
+                'Projeto gerado automaticamente por assinatura do Contrato ' +
+                contratoNumero +
+                ' (Proposta ' +
+                propostaNumero +
+                ')',
+              codigo: novoCodigo,
+              contrato_id: contratoId,
+              contrato_numero: contratoNumero,
+              proposta_id: propostaId,
+            })
+            $app.save(aRec)
+          } catch (_) {}
+
+          // 1.1 GERAR ETAPAS SANITIZADAS POR DISCIPLINA/ÁREA (sem campos vazios "")
+          try {
+            let itensProposta = []
+            if (propostaId) {
+              try {
+                itensProposta = $app.findRecordsByFilter(
+                  'proposta_itens',
+                  "proposta = '" + propostaId + "'",
+                  'created',
+                  100,
+                  0,
+                )
+              } catch (_) {}
+            }
+
+            const etapasCol = $app.findCollectionByNameOrId('projeto_etapas')
+            const entregaveisCol = $app.findCollectionByNameOrId('entregaveis')
+
+            if (itensProposta && itensProposta.length > 0) {
+              // Agrupar itens por disciplina/área
+              const gruposPorArea = {}
+              for (let i = 0; i < itensProposta.length; i++) {
+                const item = itensProposta[i]
+                const areaId = item.getString('area')
+                const disc = item.getString('disciplina') || 'Geral'
+                const chave = areaId || disc
+
+                if (!gruposPorArea[chave]) {
+                  let areaNome = disc
+                  if (areaId) {
+                    try {
+                      const areaRec = $app.findRecordById('areas_atuacao', areaId)
+                      if (areaRec) areaNome = areaRec.getString('nome')
+                    } catch (_) {}
+                  }
+
+                  gruposPorArea[chave] = {
+                    areaId: areaId || null,
+                    nome: 'Etapa: ' + areaNome,
+                    disciplina: disc,
+                    custo: 0,
+                    itens: [],
+                    subservicos: [],
+                  }
+                }
+
+                gruposPorArea[chave].custo += item.getFloat('custo_total') || 0
+                gruposPorArea[chave].itens.push(item)
+
+                // Subserviços
+                try {
+                  const subs = item.get('subservicos')
+                  if (Array.isArray(subs)) {
+                    for (let s = 0; s < subs.length; s++) {
+                      if (subs[s] && gruposPorArea[chave].subservicos.indexOf(subs[s]) === -1) {
+                        gruposPorArea[chave].subservicos.push(subs[s])
+                      }
+                    }
+                  }
+                } catch (_) {}
+              }
+
+              let ordemIndex = 1
+              const chaves = Object.keys(gruposPorArea)
+              for (let k = 0; k < chaves.length; k++) {
+                const g = gruposPorArea[chaves[k]]
+                const novaEtapa = new Record(etapasCol)
+
+                novaEtapa.set('projeto', projetoCriadoId)
+                novaEtapa.set('nome', g.nome)
+                novaEtapa.set('disciplina', g.disciplina)
+                novaEtapa.set('ordem', ordemIndex++)
+                novaEtapa.set('tipo_execucao', 'direta') // valores válidos: direta | terceirizada | mista
+                novaEtapa.set('status', 'nao_iniciada')
+                novaEtapa.set('custo_estimado', g.custo)
+
+                let desc = 'Subserviços contemplados: '
+                if (g.subservicos.length > 0) {
+                  desc += g.subservicos.join(', ')
+                } else {
+                  desc += 'Serviços técnicos gerais'
+                }
+                desc +=
+                  '.\nItens da proposta: ' +
+                  g.itens.map((it) => it.getString('descricao')).join('; ')
+                novaEtapa.set('descricao', desc)
+
+                // SANITIZAÇÃO ESTRITA: só atribui 'area' se existir registro válido, NUNCA string vazia ""
+                if (g.areaId) {
+                  novaEtapa.set('area', g.areaId)
+                }
+
+                $app.save(novaEtapa)
+
+                // Atualizar vínculo dos itens da proposta com a etapa e o projeto
+                for (let itIdx = 0; itIdx < g.itens.length; itIdx++) {
+                  try {
+                    const itemRec = g.itens[itIdx]
+                    itemRec.set('status_conversao', 'convertido')
+                    itemRec.set('projeto_gerado', projetoCriadoId)
+                    itemRec.set('etapa_gerada', novaEtapa.id)
+                    $app.save(itemRec)
+                  } catch (_) {}
+                }
+
+                // Pré-popular entregáveis padrão da área se existirem
+                if (g.areaId) {
+                  try {
+                    const entregaveisPadrao = $app.findRecordsByFilter(
+                      'entregaveis_padrao',
+                      "area = '" + g.areaId + "' && ativo = true",
+                      'ordem',
+                      30,
+                      0,
+                    )
+                    for (let ep = 0; ep < entregaveisPadrao.length; ep++) {
+                      try {
+                        const novoEntregavel = new Record(entregaveisCol)
+                        novoEntregavel.set('etapa', novaEtapa.id)
+                        novoEntregavel.set('nome', entregaveisPadrao[ep].getString('nome'))
+                        novoEntregavel.set('versao', 'v1.0')
+                        novoEntregavel.set('status', 'pendente')
+                        novoEntregavel.set(
+                          'descricao',
+                          entregaveisPadrao[ep].getString('descricao') ||
+                            'Entregável técnico padrão da disciplina ' + g.disciplina,
+                        )
+                        $app.save(novoEntregavel)
+                      } catch (_) {}
+                    }
+                  } catch (_) {}
+                }
+              }
+            } else {
+              // Proposta sem itens avulsos cadastrados -> cria ao menos 1 etapa geral
+              const novaEtapa = new Record(etapasCol)
+              novaEtapa.set('projeto', projetoCriadoId)
+              novaEtapa.set('nome', 'Etapa 01: Serviços Técnicos e Projetos')
+              novaEtapa.set(
+                'disciplina',
+                propostaRec ? propostaRec.getString('disciplinas') || 'Geral' : 'Geral',
+              )
+              novaEtapa.set('ordem', 1)
+              novaEtapa.set('tipo_execucao', 'direta')
+              novaEtapa.set('status', 'nao_iniciada')
+              novaEtapa.set('custo_estimado', preco)
+              novaEtapa.set(
+                'descricao',
+                rec.getString('objeto') || 'Desenvolvimento do escopo técnico contratado',
+              )
+              $app.save(novaEtapa)
+            }
+          } catch (errEtapas) {
+            console.log('Erro ao pré-popular etapas do projeto: ' + errEtapas)
+          }
+        } catch (errProj) {
+          console.log('Erro ao criar projeto a partir de contrato assinado: ' + errProj)
+        }
       }
 
       // 2. CRIAR CONTA(S) A RECEBER EM RASCUNHO A PARTIR DAS PARCELAS

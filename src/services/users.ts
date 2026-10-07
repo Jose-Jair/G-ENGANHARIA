@@ -92,16 +92,19 @@ export const usersService = {
       password: newPassword,
       passwordConfirm: newPasswordConfirm,
     })
-    // Audit log da alteração de senha
+    // Audit log da alteração de senha via endpoint no servidor
     try {
-      await pb.collection('audit_logs').create({
-        user: currentUserId,
-        user_email: updated.email,
-        acao: 'TROCA_SENHA_PROPRIA',
-        entidade: 'users',
-        registro_id: currentUserId,
-        detalhes: {
-          mensagem: 'Usuário alterou a própria senha com sucesso',
+      await pb.send('/backend/v1/auditoria/registrar', {
+        method: 'POST',
+        body: {
+          user_id: currentUserId,
+          user_email: updated.email,
+          acao: 'TROCA_SENHA_PROPRIA',
+          entidade: 'users',
+          registro_id: currentUserId,
+          detalhes: {
+            mensagem: 'Usuário alterou a própria senha com sucesso',
+          },
         },
       })
     } catch {

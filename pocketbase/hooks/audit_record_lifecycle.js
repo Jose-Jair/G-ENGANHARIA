@@ -28,6 +28,11 @@ const businessCollections = [
   'reativacoes_sugeridas',
   'catalogo_servicos',
   'proposta_itens',
+  'areas_atuacao',
+  'subservicos',
+  'entregaveis_padrao',
+  'proposta_parcelas',
+  'contratos_servico',
 ]
 for (let i = 0; i < businessCollections.length; i++) {
   const targetCol = businessCollections[i]

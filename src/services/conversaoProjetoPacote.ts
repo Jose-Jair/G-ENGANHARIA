@@ -139,8 +139,16 @@ export const conversaoProjetoPacoteService = {
     let isNovoProjeto = false
 
     // 2. Obter ou Criar o Projeto-Pacote
-    if (modoProjeto === 'incorporar' && projetoExistenteId) {
-      projeto = await pb.collection('projetos').getOne<ProjetoRecord>(projetoExistenteId)
+    // REGRA DE OURO FLUXO LINEAR: Projetos só devem existir se o Contrato de Serviços estiver assinado!
+    // Verificar se já existe projeto gerado para esta proposta (via contrato assinado)
+    const projetosExistentes = await pb.collection('projetos').getFullList<ProjetoRecord>({
+      filter: `proposta = '${proposta.id}'`,
+      sort: '-created',
+    })
+
+    if (modoProjeto === 'incorporar' && (projetoExistenteId || projetosExistentes.length > 0)) {
+      const targetId = projetoExistenteId || projetosExistentes[0].id
+      projeto = await pb.collection('projetos').getOne<ProjetoRecord>(targetId)
       // Atualizar valor total do projeto existente com os novos itens
       const novoValor =
         (Number(projeto.valor_total) || 0) +
@@ -149,14 +157,44 @@ export const conversaoProjetoPacoteService = {
       await pb.collection('projetos').update(projeto.id, {
         valor_total: novoValor,
       })
+    } else if (projetosExistentes.length > 0) {
+      // Já existe projeto gerado pelo contrato assinado -> reutilizar e incorporar para evitar duplicação
+      projeto = projetosExistentes[0]
+      const novoValor =
+        (Number(projeto.valor_total) || 0) +
+        itensAConverter.reduce((acc, it) => acc + (Number(it.preco_total) || 0), 0)
+
+      await pb.collection('projetos').update(projeto.id, {
+        valor_total: novoValor,
+      })
     } else {
+      // Bloquear criação direta de projeto a partir do frontend sem contrato assinado:
+      // Verificar se a proposta tem contrato assinado
+      let contratoAssinado = false
+      if (proposta.id) {
+        try {
+          const ctrs = await pb.collection('contratos_servico').getFullList({
+            filter: `proposta = '${proposta.id}' && status = 'assinado'`,
+          })
+          contratoAssinado = ctrs.length > 0
+        } catch {
+          /* intentionally ignored */
+        }
+      }
+
+      if (!contratoAssinado) {
+        throw new Error(
+          'Fluxo linear estrito: Não é permitido criar projetos sem o Contrato de Serviços assinado por ambas as partes. Assine o contrato antes de gerenciar o projeto.',
+        )
+      }
+
       isNovoProjeto = true
       const valorTotalConversao = itensAConverter.reduce(
         (acc, it) => acc + (Number(it.preco_total) || 0),
         0,
       )
 
-      // Criar novo Projeto-Pacote (o hook propostas_operations gera o PRJ-AAAA-NNNN)
+      // Criar novo Projeto-Pacote
       projeto = await pb.collection('projetos').create<ProjetoRecord>({
         nome:
           nomeProjeto ||
@@ -193,29 +231,32 @@ export const conversaoProjetoPacoteService = {
 
     const etapasCriadas: ProjetoEtapaRecord[] = []
 
-    // 4. Cada ÁREA técnica vira uma ETAPA do projeto
+    // 4. Cada ÁREA técnica vira uma ETAPA do projeto (sanitizado com valores válidos do PocketBase)
     for (const grupo of gruposPorArea) {
       const nomeEtapa = `Etapa: ${grupo.areaNome}`
       const descEtapa = `Subserviços contemplados: ${
         grupo.subservicos.length > 0 ? grupo.subservicos.join(', ') : 'Serviços técnicos gerais'
       }.\nItens da proposta: ${grupo.itens.map((i) => i.descricao).join('; ')}`
 
-      const prazoFim = new Date()
-      prazoFim.setDate(prazoFim.getDate() + 30)
-
-      const etapaCriada = await pb.collection('projeto_etapas').create<ProjetoEtapaRecord>({
+      const payloadEtapa: Record<string, any> = {
         projeto: projeto.id,
-        area: grupo.areaId !== 'sem_area' ? grupo.areaId : undefined,
         nome: nomeEtapa,
         descricao: descEtapa,
         disciplina: grupo.disciplina,
         ordem: ordemEtapa++,
-        tipo_execucao: 'subcontratado',
+        tipo_execucao: 'direta', // valores válidos: direta | terceirizada | mista
         custo_estimado: grupo.custoTotal,
-        valor_executor: grupo.custoTotal,
-        prazo_fim: prazoFim.toISOString().substring(0, 10),
         status: 'nao_iniciada',
-      })
+      }
+
+      // NUNCA enviar strings vazias em relations
+      if (grupo.areaId && grupo.areaId !== 'sem_area') {
+        payloadEtapa.area = grupo.areaId
+      }
+
+      const etapaCriada = await pb
+        .collection('projeto_etapas')
+        .create<ProjetoEtapaRecord>(payloadEtapa)
       etapasCriadas.push(etapaCriada)
 
       // 4.1 Lançar entregáveis padrão desta área/subserviço na etapa criada
@@ -224,9 +265,9 @@ export const conversaoProjetoPacoteService = {
           await pb.collection('entregaveis').create({
             etapa: etapaCriada.id,
             nome: entNome,
+            versao: 'v1.0',
             descricao: `Entregável técnico padrão da disciplina ${grupo.areaNome}`,
             status: 'pendente',
-            obrigatorio: true,
           })
         } catch (entErr) {
           console.warn('Erro ao criar entregável para etapa:', entErr)
@@ -275,26 +316,29 @@ export const conversaoProjetoPacoteService = {
         ? Math.round((convertidosCount / todosItensAtualizados.length) * 100)
         : 100
 
-    // 7. Auditoria obrigatória (quem, o quê, quando)
+    // 7. Auditoria no servidor via endpoint /backend/v1/auditoria/registrar
     try {
-      await pb.collection('audit_logs').create({
-        acao: isNovoProjeto
-          ? 'CONVERSAO_PROPOSTA_PROJETO_PACOTE'
-          : 'INCORPORACAO_PROPOSTA_PROJETO_PACOTE',
-        entidade: 'propostas',
-        registro_id: proposta.id,
-        user: usuarioId || pb.authStore.record?.id,
-        user_email: usuarioEmail || pb.authStore.record?.email,
-        detalhes: {
-          proposta_numero: proposta.numero,
-          projeto_codigo: projeto.codigo,
-          projeto_id: projeto.id,
-          modo: modoProjeto,
-          areas_convertidas: gruposPorArea.map((g) => g.areaNome),
-          itens_convertidos: itensAConverter.map((i) => i.descricao),
-          etapas_geradas_ids: etapasCriadas.map((e) => e.id),
-          percentual_total_convertido: percentualConvertido,
-          itens_restantes: restantesCount,
+      await pb.send('/backend/v1/auditoria/registrar', {
+        method: 'POST',
+        body: {
+          acao: isNovoProjeto
+            ? 'CONVERSAO_PROPOSTA_PROJETO_PACOTE'
+            : 'INCORPORACAO_PROPOSTA_PROJETO_PACOTE',
+          entidade: 'propostas',
+          registro_id: proposta.id,
+          user_id: usuarioId || pb.authStore.record?.id,
+          user_email: usuarioEmail || pb.authStore.record?.email,
+          detalhes: {
+            proposta_numero: proposta.numero,
+            projeto_codigo: projeto.codigo,
+            projeto_id: projeto.id,
+            modo: modoProjeto,
+            areas_convertidas: gruposPorArea.map((g) => g.areaNome),
+            itens_convertidos: itensAConverter.map((i) => i.descricao),
+            etapas_geradas_ids: etapasCriadas.map((e) => e.id),
+            percentual_total_convertido: percentualConvertido,
+            itens_restantes: restantesCount,
+          },
         },
       })
     } catch (auditErr) {

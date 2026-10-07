@@ -269,20 +269,20 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                   </Button>
                 )}
 
-                {/* Botão de conversão em Projeto-Pacote para Comercial/Admin a qualquer momento após aceite */}
-                {canEdit && proposta.status === 'aceita' && (
-                  <Button
-                    size="sm"
-                    onClick={() => setShowConversaoModal(true)}
-                    className="h-8 text-xs bg-orange-600 hover:bg-orange-700 text-white gap-1.5 font-medium shadow-sm"
-                    title="Converter itens da proposta em Projeto-Pacote com etapas por área técnica"
-                  >
-                    <Briefcase className="w-3.5 h-3.5" />
-                    {percentualConvertido === 100
-                      ? 'Gerenciar Projeto-Pacote'
-                      : 'Converter em Projeto-Pacote'}
-                  </Button>
-                )}
+                {/* Botão de gerenciamento do Projeto-Pacote para Comercial/Admin apenas se contrato assinado existir */}
+                {canEdit &&
+                  proposta.status === 'aceita' &&
+                  (proposta.contrato_servico || projetosGerados.length > 0) && (
+                    <Button
+                      size="sm"
+                      onClick={() => setShowConversaoModal(true)}
+                      className="h-8 text-xs bg-orange-600 hover:bg-orange-700 text-white gap-1.5 font-medium shadow-sm"
+                      title="Gerenciar Projeto-Pacote vinculado ao Contrato Assinado"
+                    >
+                      <Briefcase className="w-3.5 h-3.5" />
+                      Gerenciar Projeto-Pacote
+                    </Button>
+                  )}
               </div>
             </div>
           </DialogHeader>
@@ -339,15 +339,17 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                       </span>
                     </div>
 
-                    {canEdit && proposta.status === 'aceita' && (
-                      <Button
-                        size="sm"
-                        onClick={() => setShowConversaoModal(true)}
-                        className="h-7 text-xs bg-orange-600 hover:bg-orange-700 text-white"
-                      >
-                        Converter Itens
-                      </Button>
-                    )}
+                    {canEdit &&
+                      proposta.status === 'aceita' &&
+                      (proposta.contrato_servico || projetosGerados.length > 0) && (
+                        <Button
+                          size="sm"
+                          onClick={() => setShowConversaoModal(true)}
+                          className="h-7 text-xs bg-orange-600 hover:bg-orange-700 text-white"
+                        >
+                          Gerenciar Etapas
+                        </Button>
+                      )}
                   </div>
                 </div>
               )}

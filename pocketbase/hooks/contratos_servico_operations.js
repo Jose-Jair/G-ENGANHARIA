@@ -235,13 +235,6 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
       })
     }
 
-    // Validar se o Admin já assinou antes do cliente
-    if (!contrato.getString('data_assinatura_admin')) {
-      return e.json(400, {
-        message: 'O contrato ainda aguarda a assinatura preliminar da Diretoria da G+ Engenharia.',
-      })
-    }
-
     const clientIp =
       reqInfo.remoteIP || (reqInfo.headers && reqInfo.headers['x-forwarded-for']) || '127.0.0.1'
     const clientUserAgent = (reqInfo.headers && reqInfo.headers['user-agent']) || 'Navegador Web'
@@ -266,7 +259,14 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
     contrato.set('cliente_user_agent', clientUserAgent)
     contrato.set('cliente_declaracao', true)
     contrato.set('cliente_hash', clientHash)
-    contrato.set('status', 'assinado')
+
+    // Se Admin já assinou -> status vira 'assinado'
+    // Se Admin ainda não assinou -> status vai para 'aguardando_assinatura_admin'
+    if (contrato.getString('data_assinatura_admin')) {
+      contrato.set('status', 'assinado')
+    } else {
+      contrato.set('status', 'aguardando_assinatura_admin')
+    }
 
     $app.save(contrato)
 

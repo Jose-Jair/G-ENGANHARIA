@@ -26,6 +26,7 @@ import {
   Lock,
 } from 'lucide-react'
 import { ContratoServicoRecord } from '@/types'
+import { DossieContratoServicoGmais } from '@/components/contratosServico/DossieContratoServicoGmais'
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
 import { cleanCpf, formatCpf } from '@/lib/cnpj'
 import { contratosServicoService } from '@/services/contratosServico'
@@ -45,6 +46,7 @@ export function ContratoServicoPublicoPage() {
   const [cpfSignatario, setCpfSignatario] = useState('')
   const [showConfirmacaoModal, setShowConfirmacaoModal] = useState(false)
   const [submittingAssinatura, setSubmittingAssinatura] = useState(false)
+  const [dossieOpen, setDossieOpen] = useState(false)
 
   useEffect(() => {
     async function loadContrato() {
@@ -236,6 +238,17 @@ export function ContratoServicoPublicoPage() {
               <div className="text-xs text-slate-500">
                 Proposta de Origem: {contrato.expand?.proposta?.numero || 'S/N'} • Emissão:{' '}
                 {formatDateBr(contrato.created)}
+              </div>
+              <div className="mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDossieOpen(true)}
+                  className="h-7 text-[11px] gap-1 text-orange-700 border-orange-200 hover:bg-orange-50"
+                >
+                  <Printer className="w-3 h-3 text-orange-600" />
+                  Imprimir / PDF Oficial
+                </Button>
               </div>
             </div>
           </div>
@@ -559,6 +572,12 @@ export function ContratoServicoPublicoPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DossieContratoServicoGmais
+        open={dossieOpen}
+        onOpenChange={setDossieOpen}
+        contrato={contrato}
+      />
     </div>
   )
 }

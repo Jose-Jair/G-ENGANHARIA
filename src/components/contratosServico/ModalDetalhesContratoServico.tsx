@@ -25,8 +25,10 @@ import {
   Clock,
   Printer,
   UserCheck,
+  ExternalLink,
 } from 'lucide-react'
 import { ContratoServicoRecord } from '@/types'
+import { DossieContratoServicoGmais } from './DossieContratoServicoGmais'
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
 import { contratosServicoService } from '@/services/contratosServico'
 import { useToast } from '@/hooks/use-toast'
@@ -54,6 +56,7 @@ export function ModalDetalhesContratoServico({
   const [salvandoClausulas, setSalvandoClausulas] = useState(false)
   const [clausulasTexto, setClausulasTexto] = useState('')
   const [uploadingPdf, setUploadingPdf] = useState(false)
+  const [dossieOpen, setDossieOpen] = useState(false)
 
   const loadContrato = async () => {
     if (!contratoId) return
@@ -204,12 +207,29 @@ export function ModalDetalhesContratoServico({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs gap-1.5"
-                onClick={() => window.print()}
+                className="h-8 text-xs gap-1.5 border-orange-200 text-orange-700 hover:bg-orange-50"
+                onClick={() => setDossieOpen(true)}
               >
-                <Printer className="w-3.5 h-3.5" />
-                Imprimir
+                <Printer className="w-3.5 h-3.5 text-orange-600" />
+                Imprimir / PDF Oficial GMAIS
               </Button>
+              {contrato.token_assinatura_cliente && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  asChild
+                  className="h-8 text-xs text-slate-700 hover:text-orange-600 gap-1"
+                >
+                  <a
+                    href={`/contrato-servico/${contrato.token_assinatura_cliente}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Abrir Link Público
+                  </a>
+                </Button>
+              )}
             </div>
           </div>
         </DialogHeader>
@@ -445,6 +465,12 @@ export function ModalDetalhesContratoServico({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <DossieContratoServicoGmais
+        open={dossieOpen}
+        onOpenChange={setDossieOpen}
+        contrato={contrato}
+      />
     </Dialog>
   )
 }

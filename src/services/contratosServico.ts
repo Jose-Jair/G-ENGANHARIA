@@ -1,4 +1,4 @@
-import { pb } from '@/lib/pocketbase/client'
+import pb from '@/lib/pocketbase/client'
 import { ContratoServicoRecord, StatusContratoServico, ContratoServicoParcela } from '@/types'
 import { auditService } from '@/services/audit'
 

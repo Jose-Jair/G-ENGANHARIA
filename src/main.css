@@ -313,7 +313,9 @@
 
   /* Oculta tudo que estiver no root da aplicação quando o dossiê estiver aberto em portal */
   body:has(.dossie-gmais-documento) #root,
-  body:has([data-radix-portal] .dossie-gmais-documento) #root {
+  body:has([data-radix-portal] .dossie-gmais-documento) #root,
+  body:has(.dossie-contrato-documento) #root,
+  body:has([data-radix-portal] .dossie-contrato-documento) #root {
     display: none !important;
   }
 
@@ -366,7 +368,8 @@
     display: none !important;
   }
 
-  /* Regras de impressão para o dossiê da proposta G+ */
+  /* Regras de impressão para o dossiê da proposta G+ e contrato de serviço */
+  .dossie-contrato-dialog,
   .dossie-gmais-dialog {
     max-width: 100% !important;
     max-height: none !important;
@@ -379,6 +382,7 @@
     margin: 0 !important;
   }
 
+  .dossie-contrato-documento,
   .dossie-gmais-documento {
     padding: 0 !important;
     margin: 0 !important;

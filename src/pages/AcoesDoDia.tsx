@@ -10,7 +10,9 @@ import {
   ModeloRecord,
   MotivoRecord,
   CurvaABC,
+  PropostaRecord,
 } from '@/types'
+import { propostasService } from '@/services/propostas'
 import { toquesService } from '@/services/toques'
 import { empresasService } from '@/services/empresas'
 import { contatosService } from '@/services/contatos'
@@ -64,6 +66,7 @@ export default function AcoesDoDiaPage() {
   const [motivosInativacao, setMotivosInativacao] = useState<MotivoRecord[]>([])
   const [motivosCancelamento, setMotivosCancelamento] = useState<MotivoRecord[]>([])
   const [diasLimiteAtraso, setDiasLimiteAtraso] = useState<number>(5)
+  const [propostasAlteracao, setPropostasAlteracao] = useState<PropostaRecord[]>([])
 
   // Filtros de tela
   const [busca, setBusca] = useState('')
@@ -142,6 +145,14 @@ export default function AcoesDoDiaPage() {
       setModelos(mods)
       setMotivosInativacao(motsInat)
       setMotivosCancelamento(motsCanc)
+
+      // 5. Carregar Propostas que solicitaram alteração (Ações do Dia para Comercial/Admin)
+      try {
+        const propsAlt = await propostasService.list({ status: 'solicitada_alteracao' })
+        setPropostasAlteracao(propsAlt)
+      } catch {
+        /* ignore */
+      }
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar Ações do Dia',

@@ -606,7 +606,6 @@ export default function EmpresasPage() {
           )}
         </div>
       </div>
-
       {/* Cards de Métricas Rápidas (refletindo a base ou filtros) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
@@ -678,7 +677,6 @@ export default function EmpresasPage() {
           </p>
         </div>
       </div>
-
       {/* Painel de Busca Progressiva e Filtros Combináveis */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3.5">
         {/* Barra de Busca Progressiva (Escopo A) */}
@@ -1132,7 +1130,6 @@ export default function EmpresasPage() {
           </div>
         )}
       </div>
-
       {/* Tabela de Empresas com Ordenação por Coluna e Estado Vazio Orientado */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
         {loading ? (
@@ -1406,7 +1403,6 @@ export default function EmpresasPage() {
           </div>
         )}
       </div>
-
       {/* Modal de Detalhe e Cadastro da Empresa */}
       <EmpresaDetailModal
         open={modalOpen}
@@ -1416,12 +1412,16 @@ export default function EmpresasPage() {
         diasAlerta={diasAlerta}
         readOnly={isReadOnly}
         onSuccess={loadData}
-        onCreatedEmpresaSelect={(created) => {
-          setSelectedEmpresa(created)
+        onCreatedEmpresaSelect={(alvo) => {
+          setSelectedEmpresa(alvo)
+          setTodasEmpresas((prev) => [alvo, ...prev.filter((e) => e.id !== alvo.id)])
+        }}
+        onEmpresaUpdate={(updated) => {
+          setSelectedEmpresa(updated)
+          setTodasEmpresas((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
           loadData()
         }}
-        onEmpresaUpdate={(updated) => setSelectedEmpresa(updated)}
-      />
+      />{' '}
     </div>
   )
 }

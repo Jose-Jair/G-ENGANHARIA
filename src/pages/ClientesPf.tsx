@@ -518,7 +518,11 @@ export function ClientesPfPage() {
         onOpenChange={setShowExcluirModal}
         cliente={clienteSelecionado}
         propostas={propostas}
-        onSuccess={() => {
+        onSuccess={(idRemovido) => {
+          const id = idRemovido || clienteSelecionado?.id
+          if (id) {
+            setClientes((prev) => prev.filter((c) => c.id !== id))
+          }
           setClienteSelecionado(null)
           carregarDados()
         }}

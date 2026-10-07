@@ -311,6 +311,12 @@
     print-color-adjust: exact !important;
   }
 
+  /* Oculta tudo que estiver no root da aplicação quando o dossiê estiver aberto em portal */
+  body:has(.dossie-gmais-documento) #root,
+  body:has([data-radix-portal] .dossie-gmais-documento) #root {
+    display: none !important;
+  }
+
   #root {
     height: auto !important;
     min-height: auto !important;
@@ -341,41 +347,73 @@
     animation: none !important;
   }
 
-  /* Ocultar backdrop/overlay preto do Radix na impressão */
+  /* Ocultar backdrop/overlay preto do Radix e outros portais na impressão */
   .fixed.inset-0.bg-black\/80,
-  div[data-radix-dialog-overlay] {
+  div[data-radix-dialog-overlay],
+  [data-radix-popper-content-wrapper],
+  [data-state='closed'] {
     display: none !important;
   }
 
-  /* Ocultar elementos desnecessários da aplicação durante a impressão */
+  /* Ocultar cabeçalhos, barras laterais, navegação, botões e toasts */
   header,
   nav,
   aside,
   button:not(.print-include),
-  .print\:hidden {
+  .print\:hidden,
+  [data-radix-collection-item],
+  section[aria-label='Notifications alt+T'] {
     display: none !important;
+  }
+
+  /* Regras de impressão para o dossiê da proposta G+ */
+  .dossie-gmais-dialog {
+    max-width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .dossie-gmais-documento {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    overflow: visible !important;
+    height: auto !important;
+    color: #000000 !important;
+  }
+
+  .dossie-secao {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .dossie-secao-assinaturas {
+    page-break-before: always !important;
+    break-before: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   /* Quebras de página controladas */
   .page-break-before {
-    page-break-before: always;
-    break-before: page;
+    page-break-before: always !important;
+    break-before: page !important;
   }
 
   .page-break-after {
-    page-break-after: always;
-    break-after: page;
+    page-break-after: always !important;
+    break-after: page !important;
   }
 
   .avoid-break {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-  }
-
-  /* Manter seções sem quebra indesejada no meio */
-  section,
-  table,
-  tr {
-    page-break-inside: auto;
   }
 }

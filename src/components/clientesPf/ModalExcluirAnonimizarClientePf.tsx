@@ -21,7 +21,7 @@ interface ModalExcluirAnonimizarClientePfProps {
   onOpenChange: (open: boolean) => void
   cliente: ClientePfRecord | null
   propostas: PropostaRecord[]
-  onSuccess: () => void
+  onSuccess: (idRemovido?: string) => void
 }
 
 export function ModalExcluirAnonimizarClientePf({
@@ -67,9 +67,10 @@ export function ModalExcluirAnonimizarClientePf({
         })
       }
 
+      const idAfetado = cliente.id
       setConfirmacaoNome('')
       onOpenChange(false)
-      onSuccess()
+      onSuccess(idAfetado)
     } catch (err: unknown) {
       toast({
         variant: 'destructive',

@@ -198,13 +198,13 @@ export const PropostaPublicaPage: React.FC = () => {
     proposta.status === 'aceita' || proposta.status === 'recusada' || proposta.status === 'expirada'
 
   return (
-    <div className="min-h-screen bg-slate-100/80 py-8 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-100/80 py-4 sm:py-8 px-2 sm:px-6 lg:px-8 font-sans">
+      <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
         {/* BANNER DE STATUS SE JÁ ESTIVER ACEITA/RECUSADA/EXPIRADA */}
         {proposta.status === 'aceita' && (
-          <div className="bg-emerald-600 text-white p-4 rounded-lg shadow-sm flex items-center justify-between">
+          <div className="bg-emerald-600 text-white p-3.5 sm:p-4 rounded-lg shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-6 h-6 text-emerald-100" />
+              <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-100 shrink-0" />
               <div>
                 <div className="font-bold text-sm">Proposta Aceita com Sucesso</div>
                 <div className="text-xs text-emerald-100">
@@ -213,14 +213,16 @@ export const PropostaPublicaPage: React.FC = () => {
                 </div>
               </div>
             </div>
-            <Badge className="bg-emerald-700 text-white border-0 text-xs">Formalizada</Badge>
+            <Badge className="bg-emerald-700 text-white border-0 text-xs self-start sm:self-center">
+              Formalizada
+            </Badge>
           </div>
         )}
 
         {proposta.status === 'recusada' && (
-          <div className="bg-red-600 text-white p-4 rounded-lg shadow-sm flex items-center justify-between">
+          <div className="bg-red-600 text-white p-3.5 sm:p-4 rounded-lg shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
             <div className="flex items-center gap-3">
-              <XCircle className="w-6 h-6 text-red-100" />
+              <XCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-100 shrink-0" />
               <div>
                 <div className="font-bold text-sm">Proposta Recusada</div>
                 <div className="text-xs text-red-100">
@@ -229,14 +231,16 @@ export const PropostaPublicaPage: React.FC = () => {
                 </div>
               </div>
             </div>
-            <Badge className="bg-red-700 text-white border-0 text-xs">Recusada</Badge>
+            <Badge className="bg-red-700 text-white border-0 text-xs self-start sm:self-center">
+              Recusada
+            </Badge>
           </div>
         )}
 
         {proposta.status === 'expirada' && (
-          <div className="bg-slate-700 text-white p-4 rounded-lg shadow-sm flex items-center justify-between">
+          <div className="bg-slate-700 text-white p-3.5 sm:p-4 rounded-lg shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
             <div className="flex items-center gap-3">
-              <Clock className="w-6 h-6 text-slate-300" />
+              <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-slate-300 shrink-0" />
               <div>
                 <div className="font-bold text-sm">Prazo de Validade Expirado</div>
                 <div className="text-xs text-slate-300">
@@ -246,23 +250,27 @@ export const PropostaPublicaPage: React.FC = () => {
                 </div>
               </div>
             </div>
-            <Badge className="bg-slate-800 text-white border-0 text-xs">Expirada</Badge>
+            <Badge className="bg-slate-800 text-white border-0 text-xs self-start sm:self-center">
+              Expirada
+            </Badge>
           </div>
         )}
 
         {/* DOCUMENTO DA PROPOSTA (LAYOUT DE DOCUMENTO FORMAL) */}
         <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden print:border-0 print:shadow-none">
           {/* TOPO COM LOGO E DADOS GERAIS */}
-          <div className="p-8 border-b border-slate-200 bg-[#1E2A4A]/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <GPlusLogo variant="horizontal" theme="light" size={44} showSlogan={true} />
+          <div className="p-4 sm:p-8 border-b border-slate-200 bg-[#1E2A4A]/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <GPlusLogo variant="horizontal" theme="light" size={38} showSlogan={true} />
             </div>
 
-            <div className="text-left sm:text-right border-l sm:border-l-0 pl-4 sm:pl-0 border-slate-200">
+            <div className="text-left sm:text-right border-l-2 sm:border-l-0 pl-3 sm:pl-0 border-[#D95A2B]/40 sm:border-transparent">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#D95A2B] block">
                 Proposta Comercial
               </span>
-              <div className="font-mono font-black text-lg text-[#1E2A4A]">{proposta.numero}</div>
+              <div className="font-mono font-black text-base sm:text-lg text-[#1E2A4A]">
+                {proposta.numero}
+              </div>
               <div className="text-xs text-slate-500">
                 Versão: {proposta.revisao || 'Rev.00'} • Emissão: {formatDateBr(proposta.created)}
               </div>
@@ -274,21 +282,23 @@ export const PropostaPublicaPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-8 space-y-8 text-xs text-slate-700">
+          <div className="p-4 sm:p-8 space-y-6 sm:space-y-8 text-xs text-slate-700">
             {/* SEÇÃO 1: DADOS DAS PARTES */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 bg-slate-50 p-3.5 sm:p-4 rounded-lg border border-slate-200">
               <div>
                 <span className="font-bold text-slate-900 text-[11px] uppercase tracking-wider block mb-1">
                   Contratante / Solicitante:
                 </span>
                 {proposta.expand?.empresa ? (
-                  <div>
+                  <div className="space-y-0.5">
                     <div className="font-bold text-slate-900 text-sm">
                       {proposta.expand.empresa.razao_social}
                     </div>
-                    <div>CNPJ: {proposta.expand.empresa.cnpj}</div>
+                    <div className="text-xs text-slate-600">
+                      CNPJ: {proposta.expand.empresa.cnpj}
+                    </div>
                     {(proposta.expand.empresa.municipio || proposta.expand.empresa.uf) && (
-                      <div>
+                      <div className="text-xs text-slate-600">
                         {[proposta.expand.empresa.municipio, proposta.expand.empresa.uf]
                           .filter(Boolean)
                           .join(' / ')}
@@ -296,13 +306,17 @@ export const PropostaPublicaPage: React.FC = () => {
                     )}
                   </div>
                 ) : proposta.expand?.cliente_pf ? (
-                  <div>
+                  <div className="space-y-0.5">
                     <div className="font-bold text-slate-900 text-sm">
                       {proposta.expand.cliente_pf.nome}
                     </div>
-                    <div>CPF: {proposta.expand.cliente_pf.cpf || 'Não informado'}</div>
+                    <div className="text-xs text-slate-600">
+                      CPF: {proposta.expand.cliente_pf.cpf || 'Não informado'}
+                    </div>
                     {proposta.expand.cliente_pf.endereco && (
-                      <div>{proposta.expand.cliente_pf.endereco}</div>
+                      <div className="text-xs text-slate-600">
+                        {proposta.expand.cliente_pf.endereco}
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -315,14 +329,16 @@ export const PropostaPublicaPage: React.FC = () => {
                   Referência Contratual:
                 </span>
                 {proposta.expand?.contrato ? (
-                  <div>
+                  <div className="space-y-0.5">
                     <div className="font-semibold text-slate-900">
                       {proposta.expand.contrato.numero}
                     </div>
-                    <div>{proposta.expand.contrato.orgao}</div>
+                    <div className="text-xs text-slate-600">{proposta.expand.contrato.orgao}</div>
                   </div>
                 ) : (
-                  <div>Contratação Direta de Serviços Técnicos Especializados</div>
+                  <div className="text-xs text-slate-600">
+                    Contratação Direta de Serviços Técnicos Especializados
+                  </div>
                 )}
               </div>
             </div>
@@ -345,12 +361,12 @@ export const PropostaPublicaPage: React.FC = () => {
                   ? '2. Escopo dos Serviços'
                   : '1. Escopo e Metodologia dos Trabalhos'}
               </h3>
-              <div className="whitespace-pre-wrap leading-relaxed text-slate-700 bg-white p-2">
+              <div className="whitespace-pre-wrap leading-relaxed text-slate-700 bg-white p-2 text-justify">
                 {proposta.escopo_gerado || proposta.escopo}
               </div>
             </div>
             {/* SEÇÃO 3: DISCIPLINAS E ENTREGÁVEIS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <div className="space-y-2">
                 <h3 className="font-bold text-sm text-slate-900 border-b pb-1">
                   2. Disciplinas Contempladas
@@ -375,15 +391,15 @@ export const PropostaPublicaPage: React.FC = () => {
               <h3 className="font-bold text-sm text-slate-900 border-b pb-1">
                 4. Discriminação dos Serviços e Preço
               </h3>
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full text-left text-xs">
+              <div className="border rounded-lg overflow-x-auto shadow-2xs">
+                <table className="w-full text-left text-xs min-w-[600px]">
                   <thead className="bg-slate-100 text-slate-800 font-semibold border-b">
                     <tr>
                       <th className="py-2.5 px-3">Item / Serviço</th>
                       <th className="py-2.5 px-3">Disciplina / Área</th>
-                      <th className="py-2.5 px-3 text-center">Unid.</th>
-                      <th className="py-2.5 px-3 text-center">Qtd.</th>
-                      <th className="py-2.5 px-3 text-right">Subtotal</th>
+                      <th className="py-2.5 px-3 text-center w-16">Unid.</th>
+                      <th className="py-2.5 px-3 text-center w-16">Qtd.</th>
+                      <th className="py-2.5 px-3 text-right w-32">Subtotal</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
@@ -429,7 +445,7 @@ export const PropostaPublicaPage: React.FC = () => {
               </div>
 
               {/* OBSERVAÇÃO SOBRE NOTA FISCAL NA PÁGINA PÚBLICA */}
-              <div className="p-2.5 bg-slate-50 border rounded text-[11px] text-slate-600">
+              <div className="p-2.5 bg-slate-50 border rounded text-[11px] text-slate-600 leading-relaxed">
                 <strong>Observação Fiscal: </strong>
                 {proposta.requer_nota ? (
                   <span>
@@ -452,14 +468,14 @@ export const PropostaPublicaPage: React.FC = () => {
                 <h3 className="font-bold text-sm text-slate-900 border-b pb-1">
                   5. Condições Gerais
                 </h3>
-                <div className="p-3 bg-slate-50 rounded border text-slate-700 whitespace-pre-wrap leading-relaxed text-[11px]">
+                <div className="p-3 bg-slate-50 rounded border text-slate-700 whitespace-pre-wrap leading-relaxed text-[11px] text-justify">
                   {proposta.condicoes_gerais}
                 </div>
               </div>
             )}
 
             {/* SEÇÃO 5: PRAZO E CONDIÇÕES DE PAGAMENTO */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 bg-slate-50 p-3.5 sm:p-4 rounded-lg border border-slate-200">
               <div className="space-y-1">
                 <span className="font-bold text-slate-900 text-[11px] uppercase tracking-wider block">
                   Prazo de Execução:
@@ -480,12 +496,12 @@ export const PropostaPublicaPage: React.FC = () => {
             </div>
 
             {/* SEÇÃO 6: PREMISSAS E EXCLUSÕES */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <div className="space-y-1">
                 <h4 className="font-bold text-slate-900 text-[11px] uppercase tracking-wider">
                   Premissas da Proposta:
                 </h4>
-                <p className="p-3 bg-slate-50 rounded border text-slate-600">
+                <p className="p-3 bg-slate-50 rounded border text-slate-600 text-justify">
                   {proposta.premissas || 'Fornecimento tempestivo de dados e documentação prévia.'}
                 </p>
               </div>
@@ -494,7 +510,7 @@ export const PropostaPublicaPage: React.FC = () => {
                 <h4 className="font-bold text-slate-900 text-[11px] uppercase tracking-wider">
                   Exclusões de Escopo:
                 </h4>
-                <p className="p-3 bg-slate-50 rounded border text-slate-600">
+                <p className="p-3 bg-slate-50 rounded border text-slate-600 text-justify">
                   {proposta.exclusoes || 'Taxas públicas e licenças municipais/estaduais.'}
                 </p>
               </div>
@@ -502,24 +518,24 @@ export const PropostaPublicaPage: React.FC = () => {
           </div>
 
           {/* RODAPÉ DO DOCUMENTO COM BOTÕES DE AÇÃO (ACEITAR / RECUSAR) */}
-          <div className="p-6 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 print:hidden">
+          <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 print:hidden">
             <div className="flex items-center gap-2 text-xs text-slate-500">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="text-[11px] sm:text-xs">
                 Ambiente seguro de aceite digital com rastreabilidade e validade jurídica.
               </span>
             </div>
 
             {!isFinalizada && (
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setShowRecusaModal(true)}
                   disabled={processingAceite}
-                  className="border-red-300 text-red-700 hover:bg-red-50 text-xs"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-0 border-red-300 text-red-700 hover:bg-red-50 text-xs font-semibold justify-center"
                 >
-                  <XCircle className="w-4 h-4 mr-1.5" />
+                  <XCircle className="w-4 h-4 mr-1.5 shrink-0" />
                   Recusar Proposta
                 </Button>
 
@@ -527,16 +543,16 @@ export const PropostaPublicaPage: React.FC = () => {
                   type="button"
                   onClick={handleAceitarProposta}
                   disabled={processingAceite}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-6 shadow-sm"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-0 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-6 shadow-sm justify-center"
                 >
                   {processingAceite ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+                      <Loader2 className="w-4 h-4 animate-spin mr-1.5 shrink-0" />
                       Registrando Aceite...
                     </>
                   ) : (
                     <>
-                      <Check className="w-4 h-4 mr-1.5" />
+                      <Check className="w-4 h-4 mr-1.5 shrink-0" />
                       Aceitar Proposta
                     </>
                   )}

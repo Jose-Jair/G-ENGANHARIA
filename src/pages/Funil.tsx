@@ -7,6 +7,7 @@ import {
   UserRecord,
   EtapaFunil,
   CurvaABC,
+  StatusEmpresa,
   ReativacaoSugeridaRecord,
 } from '@/types'
 import { empresasService } from '@/services/empresas'
@@ -474,9 +475,26 @@ export default function FunilPage() {
   // ==========================================
   const handleConfirmarInativacao = async (motivo: string, observacao?: string) => {
     if (!empresaInativar) return
+    const idAlvo = empresaInativar.id
     const etapaAtual = empresaInativar.etapa_funil || 'identificada'
 
-    await empresasService.update(empresaInativar.id, {
+    // Atualização otimista: remove do funil ou altera status imediatamente
+    setEmpresas((prev) =>
+      filtroEtapa !== 'todas' && filtroEtapa !== 'inativa'
+        ? prev.filter((e) => e.id !== idAlvo)
+        : prev.map((e) =>
+            e.id === idAlvo
+              ? {
+                  ...e,
+                  etapa_funil: 'inativa' as EtapaFunil,
+                  status: 'inativa' as StatusEmpresa,
+                  motivo_inativacao: motivo,
+                }
+              : e,
+          ),
+    )
+
+    await empresasService.update(idAlvo, {
       etapa_funil: 'inativa',
       status: 'inativa',
       motivo_inativacao: motivo,
@@ -654,7 +672,6 @@ export default function FunilPage() {
           </Button>
         </div>
       </div>
-
       {/* Banner de Sugestões de Reativação Pendentes */}
       {reativacoesPendentes.length > 0 && (
         <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-4 shadow-xs">
@@ -716,7 +733,6 @@ export default function FunilPage() {
           </div>
         </div>
       )}
-
       {/* Estado Vazio Orientado do Funil (quando não há empresas cadastradas no sistema) */}
       {!loading && empresas.length === 0 && (
         <div className="bg-white border-2 border-dashed border-orange-200 rounded-2xl p-8 text-center max-w-2xl mx-auto shadow-xs my-4">
@@ -756,7 +772,6 @@ export default function FunilPage() {
           </div>
         </div>
       )}
-
       {/* CABEÇALHO DO FUNIL: Valor Total Recalculado e Contadores */}
       <div className="bg-slate-900 text-white rounded-xl p-4 sm:p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -803,7 +818,6 @@ export default function FunilPage() {
           </div>
         </div>
       </div>
-
       {/* BARRA DE FILTROS COMBINÁVEIS (PERSISTIDOS NA SESSÃO) */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
         <div className="flex items-center gap-2">
@@ -919,7 +933,6 @@ export default function FunilPage() {
           </div>
         </div>
       </div>
-
       {/* KANBAN BOARD: 9 COLUNAS COM DRAG & DROP E ORDENAÇÃO A -> B -> C */}
       <div className="relative">
         {loading ? (
@@ -1051,7 +1064,6 @@ export default function FunilPage() {
           </div>
         )}
       </div>
-
       {/* Modal de Inativação Obrigatória (Admin only) */}
       <InativarEmpresaModal
         open={!!empresaInativar}
@@ -1059,7 +1071,6 @@ export default function FunilPage() {
         empresaNome={empresaInativar?.nome_fantasia || empresaInativar?.razao_social || ''}
         onConfirm={handleConfirmarInativacao}
       />
-
       {/* Modal de Próxima Ação */}
       <ProximaAcaoModal
         open={!!empresaProximaAcao}
@@ -1069,7 +1080,6 @@ export default function FunilPage() {
         currentDesc={empresaProximaAcao?.proxima_acao_desc}
         onSave={handleSalvarProximaAcao}
       />
-
       {/* Painel Lateral de Linha do Tempo e Auditoria */}
       <FunilEmpresaTimeline
         open={!!empresaTimeline}
@@ -1077,7 +1087,6 @@ export default function FunilPage() {
         empresaId={empresaTimeline?.id || ''}
         empresaNome={empresaTimeline?.nome_fantasia || empresaTimeline?.razao_social || ''}
       />
-
       {/* Modal Completo de Cadastro da Empresa */}
       {empresaDetalhe && (
         <EmpresaDetailModal
@@ -1091,9 +1100,12 @@ export default function FunilPage() {
             loadData()
           }}
           onCreatedEmpresaSelect={(alvo) => setEmpresaDetalhe(alvo)}
-          onEmpresaUpdate={(updated) => setEmpresaDetalhe(updated)}
+          onEmpresaUpdate={(updated) => {
+            setEmpresaDetalhe(updated)
+            setEmpresas((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
+          }}
         />
-      )}
+      )}{' '}
     </div>
   )
 }

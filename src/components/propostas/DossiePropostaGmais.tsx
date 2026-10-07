@@ -135,7 +135,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0 bg-slate-100 print:bg-white print:max-w-none print:max-h-none print:h-auto print:overflow-visible print:p-0 print:border-none print:shadow-none print:static print:transform-none">
+      <DialogContent className="dossie-gmais-dialog max-w-4xl max-h-[95vh] overflow-y-auto p-0 bg-slate-100 print:bg-white print:max-w-none print:max-h-none print:h-auto print:overflow-visible print:p-0 print:border-none print:shadow-none print:static print:transform-none">
         {/* Barra superior de ações (oculta na impressão) */}
         <div className="p-4 bg-slate-900 text-white flex items-center justify-between print:hidden sticky top-0 z-50 shadow-md">
           <div className="flex items-center gap-2">
@@ -161,9 +161,9 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
         </div>
 
         {/* ÁREA DO DOCUMENTO PARA VISUALIZAÇÃO E IMPRESSÃO (Folha A4 / Modelo GMAIS) */}
-        <div className="p-8 sm:p-12 bg-white max-w-4xl mx-auto text-slate-900 font-sans text-xs leading-relaxed space-y-6 print:p-0 print:m-0 print:max-w-none print:w-full print:text-black print:space-y-4">
+        <div className="dossie-gmais-documento p-8 sm:p-12 bg-white max-w-4xl mx-auto text-slate-900 font-sans text-xs leading-relaxed space-y-6 print:p-0 print:m-0 print:max-w-none print:w-full print:text-black print:space-y-4">
           {/* 1. CABEÇALHO COM LOGO E DADOS G+ */}
-          <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
+          <div className="dossie-secao flex items-start justify-between border-b-2 border-slate-900 pb-4">
             <div className="flex items-center gap-3">
               <GPlusLogo size={42} variant="horizontal" />
             </div>
@@ -181,7 +181,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
           </div>
 
           {/* 2. DADOS DAS PARTES (PROPONENTE E CONTRATANTE) */}
-          <div className="grid grid-cols-2 gap-4 border border-slate-300 rounded p-3.5 bg-slate-50/60 print:bg-white">
+          <div className="dossie-secao grid grid-cols-2 gap-4 border border-slate-300 rounded p-3.5 bg-slate-50/60 print:bg-white">
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block">
                 Proponente
@@ -207,7 +207,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
           </div>
 
           {/* 3. SEÇÃO 1: OBJETO */}
-          <section className="space-y-1.5">
+          <section className="dossie-secao space-y-1.5">
             <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 flex items-center justify-between">
               <span>1. Objeto</span>
             </h2>
@@ -219,7 +219,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
           </section>
 
           {/* 4. SEÇÃO 2: ESCOPO DOS SERVIÇOS (NUMERADO) */}
-          <section className="space-y-1.5">
+          <section className="dossie-secao space-y-1.5">
             <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
               <span>2. Escopo dos Serviços</span>
             </h2>
@@ -231,7 +231,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
           </section>
 
           {/* 5. SEÇÃO 3: PREMISSAS */}
-          <section className="space-y-1.5">
+          <section className="dossie-secao space-y-1.5">
             <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
               <span>3. Premissas</span>
             </h2>
@@ -241,7 +241,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
           </section>
 
           {/* 6. SEÇÃO 4: PRAZO DE EXECUÇÃO */}
-          <section className="space-y-1.5">
+          <section className="dossie-secao space-y-1.5">
             <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
               <span>4. Prazo de Execução</span>
             </h2>
@@ -257,7 +257,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
           </section>
 
           {/* 7. SEÇÃO 5: INVESTIMENTO (TABELA POR ÁREA + VALOR GLOBAL CONSOLIDADO) */}
-          <section className="space-y-2">
+          <section className="dossie-secao space-y-2">
             <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 flex items-center justify-between">
               <span>5. Investimento</span>
             </h2>
@@ -353,7 +353,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
           </section>
 
           {/* 8. SEÇÃO 6: CONDIÇÕES DE PAGAMENTO (PARCELAS) */}
-          <section className="space-y-1.5">
+          <section className="dossie-secao space-y-1.5">
             <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
               <span>6. Condições de Pagamento</span>
             </h2>
@@ -400,7 +400,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
           </section>
 
           {/* 9. SEÇÃO 7: VALIDADE DA PROPOSTA */}
-          <section className="space-y-1.5">
+          <section className="dossie-secao space-y-1.5">
             <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
               <span>7. Validade da Proposta</span>
             </h2>
@@ -412,7 +412,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
           </section>
 
           {/* 10. SEÇÃO 8: CONDIÇÕES GERAIS */}
-          <section className="space-y-1.5">
+          <section className="dossie-secao space-y-1.5">
             <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
               <span>8. Condições Gerais</span>
             </h2>
@@ -422,7 +422,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
           </section>
 
           {/* 11. SEÇÃO 9: ACEITE & ASSINATURAS (MODELO GMAIS) */}
-          <section className="space-y-4 pt-4 page-break-before avoid-break">
+          <section className="dossie-secao-assinaturas space-y-4 pt-4">
             <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
               <span>9. Aceite &amp; Assinaturas</span>
             </h2>

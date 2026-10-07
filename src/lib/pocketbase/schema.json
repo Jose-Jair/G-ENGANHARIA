@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-02T14:50:12.473Z",
+  "generatedAt": "2026-10-06T23:52:43.690Z",
   "collections": [
     {
       "name": "users",
@@ -1636,6 +1636,13 @@
           "type": "number",
           "required": false,
           "system": false
+        },
+        {
+          "name": "area",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "areas_atuacao"
         }
       ],
       "indexes": ["CREATE INDEX idx_projeto_etapas_projeto ON projeto_etapas (projeto)"]
@@ -2647,6 +2654,19 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "area",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "areas_atuacao"
+        },
+        {
+          "name": "precisa_revisao_area",
+          "type": "bool",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": ["CREATE INDEX idx_catalogo_servicos_disciplina ON catalogo_servicos (disciplina)"]
@@ -2737,9 +2757,217 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "area",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "areas_atuacao"
+        },
+        {
+          "name": "subservicos",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_conversao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["nao_convertido", "convertido"]
+        },
+        {
+          "name": "projeto_gerado",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "projetos"
+        },
+        {
+          "name": "etapa_gerada",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "projeto_etapas"
         }
       ],
       "indexes": ["CREATE INDEX idx_proposta_itens_proposta ON proposta_itens (proposta)"]
+    },
+    {
+      "name": "areas_atuacao",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || @request.auth.role = 'gestor')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || @request.auth.role = 'gestor')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ordem",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_areas_atuacao_nome ON areas_atuacao (nome)"]
+    },
+    {
+      "name": "subservicos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || @request.auth.role = 'gestor')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || @request.auth.role = 'gestor')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "area",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "areas_atuacao"
+        },
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_subservicos_area ON subservicos (area)"]
+    },
+    {
+      "name": "entregaveis_padrao",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || @request.auth.role = 'gestor')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || @request.auth.role = 'gestor')",
+        "create": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "update": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "area",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "areas_atuacao"
+        },
+        {
+          "name": "subservico",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "subservicos"
+        },
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ordem",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_entregaveis_padrao_area ON entregaveis_padrao (area)",
+        "CREATE INDEX idx_entregaveis_padrao_subservico ON entregaveis_padrao (subservico)"
+      ]
     }
   ]
 }

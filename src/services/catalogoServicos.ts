@@ -8,6 +8,8 @@ export interface CreateCatalogoServicoData {
   preco_base: number
   descricao?: string
   ativo: boolean
+  area?: string
+  precisa_revisao_area?: boolean
 }
 
 export interface UpdateCatalogoServicoData extends Partial<CreateCatalogoServicoData> {}
@@ -16,6 +18,7 @@ export const catalogoServicosService = {
   async list(): Promise<CatalogoServicoRecord[]> {
     return pb.collection('catalogo_servicos').getFullList<CatalogoServicoRecord>({
       sort: 'disciplina,nome',
+      expand: 'area',
     })
   },
 
@@ -23,11 +26,14 @@ export const catalogoServicosService = {
     return pb.collection('catalogo_servicos').getFullList<CatalogoServicoRecord>({
       filter: 'ativo = true',
       sort: 'disciplina,nome',
+      expand: 'area',
     })
   },
 
   async getById(id: string): Promise<CatalogoServicoRecord> {
-    return pb.collection('catalogo_servicos').getOne<CatalogoServicoRecord>(id)
+    return pb.collection('catalogo_servicos').getOne<CatalogoServicoRecord>(id, {
+      expand: 'area',
+    })
   },
 
   async create(data: CreateCatalogoServicoData): Promise<CatalogoServicoRecord> {

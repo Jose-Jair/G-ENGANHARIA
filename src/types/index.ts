@@ -405,6 +405,45 @@ export interface ClientePfRecord {
   updated: string
 }
 
+export interface AreaAtuacaoRecord {
+  id: string
+  nome: string
+  descricao?: string
+  ordem?: number
+  ativo: boolean
+  created: string
+  updated: string
+}
+
+export interface SubservicoRecord {
+  id: string
+  area: string
+  nome: string
+  descricao?: string
+  ativo: boolean
+  created: string
+  updated: string
+  expand?: {
+    area?: AreaAtuacaoRecord
+  }
+}
+
+export interface EntregavelPadraoRecord {
+  id: string
+  area: string
+  subservico?: string
+  nome: string
+  descricao?: string
+  ordem?: number
+  ativo: boolean
+  created: string
+  updated: string
+  expand?: {
+    area?: AreaAtuacaoRecord
+    subservico?: SubservicoRecord
+  }
+}
+
 export interface CatalogoServicoRecord {
   id: string
   nome: string
@@ -413,14 +452,25 @@ export interface CatalogoServicoRecord {
   preco_base: number
   descricao?: string
   ativo: boolean
+  area?: string
+  precisa_revisao_area?: boolean
   created: string
   updated: string
+  expand?: {
+    area?: AreaAtuacaoRecord
+  }
 }
 
 export interface PropostaItemRecord {
   id?: string
   proposta?: string
   servico?: string
+  area?: string
+  subservicos?: string[] // IDs ou nomes de subserviços
+  status_conversao?: 'nao_convertido' | 'convertido'
+  projeto_gerado?: string
+  etapa_gerada?: string
+  entregaveis_sugeridos?: string[]
   descricao: string
   disciplina?: string
   unidade?: string
@@ -433,6 +483,9 @@ export interface PropostaItemRecord {
   updated?: string
   expand?: {
     servico?: CatalogoServicoRecord
+    area?: AreaAtuacaoRecord
+    projeto_gerado?: ProjetoRecord
+    etapa_gerada?: ProjetoEtapaRecord
   }
 }
 
@@ -595,6 +648,7 @@ export interface ExecutorRecord {
 export interface ProjetoEtapaRecord {
   id: string
   projeto: string
+  area?: string
   nome: string
   descricao?: string
   ordem?: number
@@ -613,6 +667,7 @@ export interface ProjetoEtapaRecord {
   expand?: {
     projeto?: ProjetoRecord
     executor?: ExecutorRecord
+    area?: AreaAtuacaoRecord
   }
 }
 

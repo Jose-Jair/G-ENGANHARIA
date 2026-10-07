@@ -19,14 +19,19 @@ import {
   Calendar,
   FileCheck,
 } from 'lucide-react'
-import { PropostaRecord } from '@/types'
+import { PropostaRecord, ProjetoRecord } from '@/types'
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
+import { conversaoProjetoPacoteService } from '@/services/conversaoProjetoPacote'
+import { propostasService } from '@/services/propostas'
+import { ModalConversaoProjetoPacote } from './ModalConversaoProjetoPacote'
 
 interface ModalDetalhePropostaProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   proposta: PropostaRecord | null
+  currentUserId?: string
+  currentUserEmail?: string
   onCriarRevisao?: (proposta: PropostaRecord) => void
   onMudarStatus?: (proposta: PropostaRecord, novoStatus: PropostaRecord['status']) => void
   onAbrirAprovacao?: (proposta: PropostaRecord) => void
@@ -37,6 +42,8 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
   open,
   onOpenChange,
   proposta,
+  currentUserId,
+  currentUserEmail,
   onCriarRevisao,
   onMudarStatus,
   onAbrirAprovacao,
@@ -44,6 +51,25 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
 }) => {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState('documento')
+  const [showConversaoModal, setShowConversaoModal] = useState(false)
+  const [projetosGerados, setProjetosGerados] = useState<ProjetoRecord[]>([])
+  const [percentualConvertido, setPercentualConvertido] = useState<number>(0)
+
+  useEffect(() => {
+    if (open && proposta.id) {
+      conversaoProjetoPacoteService.listProjetosDaProposta(proposta.id).then((prjs) => {
+        setProjetosGerados(prjs)
+      })
+      propostasService.listItens(proposta.id).then((itens) => {
+        if (itens.length > 0) {
+          const conv = itens.filter((i) => i.status_conversao === 'convertido').length
+          setPercentualConvertido(Math.round((conv / itens.length) * 100))
+        } else if (proposta.status === 'aceita') {
+          setPercentualConvertido(100)
+        }
+      })
+    }
+  }, [open, proposta.id, proposta.status])
 
   if (!proposta) return null
 
@@ -149,6 +175,21 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                   Aprovação Interna
                 </Button>
               )}
+
+              {/* Botão de conversão em Projeto-Pacote para Comercial/Admin a qualquer momento após aceite */}
+              {canEdit && proposta.status === 'aceita' && (
+                <Button
+                  size="sm"
+                  onClick={() => setShowConversaoModal(true)}
+                  className="h-8 text-xs bg-orange-600 hover:bg-orange-700 text-white gap-1.5 font-medium shadow-sm"
+                  title="Converter itens da proposta em Projeto-Pacote com etapas por área técnica"
+                >
+                  <Briefcase className="w-3.5 h-3.5" />
+                  {percentualConvertido === 100
+                    ? 'Gerenciar Projeto-Pacote'
+                    : 'Converter em Projeto-Pacote'}
+                </Button>
+              )}
             </div>
           </div>
         </DialogHeader>
@@ -171,6 +212,52 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
 
           {/* ABA DOCUMENTO */}
           <TabsContent value="documento" className="space-y-6 pt-3">
+            {/* Bloco de Rastreabilidade Projeto-Pacote se proposta tiver projetos ou itens convertidos */}
+            {(projetosGerados.length > 0 || percentualConvertido > 0) && (
+              <div className="bg-orange-50/70 border border-orange-200 rounded-lg p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+                <div>
+                  <div className="font-semibold text-orange-950 flex items-center gap-1.5">
+                    <Briefcase className="w-4 h-4 text-orange-600" />
+                    Rastreabilidade: Projeto-Pacote Vinculado
+                  </div>
+                  <div className="text-slate-600 mt-0.5">
+                    {projetosGerados.length > 0 ? (
+                      <span>
+                        Projetos gerados:{' '}
+                        {projetosGerados.map((p) => (
+                          <strong key={p.id} className="text-slate-900 font-mono mr-2">
+                            {p.codigo} ({p.nome})
+                          </strong>
+                        ))}
+                      </span>
+                    ) : (
+                      <span>Projeto associado em processamento</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider block">
+                      Escopo Convertido
+                    </span>
+                    <span className="font-mono font-bold text-sm text-orange-700">
+                      {percentualConvertido}%
+                    </span>
+                  </div>
+
+                  {canEdit && proposta.status === 'aceita' && (
+                    <Button
+                      size="sm"
+                      onClick={() => setShowConversaoModal(true)}
+                      className="h-7 text-xs bg-orange-600 hover:bg-orange-700 text-white"
+                    >
+                      Converter Itens
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
             {/* Cabeçalho do Documento */}
             <div className="bg-slate-50 border rounded-lg p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div>
@@ -580,5 +667,27 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
         </Tabs>
       </DialogContent>
     </Dialog>
+
+    {/* MODAL DE CONVERSÃO EM PROJETO-PACOTE */}
+    {showConversaoModal && (
+      <ModalConversaoProjetoPacote
+        open={showConversaoModal}
+        onOpenChange={setShowConversaoModal}
+        proposta={proposta}
+        currentUserId={currentUserId}
+        onConversaoSucesso={() => {
+          conversaoProjetoPacoteService.listProjetosDaProposta(proposta.id).then((prjs) => {
+            setProjetosGerados(prjs)
+          })
+          propostasService.listItens(proposta.id).then((itens) => {
+            if (itens.length > 0) {
+              const conv = itens.filter((i) => i.status_conversao === 'convertido').length
+              setPercentualConvertido(Math.round((conv / itens.length) * 100))
+            }
+          })
+        }}
+      />
+    )}
+    </>
   )
 }

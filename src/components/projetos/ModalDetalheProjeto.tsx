@@ -180,8 +180,9 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                         {projeto.codigo}
                       </span>
                       {projeto.expand?.proposta && (
-                        <span className="font-mono text-xs text-slate-400">
-                          Origem: {projeto.expand.proposta.numero}
+                        <span className="font-mono text-xs text-orange-400 bg-orange-950/60 border border-orange-800/80 px-2 py-0.5 rounded">
+                          Origem: {projeto.expand.proposta.numero} (
+                          {projeto.expand.proposta.revisao || 'Rev.00'})
                         </span>
                       )}
                       <Badge

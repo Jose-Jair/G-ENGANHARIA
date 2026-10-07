@@ -330,6 +330,17 @@ export const PropostasPage: React.FC = () => {
                       header: 'Contrato Vinculado',
                       accessor: (p) => p.expand?.contrato?.numero || '',
                     },
+                    {
+                      header: 'Áreas de Atuação / Disciplinas',
+                      accessor: (p) => {
+                        const itens = p.itens_json || []
+                        const disciplinas = p.disciplinas || ''
+                        const areasItens = itens.map((i: any) => i.disciplina || '').filter(Boolean)
+                        return Array.from(new Set([...disciplinas.split(','), ...areasItens])).join(
+                          ', ',
+                        )
+                      },
+                    },
                   ],
                   data: propostasFiltradas,
                 })
@@ -728,9 +739,14 @@ export const PropostasPage: React.FC = () => {
       {/* MODAL DETALHE DE PROPOSTA */}
       <ModalDetalheProposta
         open={showDetalheModal}
-        onOpenChange={setShowDetalheModal}
+        onOpenChange={(op) => {
+          setShowDetalheModal(op)
+          if (!op) loadPropostas()
+        }}
         proposta={propostaDetalhe}
         canEdit={canCreateOrEdit}
+        currentUserId={user?.id}
+        currentUserEmail={user?.email}
         onCriarRevisao={handleCriarRevisao}
         onMudarStatus={handleMudarStatus}
         onAbrirAprovacao={(p) => {

@@ -275,6 +275,14 @@ export const EtapasTab: React.FC<EtapasTabProps> = ({
                         #{idx + 1}
                       </span>
                       <h4 className="font-semibold text-sm text-slate-900">{etapa.nome}</h4>
+                      {etapa.expand?.area && (
+                        <Badge
+                          variant="outline"
+                          className="text-[11px] font-semibold bg-orange-50 border-orange-200 text-orange-800"
+                        >
+                          {etapa.expand.area.nome}
+                        </Badge>
+                      )}
                       {etapa.disciplina && (
                         <Badge variant="outline" className="text-[11px] font-normal">
                           {etapa.disciplina}

@@ -769,6 +769,65 @@ export function DashboardPage() {
               </div>
             </div>
           )}
+
+          {/* NOVO BLOCO: PRODUÇÃO POR ÁREA DE ATUAÇÃO TÉCNICA */}
+          {dados && dados.producaoPorArea && (
+            <div className="border border-orange-200 bg-orange-50/25 rounded-lg p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 border-b border-orange-200 pb-2">
+                <div>
+                  <span className="text-xs font-bold text-orange-950 flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-orange-600" />
+                    Produção por Área de Atuação Técnica (Período Selecionado)
+                  </span>
+                  <p className="text-[11px] text-slate-600">
+                    Propostas emitidas, taxa de aceite, valores cotados/fechados e projetos/etapas
+                    gerados por especialidade de engenharia.
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded border border-slate-200 bg-white">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
+                    <tr>
+                      <th className="py-2.5 px-3">Área de Atuação</th>
+                      <th className="py-2.5 px-3 text-center">Propostas Emitidas</th>
+                      <th className="py-2.5 px-3 text-center">Propostas Aceitas</th>
+                      <th className="py-2.5 px-3 text-right">Valor Proposto</th>
+                      <th className="py-2.5 px-3 text-right">Valor Fechado</th>
+                      <th className="py-2.5 px-3 text-center">Projetos Gerados</th>
+                      <th className="py-2.5 px-3 text-center">Etapas Criadas</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {dados.producaoPorArea.map((area) => (
+                      <tr key={area.areaId} className="hover:bg-slate-50/80">
+                        <td className="py-2 px-3 font-semibold text-slate-900">{area.areaNome}</td>
+                        <td className="py-2 px-3 text-center font-mono">
+                          {area.propostasEmitidas}
+                        </td>
+                        <td className="py-2 px-3 text-center font-mono text-emerald-700 font-bold">
+                          {area.propostasAceitas}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-slate-700">
+                          {formatCurrencyBr(area.valorProposto)}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-semibold text-emerald-800">
+                          {formatCurrencyBr(area.valorFechado)}
+                        </td>
+                        <td className="py-2 px-3 text-center font-mono font-bold text-orange-700">
+                          {area.projetosGerados}
+                        </td>
+                        <td className="py-2 px-3 text-center font-mono text-slate-600">
+                          {area.etapasGeradas}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -105,17 +105,81 @@ export const propostasService = {
   },
 
   async create(data: CreatePropostaData): Promise<PropostaRecord> {
-    return pb.collection('propostas').create<PropostaRecord>(data, {
+    const created = await pb.collection('propostas').create<PropostaRecord>(data, {
       expand: 'empresa,cliente_pf,contrato,modelo,criado_por',
     })
+
+    // Sincronizar itens na tabela proposta_itens
+    if (data.itens_json && Array.isArray(data.itens_json)) {
+      for (const item of data.itens_json) {
+        try {
+          await pb.collection('proposta_itens').create({
+            proposta: created.id,
+            servico: item.servico || null,
+            area: item.area || null,
+            subservicos: item.subservicos || [],
+            status_conversao: item.status_conversao || 'nao_convertido',
+            descricao: item.descricao,
+            disciplina: item.disciplina || '',
+            unidade: item.unidade || 'un',
+            quantidade: item.quantidade || 1,
+            custo_unitario: item.custo_unitario || 0,
+            custo_total: item.custo_total || 0,
+            bdi_percentual: item.bdi_percentual || 0,
+            preco_total: item.preco_total || 0,
+          })
+        } catch (itemErr) {
+          console.warn('Erro ao salvar item na tabela proposta_itens:', itemErr)
+        }
+      }
+    }
+
+    return created
   },
 
   async update(id: string, data: UpdatePropostaData): Promise<PropostaRecord> {
-    return pb.collection('propostas').update<PropostaRecord>(id, data, {
-      expand: 'empresa,cliente_pf,contrato,modelo,criado_por,aprovador_financeiro,aprovador_admin',
+    const updated = await pb.collection('propostas').update<PropostaRecord>(id, data, {
+      expand: 'empresa,cliente_pf,contrato,modelo,criado_por',
     })
-  },
 
+    // Se itens_json foi atualizado, sincronizar com proposta_itens
+    if (data.itens_json && Array.isArray(data.itens_json)) {
+      try {
+        const existingItens = await pb.collection('proposta_itens').getFullList({
+          filter: `proposta = '${id}'`,
+        })
+
+        // Para evitar apagar vínculos com projetos já existentes, se não houver vínculos, recriar
+        const hasConverted = existingItens.some((i: any) => i.status_conversao === 'convertido')
+        if (!hasConverted) {
+          for (const old of existingItens) {
+            await pb.collection('proposta_itens').delete(old.id)
+          }
+          for (const item of data.itens_json) {
+            await pb.collection('proposta_itens').create({
+              proposta: id,
+              servico: item.servico || null,
+              area: item.area || null,
+              subservicos: item.subservicos || [],
+              status_conversao: item.status_conversao || 'nao_convertido',
+              descricao: item.descricao,
+              disciplina: item.disciplina || '',
+              unidade: item.unidade || 'un',
+              quantidade: item.quantidade || 1,
+              custo_unitario: item.custo_unitario || 0,
+              custo_total: item.custo_total || 0,
+              bdi_percentual: item.bdi_percentual || 0,
+              preco_total: item.preco_total || 0,
+            })
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao sincronizar proposta_itens no update:', err)
+      }
+    }
+
+    return updated
+  },
   async delete(id: string): Promise<boolean> {
     return pb.collection('propostas').delete(id)
   },
@@ -350,5 +414,16 @@ export const propostasService = {
     }
     if (variaveis.preco) resultado = resultado.replace(/{preco}/g, variaveis.preco)
     return resultado
+  },
+
+  async listItens(propostaId: string): Promise<PropostaItemRecord[]> {
+    return pb.collection('proposta_itens').getFullList<PropostaItemRecord>({
+      filter: `proposta = '${propostaId}'`,
+      expand: 'servico,area,projeto_gerado,etapa_gerada',
+    })
+  },
+
+  async updateItem(itemId: string, data: Partial<PropostaItemRecord>): Promise<PropostaItemRecord> {
+    return pb.collection('proposta_itens').update<PropostaItemRecord>(itemId, data)
   },
 }

@@ -34,7 +34,7 @@ export const projetoEtapasService = {
     return await pb.collection('projeto_etapas').getFullList<ProjetoEtapaRecord>({
       filter: `projeto = '${projetoId}'`,
       sort: 'ordem,created',
-      expand: 'executor',
+      expand: 'executor,area',
     })
   },
 

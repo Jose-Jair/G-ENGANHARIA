@@ -14,6 +14,9 @@ import {
   CatalogoServicoRecord,
 } from '@/types'
 import { catalogoServicosService } from '@/services/catalogoServicos'
+import { areasAtuacaoService } from '@/services/areasAtuacao'
+import { GestaoAreasModalidades } from '@/components/administracao/GestaoAreasModalidades'
+import { AreaAtuacaoRecord } from '@/types'
 import { formatCurrencyBr } from '@/lib/formatters'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -127,17 +130,20 @@ export default function AdministracaoPage() {
 
   // --- CATÁLOGO DE SERVIÇOS STATE ---
   const [catalogoList, setCatalogoList] = useState<CatalogoServicoRecord[]>([])
+  const [areasList, setAreasList] = useState<AreaAtuacaoRecord[]>([])
   const [loadingCatalogo, setLoadingCatalogo] = useState(false)
   const [showCatalogoModal, setShowCatalogoModal] = useState(false)
   const [editingCatalogo, setEditingCatalogo] = useState<CatalogoServicoRecord | null>(null)
   const [catalogoSearch, setCatalogoSearch] = useState('')
   const [catalogoFormData, setCatalogoFormData] = useState({
     nome: '',
+    area: '',
     disciplina: 'Estruturas',
     unidade: 'un',
     preco_base: 0,
     descricao: '',
     ativo: true,
+    precisa_revisao_area: false,
   })
 
   // Fetch functions
@@ -208,8 +214,12 @@ export default function AdministracaoPage() {
   const loadCatalogo = async () => {
     setLoadingCatalogo(true)
     try {
-      const data = await catalogoServicosService.list()
+      const [data, areasData] = await Promise.all([
+        catalogoServicosService.list(),
+        areasAtuacaoService.list(),
+      ])
       setCatalogoList(data)
+      setAreasList(areasData)
     } catch {
       toast({
         variant: 'destructive',
@@ -218,6 +228,26 @@ export default function AdministracaoPage() {
       })
     } finally {
       setLoadingCatalogo(false)
+    }
+  }
+
+  const handleReclassificarServico = async (servicoId: string, novaAreaId: string) => {
+    try {
+      await catalogoServicosService.update(servicoId, {
+        area: novaAreaId,
+        precisa_revisao_area: false,
+      })
+      toast({
+        title: 'Serviço reclassificado',
+        description: 'Área de atuação ajustada e sinalização removida com sucesso.',
+      })
+      loadCatalogo()
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível reclassificar o serviço.',
+      })
     }
   }
 
@@ -508,11 +538,13 @@ export default function AdministracaoPage() {
     setEditingCatalogo(null)
     setCatalogoFormData({
       nome: '',
+      area: areasList[0]?.id || '',
       disciplina: 'Estruturas',
       unidade: 'un',
       preco_base: 0,
       descricao: '',
       ativo: true,
+      precisa_revisao_area: false,
     })
     setShowCatalogoModal(true)
   }
@@ -521,11 +553,13 @@ export default function AdministracaoPage() {
     setEditingCatalogo(item)
     setCatalogoFormData({
       nome: item.nome,
+      area: item.area || areasList[0]?.id || '',
       disciplina: item.disciplina,
       unidade: item.unidade,
       preco_base: item.preco_base,
       descricao: item.descricao || '',
       ativo: item.ativo !== false,
+      precisa_revisao_area: item.precisa_revisao_area || false,
     })
     setShowCatalogoModal(true)
   }
@@ -610,10 +644,14 @@ export default function AdministracaoPage() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-2 md:grid-cols-5 bg-slate-200/80 p-1">
+        <TabsList className="grid grid-cols-2 md:grid-cols-6 bg-slate-200/80 p-1">
           <TabsTrigger value="usuarios" className="gap-2 text-xs font-medium">
             <Users className="w-4 h-4" />
             <span>Usuários ({usersList.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="areas_atuacao" className="gap-2 text-xs font-medium">
+            <Layers className="w-4 h-4 text-orange-600" />
+            <span>Áreas & Subserviços</span>
           </TabsTrigger>
           <TabsTrigger value="catalogo" className="gap-2 text-xs font-medium">
             <Wrench className="w-4 h-4" />
@@ -796,6 +834,11 @@ export default function AdministracaoPage() {
           </Card>
         </TabsContent>
 
+        {/* ABA ÁREAS DE ATUAÇÃO E SUBSERVIÇOS */}
+        <TabsContent value="areas_atuacao" className="space-y-4">
+          <GestaoAreasModalidades />
+        </TabsContent>
+
         {/* ABA CATÁLOGO DE SERVIÇOS */}
         <TabsContent value="catalogo" className="space-y-4">
           <Card className="border-slate-200">
@@ -803,8 +846,8 @@ export default function AdministracaoPage() {
               <div>
                 <CardTitle className="text-lg">Catálogo de Serviços de Engenharia</CardTitle>
                 <CardDescription className="text-xs">
-                  Serviços padrão de engenharia consultiva com preços base de referência, unidades e
-                  disciplinas.
+                  Serviços padrão de engenharia consultiva organizados por Área de Atuação
+                  obrigatória, preços base, disciplinas e unidades.
                 </CardDescription>
               </div>
               <Button
@@ -819,7 +862,7 @@ export default function AdministracaoPage() {
               <div className="relative max-w-sm">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
-                  placeholder="Filtrar por nome ou disciplina..."
+                  placeholder="Filtrar por nome, área ou disciplina..."
                   value={catalogoSearch}
                   onChange={(e) => setCatalogoSearch(e.target.value)}
                   className="pl-8 text-xs h-9"
@@ -832,6 +875,7 @@ export default function AdministracaoPage() {
                   <thead className="bg-slate-100 text-slate-700 font-semibold border-y border-slate-200">
                     <tr>
                       <th className="py-3 px-4">Nome do Serviço</th>
+                      <th className="py-3 px-4">Área de Atuação</th>
                       <th className="py-3 px-4">Disciplina</th>
                       <th className="py-3 px-4">Unidade</th>
                       <th className="py-3 px-4 text-right">Preço Base (Ref.)</th>
@@ -842,78 +886,127 @@ export default function AdministracaoPage() {
                   <tbody className="divide-y divide-slate-200">
                     {loadingCatalogo ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-slate-500">
+                        <td colSpan={7} className="py-8 text-center text-slate-500">
                           <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-600" />
                           Carregando catálogo...
                         </td>
                       </tr>
                     ) : catalogoList.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-slate-500">
+                        <td colSpan={7} className="py-8 text-center text-slate-500">
                           Nenhum serviço cadastrado no catálogo.
                         </td>
                       </tr>
                     ) : (
                       catalogoList
-                        .filter(
-                          (c) =>
-                            c.nome.toLowerCase().includes(catalogoSearch.toLowerCase()) ||
-                            c.disciplina.toLowerCase().includes(catalogoSearch.toLowerCase()),
-                        )
-                        .map((servico) => (
-                          <tr key={servico.id} className="hover:bg-slate-50/80">
-                            <td className="py-3 px-4">
-                              <div className="font-semibold text-slate-900">{servico.nome}</div>
-                              {servico.descricao && (
-                                <div className="text-[11px] text-slate-400 line-clamp-1">
-                                  {servico.descricao}
-                                </div>
-                              )}
-                            </td>
-                            <td className="py-3 px-4">
-                              <Badge variant="outline" className="text-[11px] bg-slate-50">
-                                {servico.disciplina}
-                              </Badge>
-                            </td>
-                            <td className="py-3 px-4 font-mono text-slate-700">
-                              {servico.unidade}
-                            </td>
-                            <td className="py-3 px-4 font-mono font-semibold text-right text-slate-900">
-                              {formatCurrencyBr(servico.preco_base)}
-                            </td>
-                            <td className="py-3 px-4">
-                              {servico.ativo ? (
-                                <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Ativo
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-slate-400 font-medium">
-                                  Inativo
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleOpenEditCatalogo(servico)}
-                                className="h-7 text-xs text-blue-600 hover:text-blue-800"
-                              >
-                                <Edit2 className="w-3.5 h-3.5 mr-1" />
-                                Editar
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteCatalogo(servico.id)}
-                                className="h-7 text-xs text-red-600 hover:text-red-800"
-                              >
-                                <Trash2 className="w-3.5 h-3.5 mr-1" />
-                                Excluir
-                              </Button>
-                            </td>
-                          </tr>
-                        ))
+                        .filter((c) => {
+                          const areaNome = c.expand?.area?.nome || ''
+                          const q = catalogoSearch.toLowerCase()
+                          return (
+                            c.nome.toLowerCase().includes(q) ||
+                            c.disciplina.toLowerCase().includes(q) ||
+                            areaNome.toLowerCase().includes(q)
+                          )
+                        })
+                        .map((servico) => {
+                          const areaObj =
+                            servico.expand?.area || areasList.find((a) => a.id === servico.area)
+                          return (
+                            <tr key={servico.id} className="hover:bg-slate-50/80">
+                              <td className="py-3 px-4">
+                                <div className="font-semibold text-slate-900">{servico.nome}</div>
+                                {servico.descricao && (
+                                  <div className="text-[11px] text-slate-400 line-clamp-1">
+                                    {servico.descricao}
+                                  </div>
+                                )}
+                                {servico.precisa_revisao_area && (
+                                  <div className="mt-1 flex items-center gap-2">
+                                    <Badge
+                                      variant="outline"
+                                      className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-medium"
+                                    >
+                                      Sinalizado para revisão de Área
+                                    </Badge>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[10px] text-slate-500 font-medium">
+                                        Reclassificar em 1 clique:
+                                      </span>
+                                      <select
+                                        className="h-6 text-[10px] rounded border border-slate-300 bg-white px-1 text-slate-700"
+                                        defaultValue=""
+                                        onChange={(e) => {
+                                          if (e.target.value) {
+                                            handleReclassificarServico(servico.id, e.target.value)
+                                          }
+                                        }}
+                                      >
+                                        <option value="" disabled>
+                                          Selecionar Área...
+                                        </option>
+                                        {areasList.map((a) => (
+                                          <option key={a.id} value={a.id}>
+                                            {a.nome}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-3 px-4">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[11px] bg-orange-50 border-orange-200 text-orange-800 font-medium"
+                                >
+                                  {areaObj?.nome || 'Não vinculada'}
+                                </Badge>
+                              </td>
+                              <td className="py-3 px-4">
+                                <Badge variant="outline" className="text-[11px] bg-slate-50">
+                                  {servico.disciplina}
+                                </Badge>
+                              </td>
+                              <td className="py-3 px-4 font-mono text-slate-700">
+                                {servico.unidade}
+                              </td>
+                              <td className="py-3 px-4 font-mono font-semibold text-right text-slate-900">
+                                {formatCurrencyBr(servico.preco_base)}
+                              </td>
+                              <td className="py-3 px-4">
+                                {servico.ativo ? (
+                                  <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Ativo
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-slate-400 font-medium">
+                                    Inativo
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenEditCatalogo(servico)}
+                                  className="h-7 text-xs text-blue-600 hover:text-blue-800"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5 mr-1" />
+                                  Editar
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteCatalogo(servico.id)}
+                                  className="h-7 text-xs text-red-600 hover:text-red-800"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                                  Excluir
+                                </Button>
+                              </td>
+                            </tr>
+                          )
+                        })
                     )}
                   </tbody>
                 </table>
@@ -1556,10 +1649,32 @@ export default function AdministracaoPage() {
               />
             </div>
 
+            <div className="space-y-1">
+              <Label htmlFor="catArea" className="text-xs font-semibold text-slate-800">
+                Área de Atuação (Obrigatória)
+              </Label>
+              <Select
+                value={catalogoFormData.area}
+                onValueChange={(val) => setCatalogoFormData({ ...catalogoFormData, area: val })}
+              >
+                <SelectTrigger id="catArea" className="text-xs h-9">
+                  <SelectValue placeholder="Selecione a Área de Atuação" />
+                </SelectTrigger>
+                <SelectContent>
+                  {areasList.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.ordem ? `${a.ordem}. ` : ''}
+                      {a.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label htmlFor="catDisc" className="text-xs">
-                  Disciplina
+                  Disciplina Técnica
                 </Label>
                 <Input
                   id="catDisc"

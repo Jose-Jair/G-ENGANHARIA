@@ -40,6 +40,9 @@ import {
   ContratoRecord,
   ModeloRecord,
   CatalogoServicoRecord,
+  AreaAtuacaoRecord,
+  SubservicoRecord,
+  EntregavelPadraoRecord,
 } from '@/types'
 import { propostasService } from '@/services/propostas'
 import { catalogoServicosService } from '@/services/catalogoServicos'
@@ -48,6 +51,14 @@ import { clientesPfService } from '@/services/clientesPf'
 import { contratosService } from '@/services/contratos'
 import { modelosService } from '@/services/modelos'
 import { parametrosService } from '@/services/parametros'
+import {
+  areasAtuacaoService,
+  subservicosService,
+  entregaveisPadraoService,
+} from '@/services/areasAtuacao'
+import { ClienteAutocomplete } from './ClienteAutocomplete'
+import { ModalCadastroClienteRapido } from './ModalCadastroClienteRapido'
+import { ModalItemPropostaCascata } from './ModalItemPropostaCascata'
 import { formatCurrencyBr } from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
 
@@ -78,6 +89,13 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
   const [contratos, setContratos] = useState<ContratoRecord[]>([])
   const [modelos, setModelos] = useState<ModeloRecord[]>([])
   const [catalogoServicos, setCatalogoServicos] = useState<CatalogoServicoRecord[]>([])
+  const [areas, setAreas] = useState<AreaAtuacaoRecord[]>([])
+  const [subservicos, setSubservicos] = useState<SubservicoRecord[]>([])
+  const [entregaveisPadrao, setEntregaveisPadrao] = useState<EntregavelPadraoRecord[]>([])
+
+  // Modais auxiliares
+  const [showCadastroClienteModal, setShowCadastroClienteModal] = useState(false)
+  const [showCascataModal, setShowCascataModal] = useState(false)
 
   // Parâmetros de Alçada e Cálculo
   const [limiteAlcadaValor, setLimiteAlcadaValor] = useState(100000)
@@ -128,22 +146,39 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
 
     const loadData = async () => {
       try {
-        const [empData, pfData, cataData, modData, paramValidade, paramLim, paramMargem, paramImp] =
-          await Promise.all([
-            empresasService.list({ status: 'ativa' }),
-            clientesPfService.list(),
-            catalogoServicosService.listAtivos(),
-            modelosService.list(),
-            parametrosService.get('proposta_validade_dias', '15'),
-            parametrosService.get('proposta_alcada_limite_valor', '100000'),
-            parametrosService.get('proposta_alcada_margem_minima', '20'),
-            parametrosService.get('proposta_impostos_padrao', '16.5'),
-          ])
+        const [
+          empData,
+          pfData,
+          cataData,
+          modData,
+          areasData,
+          subsData,
+          entsData,
+          paramValidade,
+          paramLim,
+          paramMargem,
+          paramImp,
+        ] = await Promise.all([
+          empresasService.list({ status: 'ativa' }),
+          clientesPfService.list(),
+          catalogoServicosService.listAtivos(),
+          modelosService.list(),
+          areasAtuacaoService.listAtivas(),
+          subservicosService.listAtivos(),
+          entregaveisPadraoService.listAtivos(),
+          parametrosService.get('proposta_validade_dias', '15'),
+          parametrosService.get('proposta_alcada_limite_valor', '100000'),
+          parametrosService.get('proposta_alcada_margem_minima', '20'),
+          parametrosService.get('proposta_impostos_padrao', '16.5'),
+        ])
 
         setEmpresas(empData)
         setClientesPf(pfData)
         setCatalogoServicos(cataData)
         setModelos(modData)
+        setAreas(areasData)
+        setSubservicos(subsData)
+        setEntregaveisPadrao(entsData)
 
         const valDias = parseInt(paramValidade, 10) || 15
         setValidadeDiasPadrao(valDias)
@@ -482,12 +517,12 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
         </DialogHeader>
 
         <div className="space-y-6 pt-2 text-xs">
-          {/* 1. SELEÇÃO DE CLIENTE (PJ OU PF) E CONTRATO */}
+          {/* 1. SELEÇÃO DE CLIENTE COM AUTOCOMPLETE DINÂMICO E CADASTRO RÁPIDO SEM PERDA */}
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-200 pb-2">
               <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                <Building2 className="w-4 h-4 text-blue-600" />
-                1. Destinatário e Contrato
+                <Building2 className="w-4 h-4 text-orange-600" />
+                1. Destinatário e Contrato (Busca Dinâmica PF/PJ)
               </span>
 
               <div className="flex items-center gap-2">
@@ -496,7 +531,9 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                   size="sm"
                   variant={tipoCliente === 'pj' ? 'default' : 'outline'}
                   onClick={() => setTipoCliente('pj')}
-                  className="h-7 text-xs"
+                  className={`h-7 text-xs ${
+                    tipoCliente === 'pj' ? 'bg-orange-600 hover:bg-orange-700' : ''
+                  }`}
                 >
                   Pessoa Jurídica (PJ)
                 </Button>
@@ -505,7 +542,9 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                   size="sm"
                   variant={tipoCliente === 'pf' ? 'default' : 'outline'}
                   onClick={() => setTipoCliente('pf')}
-                  className="h-7 text-xs"
+                  className={`h-7 text-xs ${
+                    tipoCliente === 'pf' ? 'bg-orange-600 hover:bg-orange-700' : ''
+                  }`}
                 >
                   Cliente PF
                 </Button>
@@ -513,69 +552,52 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {tipoCliente === 'pj' ? (
-                <>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Empresa Contratante (PJ) *</Label>
-                    <Select value={selectedEmpresaId} onValueChange={handleEmpresaChange}>
-                      <SelectTrigger className="h-9 text-xs">
-                        <SelectValue placeholder="Selecione a empresa..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {empresas.map((e) => (
-                          <SelectItem key={e.id} value={e.id}>
-                            {e.razao_social} ({e.cnpj})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <ClienteAutocomplete
+                tipo={tipoCliente}
+                empresas={empresas}
+                clientesPf={clientesPf}
+                selectedEmpresaId={selectedEmpresaId}
+                selectedClientePfId={selectedClientePfId}
+                onSelectEmpresa={handleEmpresaChange}
+                onSelectClientePf={setSelectedClientePfId}
+                onOpenNovoClienteModal={() => setShowCadastroClienteModal(true)}
+              />
 
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Contrato Público Vinculado</Label>
-                    <Select
-                      value={selectedContratoId}
-                      onValueChange={setSelectedContratoId}
-                      disabled={contratos.length === 0}
-                    >
-                      <SelectTrigger className="h-9 text-xs">
-                        <SelectValue
-                          placeholder={
-                            contratos.length > 0
-                              ? 'Selecione o contrato...'
-                              : 'Nenhum contrato ativo cadastrado'
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {contratos.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.numero} - {c.orgao} ({formatCurrencyBr(c.valor)})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              ) : (
-                <div className="md:col-span-2 space-y-1">
-                  <Label className="text-xs font-medium">Cliente Pessoa Física (PF) *</Label>
-                  <Select value={selectedClientePfId} onValueChange={setSelectedClientePfId}>
+              {tipoCliente === 'pj' ? (
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-800">
+                    Contrato Público Vinculado
+                  </Label>
+                  <Select
+                    value={selectedContratoId}
+                    onValueChange={setSelectedContratoId}
+                    disabled={contratos.length === 0}
+                  >
                     <SelectTrigger className="h-9 text-xs">
-                      <SelectValue placeholder="Selecione o cliente PF cadastrado..." />
+                      <SelectValue
+                        placeholder={
+                          contratos.length > 0
+                            ? 'Selecione o contrato...'
+                            : selectedEmpresaId
+                            ? 'Nenhum contrato ativo cadastrado para a empresa'
+                            : 'Selecione a empresa acima primeiro'
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {clientesPf.map((pf) => (
-                        <SelectItem key={pf.id} value={pf.id}>
-                          {pf.nome} ({pf.cpf || pf.telefone || pf.email})
-                          {pf.endereco ? ` - ${pf.endereco}` : ''}
+                      {contratos.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.numero} - {c.orgao} ({formatCurrencyBr(c.valor)})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-1">
-                    <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    Consentimento LGPD obrigatório registrado na criação do cliente PF.
+                </div>
+              ) : (
+                <div className="space-y-1 flex flex-col justify-end">
+                  <p className="text-[11px] text-slate-500 bg-white p-2.5 rounded border border-slate-200">
+                    <strong className="text-slate-800 block mb-0.5">Regra LGPD:</strong>
+                    Cliente PF cadastrado com consentimento explícito arquivado no sistema para orçamentos e projetos.
                   </p>
                 </div>
               )}
@@ -597,18 +619,14 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
-                <Select onValueChange={(val) => handleAddItem(val)}>
-                  <SelectTrigger className="h-8 text-xs w-[220px]">
-                    <SelectValue placeholder="+ Inserir do Catálogo..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {catalogoServicos.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.disciplina}: {s.nome} ({formatCurrencyBr(s.preco_base)})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Button
+                  type="button"
+                  onClick={() => setShowCascataModal(true)}
+                  className="h-8 text-xs gap-1.5 bg-orange-600 hover:bg-orange-700 text-white font-medium"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  + Inserir por Área & Catálogo
+                </Button>
 
                 <Button
                   type="button"
@@ -617,7 +635,6 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                   onClick={() => handleAddItem()}
                   className="h-8 text-xs gap-1"
                 >
-                  <Plus className="w-3.5 h-3.5" />
                   Item Avulso
                 </Button>
               </div>
@@ -628,7 +645,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-100 text-slate-700 font-semibold border-b">
                   <tr>
-                    <th className="py-2 px-3">Descrição do Serviço</th>
+                    <th className="py-2 px-3">Descrição do Serviço & Especialidades</th>
                     <th className="py-2 px-3 w-28">Disciplina</th>
                     <th className="py-2 px-2 w-16">Unid.</th>
                     <th className="py-2 px-2 w-20 text-center">Qtd.</th>
@@ -641,18 +658,34 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                   {itens.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="py-6 text-center text-slate-400">
-                        Nenhum item adicionado à proposta. Selecione um serviço do catálogo acima.
+                        Nenhum item adicionado à proposta. Clique em &quot;+ Inserir por Área &amp; Catálogo&quot; acima.
                       </td>
                     </tr>
                   ) : (
-                    itens.map((it, idx) => (
+                    itens.map((it, idx) => {
+                      const areaObj = areas.find((a) => a.id === it.area)
+                      return (
                       <tr key={idx} className="hover:bg-slate-50">
-                        <td className="py-2 px-3">
+                        <td className="py-2 px-3 space-y-1">
                           <Input
                             value={it.descricao}
                             onChange={(e) => handleUpdateItem(idx, 'descricao', e.target.value)}
                             className="h-7 text-xs"
                           />
+                          {(areaObj || (it.subservicos && it.subservicos.length > 0)) && (
+                            <div className="flex flex-wrap items-center gap-1">
+                              {areaObj && (
+                                <Badge variant="outline" className="text-[10px] bg-orange-50 border-orange-200 text-orange-800">
+                                  {areaObj.nome}
+                                </Badge>
+                              )}
+                              {it.subservicos?.map((s, sIdx) => (
+                                <Badge key={sIdx} variant="secondary" className="text-[10px]">
+                                  {s}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                         </td>
                         <td className="py-2 px-3">
                           <Input
@@ -950,5 +983,46 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* MODAL CADASTRO RÁPIDO CLIENTE (PF OU PJ) SEM PERDER O FORMULÁRIO */}
+    <ModalCadastroClienteRapido
+      open={showCadastroClienteModal}
+      onOpenChange={setShowCadastroClienteModal}
+      tipo={tipoCliente}
+      onClienteCadastrado={async (novo) => {
+        if (novo.tipo === 'pj') {
+          const empList = await empresasService.list({ status: 'ativa' })
+          setEmpresas(empList)
+          setSelectedEmpresaId(novo.id)
+          loadContratosEmpresa(novo.id)
+        } else {
+          const pfList = await clientesPfService.list()
+          setClientesPf(pfList)
+          setSelectedClientePfId(novo.id)
+        }
+      }}
+    />
+
+    {/* MODAL CASCATA ÁREA -> SERVIÇO -> SUBSERVIÇOS -> ENTREGÁVEIS */}
+    <ModalItemPropostaCascata
+      open={showCascataModal}
+      onOpenChange={setShowCascataModal}
+      areas={areas}
+      subservicos={subservicos}
+      entregaveisPadrao={entregaveisPadrao}
+      catalogoServicos={catalogoServicos}
+      onItemConfirmado={(novoItem, entsSugeridos) => {
+        setItens([...itens, novoItem])
+        if (novoItem.disciplina && !disciplinas.includes(novoItem.disciplina)) {
+          setDisciplinas(disciplinas ? `${disciplinas}, ${novoItem.disciplina}` : novoItem.disciplina)
+        }
+        if (entsSugeridos.length > 0) {
+          const entsAtuais = entregaveis ? entregaveis.split(',').map((e) => e.trim()).filter(Boolean) : []
+          const uniao = Array.from(new Set([...entsAtuais, ...entsSugeridos]))
+          setEntregaveis(uniao.join(', '))
+        }
+      }}
+    />
+    </>
   )
 }

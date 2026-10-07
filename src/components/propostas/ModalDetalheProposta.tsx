@@ -35,6 +35,7 @@ import { ModalDetalhesContratoServico } from '@/components/contratosServico/Moda
 import { contratosServicoService } from '@/services/contratosServico'
 import { ContratoServicoRecord } from '@/types'
 import { Printer } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface ModalDetalhePropostaProps {
   open: boolean
@@ -60,6 +61,8 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
   canEdit = true,
 }) => {
   const { toast } = useToast()
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
   const [activeTab, setActiveTab] = useState('documento')
   const [showConversaoModal, setShowConversaoModal] = useState(false)
   const [showEnviarModal, setShowEnviarModal] = useState(false)

@@ -83,8 +83,7 @@ export function ModalEnviarPropostaCliente({
           ? 'texto_padrao_whatsapp_proposta'
           : 'texto_padrao_email_proposta'
 
-      const param = await parametrosService.get(chave)
-      let template = param?.valor || ''
+      let template = await parametrosService.get(chave, '')
 
       const linkPublico = `${window.location.origin}/proposta/${proposta.token_aceite || ''}`
       const precoFmt = formatCurrencyBr(proposta.preco)

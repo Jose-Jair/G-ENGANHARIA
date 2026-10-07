@@ -140,9 +140,9 @@ export default function AppLayout() {
       // Regra de Contratos de Serviço aguardando assinatura do Admin
       if (isAdmin) {
         try {
-          const contratosAguardando = await contratosServicoService.listAll({
-            status: 'aguardando_assinatura_admin',
-          })
+          const contratosAguardando = await contratosServicoService.listAll(
+            'aguardando_assinatura_admin',
+          )
           setBadgeContratosPendentesCount(contratosAguardando.length)
         } catch {
           /* ignore */

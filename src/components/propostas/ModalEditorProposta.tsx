@@ -186,8 +186,8 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
           paramNotaPrazo,
           paramParcelas,
         ] = await Promise.all([
-          empresasService.list({ status: 'ativa' }),
-          clientesPfService.list(),
+          empresasService.list({ status: 'ativa', incluirPreCadastros: true }),
+          clientesPfService.list({ incluirPreCadastros: true }),
           catalogoServicosService.listAtivos(),
           modelosService.list(),
           areasAtuacaoService.listAtivas(),
@@ -1038,6 +1038,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                     onSelectEmpresa={handleEmpresaChange}
                     onSelectClientePf={setSelectedClientePfId}
                     onOpenNovoClienteModal={() => setShowCadastroClienteModal(true)}
+                    onTipoChange={setTipoCliente}
                   />
 
                   <div className="space-y-1">
@@ -1853,7 +1854,10 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
         onClienteCadastrado={async (novo) => {
           try {
             if (novo.tipo === 'pj') {
-              const empList = await empresasService.list({ status: 'ativa' })
+              const empList = await empresasService.list({
+                status: 'ativa',
+                incluirPreCadastros: true,
+              })
               setEmpresas(empList)
               setSelectedEmpresaId(novo.id)
               loadContratosEmpresa(novo.id)
@@ -1862,7 +1866,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                 setEmpreendimento(cadastrado?.razao_social || cadastrado?.nome_fantasia || '')
               }
             } else {
-              const pfList = await clientesPfService.list()
+              const pfList = await clientesPfService.list({ incluirPreCadastros: true })
               setClientesPf(pfList)
               setSelectedClientePfId(novo.id)
             }

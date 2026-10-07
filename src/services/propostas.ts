@@ -5,6 +5,7 @@ import {
   PropostaRevisaoHistorico,
   PropostaParcelaRecord,
 } from '@/types'
+import { auditService } from '@/services/audit'
 
 export interface CreatePropostaData {
   numero?: string
@@ -39,6 +40,7 @@ export interface CreatePropostaData {
   nota_prazo?: string
   validade_dias?: number
   condicoes_gerais?: string
+  dados_complementares_preenchidos?: boolean
 }
 
 export interface PropostaParcelaItemInput {
@@ -365,10 +367,10 @@ export const propostasService = {
     })
 
     await auditService.log({
-      acao: 'CRIACAO_NOVA_REVISAO_PROPOSTA',
-      entidade: 'propostas',
-      registro_id: proposta.id,
-      detalhes: {
+      action: 'CRIACAO_NOVA_REVISAO_PROPOSTA',
+      entity_type: 'propostas',
+      entity_id: proposta.id,
+      details: {
         mensagem: `Nova revisão ${novaRevisao} criada a partir da ${revisaoAtual}. Proposta retornada para rascunho para revalidação interna.`,
         proposta_numero: proposta.numero,
         revisao_anterior: revisaoAtual,

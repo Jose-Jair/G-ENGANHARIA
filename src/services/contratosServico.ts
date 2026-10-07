@@ -76,10 +76,10 @@ export const contratosServicoService = {
       clausulas_texto: clausulasTexto,
     })
     await auditService.log({
-      acao: 'ATUALIZACAO_CONTRATO_SERVICO',
-      entidade: 'contratos_servico',
-      registro_id: id,
-      detalhes: {
+      action: 'ATUALIZACAO_CONTRATO_SERVICO',
+      entity_type: 'contratos_servico',
+      entity_id: id,
+      details: {
         mensagem: 'Cláusulas do contrato de serviços atualizadas',
       },
     })
@@ -121,10 +121,10 @@ export const contratosServicoService = {
       .collection('contratos_servico')
       .update<ContratoServicoRecord>(contratoId, formData)
     await auditService.log({
-      acao: 'UPLOAD_PDF_CONTRATO_ASSINADO',
-      entidade: 'contratos_servico',
-      registro_id: contratoId,
-      detalhes: {
+      action: 'UPLOAD_PDF_CONTRATO_ASSINADO',
+      entity_type: 'contratos_servico',
+      entity_id: contratoId,
+      details: {
         mensagem: `Arquivo PDF assinado anexado ao contrato (${file.name})`,
         tamanho: file.size,
       },

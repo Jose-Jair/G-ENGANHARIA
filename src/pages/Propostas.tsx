@@ -718,6 +718,26 @@ export const PropostasPage: React.FC = () => {
                         </td>
 
                         <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
+                          {p.token_aceite && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const link = `${window.location.origin}/proposta/${p.token_aceite}`
+                                navigator.clipboard.writeText(link)
+                                toast({
+                                  title: 'Link copiado!',
+                                  description: `Link público da proposta ${p.numero} copiado para a área de transferência.`,
+                                })
+                              }}
+                              className="h-7 text-xs text-slate-700 hover:text-slate-900 hover:bg-slate-100 font-medium"
+                              title="Copiar link público da proposta para envio ao cliente"
+                            >
+                              <Copy className="w-3.5 h-3.5 mr-1" />
+                              Link
+                            </Button>
+                          )}
+
                           <Button
                             variant="ghost"
                             size="sm"

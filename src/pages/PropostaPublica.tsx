@@ -434,15 +434,29 @@ export const PropostaPublicaPage: React.FC = () => {
                 {proposta.requer_nota ? (
                   <span>
                     O valor global <strong>contempla a emissão de nota fiscal</strong> com tributos
-                    inclusos.
+                    inclusos ({proposta.impostos || 16.5}%).
                   </span>
                 ) : (
                   <span>
-                    Os valores informados <strong>não contemplam emissão de nota fiscal</strong>.
+                    Os valores apresentados nesta proposta comercial{' '}
+                    <strong>não contemplam a emissão de nota fiscal</strong>. Caso solicitada, será
+                    acrescida a alíquota tributária vigente correspondente.
                   </span>
                 )}
               </div>
             </div>
+
+            {/* SEÇÃO CONDIÇÕES GERAIS (SE PREENCHIDA) */}
+            {proposta.condicoes_gerais && (
+              <div className="space-y-2">
+                <h3 className="font-bold text-sm text-slate-900 border-b pb-1">
+                  5. Condições Gerais
+                </h3>
+                <div className="p-3 bg-slate-50 rounded border text-slate-700 whitespace-pre-wrap leading-relaxed text-[11px]">
+                  {proposta.condicoes_gerais}
+                </div>
+              </div>
+            )}
 
             {/* SEÇÃO 5: PRAZO E CONDIÇÕES DE PAGAMENTO */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-lg border border-slate-200">

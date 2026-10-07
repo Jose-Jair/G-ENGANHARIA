@@ -135,7 +135,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0 bg-slate-100 print:bg-white print:max-w-none print:max-h-none print:overflow-visible print:p-0 print:border-none print:shadow-none">
+      <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0 bg-slate-100 print:bg-white print:max-w-none print:max-h-none print:h-auto print:overflow-visible print:p-0 print:border-none print:shadow-none print:static print:transform-none">
         {/* Barra superior de ações (oculta na impressão) */}
         <div className="p-4 bg-slate-900 text-white flex items-center justify-between print:hidden sticky top-0 z-50 shadow-md">
           <div className="flex items-center gap-2">
@@ -161,7 +161,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
         </div>
 
         {/* ÁREA DO DOCUMENTO PARA VISUALIZAÇÃO E IMPRESSÃO (Folha A4 / Modelo GMAIS) */}
-        <div className="p-8 sm:p-12 bg-white max-w-4xl mx-auto text-slate-900 font-sans text-xs leading-relaxed space-y-6 print:p-6 print:text-black">
+        <div className="p-8 sm:p-12 bg-white max-w-4xl mx-auto text-slate-900 font-sans text-xs leading-relaxed space-y-6 print:p-0 print:m-0 print:max-w-none print:w-full print:text-black print:space-y-4">
           {/* 1. CABEÇALHO COM LOGO E DADOS G+ */}
           <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
             <div className="flex items-center gap-3">
@@ -422,7 +422,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
           </section>
 
           {/* 11. SEÇÃO 9: ACEITE & ASSINATURAS (MODELO GMAIS) */}
-          <section className="space-y-4 pt-6 page-break-before">
+          <section className="space-y-4 pt-4 page-break-before avoid-break">
             <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
               <span>9. Aceite &amp; Assinaturas</span>
             </h2>

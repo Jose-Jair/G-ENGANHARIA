@@ -309,6 +309,44 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
     ],
   },
   {
+    id: 'assistente-ia-proposta',
+    titulo: 'Assistente de IA para Elaboração de Propostas GMAIS',
+    subtitulo: 'Agente nativo Skip Cloud para pré-montagem técnica, disciplinas e redação oficial',
+    icone: Sparkles,
+    corIcone: 'text-[#D95A2B]',
+    perfisPermitidos: ['admin', 'comercial'],
+    descricao:
+      'Recurso inteligente de ponta integrado ao editor de propostas comerciais. O operador comercial ou administrador descreve o pedido do cliente em linguagem livre e o agente nativo de IA estrutura a pré-montagem do empreendimento, disciplinas, catálogo de serviços, entregáveis, objeto, escopo, prazo, nota fiscal e parcelamento.',
+    passos: [
+      {
+        titulo: '1. Acesso Exclusivo por Perfil',
+        descricao:
+          'O assistente inteligente é exclusivo para os perfis Comercial e Administrador. Perfis operacionais como Gestor de Projetos ou Executor não possuem acesso ao recurso.',
+      },
+      {
+        titulo: '2. Envio do Pedido em Linguagem Livre',
+        descricao:
+          'No editor de propostas, utilize a caixa lateral do Assistente IA para descrever o projeto (ex: "projeto estrutural de galpão industrial de 1.200 m² em Campinas-SP, com hidráulico e sanitário, precisa de nota fiscal, prazo 90 dias, pagamento 50/50").',
+      },
+      {
+        titulo: '3. Prévia Técnica Revisável',
+        descricao:
+          'O assistente consulta o catálogo de serviços ativos, áreas e textos modelo da G+, estruturando um resumo explicativo e uma pré-montagem completa. O botão "Revisar Prévia" permite conferir cada item antes de transferir os dados.',
+      },
+      {
+        titulo: '4. Aplicação Segura e Auditoria Imutável',
+        descricao:
+          'O agente nunca grava diretamente no banco. Os dados só preenchem a proposta quando o usuário clica em "Aplicar à Proposta". Cada aplicação gera registro formal na trilha de auditoria imutável do sistema.',
+      },
+    ],
+    regrasAutomaticas: [
+      'Acesso restrito no servidor (hook e agente) apenas para papéis Admin e Comercial (erro 403 para outros perfis).',
+      'Gravação bloqueada caso a proposta esteja com status diferente de Rascunho ou Aprovação Interna.',
+      'Auditoria compulsória registra usuário, proposta, empreendimento e disciplinas aplicadas.',
+      'Obedece às regras de alçada comercial: valores acima de R$ 100 mil ou margem < 20% exigem deferimento do Administrador.',
+    ],
+  },
+  {
     id: 'modelo-proposta-gmais',
     titulo: 'Administração do Modelo da Proposta GMAIS (Admin)',
     subtitulo: 'Gestão centralizada de textos padrão, cláusulas contratuais e parcelamento',

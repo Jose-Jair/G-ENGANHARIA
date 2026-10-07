@@ -114,11 +114,17 @@ export const propostasService = {
 
   async getByToken(token: string): Promise<PropostaRecord | null> {
     try {
+      // Passar o token tanto no query filter quanto como query param ?token= e header x-token-aceite
+      // para satisfazer a viewRule/listRule de propostas sem autenticação
       const records = await pb.collection('propostas').getFullList<PropostaRecord>({
         filter: `token_aceite = '${token}'`,
         expand: 'empresa,cliente_pf,contrato',
         requestKey: null,
-      })
+        token: token,
+        headers: {
+          'x-token-aceite': token,
+        },
+      } as any)
       return records[0] || null
     } catch (err) {
       console.warn('Erro ao buscar proposta pelo token:', err)

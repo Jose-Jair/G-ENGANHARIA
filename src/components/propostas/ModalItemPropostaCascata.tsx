@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrencyBr } from '@/lib/formatters'
+import { restoreBodyPointerEvents } from '@/lib/utils'
 import { Layers, Plus, Check } from 'lucide-react'
 
 interface ModalItemPropostaCascataProps {
@@ -176,40 +177,58 @@ export const ModalItemPropostaCascata: React.FC<ModalItemPropostaCascataProps> =
       : Math.round(custoTotal * (1 + bdiPercent / 100) * 100) / 100
 
   const handleConfirmar = () => {
-    if (!descricao.trim()) {
-      setErroValidacao('A descrição do serviço na proposta é obrigatória.')
-      return
+    try {
+      if (!descricao.trim()) {
+        setErroValidacao('A descrição do serviço na proposta é obrigatória.')
+        return
+      }
+
+      const nomesSubservicos = subservicos
+        .filter((s) => selectedSubservicoIds.includes(s.id))
+        .map((s) => s.nome)
+
+      const item: PropostaItemRecord = {
+        area: selectedAreaId,
+        servico:
+          selectedServicoId && selectedServicoId !== '__nenhum__' ? selectedServicoId : undefined,
+        origem: origem,
+        descricao: descricao.trim(),
+        disciplina: disciplina.trim() || undefined,
+        unidade: unidade.trim() || 'un',
+        quantidade: quantidade > 0 ? quantidade : 1,
+        custo_unitario: custoUnitario,
+        custo_total: custoTotal,
+        preco_venda_unitario: origem === 'catalogo' ? precoVendaUnitario : undefined,
+        bdi_percentual: origem === 'catalogo' ? 0 : bdiPercent,
+        preco_total: precoTotalItem,
+        subservicos: nomesSubservicos,
+        status_conversao: 'nao_convertido',
+      }
+
+      onItemConfirmado(item, selectedEntregaveis)
+      restoreBodyPointerEvents()
+      onOpenChange(false)
+    } catch (err: any) {
+      console.error('Erro ao confirmar item em cascata:', err)
+      setErroValidacao(`Erro ao processar item: ${err?.message || 'Falha inesperada'}`)
     }
+  }
 
-    const nomesSubservicos = subservicos
-      .filter((s) => selectedSubservicoIds.includes(s.id))
-      .map((s) => s.nome)
-
-    const item: PropostaItemRecord = {
-      area: selectedAreaId,
-      servico:
-        selectedServicoId && selectedServicoId !== '__nenhum__' ? selectedServicoId : undefined,
-      origem: origem,
-      descricao: descricao.trim(),
-      disciplina: disciplina.trim() || undefined,
-      unidade: unidade.trim() || 'un',
-      quantidade: quantidade > 0 ? quantidade : 1,
-      custo_unitario: custoUnitario,
-      custo_total: custoTotal,
-      preco_venda_unitario: origem === 'catalogo' ? precoVendaUnitario : undefined,
-      bdi_percentual: origem === 'catalogo' ? 0 : bdiPercent,
-      preco_total: precoTotalItem,
-      subservicos: nomesSubservicos,
-      status_conversao: 'nao_convertido',
+  const handleClose = (isOpen: boolean) => {
+    if (!isOpen) {
+      restoreBodyPointerEvents()
     }
-
-    onItemConfirmado(item, selectedEntregaveis)
-    onOpenChange(false)
+    onOpenChange(isOpen)
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent
+        className="max-w-2xl max-h-[90vh] overflow-y-auto p-6"
+        onCloseAutoFocus={() => {
+          restoreBodyPointerEvents()
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2">
             <Layers className="w-5 h-5 text-orange-600" />
@@ -522,14 +541,14 @@ export const ModalItemPropostaCascata: React.FC<ModalItemPropostaCascataProps> =
         </div>
 
         <DialogFooter className="pt-3 border-t">
-          <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" size="sm" onClick={() => handleClose(false)}>
             Cancelar
           </Button>
           <Button
             type="button"
             size="sm"
             onClick={handleConfirmar}
-            className="bg-orange-600 hover:bg-orange-700 text-white gap-1.5"
+            className="bg-orange-600 hover:bg-orange-700 text-white gap-1.5 cursor-pointer"
           >
             <Check className="w-4 h-4" />
             Adicionar Item à Proposta

@@ -38,6 +38,7 @@ import { PropostaRecord, AreaAtuacaoRecord } from '@/types'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
 import { formatCnpj, formatCpf } from '@/lib/cnpj'
 import { useToast } from '@/hooks/use-toast'
+import { restoreBodyPointerEvents } from '@/lib/utils'
 import { ModalEditorProposta } from '@/components/propostas/ModalEditorProposta'
 import { ModalDetalheProposta } from '@/components/propostas/ModalDetalheProposta'
 import { ModalAprovacaoInterna } from '@/components/propostas/ModalAprovacaoInterna'
@@ -757,7 +758,10 @@ export const PropostasPage: React.FC = () => {
       {/* MODAL EDITOR DE PROPOSTA */}
       <ModalEditorProposta
         open={showEditorModal}
-        onOpenChange={setShowEditorModal}
+        onOpenChange={(op) => {
+          setShowEditorModal(op)
+          restoreBodyPointerEvents()
+        }}
         propostaToEdit={propostaEditando}
         currentUserId={user?.id}
         onSaved={() => {
@@ -770,6 +774,7 @@ export const PropostasPage: React.FC = () => {
         open={showDetalheModal}
         onOpenChange={(op) => {
           setShowDetalheModal(op)
+          restoreBodyPointerEvents()
           if (!op) loadPropostas()
         }}
         proposta={propostaDetalhe}
@@ -787,7 +792,10 @@ export const PropostasPage: React.FC = () => {
       {/* MODAL APROVAÇÃO INTERNA */}
       <ModalAprovacaoInterna
         open={showAprovacaoModal}
-        onOpenChange={setShowAprovacaoModal}
+        onOpenChange={(op) => {
+          setShowAprovacaoModal(op)
+          restoreBodyPointerEvents()
+        }}
         proposta={propostaAprovacao}
         currentUserId={user?.id || ''}
         currentUserRole={role}

@@ -18,6 +18,7 @@ import { cleanCnpj, formatCnpj, cleanCpf, formatCpf, isValidCnpj, isValidCpf } f
 import { TelefoneItem } from '@/types'
 import { ListaTelefones } from '@/components/comum/ListaTelefones'
 import { EnderecoComCep, EnderecoValue } from '@/components/comum/EnderecoComCep'
+import { restoreBodyPointerEvents } from '@/lib/utils'
 import { Building2, User, Loader2, Mail, ExternalLink, AlertCircle } from 'lucide-react'
 
 interface ModalCadastroClienteRapidoProps {
@@ -268,9 +269,17 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
     }
   }
 
+  const handleClose = (isOpen: boolean) => {
+    if (!isOpen) restoreBodyPointerEvents()
+    onOpenChange(isOpen)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent
+        className="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+        onCloseAutoFocus={() => restoreBodyPointerEvents()}
+      >
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2">
             {tipo === 'pj' ? (
@@ -387,7 +396,7 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => onOpenChange(false)}
+                onClick={() => handleClose(false)}
                 disabled={submitting}
               >
                 Cancelar
@@ -505,7 +514,7 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => onOpenChange(false)}
+                onClick={() => handleClose(false)}
                 disabled={submitting}
               >
                 Cancelar

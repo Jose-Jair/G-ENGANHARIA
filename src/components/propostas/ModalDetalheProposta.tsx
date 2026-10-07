@@ -25,6 +25,7 @@ import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatte
 import { useToast } from '@/hooks/use-toast'
 import { conversaoProjetoPacoteService } from '@/services/conversaoProjetoPacote'
 import { propostasService } from '@/services/propostas'
+import { restoreBodyPointerEvents } from '@/lib/utils'
 import { ModalConversaoProjetoPacote } from './ModalConversaoProjetoPacote'
 
 interface ModalDetalhePropostaProps {
@@ -119,8 +120,17 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto p-6">
+      <Dialog
+        open={open && !showConversaoModal}
+        onOpenChange={(op) => {
+          if (!op) restoreBodyPointerEvents()
+          onOpenChange(op)
+        }}
+      >
+        <DialogContent
+          className="max-w-4xl max-h-[92vh] overflow-y-auto p-6"
+          onCloseAutoFocus={() => restoreBodyPointerEvents()}
+        >
           <DialogHeader>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b pb-3">
               <div>
@@ -690,7 +700,10 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
       {showConversaoModal && (
         <ModalConversaoProjetoPacote
           open={showConversaoModal}
-          onOpenChange={setShowConversaoModal}
+          onOpenChange={(op) => {
+            setShowConversaoModal(op)
+            restoreBodyPointerEvents()
+          }}
           proposta={proposta}
           currentUserId={currentUserId}
           onConversaoSucesso={() => {

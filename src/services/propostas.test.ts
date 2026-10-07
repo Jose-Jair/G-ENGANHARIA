@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { propostasService } from './propostas'
+import { restoreBodyPointerEvents } from '@/lib/utils'
 
 describe('propostasService - Novo Modelo de Precificação e Nota Fiscal', () => {
   describe('calcularTotais', () => {
@@ -78,6 +79,17 @@ describe('propostasService - Novo Modelo de Precificação e Nota Fiscal', () =>
       const avalAcimaTeto = propostasService.avaliarAlcada(150000, 0, 100000, 20, false)
       expect(avalAcimaTeto.requerAdmin).toBe(true)
       expect(avalAcimaTeto.motivoAlcada).toContain('superior à alçada comercial')
+    })
+  })
+
+  describe('restoreBodyPointerEvents', () => {
+    it('restaura pointer-events no body quando bloqueado com none', () => {
+      document.body.style.pointerEvents = 'none'
+      expect(document.body.style.pointerEvents).toBe('none')
+
+      restoreBodyPointerEvents()
+
+      expect(document.body.style.pointerEvents).toBe('')
     })
   })
 })

@@ -63,6 +63,7 @@ import {
 import { ClienteAutocomplete } from './ClienteAutocomplete'
 import { ModalCadastroClienteRapido } from './ModalCadastroClienteRapido'
 import { ModalItemPropostaCascata } from './ModalItemPropostaCascata'
+import { restoreBodyPointerEvents } from '@/lib/utils'
 import { formatCurrencyBr } from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
 
@@ -149,6 +150,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
   // Carregar dados auxiliares ao abrir modal
   useEffect(() => {
     if (!open) return
+    restoreBodyPointerEvents()
 
     const loadData = async () => {
       try {
@@ -303,7 +305,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
           preco_total: servico.preco_base,
           bdi_percentual: 0,
         }
-        setItens([...itens, novoItem])
+        setItens((prev) => [...prev, novoItem])
         return
       }
     }
@@ -323,7 +325,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
       bdi_percentual: bdiAvulso,
       preco_total: precoAvulso,
     }
-    setItens([...itens, novoItemAvulso])
+    setItens((prev) => [...prev, novoItemAvulso])
   }
 
   const handleUpdateItem = (index: number, field: keyof PropostaItemRecord, value: any) => {
@@ -358,8 +360,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
   }
 
   const handleRemoveItem = (index: number) => {
-    const updated = itens.filter((_, i) => i !== index)
-    setItens(updated)
+    setItens((prev) => prev.filter((_, i) => i !== index))
   }
 
   // Preenchimento com Modelo
@@ -579,10 +580,23 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
     }
   }
 
+  const isAnySubmodalOpen = showCascataModal || showCadastroClienteModal
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto p-6">
+      <Dialog
+        open={open && !isAnySubmodalOpen}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            restoreBodyPointerEvents()
+          }
+          onOpenChange(isOpen)
+        }}
+      >
+        <DialogContent
+          className="max-w-4xl max-h-[92vh] overflow-y-auto p-6"
+          onCloseAutoFocus={() => restoreBodyPointerEvents()}
+        >
           <DialogHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -1236,18 +1250,25 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
       {/* MODAL CADASTRO RÁPIDO CLIENTE (PF OU PJ) SEM PERDER O FORMULÁRIO */}
       <ModalCadastroClienteRapido
         open={showCadastroClienteModal}
-        onOpenChange={setShowCadastroClienteModal}
+        onOpenChange={(isOpen) => {
+          setShowCadastroClienteModal(isOpen)
+          restoreBodyPointerEvents()
+        }}
         tipo={tipoCliente}
         onClienteCadastrado={async (novo) => {
-          if (novo.tipo === 'pj') {
-            const empList = await empresasService.list({ status: 'ativa' })
-            setEmpresas(empList)
-            setSelectedEmpresaId(novo.id)
-            loadContratosEmpresa(novo.id)
-          } else {
-            const pfList = await clientesPfService.list()
-            setClientesPf(pfList)
-            setSelectedClientePfId(novo.id)
+          try {
+            if (novo.tipo === 'pj') {
+              const empList = await empresasService.list({ status: 'ativa' })
+              setEmpresas(empList)
+              setSelectedEmpresaId(novo.id)
+              loadContratosEmpresa(novo.id)
+            } else {
+              const pfList = await clientesPfService.list()
+              setClientesPf(pfList)
+              setSelectedClientePfId(novo.id)
+            }
+          } finally {
+            restoreBodyPointerEvents()
           }
         }}
       />
@@ -1255,27 +1276,49 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
       {/* MODAL CASCATA ÁREA -> SERVIÇO -> SUBSERVIÇOS -> ENTREGÁVEIS */}
       <ModalItemPropostaCascata
         open={showCascataModal}
-        onOpenChange={setShowCascataModal}
+        onOpenChange={(isOpen) => {
+          setShowCascataModal(isOpen)
+          restoreBodyPointerEvents()
+        }}
         areas={areas}
         subservicos={subservicos}
         entregaveisPadrao={entregaveisPadrao}
         catalogoServicos={catalogoServicos}
         onItemConfirmado={(novoItem, entsSugeridos) => {
-          setItens([...itens, novoItem])
-          if (novoItem.disciplina && !disciplinas.includes(novoItem.disciplina)) {
-            setDisciplinas(
-              disciplinas ? `${disciplinas}, ${novoItem.disciplina}` : novoItem.disciplina,
-            )
-          }
-          if (entsSugeridos.length > 0) {
-            const entsAtuais = entregaveis
-              ? entregaveis
-                  .split(',')
-                  .map((e) => e.trim())
-                  .filter(Boolean)
-              : []
-            const uniao = Array.from(new Set([...entsAtuais, ...entsSugeridos]))
-            setEntregaveis(uniao.join(', '))
+          try {
+            setItens((prev) => [...prev, novoItem])
+            if (novoItem.disciplina) {
+              setDisciplinas((prevDisc) => {
+                if (!prevDisc) return novoItem.disciplina || ''
+                if (prevDisc.includes(novoItem.disciplina!)) return prevDisc
+                return `${prevDisc}, ${novoItem.disciplina}`
+              })
+            }
+            if (entsSugeridos && entsSugeridos.length > 0) {
+              setEntregaveis((prevEnt) => {
+                const entsAtuais = prevEnt
+                  ? prevEnt
+                      .split(',')
+                      .map((e) => e.trim())
+                      .filter(Boolean)
+                  : []
+                const uniao = Array.from(new Set([...entsAtuais, ...entsSugeridos]))
+                return uniao.join(', ')
+              })
+            }
+            toast({
+              title: 'Item Adicionado',
+              description: `"${novoItem.descricao}" foi incluído na proposta.`,
+            })
+          } catch (err: any) {
+            console.error('Erro ao adicionar item na proposta:', err)
+            toast({
+              variant: 'destructive',
+              title: 'Erro ao adicionar item',
+              description: err?.message || 'Falha ao atualizar lista de itens.',
+            })
+          } finally {
+            restoreBodyPointerEvents()
           }
         }}
       />

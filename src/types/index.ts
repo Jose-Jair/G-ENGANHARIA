@@ -576,6 +576,7 @@ export interface PropostaRecord {
   status:
     | 'rascunho'
     | 'aprovacao_interna'
+    | 'aprovada'
     | 'enviada'
     | 'visualizada'
     | 'em_negociacao'

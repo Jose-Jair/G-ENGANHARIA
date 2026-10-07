@@ -43,6 +43,7 @@ import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatte
 import { propostasService } from '@/services/propostas'
 import { motivosService } from '@/services/motivos'
 import { useToast } from '@/hooks/use-toast'
+import { parametrosService } from '@/services/parametros'
 import { GPlusLogo } from '@/components/GPlusLogo'
 import { restoreBodyPointerEvents } from '@/lib/utils'
 

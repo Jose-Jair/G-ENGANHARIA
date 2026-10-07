@@ -233,6 +233,8 @@ export const PropostasPage: React.FC = () => {
         return (
           <Badge className="bg-amber-100 text-amber-800 border-amber-300">Aprovação Interna</Badge>
         )
+      case 'aprovada':
+        return <Badge className="bg-teal-100 text-teal-800 border-teal-300">Aprovada</Badge>
       case 'enviada':
         return <Badge className="bg-blue-100 text-blue-800 border-blue-300">Enviada</Badge>
       case 'visualizada':
@@ -545,6 +547,7 @@ export const PropostasPage: React.FC = () => {
               <SelectItem value="todos">Todos os Status</SelectItem>
               <SelectItem value="rascunho">Rascunho</SelectItem>
               <SelectItem value="aprovacao_interna">Aprovação Interna</SelectItem>
+              <SelectItem value="aprovada">Aprovada</SelectItem>
               <SelectItem value="enviada">Enviada</SelectItem>
               <SelectItem value="visualizada">Visualizada</SelectItem>
               <SelectItem value="em_negociacao">Em Negociação</SelectItem>

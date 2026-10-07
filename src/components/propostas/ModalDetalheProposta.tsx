@@ -115,6 +115,8 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
         return (
           <Badge className="bg-amber-100 text-amber-800 border-amber-300">Aprovação Interna</Badge>
         )
+      case 'aprovada':
+        return <Badge className="bg-teal-100 text-teal-800 border-teal-300">Aprovada</Badge>
       case 'enviada':
         return <Badge className="bg-blue-100 text-blue-800 border-blue-300">Enviada</Badge>
       case 'visualizada':
@@ -165,6 +167,76 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
       title: 'Link copiado!',
       description: 'Link público com token copiado para a área de transferência.',
     })
+  }
+
+  const handleClicarCopiarLink = () => {
+    if (!isAprovadaParaEnvio) {
+      toast({
+        title: 'Link bloqueado',
+        description:
+          'A proposta precisa ser aprovada internamente antes da liberação do link ao cliente.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Se já estiver enviada, visualizada, em negociação ou aceita, copia direto com toast informativo
+    if (proposta.status !== 'aprovada') {
+      navigator.clipboard.writeText(publicLink)
+      toast({
+        title: 'Link copiado!',
+        description: 'Link público da proposta copiado para a área de transferência.',
+      })
+      return
+    }
+
+    // Para proposta em status 'aprovada', abre o diálogo de confirmação do envio manual
+    setShowConfirmacaoEnvioManual(true)
+  }
+
+  const handleConfirmarEnvioManual = async () => {
+    if (!proposta?.id) return
+    setCopiandoEnvioManual(true)
+    try {
+      const nomeDestinatario =
+        proposta.expand?.empresa?.razao_social || proposta.expand?.cliente_pf?.nome || 'Cliente'
+      const contatoDestinatario =
+        proposta.expand?.empresa?.telefone ||
+        proposta.expand?.cliente_pf?.telefone ||
+        proposta.expand?.empresa?.email ||
+        proposta.expand?.cliente_pf?.email ||
+        ''
+
+      await propostasService.registrarEnvioManual(
+        proposta.id,
+        nomeDestinatario,
+        contatoDestinatario,
+      )
+
+      if (publicLink) {
+        await navigator.clipboard.writeText(publicLink)
+      }
+
+      if (onMudarStatus) {
+        onMudarStatus(proposta, 'enviada')
+      }
+
+      setShowConfirmacaoEnvioManual(false)
+      toast({
+        title: 'Envio manual registrado!',
+        description:
+          'A proposta foi marcada como enviada e o link foi copiado para a área de transferência.',
+      })
+    } catch (err: any) {
+      console.error('Erro ao registrar envio manual:', err)
+      toast({
+        title: 'Erro ao registrar envio manual',
+        description: err.message || 'Não foi possível registrar o envio manual da proposta.',
+        variant: 'destructive',
+      })
+    } finally {
+      setCopiandoEnvioManual(false)
+    }
   }
 
   return (
@@ -933,7 +1005,7 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                 registro de data/hora.
               </p>
               <p className="font-mono text-[11px] bg-slate-100 p-2 rounded text-slate-800 truncate">
-                {linkPublico}
+                {publicLink}
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>

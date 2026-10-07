@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T18:49:33.550Z",
+  "generatedAt": "2026-10-07T20:04:26.283Z",
   "collections": [
     {
       "name": "users",
@@ -1237,7 +1237,8 @@
             "em_negociacao",
             "aceita",
             "recusada",
-            "expirada"
+            "expirada",
+            "aprovada"
           ]
         },
         {

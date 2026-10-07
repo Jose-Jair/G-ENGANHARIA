@@ -37,7 +37,7 @@ import {
 interface ModalConversaoProjetoPacoteProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  proposta: PropostaRecord
+  proposta: PropostaRecord | null
   currentUserId?: string
   currentUserEmail?: string
   onConversaoSucesso?: (resultado: ResultadoConversaoProjetoPacote) => void
@@ -73,6 +73,7 @@ export const ModalConversaoProjetoPacote: React.FC<ModalConversaoProjetoPacotePr
   const [gruposPorArea, setGruposPorArea] = useState<ItemAgrupadoPorArea[]>([])
 
   const loadDados = async () => {
+    if (!proposta) return
     setLoading(true)
     try {
       const [itensData, areasData, prjsData] = await Promise.all([
@@ -133,17 +134,17 @@ export const ModalConversaoProjetoPacote: React.FC<ModalConversaoProjetoPacotePr
   }
 
   // Fallback auxiliar se necessário
-  const pbCreateFallback = async (propId: string, it: any) => {
+  const pbCreateFallback = async (propId: string, _it: any) => {
     return propostasService.update(propId, {
-      itens_json: proposta.itens_json,
+      itens_json: proposta?.itens_json,
     })
   }
 
   useEffect(() => {
-    if (open) {
+    if (open && proposta?.id) {
       loadDados()
     }
-  }, [open, proposta.id])
+  }, [open, proposta?.id])
 
   // Recalcular agrupamento por área quando a seleção de itens mudar
   useEffect(() => {
@@ -152,6 +153,8 @@ export const ModalConversaoProjetoPacote: React.FC<ModalConversaoProjetoPacotePr
       .agruparItensPorArea(itensSelecionados, areas)
       .then((grupos) => setGruposPorArea(grupos))
   }, [selectedItensIds, itens, areas])
+
+  if (!proposta) return null
 
   // Alternar seleção de item
   const handleToggleItem = (itemId: string) => {

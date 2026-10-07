@@ -57,7 +57,7 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
   const [percentualConvertido, setPercentualConvertido] = useState<number>(0)
 
   useEffect(() => {
-    if (open && proposta.id) {
+    if (open && proposta?.id) {
       conversaoProjetoPacoteService.listProjetosDaProposta(proposta.id).then((prjs) => {
         setProjetosGerados(prjs)
       })
@@ -65,12 +65,12 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
         if (itens.length > 0) {
           const conv = itens.filter((i) => i.status_conversao === 'convertido').length
           setPercentualConvertido(Math.round((conv / itens.length) * 100))
-        } else if (proposta.status === 'aceita') {
+        } else if (proposta?.status === 'aceita') {
           setPercentualConvertido(100)
         }
       })
     }
-  }, [open, proposta.id, proposta.status])
+  }, [open, proposta?.id, proposta?.status])
 
   if (!proposta) return null
 
@@ -686,6 +686,7 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
           proposta={proposta}
           currentUserId={currentUserId}
           onConversaoSucesso={() => {
+            if (!proposta?.id) return
             conversaoProjetoPacoteService.listProjetosDaProposta(proposta.id).then((prjs) => {
               setProjetosGerados(prjs)
             })

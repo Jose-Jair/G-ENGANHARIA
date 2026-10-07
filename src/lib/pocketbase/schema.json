@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T14:36:55.842Z",
+  "generatedAt": "2026-10-07T15:18:41.493Z",
   "collections": [
     {
       "name": "users",
@@ -1408,6 +1408,55 @@
           "type": "text",
           "required": false,
           "system": false
+        },
+        {
+          "name": "aceite_ip",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aceite_user_agent",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aceite_declaracao",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aceite_hash",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "solicitacao_alteracao_texto",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_solicitacao_alteracao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dados_complementares_preenchidos",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contrato_servico",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "contratos_servico"
         }
       ],
       "indexes": [
@@ -3174,6 +3223,204 @@
       "indexes": [
         "CREATE INDEX idx_proposta_parcelas_proposta ON proposta_parcelas (proposta)",
         "CREATE INDEX idx_proposta_parcelas_ordem ON proposta_parcelas (ordem)"
+      ]
+    },
+    {
+      "name": "contratos_servico",
+      "type": "base",
+      "apiRules": {
+        "list": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')) || (token_assinatura_cliente != '' && @request.query.token = token_assinatura_cliente)",
+        "view": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')) || (token_assinatura_cliente != '' && (@request.query.token = token_assinatura_cliente || token_assinatura_cliente = @request.headers.x_token_assinatura))",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "update": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || @request.auth.role = 'gestor')) || (token_assinatura_cliente != '' && token_assinatura_cliente = @request.body.token_assinatura_cliente)",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "numero",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "proposta",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "propostas"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "cliente_pf",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "clientes_pf"
+        },
+        {
+          "name": "objeto",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor_total",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "prazo_dias",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nota_prazo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "clausulas_texto",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "parcelas_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "aguardando_assinatura_admin",
+            "aguardando_assinatura_cliente",
+            "assinado",
+            "cancelado"
+          ]
+        },
+        {
+          "name": "assinante_admin",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "data_assinatura_admin",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "admin_ip",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "admin_user_agent",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "admin_declaracao",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "admin_hash",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "token_assinatura_cliente",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cliente_nome_assinante",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cliente_documento_assinante",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_assinatura_cliente",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cliente_ip",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cliente_user_agent",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cliente_declaracao",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cliente_hash",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "arquivo_pdf_assinado",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_contratos_servico_numero ON contratos_servico (numero)",
+        "CREATE INDEX idx_contratos_servico_proposta ON contratos_servico (proposta)",
+        "CREATE INDEX idx_contratos_servico_status ON contratos_servico (status)"
       ]
     }
   ]

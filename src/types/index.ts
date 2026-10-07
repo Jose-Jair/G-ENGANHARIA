@@ -590,6 +590,15 @@ export interface PropostaRecord {
   data_visualizacao?: string
   data_aceite?: string
   data_recusa?: string
+  // Campos de integridade, validade jurídica e negociação
+  aceite_ip?: string
+  aceite_user_agent?: string
+  aceite_declaracao?: boolean
+  aceite_hash?: string
+  solicitacao_alteracao_texto?: string
+  data_solicitacao_alteracao?: string
+  dados_complementares_preenchidos?: boolean
+  contrato_servico?: string
   parecer_financeiro?: string
   aprovador_financeiro?: string
   data_aprovacao_financeira?: string
@@ -607,6 +616,61 @@ export interface PropostaRecord {
     criado_por?: UserRecord
     aprovador_financeiro?: UserRecord
     aprovador_admin?: UserRecord
+    contrato_servico?: ContratoServicoRecord
+  }
+}
+
+export type StatusContratoServico =
+  | 'aguardando_assinatura_admin'
+  | 'aguardando_assinatura_cliente'
+  | 'assinado'
+  | 'cancelado'
+
+export interface ContratoServicoParcela {
+  ordem: number
+  percentual: number
+  valor: number
+  gatilho: string
+  descricao: string
+}
+
+export interface ContratoServicoRecord {
+  id: string
+  numero: string // CTR-AAAA-NNNN
+  proposta: string
+  empresa?: string
+  cliente_pf?: string
+  objeto: string
+  valor_total: number
+  prazo_dias?: number
+  nota_prazo?: string
+  clausulas_texto?: string
+  parcelas_json?: ContratoServicoParcela[]
+  status: StatusContratoServico
+  // Assinatura Admin
+  assinante_admin?: string
+  data_assinatura_admin?: string
+  admin_ip?: string
+  admin_user_agent?: string
+  admin_declaracao?: boolean
+  admin_hash?: string
+  // Assinatura Cliente
+  token_assinatura_cliente?: string
+  cliente_nome_assinante?: string
+  cliente_documento_assinante?: string
+  data_assinatura_cliente?: string
+  cliente_ip?: string
+  cliente_user_agent?: string
+  cliente_declaracao?: boolean
+  cliente_hash?: string
+  arquivo_pdf_assinado?: string
+  created: string
+  updated: string
+  expand?: {
+    proposta?: PropostaRecord
+    empresa?: EmpresaRecord
+    cliente_pf?: ClientePfRecord
+    assinante_admin?: UserRecord
   }
 }
 

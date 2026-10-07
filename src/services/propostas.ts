@@ -316,7 +316,8 @@ export const propostasService = {
 
   /**
    * Cria nova revisão da proposta: Rev.01, Rev.02...
-   * Mantém o mesmo número de proposta (PROP-AAAA-NNNN) e arquiva cópia do conteúdo anterior no histórico.
+   * Mantém o mesmo número de proposta (PROP-AAAA-NNNN), revalida internamente (volta para rascunho),
+   * limpa dados de aceite anterior e invalida token antigo (token só gerado após nova validação).
    */
   async criarRevisao(proposta: PropostaRecord, responsavelNome: string): Promise<PropostaRecord> {
     const revisaoAtual = proposta.revisao || 'Rev.00'
@@ -346,10 +347,106 @@ export const propostasService = {
 
     const historicoAtualizado = [...(proposta.historico_revisoes || []), snapshotHistorico]
 
-    return this.update(proposta.id, {
+    const updated = await this.update(proposta.id, {
       revisao: novaRevisao,
-      status: 'rascunho', // Revisão volta a Rascunho
+      status: 'rascunho', // Revisão volta a Rascunho para revalidação interna
+      token_aceite: '', // Invalida link anterior
+      data_aceite: '',
+      data_recusa: '',
+      motivo_recusa: '',
+      detalhe_recusa: '',
+      solicitacao_alteracao_texto: '',
+      data_solicitacao_alteracao: '',
+      aceite_ip: '',
+      aceite_user_agent: '',
+      aceite_declaracao: false,
+      aceite_hash: '',
       historico_revisoes: historicoAtualizado,
+    })
+
+    await auditService.log({
+      acao: 'CRIACAO_NOVA_REVISAO_PROPOSTA',
+      entidade: 'propostas',
+      registro_id: proposta.id,
+      detalhes: {
+        mensagem: `Nova revisão ${novaRevisao} criada a partir da ${revisaoAtual}. Proposta retornada para rascunho para revalidação interna.`,
+        proposta_numero: proposta.numero,
+        revisao_anterior: revisaoAtual,
+        nova_revisao: novaRevisao,
+      },
+    })
+
+    return updated
+  },
+
+  /**
+   * Enviar proposta por e-mail transacional via endpoint dedicado do backend
+   */
+  async enviarPorEmail(params: {
+    propostaId: string
+    destinatarioEmail: string
+    destinatarioNome?: string
+    assunto?: string
+    corpo?: string
+  }): Promise<{ success: boolean; message: string; link_proposta?: string }> {
+    return await pb.send('/backend/v1/propostas/enviar-email', {
+      method: 'POST',
+      body: {
+        proposta_id: params.propostaId,
+        destinatario_email: params.destinatarioEmail,
+        destinatario_nome: params.destinatarioNome,
+        assunto: params.assunto,
+        corpo: params.corpo,
+      },
+    })
+  },
+
+  /**
+   * Registrar auditoria de disparo da proposta via WhatsApp
+   */
+  async registrarEnvioWhatsApp(params: {
+    propostaId: string
+    destinatarioTelefone?: string
+    destinatarioNome?: string
+  }): Promise<{ success: boolean; message: string }> {
+    return await pb.send('/backend/v1/propostas/registrar-envio-whatsapp', {
+      method: 'POST',
+      body: {
+        proposta_id: params.propostaId,
+        destinatario_telefone: params.destinatarioTelefone,
+        destinatario_nome: params.destinatarioNome,
+      },
+    })
+  },
+
+  /**
+   * Cliente solicita alterações via link público
+   */
+  async solicitarAlteracoes(tokenAceite: string, texto: string): Promise<any> {
+    return await pb.send('/backend/v1/propostas/solicitar-alteracoes', {
+      method: 'POST',
+      body: {
+        token_aceite: tokenAceite,
+        texto,
+      },
+    })
+  },
+
+  /**
+   * Aceite digital com validade jurídica (declaração, IP, hash)
+   */
+  async aceitarDigital(params: {
+    tokenAceite: string
+    declaracao: boolean
+    hashConteudo?: string
+  }): Promise<any> {
+    return await pb.send('/backend/v1/propostas/aceitar-digital', {
+      method: 'POST',
+      body: {
+        token_aceite: params.tokenAceite,
+        declaracao: params.declaracao,
+        hash_conteudo: params.hashConteudo,
+      },
     })
   },
 

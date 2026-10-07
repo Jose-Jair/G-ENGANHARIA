@@ -19,6 +19,8 @@ import {
   Calendar,
   FileCheck,
   Briefcase,
+  Send,
+  Lock,
 } from 'lucide-react'
 import { PropostaRecord, ProjetoRecord } from '@/types'
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
@@ -27,7 +29,11 @@ import { conversaoProjetoPacoteService } from '@/services/conversaoProjetoPacote
 import { propostasService } from '@/services/propostas'
 import { restoreBodyPointerEvents } from '@/lib/utils'
 import { ModalConversaoProjetoPacote } from './ModalConversaoProjetoPacote'
+import { ModalEnviarPropostaCliente } from './ModalEnviarPropostaCliente'
 import { DossiePropostaGmais } from './DossiePropostaGmais'
+import { ModalDetalhesContratoServico } from '@/components/contratosServico/ModalDetalhesContratoServico'
+import { contratosServicoService } from '@/services/contratosServico'
+import { ContratoServicoRecord } from '@/types'
 import { Printer } from 'lucide-react'
 
 interface ModalDetalhePropostaProps {
@@ -56,7 +62,10 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState('documento')
   const [showConversaoModal, setShowConversaoModal] = useState(false)
+  const [showEnviarModal, setShowEnviarModal] = useState(false)
   const [showDossieModal, setShowDossieModal] = useState(false)
+  const [showContratoModal, setShowContratoModal] = useState(false)
+  const [contratoVinculado, setContratoVinculado] = useState<ContratoServicoRecord | null>(null)
   const [projetosGerados, setProjetosGerados] = useState<ProjetoRecord[]>([])
   const [percentualConvertido, setPercentualConvertido] = useState<number>(0)
 
@@ -65,6 +74,7 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
       conversaoProjetoPacoteService.listProjetosDaProposta(proposta.id).then((prjs) => {
         setProjetosGerados(prjs)
       })
+      contratosServicoService.getByProposta(proposta.id).then(setContratoVinculado)
       propostasService.listItens(proposta.id).then((itens) => {
         if (itens.length > 0) {
           const conv = itens.filter((i) => i.status_conversao === 'convertido').length
@@ -111,9 +121,26 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
     }
   }
 
-  const publicLink = `${window.location.origin}/proposta/${proposta.token_aceite}`
+  // Portão de validação: O link só é liberado para o cliente se a proposta estiver validada/aprovada (não rascunho nem em aprovação interna)
+  const isAprovadaParaEnvio =
+    proposta.status !== 'rascunho' &&
+    proposta.status !== 'aprovacao_interna' &&
+    Boolean(proposta.token_aceite)
+
+  const publicLink = isAprovadaParaEnvio
+    ? `${window.location.origin}/proposta/${proposta.token_aceite}`
+    : ''
 
   const handleCopiarLink = () => {
+    if (!isAprovadaParaEnvio) {
+      toast({
+        title: 'Link bloqueado',
+        description:
+          'A proposta precisa ser aprovada internamente antes da liberação do link ao cliente.',
+        variant: 'destructive',
+      })
+      return
+    }
     navigator.clipboard.writeText(publicLink)
     toast({
       title: 'Link copiado!',
@@ -157,6 +184,20 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
 
               {/* Ações rápidas de cabeçalho */}
               <div className="flex items-center gap-2">
+                {/* Botão Ver Contrato de Serviços (se gerado) */}
+                {contratoVinculado && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowContratoModal(true)}
+                    className="h-8 text-xs gap-1.5 border-blue-300 text-blue-800 bg-blue-50/50 hover:bg-blue-100 font-semibold"
+                    title="Ver Contrato de Serviços Técnicos associado a esta proposta"
+                  >
+                    <FileCheck className="w-3.5 h-3.5 text-blue-600" />
+                    Contrato {contratoVinculado.numero}
+                  </Button>
+                )}
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -168,17 +209,38 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                   Dossiê / PDF GMAIS
                 </Button>
 
-                {proposta.token_aceite && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCopiarLink}
-                    className="h-8 text-xs gap-1"
-                    title="Copiar link público para envio ao cliente"
+                {/* Portão de Validação: Botão Enviar ao Cliente (WhatsApp / E-mail) só quando validada */}
+                {isAprovadaParaEnvio ? (
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={() => setShowEnviarModal(true)}
+                      className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-semibold shadow-xs"
+                      title="Enviar proposta validada ao cliente via WhatsApp ou E-mail com texto padrão editável"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      Enviar ao Cliente
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopiarLink}
+                      className="h-8 text-xs gap-1 text-slate-700"
+                      title="Copiar link público para envio ao cliente"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      Copiar Link
+                    </Button>
+                  </>
+                ) : (
+                  <div
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-800"
+                    title="O link público é liberado somente após aprovação interna pelo Administrador."
                   >
-                    <Copy className="w-3.5 h-3.5" />
-                    Copiar Link Público
-                  </Button>
+                    <Lock className="w-3 h-3 text-amber-600" />
+                    <span>Link retido (aguarda validação)</span>
+                  </div>
                 )}
 
                 {canEdit && onCriarRevisao && (
@@ -719,6 +781,41 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
         }}
         proposta={proposta}
       />
+
+      {/* MODAL DETALHES DO CONTRATO DE SERVIÇO */}
+      {showContratoModal && contratoVinculado && (
+        <ModalDetalhesContratoServico
+          open={showContratoModal}
+          onOpenChange={(op) => {
+            setShowContratoModal(op)
+            restoreBodyPointerEvents()
+          }}
+          contratoId={contratoVinculado.id}
+          isAdmin={isAdmin}
+          onUpdated={() => {
+            if (proposta?.id) {
+              contratosServicoService.getByProposta(proposta.id).then(setContratoVinculado)
+            }
+          }}
+        />
+      )}
+
+      {/* MODAL DE ENVIO VIA WHATSAPP / E-MAIL TRANSACIONAL COM TEXTO PADRÃO E AUDITORIA */}
+      {showEnviarModal && (
+        <ModalEnviarPropostaCliente
+          open={showEnviarModal}
+          onOpenChange={(op) => {
+            setShowEnviarModal(op)
+            restoreBodyPointerEvents()
+          }}
+          proposta={proposta}
+          onEnvioConcluido={() => {
+            if (onMudarStatus) {
+              onMudarStatus(proposta, 'enviada')
+            }
+          }}
+        />
+      )}
 
       {/* MODAL DE CONVERSÃO EM PROJETO-PACOTE */}
       {showConversaoModal && (

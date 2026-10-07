@@ -23,6 +23,7 @@ import { ParceirosPage } from './pages/Parceiros'
 import { ClientesPfPage } from './pages/ClientesPf'
 import { PropostasPage } from './pages/Propostas'
 import { PropostaPublicaPage } from './pages/PropostaPublica'
+import { ContratoServicoPublicoPage } from './pages/ContratoServicoPublico'
 import { ProjetosPage } from './pages/Projetos'
 import { ExecutoresPage } from './pages/Executores'
 import { CotacaoPublicaPage } from './pages/CotacaoPublica'
@@ -46,6 +47,9 @@ const App = () => (
 
           {/* Rota pública de aceite/recusa de proposta (Etapa 7) - sem login */}
           <Route path="/proposta/:token" element={<PropostaPublicaPage />} />
+
+          {/* Rota pública de assinatura eletrônica do Contrato de Serviços GMAIS */}
+          <Route path="/contrato-servico/:token" element={<ContratoServicoPublicoPage />} />
 
           {/* Rota pública de resposta de cotação do executor (Etapa 8) - sem login */}
           <Route path="/cotacao/:token" element={<CotacaoPublicaPage />} />

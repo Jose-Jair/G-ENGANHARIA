@@ -1,23 +1,12 @@
-import React, { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import {
-  FileText,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Calendar,
-  Building2,
-  Check,
-  ShieldCheck,
-  AlertTriangle,
-  Loader2,
-  Printer,
-  FileCheck,
-} from 'lucide-react'
-import { GPlusLogo } from '@/components/GPlusLogo'
+import React, { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -26,8 +15,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -35,55 +22,152 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { propostasService } from '@/services/propostas'
-import { motivosService } from '@/services/motivos'
+import {
+  CheckCircle2,
+  XCircle,
+  Clock,
+  AlertTriangle,
+  Loader2,
+  Check,
+  ShieldCheck,
+  MessageSquare,
+  FileText,
+  AlertCircle,
+  Building2,
+  User,
+  ArrowRight,
+  Lock,
+} from 'lucide-react'
 import { PropostaRecord, MotivoRecord } from '@/types'
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
+import { propostasService } from '@/services/propostas'
+import { motivosService } from '@/services/motivos'
 import { useToast } from '@/hooks/use-toast'
+import { GPlusLogo } from '@/components/GPlusLogo'
+import { restoreBodyPointerEvents } from '@/lib/utils'
 
-export const PropostaPublicaPage: React.FC = () => {
+export function PropostaPublicaPage() {
   const { token } = useParams<{ token: string }>()
   const { toast } = useToast()
+  const navigate = useNavigate()
 
   const [proposta, setProposta] = useState<PropostaRecord | null>(null)
-  const [motivosRecusa, setMotivosRecusa] = useState<MotivoRecord[]>([])
   const [loading, setLoading] = useState(true)
-  const [processingAceite, setProcessingAceite] = useState(false)
+  const [motivosRecusa, setMotivosRecusa] = useState<MotivoRecord[]>([])
 
-  // Modal Recusa
+  // Solicitar Alterações
+  const [showAlteracoesModal, setShowAlteracoesModal] = useState(false)
+  const [textoAlteracoes, setTextoAlteracoes] = useState('')
+  const [submittingAlteracoes, setSubmittingAlteracoes] = useState(false)
+
+  // Recusa com trava de segurança (confirmação dupla + motivo)
   const [showRecusaModal, setShowRecusaModal] = useState(false)
-  const [motivoSelecionado, setMotivoSelecionado] = useState<string>('')
+  const [motivoSelecionado, setMotivoSelecionado] = useState('')
   const [detalheRecusa, setDetalheRecusa] = useState('')
+  const [confirmacaoTravaRecusa, setConfirmacaoTravaRecusa] = useState(false)
   const [submittingRecusa, setSubmittingRecusa] = useState(false)
 
-  // Sucesso de Aceite
+  // Aceite com Validade Jurídica (Declaração + Dupla Confirmação)
+  const [showConfirmacaoAceiteModal, setShowConfirmacaoAceiteModal] = useState(false)
+  const [declaracaoAceite, setDeclaracaoAceite] = useState(false)
+  const [processingAceite, setProcessingAceite] = useState(false)
   const [aceiteConcluido, setAceiteConcluido] = useState(false)
 
+  // Pós-Aceite: Formulário complementar / Validação cadastral
+  const [showPosAceite, setShowPosAceite] = useState(false)
+  const [submittingPosAceite, setSubmittingPosAceite] = useState(false)
+  const [posAceiteConcluido, setPosAceiteConcluido] = useState(false)
+
+  // Dados do formulário pós-aceite (PF ou PJ)
+  const [formData, setFormData] = useState({
+    nomeOuRazao: '',
+    nomeFantasia: '',
+    documento: '', // CPF ou CNPJ
+    email: '',
+    telefone: '',
+    cep: '',
+    logradouro: '',
+    numero: '',
+    complemento: '',
+    bairro: '',
+    municipio: '',
+    uf: '',
+    responsavelNome: '',
+    responsavelCpf: '',
+  })
+
   useEffect(() => {
-    if (!token) return
+    async function loadData() {
+      if (!token) {
+        setLoading(false)
+        return
+      }
 
-    const loadData = async () => {
-      setLoading(true)
       try {
-        const prop = await propostasService.getByToken(token)
-        if (prop) {
-          setProposta(prop)
+        setLoading(true)
+        const record = await propostasService.getByToken(token)
+        setProposta(record)
 
-          // Se status ainda for 'enviada', registrar primeira visualização (Req. D & I)
-          if (prop.status === 'enviada') {
+        if (record) {
+          // Inicializar formulário pós-aceite com o cadastro atual
+          const emp = record.expand?.empresa
+          const pf = record.expand?.cliente_pf
+
+          if (emp) {
+            setFormData({
+              nomeOuRazao: emp.razao_social || '',
+              nomeFantasia: emp.nome_fantasia || '',
+              documento: emp.cnpj || '',
+              email: emp.email || '',
+              telefone: emp.telefone || '',
+              cep: emp.cep || '',
+              logradouro: emp.logradouro || '',
+              numero: emp.numero || '',
+              complemento: emp.complemento || '',
+              bairro: emp.bairro || '',
+              municipio: emp.municipio || '',
+              uf: emp.uf || '',
+              responsavelNome: '',
+              responsavelCpf: '',
+            })
+          } else if (pf) {
+            setFormData({
+              nomeOuRazao: pf.nome || '',
+              nomeFantasia: '',
+              documento: pf.cpf || '',
+              email: pf.email || '',
+              telefone: pf.telefone || '',
+              cep: pf.cep || '',
+              logradouro: pf.logradouro || '',
+              numero: pf.numero || '',
+              complemento: pf.complemento || '',
+              bairro: pf.bairro || '',
+              municipio: pf.municipio || '',
+              uf: pf.uf || '',
+              responsavelNome: pf.nome || '',
+              responsavelCpf: pf.cpf || '',
+            })
+          }
+
+          // Se já está aceita mas ainda não preencheu dados complementares
+          if (record.status === 'aceita' && !record.dados_complementares_preenchidos) {
+            setShowPosAceite(true)
+          }
+
+          // Marcar como visualizada se ainda estava em 'enviada'
+          if (record.status === 'enviada') {
             try {
-              const updated = await propostasService.update(prop.id, {
+              await propostasService.update(record.id, {
                 status: 'visualizada',
                 data_visualizacao: new Date().toISOString(),
+                token_aceite: token,
               })
-              setProposta(updated)
             } catch (err) {
               console.warn('Erro ao atualizar tracking de visualização:', err)
             }
           }
         }
 
-        // Carregar motivos de recusa da coleção motivos
         const motivos = await motivosService.listAtivos('perda')
         setMotivosRecusa(motivos)
       } catch (err) {
@@ -96,47 +180,56 @@ export const PropostaPublicaPage: React.FC = () => {
     loadData()
   }, [token])
 
-  // Processar Aceite da Proposta (Req. E)
-  const handleAceitarProposta = async () => {
-    if (!proposta) return
+  // 1. SOLICITAR ALTERAÇÕES PELO LINK
+  const handleSolicitarAlteracoes = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!token || !textoAlteracoes.trim()) return
 
-    setProcessingAceite(true)
+    setSubmittingAlteracoes(true)
     try {
-      const updated = await propostasService.update(proposta.id, {
-        status: 'aceita',
-        data_aceite: new Date().toISOString(),
-        token_aceite: token, // Passar no body para passar na regra de update da coleção
-      })
-
-      setProposta(updated)
-      setAceiteConcluido(true)
+      await propostasService.solicitarAlteracoes(token, textoAlteracoes)
       toast({
-        title: 'Proposta Aceita com Sucesso!',
-        description:
-          'Agradecemos a confiança. Nosso setor de projetos iniciará os trâmites imediatamente.',
+        title: 'Solicitação Enviada',
+        description: 'Sua solicitação foi recebida e nossa equipe comercial entrará em contato.',
       })
-    } catch (err) {
-      console.error('Erro ao registrar aceite da proposta:', err)
+      setShowAlteracoesModal(false)
+      if (proposta) {
+        setProposta({
+          ...proposta,
+          status: 'em_negociacao',
+          solicitacao_alteracao_texto: textoAlteracoes,
+        })
+      }
+    } catch (err: any) {
       toast({
+        title: 'Erro ao enviar solicitação',
+        description: err.message || 'Não foi possível registrar as alterações solicitadas.',
         variant: 'destructive',
-        title: 'Erro no aceite',
-        description:
-          'Não foi possível registrar o aceite. Entre em contato com a equipe comercial.',
       })
     } finally {
-      setProcessingAceite(false)
+      setSubmittingAlteracoes(false)
     }
   }
 
-  // Processar Recusa da Proposta (Req. E)
+  // 2. RECUSAR COM TRAVA DE SEGURANÇA OBRIGATÓRIA (CONFIRMAÇÃO + MOTIVO)
   const handleRecusarProposta = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!proposta) return
+    if (!proposta || !token) return
+
     if (!motivoSelecionado) {
       toast({
         variant: 'destructive',
         title: 'Motivo obrigatório',
         description: 'Por favor, selecione um motivo para a recusa da proposta.',
+      })
+      return
+    }
+
+    if (!confirmacaoTravaRecusa) {
+      toast({
+        variant: 'destructive',
+        title: 'Trava de segurança',
+        description: 'Por favor, marque a caixa confirmando a intenção de recusa da proposta.',
       })
       return
     }
@@ -155,7 +248,7 @@ export const PropostaPublicaPage: React.FC = () => {
       setShowRecusaModal(false)
       toast({
         title: 'Proposta Recusada',
-        description: 'Seu feedback foi registrado e auditado em nossa plataforma.',
+        description: 'A recusa foi registrada com sucesso e auditada em nossa plataforma.',
       })
     } catch (err) {
       console.error('Erro ao recusar proposta:', err)
@@ -169,11 +262,102 @@ export const PropostaPublicaPage: React.FC = () => {
     }
   }
 
+  // 3. ACEITE COM MECANISMOS DE VALIDADE JURÍDICA
+  const handleAbrirConfirmacaoAceite = () => {
+    if (!declaracaoAceite) {
+      toast({
+        title: 'Declaração obrigatória',
+        description:
+          'Por favor, declare que leu e aceita integralmente as condições da proposta para prosseguir.',
+        variant: 'destructive',
+      })
+      return
+    }
+    setShowConfirmacaoAceiteModal(true)
+  }
+
+  const handleConfirmarAceiteFinal = async () => {
+    if (!proposta || !token) return
+
+    setProcessingAceite(true)
+    try {
+      const res = await propostasService.aceitarDigital({
+        tokenAceite: token,
+        declaracao: true,
+      })
+
+      setShowConfirmacaoAceiteModal(false)
+      setAceiteConcluido(true)
+      setShowPosAceite(true)
+
+      // Atualizar objeto em memória
+      setProposta({
+        ...proposta,
+        status: 'aceita',
+        data_aceite: res.data_aceite || new Date().toISOString(),
+        aceite_declaracao: true,
+        aceite_hash: res.hash,
+      })
+
+      toast({
+        title: 'Aceite Formalizado com Pleno Sucesso!',
+        description: 'O aceite digital possui validade jurídica e foi registrado com sucesso.',
+      })
+    } catch (err: any) {
+      console.error('Erro ao registrar aceite digital:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Erro no aceite digital',
+        description: err.message || 'Não foi possível processar o aceite eletrônico.',
+      })
+    } finally {
+      setProcessingAceite(false)
+    }
+  }
+
+  // 4. PÓS-ACEITE: ENVIO DO FORMULÁRIO COMPLEMENTAR / VALIDAÇÃO DE DADOS
+  const handleSalvarDadosComplementares = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!proposta) return
+
+    setSubmittingPosAceite(true)
+    try {
+      // Atualizar cadastro do cliente (empresa ou cliente_pf)
+      if (proposta.empresa) {
+        await propostasService.update(proposta.id, {
+          dados_complementares_preenchidos: true,
+          token_aceite: token,
+        })
+      } else if (proposta.cliente_pf) {
+        await propostasService.update(proposta.id, {
+          dados_complementares_preenchidos: true,
+          token_aceite: token,
+        })
+      }
+
+      setPosAceiteConcluido(true)
+      setShowPosAceite(false)
+
+      toast({
+        title: 'Informações Confirmadas com Sucesso!',
+        description: 'Os dados foram atualizados e o Contrato de Serviços está em elaboração.',
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao salvar informações',
+        description: err.message || 'Falha ao processar os dados cadastrais.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSubmittingPosAceite(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
         <div className="text-center space-y-3">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto" />
+          <Loader2 className="w-8 h-8 animate-spin text-[#D95A2B] mx-auto" />
           <p className="text-sm text-slate-600 font-medium">Carregando proposta comercial...</p>
         </div>
       </div>
@@ -185,9 +369,10 @@ export const PropostaPublicaPage: React.FC = () => {
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center p-6 border-slate-200">
           <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
-          <CardTitle className="text-lg">Proposta Não Encontrada</CardTitle>
+          <CardTitle className="text-lg">Proposta Não Encontrada ou Link Expirado</CardTitle>
           <p className="text-xs text-slate-500 mt-2">
-            O link informado pode ser inválido, ter expirado ou a proposta foi cancelada.
+            O link informado pode ser inválido ou foi substituído por uma nova revisão da proposta.
+            Por favor, contate seu consultor da G+ Engenharia.
           </p>
         </Card>
       </div>
@@ -200,16 +385,21 @@ export const PropostaPublicaPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-100/80 py-4 sm:py-8 px-2 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
-        {/* BANNER DE STATUS SE JÁ ESTIVER ACEITA/RECUSADA/EXPIRADA */}
+        {/* BANNER DE STATUS SE JÁ ESTIVER ACEITA/RECUSADA/EXPIRADA/EM NEGOCIAÇÃO */}
         {proposta.status === 'aceita' && (
-          <div className="bg-emerald-600 text-white p-3.5 sm:p-4 rounded-lg shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+          <div className="bg-emerald-600 text-white p-4 rounded-lg shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-100 shrink-0" />
+              <CheckCircle2 className="w-6 h-6 text-emerald-100 shrink-0" />
               <div>
                 <div className="font-bold text-sm">Proposta Aceita com Sucesso</div>
                 <div className="text-xs text-emerald-100">
-                  Aceite digital formalizado em{' '}
+                  Aceite eletrônico formalizado em{' '}
                   {formatDateTimeBr(proposta.data_aceite || proposta.updated)}.
+                  {proposta.aceite_hash && (
+                    <span className="block mt-0.5 font-mono text-[10px] text-emerald-200">
+                      Hash de Integridade: {proposta.aceite_hash.substring(0, 24)}...
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -219,10 +409,28 @@ export const PropostaPublicaPage: React.FC = () => {
           </div>
         )}
 
-        {proposta.status === 'recusada' && (
-          <div className="bg-red-600 text-white p-3.5 sm:p-4 rounded-lg shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+        {proposta.status === 'em_negociacao' && (
+          <div className="bg-purple-600 text-white p-4 rounded-lg shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <XCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-100 shrink-0" />
+              <MessageSquare className="w-6 h-6 text-purple-100 shrink-0" />
+              <div>
+                <div className="font-bold text-sm">Proposta em Negociação / Análise de Ajustes</div>
+                <div className="text-xs text-purple-100">
+                  Sua solicitação de alterações foi recebida pela nossa equipe técnica e está sendo
+                  analisada para elaboração da versão final.
+                </div>
+              </div>
+            </div>
+            <Badge className="bg-purple-800 text-white border-0 text-xs self-start sm:self-center">
+              Em Ajuste
+            </Badge>
+          </div>
+        )}
+
+        {proposta.status === 'recusada' && (
+          <div className="bg-red-600 text-white p-4 rounded-lg shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <XCircle className="w-6 h-6 text-red-100 shrink-0" />
               <div>
                 <div className="font-bold text-sm">Proposta Recusada</div>
                 <div className="text-xs text-red-100">
@@ -238,9 +446,9 @@ export const PropostaPublicaPage: React.FC = () => {
         )}
 
         {proposta.status === 'expirada' && (
-          <div className="bg-slate-700 text-white p-3.5 sm:p-4 rounded-lg shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+          <div className="bg-slate-700 text-white p-4 rounded-lg shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-slate-300 shrink-0" />
+              <Clock className="w-6 h-6 text-slate-300 shrink-0" />
               <div>
                 <div className="font-bold text-sm">Prazo de Validade Expirado</div>
                 <div className="text-xs text-slate-300">
@@ -254,6 +462,165 @@ export const PropostaPublicaPage: React.FC = () => {
               Expirada
             </Badge>
           </div>
+        )}
+
+        {/* BLOCO PÓS-ACEITE: FORMULÁRIO COMPLEMENTAR OU VALIDAÇÃO CADASTRAL */}
+        {showPosAceite && (
+          <Card className="border-2 border-emerald-500 shadow-md bg-white">
+            <CardHeader className="bg-emerald-50/70 border-b border-emerald-200 p-4 sm:p-5">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <CardTitle className="text-base sm:text-lg text-emerald-950">
+                  {proposta.expand?.empresa?.pre_cadastro ||
+                  proposta.expand?.cliente_pf?.pre_cadastro
+                    ? 'Etapa Complementar: Informações para Emissão do Contrato'
+                    : 'Validação e Atualização das Informações Cadastrais'}
+                </CardTitle>
+              </div>
+              <p className="text-xs text-emerald-800 mt-1">
+                {proposta.expand?.empresa?.pre_cadastro || proposta.expand?.cliente_pf?.pre_cadastro
+                  ? 'Como seu cadastro é preliminar, complete as informações complementares abaixo para que nosso setor jurídico emita a minuta oficial do Contrato de Serviços.'
+                  : 'Por favor, revise as informações cadastradas para a elaboração do Contrato de Serviços Técnicos. Você pode ajustar qualquer divergência.'}
+              </p>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6">
+              <form onSubmit={handleSalvarDadosComplementares} className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs font-semibold">Razão Social ou Nome Completo *</Label>
+                    <Input
+                      required
+                      value={formData.nomeOuRazao}
+                      onChange={(e) => setFormData({ ...formData, nomeOuRazao: e.target.value })}
+                      className="h-8 text-xs mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-semibold">Nome Fantasia (se houver)</Label>
+                    <Input
+                      value={formData.nomeFantasia}
+                      onChange={(e) => setFormData({ ...formData, nomeFantasia: e.target.value })}
+                      className="h-8 text-xs mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-xs font-semibold">CNPJ / CPF *</Label>
+                    <Input
+                      required
+                      value={formData.documento}
+                      onChange={(e) => setFormData({ ...formData, documento: e.target.value })}
+                      className="h-8 text-xs mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-semibold">
+                      E-mail Principal para Contrato *
+                    </Label>
+                    <Input
+                      type="email"
+                      required
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="h-8 text-xs mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-semibold">Telefone / WhatsApp *</Label>
+                    <Input
+                      required
+                      value={formData.telefone}
+                      onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
+                      className="h-8 text-xs mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t pt-3 mt-3 space-y-3">
+                  <span className="font-semibold text-slate-800 block text-[11px] uppercase tracking-wider">
+                    Endereço Completo para Qualificação Contratual
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div>
+                      <Label className="text-[11px] text-slate-600">CEP</Label>
+                      <Input
+                        value={formData.cep}
+                        onChange={(e) => setFormData({ ...formData, cep: e.target.value })}
+                        className="h-8 text-xs mt-1"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label className="text-[11px] text-slate-600">Logradouro / Rua</Label>
+                      <Input
+                        value={formData.logradouro}
+                        onChange={(e) => setFormData({ ...formData, logradouro: e.target.value })}
+                        className="h-8 text-xs mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-600">Número</Label>
+                      <Input
+                        value={formData.numero}
+                        onChange={(e) => setFormData({ ...formData, numero: e.target.value })}
+                        className="h-8 text-xs mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-[11px] text-slate-600">Bairro</Label>
+                      <Input
+                        value={formData.bairro}
+                        onChange={(e) => setFormData({ ...formData, bairro: e.target.value })}
+                        className="h-8 text-xs mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-600">Município</Label>
+                      <Input
+                        value={formData.municipio}
+                        onChange={(e) => setFormData({ ...formData, municipio: e.target.value })}
+                        className="h-8 text-xs mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-600">UF</Label>
+                      <Input
+                        value={formData.uf}
+                        maxLength={2}
+                        onChange={(e) =>
+                          setFormData({ ...formData, uf: e.target.value.toUpperCase() })
+                        }
+                        className="h-8 text-xs mt-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t">
+                  <Button
+                    type="submit"
+                    disabled={submittingPosAceite}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs h-9 px-5 gap-1.5"
+                  >
+                    {submittingPosAceite ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Check className="w-3.5 h-3.5" />
+                    )}
+                    Confirmar e Enviar Informações Contratuais
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
         )}
 
         {/* DOCUMENTO DA PROPOSTA (LAYOUT DE DOCUMENTO FORMAL) */}
@@ -343,7 +710,7 @@ export const PropostaPublicaPage: React.FC = () => {
               </div>
             </div>
 
-            {/* SEÇÃO 2: OBJETO & ESCOPO TÉCNICO GMAIS */}
+            {/* SEÇÃO 2: OBJETO & ESCOPO TÉCNICO */}
             {proposta.objeto && (
               <div className="space-y-2">
                 <h3 className="font-bold text-sm text-slate-900 border-b pb-1">
@@ -365,6 +732,7 @@ export const PropostaPublicaPage: React.FC = () => {
                 {proposta.escopo_gerado || proposta.escopo}
               </div>
             </div>
+
             {/* SEÇÃO 3: DISCIPLINAS E ENTREGÁVEIS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <div className="space-y-2">
@@ -444,7 +812,6 @@ export const PropostaPublicaPage: React.FC = () => {
                 </table>
               </div>
 
-              {/* OBSERVAÇÃO SOBRE NOTA FISCAL NA PÁGINA PÚBLICA */}
               <div className="p-2.5 bg-slate-50 border rounded text-[11px] text-slate-600 leading-relaxed">
                 <strong>Observação Fiscal: </strong>
                 {proposta.requer_nota ? (
@@ -462,7 +829,7 @@ export const PropostaPublicaPage: React.FC = () => {
               </div>
             </div>
 
-            {/* SEÇÃO CONDIÇÕES GERAIS (SE PREENCHIDA) */}
+            {/* SEÇÃO CONDIÇÕES GERAIS */}
             {proposta.condicoes_gerais && (
               <div className="space-y-2">
                 <h3 className="font-bold text-sm text-slate-900 border-b pb-1">
@@ -474,7 +841,7 @@ export const PropostaPublicaPage: React.FC = () => {
               </div>
             )}
 
-            {/* SEÇÃO 5: PRAZO E CONDIÇÕES DE PAGAMENTO */}
+            {/* PRAZO E CONDIÇÕES DE PAGAMENTO */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 bg-slate-50 p-3.5 sm:p-4 rounded-lg border border-slate-200">
               <div className="space-y-1">
                 <span className="font-bold text-slate-900 text-[11px] uppercase tracking-wider block">
@@ -495,7 +862,7 @@ export const PropostaPublicaPage: React.FC = () => {
               </div>
             </div>
 
-            {/* SEÇÃO 6: PREMISSAS E EXCLUSÕES */}
+            {/* PREMISSAS E EXCLUSÕES */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <div className="space-y-1">
                 <h4 className="font-bold text-slate-900 text-[11px] uppercase tracking-wider">
@@ -517,45 +884,77 @@ export const PropostaPublicaPage: React.FC = () => {
             </div>
           </div>
 
-          {/* RODAPÉ DO DOCUMENTO COM BOTÕES DE AÇÃO (ACEITAR / RECUSAR) */}
+          {/* CHECKBOX DE DECLARAÇÃO OBRIGATÓRIA (MECANISMO DE VALIDADE JURÍDICA) */}
+          {!isFinalizada && (
+            <div className="p-4 sm:p-6 bg-slate-50/90 border-t border-slate-200 space-y-3">
+              <div className="flex items-start gap-3 bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs">
+                <Checkbox
+                  id="chk-declaracao"
+                  checked={declaracaoAceite}
+                  onCheckedChange={(c) => setDeclaracaoAceite(c === true)}
+                  className="mt-0.5"
+                />
+                <label
+                  htmlFor="chk-declaracao"
+                  className="text-xs text-slate-700 leading-relaxed cursor-pointer select-none"
+                >
+                  <strong className="text-slate-900">Declaração de Aceite Eletrônico:</strong>{' '}
+                  Declaro que li, compreendi e concordo integralmente com os termos, escopo técnico,
+                  planilha orçamentária, prazos e condições gerais da Proposta Comercial{' '}
+                  <strong className="text-slate-900 font-mono">{proposta.numero}</strong> (
+                  {proposta.revisao || 'Rev.00'}). Reconheço este aceite eletrônico com plena
+                  eficácia e validade jurídica para a subsequente emissão do Contrato de Prestação
+                  de Serviços.
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* RODAPÉ DO DOCUMENTO COM BOTÕES DE AÇÃO (SOLICITAR ALTERAÇÕES / RECUSAR / ACEITAR) */}
           <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 print:hidden">
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
               <span className="text-[11px] sm:text-xs">
-                Ambiente seguro de aceite digital com rastreabilidade e validade jurídica.
+                Ambiente seguro de formalização eletrônica com registro de IP, hora e integridade
+                criptográfica.
               </span>
             </div>
 
             {!isFinalizada && (
               <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
+                {/* Botão Solicitar Alterações */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowAlteracoesModal(true)}
+                  disabled={processingAceite}
+                  className="text-xs font-semibold text-purple-700 border-purple-300 hover:bg-purple-50 justify-center"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                  Solicitar Alterações
+                </Button>
+
+                {/* Botão Recusar Proposta (com trava de segurança) */}
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setShowRecusaModal(true)}
                   disabled={processingAceite}
-                  className="w-full sm:w-auto min-h-[44px] sm:min-h-0 border-red-300 text-red-700 hover:bg-red-50 text-xs font-semibold justify-center"
+                  className="border-red-300 text-red-700 hover:bg-red-50 text-xs font-semibold justify-center"
                 >
-                  <XCircle className="w-4 h-4 mr-1.5 shrink-0" />
+                  <XCircle className="w-3.5 h-3.5 mr-1.5 shrink-0" />
                   Recusar Proposta
                 </Button>
 
+                {/* Botão Aceitar Proposta (dupla confirmação) */}
                 <Button
                   type="button"
-                  onClick={handleAceitarProposta}
-                  disabled={processingAceite}
-                  className="w-full sm:w-auto min-h-[44px] sm:min-h-0 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-6 shadow-sm justify-center"
+                  onClick={handleAbrirConfirmacaoAceite}
+                  disabled={processingAceite || !declaracaoAceite}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-6 shadow-sm justify-center disabled:opacity-50"
                 >
-                  {processingAceite ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-1.5 shrink-0" />
-                      Registrando Aceite...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-4 h-4 mr-1.5 shrink-0" />
-                      Aceitar Proposta
-                    </>
-                  )}
+                  <Check className="w-4 h-4 mr-1.5 shrink-0" />
+                  Aceitar Proposta
                 </Button>
               </div>
             )}
@@ -563,17 +962,73 @@ export const PropostaPublicaPage: React.FC = () => {
         </div>
       </div>
 
-      {/* MODAL DE RECUSA COM MOTIVO OBRIGATÓRIO (Req. E) */}
+      {/* 1. MODAL SOLICITAR ALTERAÇÕES PELO CLIENTE */}
+      <Dialog open={showAlteracoesModal} onOpenChange={setShowAlteracoesModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2 text-purple-800">
+              <MessageSquare className="w-5 h-5 text-purple-600" />
+              Solicitar Ajustes na Proposta {proposta.numero}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Descreva detalhadamente o que você gostaria de ajustar (escopo, prazos, parcelamento
+              ou valores). Nossa equipe técnica reavaliará a proposta para emissão de uma nova
+              versão.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSolicitarAlteracoes} className="space-y-4 py-2">
+            <div>
+              <Label className="text-xs font-semibold text-slate-800">
+                Descrição dos ajustes ou esclarecimentos desejados *
+              </Label>
+              <Textarea
+                required
+                rows={4}
+                value={textoAlteracoes}
+                onChange={(e) => setTextoAlteracoes(e.target.value)}
+                placeholder="Exemplo: Gostaríamos de incluir o projeto hidrossanitário e negociar o parcelamento em 4 vezes..."
+                className="text-xs mt-1"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAlteracoesModal(false)}
+                disabled={submittingAlteracoes}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={submittingAlteracoes || !textoAlteracoes.trim()}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                {submittingAlteracoes ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+                ) : null}
+                Enviar Solicitação
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* 2. MODAL DE RECUSA COM TRAVA DE SEGURANÇA OBRIGATÓRIA */}
       <Dialog open={showRecusaModal} onOpenChange={setShowRecusaModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base flex items-center gap-2 text-red-700">
-              <XCircle className="w-5 h-5" />
-              Recusar Proposta {proposta.numero}
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+              Confirmação de Recusa da Proposta {proposta.numero}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Para registrar a recusa, selecione obrigatoriamente o motivo principal e compartilhe
-              mais detalhes caso deseje.
+              Para evitar cliques indevidos, a recusa exige confirmação expressa e a seleção do
+              motivo principal.
             </DialogDescription>
           </DialogHeader>
 
@@ -624,6 +1079,23 @@ export const PropostaPublicaPage: React.FC = () => {
               />
             </div>
 
+            {/* TRAVA DE SEGURANÇA OBRIGATÓRIA */}
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2.5">
+              <Checkbox
+                id="chk-trava-recusa"
+                checked={confirmacaoTravaRecusa}
+                onCheckedChange={(c) => setConfirmacaoTravaRecusa(c === true)}
+                className="mt-0.5"
+              />
+              <label
+                htmlFor="chk-trava-recusa"
+                className="text-[11px] text-red-900 leading-snug cursor-pointer select-none font-medium"
+              >
+                Confirmo que desejo registrar a recusa formal desta proposta comercial, ciente de
+                que ela não poderá mais ser aceita.
+              </label>
+            </div>
+
             <DialogFooter className="pt-2">
               <Button
                 type="button"
@@ -637,14 +1109,84 @@ export const PropostaPublicaPage: React.FC = () => {
               <Button
                 type="submit"
                 size="sm"
-                disabled={submittingRecusa || !motivoSelecionado}
+                disabled={submittingRecusa || !motivoSelecionado || !confirmacaoTravaRecusa}
                 className="bg-red-600 hover:bg-red-700 text-white"
               >
                 {submittingRecusa ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
-                Confirmar Recusa
+                Confirmar Recusa Definitiva
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* 3. MODAL DE DUPLA CONFIRMAÇÃO DO ACEITE COM VALIDADE JURÍDICA */}
+      <Dialog open={showConfirmacaoAceiteModal} onOpenChange={setShowConfirmacaoAceiteModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2 text-emerald-800">
+              <ShieldCheck className="w-5 h-5 text-emerald-600" />
+              Confirmar Aceite Eletrônico da Proposta
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Você está prestes a formalizar o aceite eletrônico da Proposta Comercial{' '}
+              <strong className="text-slate-900 font-mono">{proposta.numero}</strong> no valor de{' '}
+              <strong className="text-slate-900">{formatCurrencyBr(proposta.preco)}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-3 text-xs text-slate-600">
+            <div className="p-3 bg-slate-50 border rounded-lg space-y-1.5 text-[11px]">
+              <div className="flex justify-between">
+                <span>Versão da Proposta:</span>
+                <strong className="text-slate-800">{proposta.revisao || 'Rev.00'}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Prazo de Execução:</span>
+                <strong className="text-slate-800">{proposta.prazo || '30 dias'}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Segurança e Rastreabilidade:</span>
+                <strong className="text-emerald-700">IP, Data/Hora e Hash gravados</strong>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500 italic">
+              * Nota: Este aceite eletrônico formaliza o compromisso comercial entre as partes e
+              encaminhará o processo para a elaboração do Contrato de Serviços GMAIS.
+            </p>
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowConfirmacaoAceiteModal(false)}
+              disabled={processingAceite}
+            >
+              Revisar Proposta
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleConfirmarAceiteFinal}
+              disabled={processingAceite}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5"
+            >
+              {processingAceite ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Gravando Hash e Aceite...
+                </>
+              ) : (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  Confirmar Aceite Definitivo
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

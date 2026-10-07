@@ -2,11 +2,21 @@ import pb from '@/lib/pocketbase/client'
 import { ClientePfRecord, PropostaRecord } from '@/types'
 import { cleanCpf } from '@/lib/cnpj'
 
+import { TelefoneItem } from '@/types'
+
 export interface CreateClientePfData {
   nome: string
   cpf: string
   email?: string
   telefone?: string
+  telefones?: TelefoneItem[]
+  cep?: string
+  logradouro?: string
+  numero?: string
+  complemento?: string
+  bairro?: string
+  municipio?: string
+  uf?: string
   base_legal: string
   consentimento_lgpd: boolean
   data_consentimento?: string
@@ -23,8 +33,17 @@ export interface CreateClientePfData {
 
 export interface UpdateClientePfData {
   nome?: string
+  cpf?: string
   email?: string
   telefone?: string
+  telefones?: TelefoneItem[]
+  cep?: string
+  logradouro?: string
+  numero?: string
+  complemento?: string
+  bairro?: string
+  municipio?: string
+  uf?: string
   base_legal?: string
   consentimento_lgpd?: boolean
   data_consentimento?: string
@@ -79,11 +98,24 @@ export const clientesPfService = {
       throw new Error(`Já existe um Cliente PF cadastrado com o CPF informado.`)
     }
 
+    // Se foram passados telefones estruturados, extrair o primeiro para o campo telefone legada
+    const telefonePrincipal =
+      dados.telefone ||
+      (dados.telefones && dados.telefones.length > 0 ? dados.telefones[0].numero : '')
+
     const record = await pb.collection('clientes_pf').create<ClientePfRecord>({
       nome: dados.nome,
       cpf: dados.cpf,
       email: dados.email || '',
-      telefone: dados.telefone || '',
+      telefone: telefonePrincipal || '',
+      telefones: dados.telefones || [],
+      cep: dados.cep || '',
+      logradouro: dados.logradouro || '',
+      numero: dados.numero || '',
+      complemento: dados.complemento || '',
+      bairro: dados.bairro || '',
+      municipio: dados.municipio || '',
+      uf: dados.uf || '',
       base_legal: dados.base_legal,
       consentimento_lgpd: Boolean(dados.consentimento_lgpd),
       data_consentimento: dados.data_consentimento || new Date().toISOString().split('T')[0],
@@ -116,7 +148,11 @@ export const clientesPfService = {
    * Atualiza dados de cliente PF
    */
   async update(id: string, dados: UpdateClientePfData): Promise<ClientePfRecord> {
-    return await pb.collection('clientes_pf').update<ClientePfRecord>(id, dados)
+    const payload: Record<string, unknown> = { ...dados }
+    if (dados.telefones && dados.telefones.length > 0 && !dados.telefone) {
+      payload.telefone = dados.telefones[0].numero
+    }
+    return await pb.collection('clientes_pf').update<ClientePfRecord>(id, payload)
   },
 
   /**

@@ -22,6 +22,11 @@ export interface CreateEmpresaData {
   porte?: string
   uf?: string
   municipio?: string
+  cep?: string
+  logradouro?: string
+  numero?: string
+  complemento?: string
+  bairro?: string
   email?: string
   telefone?: string
   telefones?: EmpresaRecord['telefones']

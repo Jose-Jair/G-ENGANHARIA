@@ -20,11 +20,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { User, ShieldCheck, FilePlus2, Loader2, AlertCircle } from 'lucide-react'
-import { formatCpf, isValidCpf, cleanCpf, formatPhoneBr } from '@/lib/cnpj'
+import { User, ShieldCheck, FilePlus2, Loader2, AlertCircle, Mail } from 'lucide-react'
+import { formatCpf, isValidCpf, cleanCpf } from '@/lib/cnpj'
 import { useToast } from '@/hooks/use-toast'
 import { clientesPfService, CreateClientePfData } from '@/services/clientesPf'
-import { BASE_LEGAL_LGPD_LABELS, BaseLegalLgpd } from '@/types'
+import { BASE_LEGAL_LGPD_LABELS, BaseLegalLgpd, TelefoneItem } from '@/types'
+import { ListaTelefones } from '@/components/comum/ListaTelefones'
+import { EnderecoComCep, EnderecoValue } from '@/components/comum/EnderecoComCep'
 
 interface ModalCriarClientePfProps {
   open: boolean
@@ -41,12 +43,21 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
     nome: '',
     cpf: '',
     email: '',
-    telefone: '',
     base_legal: 'consentimento',
     consentimento_lgpd: true,
     data_consentimento: new Date().toISOString().split('T')[0],
-    endereco: '',
     observacoes: '',
+  })
+
+  const [telefones, setTelefones] = useState<TelefoneItem[]>([])
+  const [endereco, setEndereco] = useState<EnderecoValue>({
+    cep: '',
+    logradouro: '',
+    numero: '',
+    complemento: '',
+    bairro: '',
+    municipio: '',
+    uf: '',
   })
 
   // Vínculo opcional a proposta
@@ -70,6 +81,11 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
     } else {
       setCpfError(null)
     }
+  }
+
+  const handleEnviarEmail = () => {
+    if (!formData.email?.trim()) return
+    window.location.href = `mailto:${formData.email.trim()}`
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -113,11 +129,34 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
       return
     }
 
+    // String compatível com o endereço de texto existente
+    const partesEndereco = [
+      endereco.logradouro,
+      endereco.numero ? `nº ${endereco.numero}` : '',
+      endereco.complemento,
+      endereco.bairro,
+      endereco.municipio && endereco.uf ? `${endereco.municipio}/${endereco.uf}` : '',
+      endereco.cep ? `CEP ${endereco.cep}` : '',
+    ].filter(Boolean)
+    const enderecoTexto = partesEndereco.join(', ')
+
+    const primeiroTel = telefones[0]?.numero || ''
+
     setSalvando(true)
     try {
       await clientesPfService.create({
         ...formData,
         cpf: formatCpf(formData.cpf),
+        telefone: primeiroTel,
+        telefones,
+        cep: endereco.cep?.trim() || undefined,
+        logradouro: endereco.logradouro?.trim() || undefined,
+        numero: endereco.numero?.trim() || undefined,
+        complemento: endereco.complemento?.trim() || undefined,
+        bairro: endereco.bairro?.trim() || undefined,
+        municipio: endereco.municipio?.trim() || undefined,
+        uf: endereco.uf?.trim() || undefined,
+        endereco: enderecoTexto || undefined,
         propostaOpcional: incluirProposta
           ? {
               numero: propostaData.numero,
@@ -156,9 +195,8 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
             Novo Cliente Pessoa Física (PF)
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Cadastro de contratantes pessoa física (laudos periciais, reforço estrutural
-            residencial, projetos executivos autônomos). Validação estrita de CPF e consentimento
-            LGPD obrigatório.
+            Cadastro de contratantes pessoa física com contatos completos (múltiplos telefones com
+            WhatsApp), endereço segmentado via CEP e conformidade LGPD.
           </DialogDescription>
         </DialogHeader>
 
@@ -173,7 +211,7 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
                 value={formData.nome}
                 onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
                 placeholder="Ex: Carlos Alberto Silveira"
-                className="text-xs h-9"
+                className="text-xs h-9 bg-white"
               />
             </div>
 
@@ -186,7 +224,7 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
                 value={formatCpf(formData.cpf)}
                 onChange={handleCpfChange}
                 placeholder="000.000.000-00"
-                className={`text-xs h-9 font-mono ${
+                className={`text-xs h-9 font-mono bg-white ${
                   cpfError ? 'border-red-500 focus-visible:ring-red-400' : ''
                 }`}
               />
@@ -199,49 +237,62 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs">Telefone / WhatsApp</Label>
-              <Input
-                value={formatPhoneBr(formData.telefone)}
-                onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
-                placeholder="(11) 98765-4321"
-                className="text-xs h-9"
-              />
-            </div>
-
-            <div className="space-y-1 sm:col-span-2">
-              <Label className="text-xs">E-mail</Label>
-              <Input
-                type="email"
-                value={formData.email || ''}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="cliente@email.com"
-                className="text-xs h-9"
-              />
-            </div>
-
-            <div className="space-y-1 sm:col-span-2">
-              <Label className="text-xs">Endereço Completo</Label>
-              <Input
-                value={formData.endereco || ''}
-                onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
-                placeholder="Rua, número, complemento, bairro, cidade - UF"
-                className="text-xs h-9"
-              />
-            </div>
-
-            <div className="space-y-1 sm:col-span-2">
-              <Label className="text-xs">Observações do Atendimento</Label>
-              <Textarea
-                rows={2}
-                value={formData.observacoes || ''}
-                onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                placeholder="Natureza da demanda, laudo pericial, indicação..."
-                className="text-xs"
-              />
+              <Label className="text-xs">E-mail (Único)</Label>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="email"
+                  value={formData.email || ''}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="cliente@email.com"
+                  className="text-xs h-9 bg-white flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEnviarEmail}
+                  disabled={!formData.email?.trim()}
+                  className="h-9 px-2 text-xs text-blue-700 hover:bg-blue-50 border-blue-200 gap-1 shrink-0"
+                  title="Abrir no cliente de e-mail padrão (mailto:)"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Enviar</span>
+                </Button>
+              </div>
             </div>
           </div>
 
-          {/* Seção LGPD Obrigatória (Requisito B) */}
+          {/* Múltiplos Telefones com WhatsApp */}
+          <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50">
+            <ListaTelefones
+              telefones={telefones}
+              onChange={setTelefones}
+              label="Telefones do Cliente PF"
+              helperText="Adicione múltiplos números (fixo ou celular) com interruptor WhatsApp."
+            />
+          </div>
+
+          {/* Endereço Segmentado com busca ViaCEP e fallback IBGE */}
+          <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50">
+            <EnderecoComCep
+              value={endereco}
+              onChange={setEndereco}
+              label="Endereço Completo do Cliente PF"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Observações do Atendimento</Label>
+            <Textarea
+              rows={2}
+              value={formData.observacoes || ''}
+              onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+              placeholder="Natureza da demanda, laudo pericial, indicação..."
+              className="text-xs bg-white"
+            />
+          </div>
+
+          {/* Seção LGPD Obrigatória */}
           <div className="border border-emerald-200 bg-emerald-50/40 rounded-lg p-3.5 space-y-3">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-700" />

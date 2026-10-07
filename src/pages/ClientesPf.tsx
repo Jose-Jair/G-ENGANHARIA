@@ -451,6 +451,7 @@ export function ClientesPfPage() {
         onOpenChange={setShowDetailModal}
         cliente={clienteSelecionado}
         propostas={propostas}
+        onClienteUpdated={() => carregarDados()}
       />
     </div>
   )

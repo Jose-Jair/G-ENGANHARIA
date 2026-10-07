@@ -67,6 +67,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { EmpresaDuplicadaModal } from './EmpresaDuplicadaModal'
 import { EmpresaWhatsAppModal } from './EmpresaWhatsAppModal'
+import { EnderecoComCep } from '@/components/comum/EnderecoComCep'
 
 interface EmpresaDetailModalProps {
   open: boolean
@@ -124,6 +125,11 @@ export function EmpresaDetailModal({
   const [porte, setPorte] = useState('')
   const [uf, setUf] = useState('')
   const [municipio, setMunicipio] = useState('')
+  const [cep, setCep] = useState('')
+  const [logradouro, setLogradouro] = useState('')
+  const [numero, setNumero] = useState('')
+  const [complemento, setComplemento] = useState('')
+  const [bairro, setBairro] = useState('')
   const [email, setEmail] = useState('')
   const [telefones, setTelefones] = useState<import('@/types').TelefoneEmpresaItem[]>([])
   const [instagram, setInstagram] = useState('')
@@ -191,6 +197,11 @@ export function EmpresaDetailModal({
       setPorte(emp.porte || '')
       setUf(emp.uf || '')
       setMunicipio(emp.municipio || '')
+      setCep(emp.cep || '')
+      setLogradouro(emp.logradouro || '')
+      setNumero(emp.numero || '')
+      setComplemento(emp.complemento || '')
+      setBairro(emp.bairro || '')
       setEmail(emp.email || '')
 
       if (Array.isArray(emp.telefones) && emp.telefones.length > 0) {
@@ -230,6 +241,11 @@ export function EmpresaDetailModal({
       setPorte('')
       setUf('')
       setMunicipio('')
+      setCep('')
+      setLogradouro('')
+      setNumero('')
+      setComplemento('')
+      setBairro('')
       setEmail('')
       setTelefones([])
       setNovoTelefoneNumero('')
@@ -370,6 +386,7 @@ export function EmpresaDetailModal({
     const item: TelefoneEmpresaItem = {
       id: `tel_${Date.now()}`,
       numero: numeroFormatado,
+      whatsapp: novoTelefoneTipo === 'whatsapp',
       tipo: novoTelefoneTipo,
       ramalOuDescricao: novoTelefoneDesc.trim() || undefined,
     }
@@ -624,6 +641,11 @@ export function EmpresaDetailModal({
         porte: porte.trim(),
         uf: uf.trim().toUpperCase(),
         municipio: municipio.trim(),
+        cep: cep.trim() || undefined,
+        logradouro: logradouro.trim() || undefined,
+        numero: numero.trim() || undefined,
+        complemento: complemento.trim() || undefined,
+        bairro: bairro.trim() || undefined,
         email: email.trim().toLowerCase(),
         telefone: telPrincipal,
         telefones,
@@ -1171,15 +1193,43 @@ export function EmpresaDetailModal({
 
                     {/* Canais de Comunicação da Empresa */}
                     <div className="space-y-1.5 md:col-span-2">
-                      <Label htmlFor="empEmail">E-mail Comercial</Label>
-                      <Input
-                        id="empEmail"
-                        type="email"
-                        placeholder="contato@empresa.com.br"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
-                      />
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="empEmail">E-mail Comercial (Único)</Label>
+                        {email && (
+                          <button
+                            type="button"
+                            onClick={handleSendEmailEmpresa}
+                            className="text-[11px] text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                            title="Abrir no cliente de e-mail padrão (mailto:)"
+                          >
+                            <Mail className="w-3 h-3" />
+                            Enviar E-mail
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          id="empEmail"
+                          type="email"
+                          placeholder="contato@empresa.com.br"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSendEmailEmpresa}
+                          disabled={!email.trim()}
+                          className="h-10 px-2.5 text-xs text-blue-700 hover:bg-blue-50 border-blue-200 gap-1 shrink-0"
+                          title="Abrir no cliente de e-mail padrão (mailto:)"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Enviar</span>
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="space-y-1.5">
@@ -1225,6 +1275,34 @@ export function EmpresaDetailModal({
                         value={observacoes}
                         onChange={(e) => setObservacoes(e.target.value)}
                         disabled={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Seção de Endereço Segmentado com busca por CEP */}
+                  <div className="mt-4 pt-4 border-t border-slate-200">
+                    <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/70">
+                      <EnderecoComCep
+                        value={{
+                          cep,
+                          logradouro,
+                          numero,
+                          complemento,
+                          bairro,
+                          municipio,
+                          uf,
+                        }}
+                        onChange={(novoEnd) => {
+                          setCep(novoEnd.cep || '')
+                          setLogradouro(novoEnd.logradouro || '')
+                          setNumero(novoEnd.numero || '')
+                          setComplemento(novoEnd.complemento || '')
+                          setBairro(novoEnd.bairro || '')
+                          setMunicipio(novoEnd.municipio || '')
+                          setUf(novoEnd.uf || '')
+                        }}
+                        readOnly={readOnly || (Boolean(empresa) && !modoEdicaoDados)}
+                        label="Endereço da Empresa (Busca Automática via CEP / IBGE)"
                       />
                     </div>
                   </div>

@@ -102,12 +102,15 @@ export type StatusEmpresa = 'ativa' | 'inativa'
 
 export type TipoTelefoneEmpresa = 'celular' | 'whatsapp' | 'fixo'
 
-export interface TelefoneEmpresaItem {
+export interface TelefoneItem {
   id: string
   numero: string
-  tipo: TipoTelefoneEmpresa
+  tipo?: TipoTelefoneEmpresa
+  whatsapp?: boolean
   ramalOuDescricao?: string
 }
+
+export type TelefoneEmpresaItem = TelefoneItem
 
 export interface EmpresaRecord {
   id: string
@@ -119,9 +122,14 @@ export interface EmpresaRecord {
   porte?: string
   uf?: string
   municipio?: string
+  cep?: string
+  logradouro?: string
+  numero?: string
+  complemento?: string
+  bairro?: string
   email?: string
   telefone?: string
-  telefones?: TelefoneEmpresaItem[]
+  telefones?: TelefoneItem[]
   instagram?: string
   linkedin?: string
   site?: string
@@ -396,6 +404,14 @@ export interface ClientePfRecord {
   cpf: string
   email?: string
   telefone?: string
+  telefones?: TelefoneItem[]
+  cep?: string
+  logradouro?: string
+  numero?: string
+  complemento?: string
+  bairro?: string
+  municipio?: string
+  uf?: string
   base_legal?: BaseLegalLgpd | string
   consentimento_lgpd: boolean
   data_consentimento?: string

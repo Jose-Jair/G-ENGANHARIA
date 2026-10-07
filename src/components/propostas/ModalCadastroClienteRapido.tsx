@@ -10,21 +10,15 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { empresasService } from '@/services/empresas'
 import { clientesPfService } from '@/services/clientesPf'
-import { cleanCnpj, formatCnpj, cleanCpf, formatCpf } from '@/lib/cnpj'
-import { EmpresaRecord, ClientePfRecord } from '@/types'
-import { Building2, User, Loader2 } from 'lucide-react'
+import { cleanCnpj, formatCnpj, cleanCpf, formatCpf, isValidCnpj, isValidCpf } from '@/lib/cnpj'
+import { TelefoneItem } from '@/types'
+import { ListaTelefones } from '@/components/comum/ListaTelefones'
+import { EnderecoComCep, EnderecoValue } from '@/components/comum/EnderecoComCep'
+import { Building2, User, Loader2, Mail, ExternalLink, AlertCircle } from 'lucide-react'
 
 interface ModalCadastroClienteRapidoProps {
   open: boolean
@@ -41,6 +35,8 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
 }) => {
   const { toast } = useToast()
   const [submitting, setSubmitting] = useState(false)
+  const [cpfError, setCpfError] = useState<string | null>(null)
+  const [cnpjError, setCnpjError] = useState<string | null>(null)
 
   // Formulário PJ
   const [empresaForm, setEmpresaForm] = useState({
@@ -48,10 +44,17 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
     nome_fantasia: '',
     cnpj: '',
     email: '',
-    telefone: '',
-    uf: 'SP',
-    municipio: 'São Paulo',
     porte: 'EPP',
+  })
+  const [telefonesPj, setTelefonesPj] = useState<TelefoneItem[]>([])
+  const [enderecoPj, setEnderecoPj] = useState<EnderecoValue>({
+    cep: '',
+    logradouro: '',
+    numero: '',
+    complemento: '',
+    bairro: '',
+    municipio: 'São Paulo',
+    uf: 'SP',
   })
 
   // Formulário PF
@@ -59,11 +62,65 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
     nome: '',
     cpf: '',
     email: '',
-    telefone: '',
-    endereco: '',
     base_legal: 'Consentimento do titular (Art. 7º, I da LGPD)',
     consentimento_lgpd: true,
   })
+  const [telefonesPf, setTelefonesPf] = useState<TelefoneItem[]>([])
+  const [enderecoPf, setEnderecoPf] = useState<EnderecoValue>({
+    cep: '',
+    logradouro: '',
+    numero: '',
+    complemento: '',
+    bairro: '',
+    municipio: '',
+    uf: '',
+  })
+
+  // Validação ao digitar CNPJ
+  const handleCnpjChange = (val: string) => {
+    const formatado = formatCnpj(val)
+    setEmpresaForm((prev) => ({ ...prev, cnpj: formatado }))
+    const clean = cleanCnpj(val)
+    if (clean.length === 14) {
+      if (!isValidCnpj(clean)) {
+        setCnpjError('CNPJ inválido: os dígitos verificadores não conferem.')
+      } else {
+        setCnpjError(null)
+      }
+    } else {
+      setCnpjError(null)
+    }
+  }
+
+  // Validação ao digitar CPF
+  const handleCpfChange = (val: string) => {
+    const formatado = formatCpf(val)
+    setClientePfForm((prev) => ({ ...prev, cpf: formatado }))
+    const clean = cleanCpf(val)
+    if (clean.length === 11) {
+      if (!isValidCpf(clean)) {
+        setCpfError('CPF inválido: os dígitos verificadores não conferem.')
+      } else {
+        setCpfError(null)
+      }
+    } else {
+      setCpfError(null)
+    }
+  }
+
+  // Abertura de cliente de e-mail padrão via mailto:
+  const handleEnviarEmail = (destinatario: string) => {
+    const cleanEmail = destinatario.trim()
+    if (!cleanEmail) {
+      toast({
+        title: 'E-mail em branco',
+        description: 'Digite o endereço de e-mail antes de disparar.',
+        variant: 'destructive',
+      })
+      return
+    }
+    window.location.href = `mailto:${cleanEmail}`
+  }
 
   const handleSubmitPj = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -72,16 +129,48 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
       return
     }
 
+    const clean = cleanCnpj(empresaForm.cnpj)
+    if (clean && (clean.length !== 14 || !isValidCnpj(clean))) {
+      toast({
+        variant: 'destructive',
+        title: 'CNPJ inválido',
+        description: 'Corrija os dígitos verificadores do CNPJ.',
+      })
+      return
+    }
+
     setSubmitting(true)
     try {
+      // Checar duplicidade no banco por CNPJ
+      if (clean) {
+        const existente = await empresasService.findByCnpj(clean)
+        if (existente) {
+          toast({
+            variant: 'destructive',
+            title: 'Empresa já cadastrada',
+            description: `CNPJ já pertence a "${existente.razao_social}".`,
+          })
+          setSubmitting(false)
+          return
+        }
+      }
+
+      const primeiroTel = telefonesPj[0]?.numero || ''
+
       const created = await empresasService.create({
         razao_social: empresaForm.razao_social.trim(),
         nome_fantasia: empresaForm.nome_fantasia.trim() || undefined,
-        cnpj: formatCnpj(cleanCnpj(empresaForm.cnpj)),
+        cnpj: formatCnpj(clean) || undefined,
         email: empresaForm.email.trim() || undefined,
-        telefone: empresaForm.telefone.trim() || undefined,
-        uf: empresaForm.uf,
-        municipio: empresaForm.municipio,
+        telefone: primeiroTel || undefined,
+        telefones: telefonesPj,
+        cep: enderecoPj.cep?.trim() || undefined,
+        logradouro: enderecoPj.logradouro?.trim() || undefined,
+        numero: enderecoPj.numero?.trim() || undefined,
+        complemento: enderecoPj.complemento?.trim() || undefined,
+        bairro: enderecoPj.bairro?.trim() || undefined,
+        uf: enderecoPj.uf || 'SP',
+        municipio: enderecoPj.municipio || 'São Paulo',
         porte: empresaForm.porte,
         etapa_funil: 'com_proposta_elaborada',
         status: 'ativa',
@@ -110,6 +199,15 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
       toast({ variant: 'destructive', title: 'Nome obrigatório' })
       return
     }
+    const clean = cleanCpf(clientePfForm.cpf)
+    if (clean && (clean.length !== 11 || !isValidCpf(clean))) {
+      toast({
+        variant: 'destructive',
+        title: 'CPF inválido',
+        description: 'Corrija os dígitos verificadores do CPF.',
+      })
+      return
+    }
     if (!clientePfForm.consentimento_lgpd) {
       toast({
         variant: 'destructive',
@@ -121,12 +219,33 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
 
     setSubmitting(true)
     try {
+      const primeiroTel = telefonesPf[0]?.numero || ''
+
+      // Monta string de endereço compatível com o legado para visualizações antigas
+      const partesEndereco = [
+        enderecoPf.logradouro,
+        enderecoPf.numero ? `nº ${enderecoPf.numero}` : '',
+        enderecoPf.complemento,
+        enderecoPf.bairro,
+        enderecoPf.municipio && enderecoPf.uf ? `${enderecoPf.municipio}/${enderecoPf.uf}` : '',
+        enderecoPf.cep ? `CEP ${enderecoPf.cep}` : '',
+      ].filter(Boolean)
+      const enderecoTexto = partesEndereco.join(', ')
+
       const created = await clientesPfService.create({
         nome: clientePfForm.nome.trim(),
-        cpf: clientePfForm.cpf ? formatCpf(cleanCpf(clientePfForm.cpf)) : undefined,
+        cpf: formatCpf(clean) || '',
         email: clientePfForm.email.trim() || undefined,
-        telefone: clientePfForm.telefone.trim() || undefined,
-        endereco: clientePfForm.endereco.trim() || undefined,
+        telefone: primeiroTel || undefined,
+        telefones: telefonesPf,
+        cep: enderecoPf.cep?.trim() || undefined,
+        logradouro: enderecoPf.logradouro?.trim() || undefined,
+        numero: enderecoPf.numero?.trim() || undefined,
+        complemento: enderecoPf.complemento?.trim() || undefined,
+        bairro: enderecoPf.bairro?.trim() || undefined,
+        municipio: enderecoPf.municipio?.trim() || undefined,
+        uf: enderecoPf.uf?.trim() || undefined,
+        endereco: enderecoTexto || undefined,
         base_legal: clientePfForm.base_legal,
         consentimento_lgpd: true,
         data_consentimento: new Date().toISOString(),
@@ -151,7 +270,7 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2">
             {tipo === 'pj' ? (
@@ -167,25 +286,26 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
             )}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Cadastro rápido sem sair da proposta. Ao concluir, o cliente já será selecionado
-            automaticamente.
+            Cadastro rápido completo com múltiplos telefones (WhatsApp), e-mail direto e endereço
+            com busca automática por CEP. Ao salvar, o cliente será selecionado na proposta.
           </DialogDescription>
         </DialogHeader>
 
         {tipo === 'pj' ? (
-          <form onSubmit={handleSubmitPj} className="space-y-3 pt-2 text-xs">
-            <div className="space-y-1">
-              <Label className="text-xs">Razão Social *</Label>
-              <Input
-                required
-                value={empresaForm.razao_social}
-                onChange={(e) => setEmpresaForm({ ...empresaForm, razao_social: e.target.value })}
-                placeholder="Ex: Construtora Exemplo Ltda"
-                className="text-xs h-9"
-              />
-            </div>
+          <form onSubmit={handleSubmitPj} className="space-y-4 pt-2 text-xs">
+            {/* Razão Social e Fantasia */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Razão Social *</Label>
+                <Input
+                  required
+                  value={empresaForm.razao_social}
+                  onChange={(e) => setEmpresaForm({ ...empresaForm, razao_social: e.target.value })}
+                  placeholder="Ex: Construtora Exemplo Ltda"
+                  className="text-xs h-9 bg-white"
+                />
+              </div>
 
-            <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs">Nome Fantasia</Label>
                 <Input
@@ -194,68 +314,75 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
                     setEmpresaForm({ ...empresaForm, nome_fantasia: e.target.value })
                   }
                   placeholder="Ex: Exemplo Engenharia"
-                  className="text-xs h-9"
+                  className="text-xs h-9 bg-white"
                 />
               </div>
+            </div>
 
+            {/* CNPJ e E-mail com botão Enviar E-mail */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">CNPJ</Label>
                 <Input
                   value={empresaForm.cnpj}
-                  onChange={(e) => setEmpresaForm({ ...empresaForm, cnpj: e.target.value })}
+                  onChange={(e) => handleCnpjChange(e.target.value)}
                   placeholder="00.000.000/0000-00"
-                  className="text-xs h-9 font-mono"
+                  className={`text-xs h-9 font-mono bg-white ${cnpjError ? 'border-red-500' : ''}`}
                 />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs">E-mail Comercial</Label>
-                <Input
-                  type="email"
-                  value={empresaForm.email}
-                  onChange={(e) => setEmpresaForm({ ...empresaForm, email: e.target.value })}
-                  placeholder="contato@empresa.com.br"
-                  className="text-xs h-9"
-                />
+                {cnpjError && (
+                  <span className="text-[11px] text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {cnpjError}
+                  </span>
+                )}
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs">Telefone / WhatsApp</Label>
-                <Input
-                  value={empresaForm.telefone}
-                  onChange={(e) => setEmpresaForm({ ...empresaForm, telefone: e.target.value })}
-                  placeholder="(11) 98765-4321"
-                  className="text-xs h-9"
-                />
+                <Label className="text-xs">E-mail Comercial (Único)</Label>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="email"
+                    value={empresaForm.email}
+                    onChange={(e) => setEmpresaForm({ ...empresaForm, email: e.target.value })}
+                    placeholder="contato@empresa.com.br"
+                    className="text-xs h-9 bg-white flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEnviarEmail(empresaForm.email)}
+                    disabled={!empresaForm.email.trim()}
+                    className="h-9 px-2.5 text-xs text-blue-700 hover:bg-blue-50 border-blue-200 gap-1 shrink-0"
+                    title="Abrir no cliente de e-mail padrão (mailto:)"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Enviar</span>
+                  </Button>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs">UF</Label>
-                <Input
-                  maxLength={2}
-                  value={empresaForm.uf}
-                  onChange={(e) =>
-                    setEmpresaForm({ ...empresaForm, uf: e.target.value.toUpperCase() })
-                  }
-                  className="text-xs h-9 uppercase"
-                />
-              </div>
-
-              <div className="col-span-2 space-y-1">
-                <Label className="text-xs">Município</Label>
-                <Input
-                  value={empresaForm.municipio}
-                  onChange={(e) => setEmpresaForm({ ...empresaForm, municipio: e.target.value })}
-                  className="text-xs h-9"
-                />
-              </div>
+            {/* Múltiplos Telefones (WhatsApp on/off) */}
+            <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50">
+              <ListaTelefones
+                telefones={telefonesPj}
+                onChange={setTelefonesPj}
+                label="Telefones da Empresa"
+                helperText="Múltiplos números com máscara e interruptor WhatsApp."
+              />
             </div>
 
-            <DialogFooter className="pt-3">
+            {/* Endereço Segmentado com busca ViaCEP e fallback IBGE */}
+            <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50">
+              <EnderecoComCep
+                value={enderecoPj}
+                onChange={setEnderecoPj}
+                label="Endereço da Empresa"
+              />
+            </div>
+
+            <DialogFooter className="pt-3 border-t">
               <Button
                 type="button"
                 variant="outline"
@@ -268,70 +395,92 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
               <Button
                 type="submit"
                 size="sm"
-                disabled={submitting}
-                className="bg-orange-600 hover:bg-orange-700"
+                disabled={submitting || Boolean(cnpjError)}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
               >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-                Salvar e Selecionar
+                Salvar e Selecionar Empresa
               </Button>
             </DialogFooter>
           </form>
         ) : (
-          <form onSubmit={handleSubmitPf} className="space-y-3 pt-2 text-xs">
-            <div className="space-y-1">
-              <Label className="text-xs">Nome Completo *</Label>
-              <Input
-                required
-                value={clientePfForm.nome}
-                onChange={(e) => setClientePfForm({ ...clientePfForm, nome: e.target.value })}
-                placeholder="Ex: João da Silva Santos"
-                className="text-xs h-9"
-              />
-            </div>
+          <form onSubmit={handleSubmitPf} className="space-y-4 pt-2 text-xs">
+            {/* Nome e CPF */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Nome Completo *</Label>
+                <Input
+                  required
+                  value={clientePfForm.nome}
+                  onChange={(e) => setClientePfForm({ ...clientePfForm, nome: e.target.value })}
+                  placeholder="Ex: Carlos Alberto Silveira"
+                  className="text-xs h-9 bg-white"
+                />
+              </div>
 
-            <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs">CPF</Label>
                 <Input
                   value={clientePfForm.cpf}
-                  onChange={(e) => setClientePfForm({ ...clientePfForm, cpf: e.target.value })}
+                  onChange={(e) => handleCpfChange(e.target.value)}
                   placeholder="000.000.000-00"
-                  className="text-xs h-9 font-mono"
+                  className={`text-xs h-9 font-mono bg-white ${cpfError ? 'border-red-500' : ''}`}
                 />
+                {cpfError && (
+                  <span className="text-[11px] text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {cpfError}
+                  </span>
+                )}
               </div>
+            </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs">Telefone / WhatsApp</Label>
+            {/* E-mail com botão Enviar E-mail */}
+            <div className="space-y-1">
+              <Label className="text-xs">E-mail do Cliente (Único)</Label>
+              <div className="flex items-center gap-1.5">
                 <Input
-                  value={clientePfForm.telefone}
-                  onChange={(e) => setClientePfForm({ ...clientePfForm, telefone: e.target.value })}
-                  placeholder="(11) 98765-4321"
-                  className="text-xs h-9"
+                  type="email"
+                  value={clientePfForm.email}
+                  onChange={(e) => setClientePfForm({ ...clientePfForm, email: e.target.value })}
+                  placeholder="cliente@email.com"
+                  className="text-xs h-9 bg-white flex-1"
                 />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEnviarEmail(clientePfForm.email)}
+                  disabled={!clientePfForm.email.trim()}
+                  className="h-9 px-2.5 text-xs text-blue-700 hover:bg-blue-50 border-blue-200 gap-1 shrink-0"
+                  title="Abrir no cliente de e-mail padrão (mailto:)"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Enviar</span>
+                </Button>
               </div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs">E-mail</Label>
-              <Input
-                type="email"
-                value={clientePfForm.email}
-                onChange={(e) => setClientePfForm({ ...clientePfForm, email: e.target.value })}
-                placeholder="cliente@email.com"
-                className="text-xs h-9"
+            {/* Múltiplos Telefones (WhatsApp on/off) */}
+            <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50">
+              <ListaTelefones
+                telefones={telefonesPf}
+                onChange={setTelefonesPf}
+                label="Telefones do Cliente PF"
+                helperText="Adicione celulares e fixos com indicação de WhatsApp."
               />
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs">Endereço Completo</Label>
-              <Input
-                value={clientePfForm.endereco}
-                onChange={(e) => setClientePfForm({ ...clientePfForm, endereco: e.target.value })}
-                placeholder="Rua, número, bairro, cidade - UF"
-                className="text-xs h-9"
+            {/* Endereço Segmentado com busca ViaCEP e fallback IBGE */}
+            <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50">
+              <EnderecoComCep
+                value={enderecoPf}
+                onChange={setEnderecoPf}
+                label="Endereço do Cliente PF"
               />
             </div>
 
+            {/* LGPD */}
             <div className="p-2.5 rounded bg-orange-50/70 border border-orange-200 space-y-2">
               <div className="flex items-start space-x-2">
                 <Checkbox
@@ -351,7 +500,7 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
               </div>
             </div>
 
-            <DialogFooter className="pt-3">
+            <DialogFooter className="pt-3 border-t">
               <Button
                 type="button"
                 variant="outline"
@@ -364,11 +513,11 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
               <Button
                 type="submit"
                 size="sm"
-                disabled={submitting}
-                className="bg-orange-600 hover:bg-orange-700"
+                disabled={submitting || Boolean(cpfError)}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
               >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-                Salvar e Selecionar
+                Salvar e Selecionar Cliente PF
               </Button>
             </DialogFooter>
           </form>

@@ -492,537 +492,557 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto p-6">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="text-xl flex items-center gap-2">
-                <FileText className="w-5 h-5 text-blue-600" />
-                {propostaToEdit
-                  ? `Editar Proposta ${propostaToEdit.numero} (${propostaToEdit.revisao || 'Rev.00'})`
-                  : 'Elaborar Nova Proposta de Engenharia'}
-              </DialogTitle>
-              <DialogDescription className="text-xs">
-                Numeração sequencial anual PROP-AAAA-NNNN gerada no servidor, cálculo BDI e
-                validação de alçada de aprovação.
-              </DialogDescription>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto p-6">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-xl flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  {propostaToEdit
+                    ? `Editar Proposta ${propostaToEdit.numero} (${propostaToEdit.revisao || 'Rev.00'})`
+                    : 'Elaborar Nova Proposta de Engenharia'}
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Numeração sequencial anual PROP-AAAA-NNNN gerada no servidor, cálculo BDI e
+                  validação de alçada de aprovação.
+                </DialogDescription>
+              </div>
+              {propostaToEdit && (
+                <Badge variant="outline" className="font-mono text-xs">
+                  {propostaToEdit.numero} - {propostaToEdit.revisao || 'Rev.00'}
+                </Badge>
+              )}
             </div>
-            {propostaToEdit && (
-              <Badge variant="outline" className="font-mono text-xs">
-                {propostaToEdit.numero} - {propostaToEdit.revisao || 'Rev.00'}
-              </Badge>
-            )}
-          </div>
-        </DialogHeader>
+          </DialogHeader>
 
-        <div className="space-y-6 pt-2 text-xs">
-          {/* 1. SELEÇÃO DE CLIENTE COM AUTOCOMPLETE DINÂMICO E CADASTRO RÁPIDO SEM PERDA */}
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-              <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                <Building2 className="w-4 h-4 text-orange-600" />
-                1. Destinatário e Contrato (Busca Dinâmica PF/PJ)
-              </span>
+          <div className="space-y-6 pt-2 text-xs">
+            {/* 1. SELEÇÃO DE CLIENTE COM AUTOCOMPLETE DINÂMICO E CADASTRO RÁPIDO SEM PERDA */}
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <span className="font-semibold text-slate-800 flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-orange-600" />
+                  1. Destinatário e Contrato (Busca Dinâmica PF/PJ)
+                </span>
 
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={tipoCliente === 'pj' ? 'default' : 'outline'}
-                  onClick={() => setTipoCliente('pj')}
-                  className={`h-7 text-xs ${
-                    tipoCliente === 'pj' ? 'bg-orange-600 hover:bg-orange-700' : ''
-                  }`}
-                >
-                  Pessoa Jurídica (PJ)
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={tipoCliente === 'pf' ? 'default' : 'outline'}
-                  onClick={() => setTipoCliente('pf')}
-                  className={`h-7 text-xs ${
-                    tipoCliente === 'pf' ? 'bg-orange-600 hover:bg-orange-700' : ''
-                  }`}
-                >
-                  Cliente PF
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={tipoCliente === 'pj' ? 'default' : 'outline'}
+                    onClick={() => setTipoCliente('pj')}
+                    className={`h-7 text-xs ${
+                      tipoCliente === 'pj' ? 'bg-orange-600 hover:bg-orange-700' : ''
+                    }`}
+                  >
+                    Pessoa Jurídica (PJ)
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={tipoCliente === 'pf' ? 'default' : 'outline'}
+                    onClick={() => setTipoCliente('pf')}
+                    className={`h-7 text-xs ${
+                      tipoCliente === 'pf' ? 'bg-orange-600 hover:bg-orange-700' : ''
+                    }`}
+                  >
+                    Cliente PF
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <ClienteAutocomplete
+                  tipo={tipoCliente}
+                  empresas={empresas}
+                  clientesPf={clientesPf}
+                  selectedEmpresaId={selectedEmpresaId}
+                  selectedClientePfId={selectedClientePfId}
+                  onSelectEmpresa={handleEmpresaChange}
+                  onSelectClientePf={setSelectedClientePfId}
+                  onOpenNovoClienteModal={() => setShowCadastroClienteModal(true)}
+                />
+
+                {tipoCliente === 'pj' ? (
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-slate-800">
+                      Contrato Público Vinculado
+                    </Label>
+                    <Select
+                      value={selectedContratoId}
+                      onValueChange={setSelectedContratoId}
+                      disabled={contratos.length === 0}
+                    >
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue
+                          placeholder={
+                            contratos.length > 0
+                              ? 'Selecione o contrato...'
+                              : selectedEmpresaId
+                                ? 'Nenhum contrato ativo cadastrado para a empresa'
+                                : 'Selecione a empresa acima primeiro'
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {contratos.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.numero} - {c.orgao} ({formatCurrencyBr(c.valor)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <div className="space-y-1 flex flex-col justify-end">
+                    <p className="text-[11px] text-slate-500 bg-white p-2.5 rounded border border-slate-200">
+                      <strong className="text-slate-800 block mb-0.5">Regra LGPD:</strong>
+                      Cliente PF cadastrado com consentimento explícito arquivado no sistema para
+                      orçamentos e projetos.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <ClienteAutocomplete
-                tipo={tipoCliente}
-                empresas={empresas}
-                clientesPf={clientesPf}
-                selectedEmpresaId={selectedEmpresaId}
-                selectedClientePfId={selectedClientePfId}
-                onSelectEmpresa={handleEmpresaChange}
-                onSelectClientePf={setSelectedClientePfId}
-                onOpenNovoClienteModal={() => setShowCadastroClienteModal(true)}
-              />
+            {/* 2. ITENS DE SERVIÇO E CÁLCULO DE PREÇO */}
+            <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-2">
+                <div>
+                  <span className="font-semibold text-slate-800 flex items-center gap-1.5">
+                    <Calculator className="w-4 h-4 text-emerald-600" />
+                    2. Itens do Catálogo e Planilha de Preço
+                  </span>
+                  <p className="text-[11px] text-slate-500">
+                    Preço = Custo dos itens + Margem ({margemPercent}%) + Impostos (
+                    {impostosPercent}
+                    %)
+                  </p>
+                </div>
 
-              {tipoCliente === 'pj' ? (
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-slate-800">
-                    Contrato Público Vinculado
-                  </Label>
-                  <Select
-                    value={selectedContratoId}
-                    onValueChange={setSelectedContratoId}
-                    disabled={contratos.length === 0}
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    onClick={() => setShowCascataModal(true)}
+                    className="h-8 text-xs gap-1.5 bg-orange-600 hover:bg-orange-700 text-white font-medium"
                   >
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue
-                        placeholder={
-                          contratos.length > 0
-                            ? 'Selecione o contrato...'
-                            : selectedEmpresaId
-                            ? 'Nenhum contrato ativo cadastrado para a empresa'
-                            : 'Selecione a empresa acima primeiro'
-                        }
-                      />
+                    <Plus className="w-3.5 h-3.5" />+ Inserir por Área & Catálogo
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleAddItem()}
+                    className="h-8 text-xs gap-1"
+                  >
+                    Item Avulso
+                  </Button>
+                </div>
+              </div>
+
+              {/* Tabela de Itens */}
+              <div className="overflow-x-auto border rounded-md">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-700 font-semibold border-b">
+                    <tr>
+                      <th className="py-2 px-3">Descrição do Serviço & Especialidades</th>
+                      <th className="py-2 px-3 w-28">Disciplina</th>
+                      <th className="py-2 px-2 w-16">Unid.</th>
+                      <th className="py-2 px-2 w-20 text-center">Qtd.</th>
+                      <th className="py-2 px-3 w-28 text-right">Custo Unit. (R$)</th>
+                      <th className="py-2 px-3 w-28 text-right">Custo Total</th>
+                      <th className="py-2 px-2 w-10 text-center"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {itens.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-6 text-center text-slate-400">
+                          Nenhum item adicionado à proposta. Clique em &quot;+ Inserir por Área
+                          &amp; Catálogo&quot; acima.
+                        </td>
+                      </tr>
+                    ) : (
+                      itens.map((it, idx) => {
+                        const areaObj = areas.find((a) => a.id === it.area)
+                        return (
+                          <tr key={idx} className="hover:bg-slate-50">
+                            <td className="py-2 px-3 space-y-1">
+                              <Input
+                                value={it.descricao}
+                                onChange={(e) => handleUpdateItem(idx, 'descricao', e.target.value)}
+                                className="h-7 text-xs"
+                              />
+                              {(areaObj || (it.subservicos && it.subservicos.length > 0)) && (
+                                <div className="flex flex-wrap items-center gap-1">
+                                  {areaObj && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] bg-orange-50 border-orange-200 text-orange-800"
+                                    >
+                                      {areaObj.nome}
+                                    </Badge>
+                                  )}
+                                  {it.subservicos?.map((s, sIdx) => (
+                                    <Badge key={sIdx} variant="secondary" className="text-[10px]">
+                                      {s}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-2 px-3">
+                              <Input
+                                value={it.disciplina || ''}
+                                onChange={(e) =>
+                                  handleUpdateItem(idx, 'disciplina', e.target.value)
+                                }
+                                className="h-7 text-xs"
+                              />
+                            </td>
+                            <td className="py-2 px-2">
+                              <Input
+                                value={it.unidade || 'un'}
+                                onChange={(e) => handleUpdateItem(idx, 'unidade', e.target.value)}
+                                className="h-7 text-xs text-center"
+                              />
+                            </td>
+                            <td className="py-2 px-2">
+                              <Input
+                                type="number"
+                                min="0.1"
+                                step="0.1"
+                                value={it.quantidade}
+                                onChange={(e) =>
+                                  handleUpdateItem(idx, 'quantidade', e.target.value)
+                                }
+                                className="h-7 text-xs text-center font-mono"
+                              />
+                            </td>
+                            <td className="py-2 px-3 text-right">
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={it.custo_unitario}
+                                onChange={(e) =>
+                                  handleUpdateItem(idx, 'custo_unitario', e.target.value)
+                                }
+                                className="h-7 text-xs text-right font-mono"
+                              />
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-medium text-slate-900">
+                              {formatCurrencyBr(it.custo_total)}
+                            </td>
+                            <td className="py-2 px-2 text-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveItem(idx)}
+                                className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Configuração de Margem e Impostos */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                <div>
+                  <Label className="text-[11px] font-medium text-slate-600">
+                    Custo Direto Base
+                  </Label>
+                  <div className="text-base font-bold font-mono text-slate-800">
+                    {formatCurrencyBr(totais.custo)}
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-medium text-slate-600">
+                    Margem de Lucro (%):
+                  </Label>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      value={margemPercent}
+                      onChange={(e) => setMargemPercent(parseFloat(e.target.value) || 0)}
+                      className="h-8 text-xs font-mono w-24"
+                    />
+                    <span className="text-[11px] font-mono text-slate-600">
+                      +{formatCurrencyBr(totais.valorMargem)}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-medium text-slate-600">
+                    Impostos / Tributos (%):
+                  </Label>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={impostosPercent}
+                      onChange={(e) => setImpostosPercent(parseFloat(e.target.value) || 0)}
+                      className="h-8 text-xs font-mono w-24"
+                    />
+                    <span className="text-[11px] font-mono text-slate-600">
+                      +{formatCurrencyBr(totais.valorImpostos)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-emerald-50/80 p-2.5 rounded border border-emerald-200">
+                  <Label className="text-[11px] font-semibold text-emerald-800">
+                    Preço Total da Proposta
+                  </Label>
+                  <div className="text-lg font-bold font-mono text-emerald-700">
+                    {formatCurrencyBr(totais.precoTotal)}
+                  </div>
+                </div>
+              </div>
+
+              {/* ALÇADA DE APROVAÇÃO */}
+              <div
+                className={`p-3 rounded-lg border flex items-start gap-2.5 ${
+                  alcadaInfo.requerAdmin
+                    ? 'bg-amber-50 border-amber-200 text-amber-900'
+                    : 'bg-blue-50 border-blue-200 text-blue-900'
+                }`}
+              >
+                {alcadaInfo.requerAdmin ? (
+                  <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                ) : (
+                  <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                )}
+                <div className="text-xs">
+                  <div className="font-semibold">
+                    {alcadaInfo.requerAdmin
+                      ? 'Requer Aprovação de Alçada (Administrador + Parecer Financeiro)'
+                      : 'Aprovação Autônoma do Comercial'}
+                  </div>
+                  <p className="text-[11px] mt-0.5 opacity-90">{alcadaInfo.motivoAlcada}</p>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Regra parametrizada: Limite até {formatCurrencyBr(limiteAlcadaValor)} e Margem
+                    mínima de {margemMinimaAlcada}%. Acima disso exige validação da Diretoria/Admin.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. MODELOS E CONTEÚDO TÉCNICO */}
+            <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-2">
+                <span className="font-semibold text-slate-800 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                  3. Modelo de Texto e Especificações Técnicas
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <Select value={selectedModeloId} onValueChange={handleAplicarModelo}>
+                    <SelectTrigger className="h-8 text-xs w-[240px]">
+                      <SelectValue placeholder="Aplicar Modelo Padrão..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {contratos.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.numero} - {c.orgao} ({formatCurrencyBr(c.valor)})
+                      {modelos.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.nome}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-              ) : (
-                <div className="space-y-1 flex flex-col justify-end">
-                  <p className="text-[11px] text-slate-500 bg-white p-2.5 rounded border border-slate-200">
-                    <strong className="text-slate-800 block mb-0.5">Regra LGPD:</strong>
-                    Cliente PF cadastrado com consentimento explícito arquivado no sistema para orçamentos e projetos.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 2. ITENS DE SERVIÇO E CÁLCULO DE PREÇO */}
-          <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-2">
-              <div>
-                <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                  <Calculator className="w-4 h-4 text-emerald-600" />
-                  2. Itens do Catálogo e Planilha de Preço
-                </span>
-                <p className="text-[11px] text-slate-500">
-                  Preço = Custo dos itens + Margem ({margemPercent}%) + Impostos ({impostosPercent}
-                  %)
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  onClick={() => setShowCascataModal(true)}
-                  className="h-8 text-xs gap-1.5 bg-orange-600 hover:bg-orange-700 text-white font-medium"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  + Inserir por Área & Catálogo
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleAddItem()}
-                  className="h-8 text-xs gap-1"
-                >
-                  Item Avulso
-                </Button>
-              </div>
-            </div>
-
-            {/* Tabela de Itens */}
-            <div className="overflow-x-auto border rounded-md">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 text-slate-700 font-semibold border-b">
-                  <tr>
-                    <th className="py-2 px-3">Descrição do Serviço & Especialidades</th>
-                    <th className="py-2 px-3 w-28">Disciplina</th>
-                    <th className="py-2 px-2 w-16">Unid.</th>
-                    <th className="py-2 px-2 w-20 text-center">Qtd.</th>
-                    <th className="py-2 px-3 w-28 text-right">Custo Unit. (R$)</th>
-                    <th className="py-2 px-3 w-28 text-right">Custo Total</th>
-                    <th className="py-2 px-2 w-10 text-center"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {itens.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-6 text-center text-slate-400">
-                        Nenhum item adicionado à proposta. Clique em &quot;+ Inserir por Área &amp; Catálogo&quot; acima.
-                      </td>
-                    </tr>
-                  ) : (
-                    itens.map((it, idx) => {
-                      const areaObj = areas.find((a) => a.id === it.area)
-                      return (
-                      <tr key={idx} className="hover:bg-slate-50">
-                        <td className="py-2 px-3 space-y-1">
-                          <Input
-                            value={it.descricao}
-                            onChange={(e) => handleUpdateItem(idx, 'descricao', e.target.value)}
-                            className="h-7 text-xs"
-                          />
-                          {(areaObj || (it.subservicos && it.subservicos.length > 0)) && (
-                            <div className="flex flex-wrap items-center gap-1">
-                              {areaObj && (
-                                <Badge variant="outline" className="text-[10px] bg-orange-50 border-orange-200 text-orange-800">
-                                  {areaObj.nome}
-                                </Badge>
-                              )}
-                              {it.subservicos?.map((s, sIdx) => (
-                                <Badge key={sIdx} variant="secondary" className="text-[10px]">
-                                  {s}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-2 px-3">
-                          <Input
-                            value={it.disciplina || ''}
-                            onChange={(e) => handleUpdateItem(idx, 'disciplina', e.target.value)}
-                            className="h-7 text-xs"
-                          />
-                        </td>
-                        <td className="py-2 px-2">
-                          <Input
-                            value={it.unidade || 'un'}
-                            onChange={(e) => handleUpdateItem(idx, 'unidade', e.target.value)}
-                            className="h-7 text-xs text-center"
-                          />
-                        </td>
-                        <td className="py-2 px-2">
-                          <Input
-                            type="number"
-                            min="0.1"
-                            step="0.1"
-                            value={it.quantidade}
-                            onChange={(e) => handleUpdateItem(idx, 'quantidade', e.target.value)}
-                            className="h-7 text-xs text-center font-mono"
-                          />
-                        </td>
-                        <td className="py-2 px-3 text-right">
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={it.custo_unitario}
-                            onChange={(e) =>
-                              handleUpdateItem(idx, 'custo_unitario', e.target.value)
-                            }
-                            className="h-7 text-xs text-right font-mono"
-                          />
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono font-medium text-slate-900">
-                          {formatCurrencyBr(it.custo_total)}
-                        </td>
-                        <td className="py-2 px-2 text-center">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveItem(idx)}
-                            className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Configuração de Margem e Impostos */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <div>
-                <Label className="text-[11px] font-medium text-slate-600">Custo Direto Base</Label>
-                <div className="text-base font-bold font-mono text-slate-800">
-                  {formatCurrencyBr(totais.custo)}
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-[11px] font-medium text-slate-600">
-                  Margem de Lucro (%):
-                </Label>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    value={margemPercent}
-                    onChange={(e) => setMargemPercent(parseFloat(e.target.value) || 0)}
-                    className="h-8 text-xs font-mono w-24"
-                  />
-                  <span className="text-[11px] font-mono text-slate-600">
-                    +{formatCurrencyBr(totais.valorMargem)}
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-[11px] font-medium text-slate-600">
-                  Impostos / Tributos (%):
-                </Label>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    value={impostosPercent}
-                    onChange={(e) => setImpostosPercent(parseFloat(e.target.value) || 0)}
-                    className="h-8 text-xs font-mono w-24"
-                  />
-                  <span className="text-[11px] font-mono text-slate-600">
-                    +{formatCurrencyBr(totais.valorImpostos)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-emerald-50/80 p-2.5 rounded border border-emerald-200">
-                <Label className="text-[11px] font-semibold text-emerald-800">
-                  Preço Total da Proposta
-                </Label>
-                <div className="text-lg font-bold font-mono text-emerald-700">
-                  {formatCurrencyBr(totais.precoTotal)}
-                </div>
-              </div>
-            </div>
-
-            {/* ALÇADA DE APROVAÇÃO */}
-            <div
-              className={`p-3 rounded-lg border flex items-start gap-2.5 ${
-                alcadaInfo.requerAdmin
-                  ? 'bg-amber-50 border-amber-200 text-amber-900'
-                  : 'bg-blue-50 border-blue-200 text-blue-900'
-              }`}
-            >
-              {alcadaInfo.requerAdmin ? (
-                <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-              ) : (
-                <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-              )}
-              <div className="text-xs">
-                <div className="font-semibold">
-                  {alcadaInfo.requerAdmin
-                    ? 'Requer Aprovação de Alçada (Administrador + Parecer Financeiro)'
-                    : 'Aprovação Autônoma do Comercial'}
-                </div>
-                <p className="text-[11px] mt-0.5 opacity-90">{alcadaInfo.motivoAlcada}</p>
-                <p className="text-[10px] text-slate-500 mt-1">
-                  Regra parametrizada: Limite até {formatCurrencyBr(limiteAlcadaValor)} e Margem
-                  mínima de {margemMinimaAlcada}%. Acima disso exige validação da Diretoria/Admin.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* 3. MODELOS E CONTEÚDO TÉCNICO */}
-          <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-2">
-              <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-purple-600" />
-                3. Modelo de Texto e Especificações Técnicas
-              </span>
-
-              <div className="flex items-center gap-2">
-                <Select value={selectedModeloId} onValueChange={handleAplicarModelo}>
-                  <SelectTrigger className="h-8 text-xs w-[240px]">
-                    <SelectValue placeholder="Aplicar Modelo Padrão..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {modelos.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">Escopo Técnico dos Serviços *</Label>
-              <Textarea
-                rows={4}
-                value={escopo}
-                onChange={(e) => setEscopo(e.target.value)}
-                placeholder="Detalhamento das atividades, metodologias e escopo a ser entregue..."
-                className="text-xs font-sans"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Disciplinas Envolvidas</Label>
-                <Input
-                  value={disciplinas}
-                  onChange={(e) => setDisciplinas(e.target.value)}
-                  placeholder="Ex: Arquitetura, Estruturas, Instalações Prediais, BIM"
-                  className="text-xs h-9"
-                />
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs font-medium">Entregáveis Previstos</Label>
-                <Input
-                  value={entregaveis}
-                  onChange={(e) => setEntregaveis(e.target.value)}
-                  placeholder="Ex: Memoriais, pranchas em DWG/PDF, modelo IFC e ART"
-                  className="text-xs h-9"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Prazo de Execução</Label>
-                <Input
-                  value={prazo}
-                  onChange={(e) => setPrazo(e.target.value)}
-                  placeholder="Ex: 45 dias corridos"
-                  className="text-xs h-9"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Condições de Pagamento</Label>
-                <Input
-                  value={condicoesPagamento}
-                  onChange={(e) => setCondicoesPagamento(e.target.value)}
-                  placeholder="Ex: 30% entrada + 70% na entrega"
-                  className="text-xs h-9"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Validade da Proposta (Data Limite)</Label>
-                <Input
-                  type="date"
-                  value={validadeData}
-                  onChange={(e) => setValidadeData(e.target.value)}
-                  className="text-xs h-9 font-mono"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Premissas e Requisitos</Label>
+                <Label className="text-xs font-medium">Escopo Técnico dos Serviços *</Label>
                 <Textarea
-                  rows={2}
-                  value={premissas}
-                  onChange={(e) => setPremissas(e.target.value)}
-                  placeholder="Condições técnicas prévias para início dos serviços..."
-                  className="text-xs"
+                  rows={4}
+                  value={escopo}
+                  onChange={(e) => setEscopo(e.target.value)}
+                  placeholder="Detalhamento das atividades, metodologias e escopo a ser entregue..."
+                  className="text-xs font-sans"
                 />
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Exclusões</Label>
-                <Textarea
-                  rows={2}
-                  value={exclusoes}
-                  onChange={(e) => setExclusoes(e.target.value)}
-                  placeholder="Serviços ou taxas não contemplados nesta proposta..."
-                  className="text-xs"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Disciplinas Envolvidas</Label>
+                  <Input
+                    value={disciplinas}
+                    onChange={(e) => setDisciplinas(e.target.value)}
+                    placeholder="Ex: Arquitetura, Estruturas, Instalações Prediais, BIM"
+                    className="text-xs h-9"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Entregáveis Previstos</Label>
+                  <Input
+                    value={entregaveis}
+                    onChange={(e) => setEntregaveis(e.target.value)}
+                    placeholder="Ex: Memoriais, pranchas em DWG/PDF, modelo IFC e ART"
+                    className="text-xs h-9"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Prazo de Execução</Label>
+                  <Input
+                    value={prazo}
+                    onChange={(e) => setPrazo(e.target.value)}
+                    placeholder="Ex: 45 dias corridos"
+                    className="text-xs h-9"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Condições de Pagamento</Label>
+                  <Input
+                    value={condicoesPagamento}
+                    onChange={(e) => setCondicoesPagamento(e.target.value)}
+                    placeholder="Ex: 30% entrada + 70% na entrega"
+                    className="text-xs h-9"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Validade da Proposta (Data Limite)</Label>
+                  <Input
+                    type="date"
+                    value={validadeData}
+                    onChange={(e) => setValidadeData(e.target.value)}
+                    className="text-xs h-9 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Premissas e Requisitos</Label>
+                  <Textarea
+                    rows={2}
+                    value={premissas}
+                    onChange={(e) => setPremissas(e.target.value)}
+                    placeholder="Condições técnicas prévias para início dos serviços..."
+                    className="text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Exclusões</Label>
+                  <Textarea
+                    rows={2}
+                    value={exclusoes}
+                    onChange={(e) => setExclusoes(e.target.value)}
+                    placeholder="Serviços ou taxas não contemplados nesta proposta..."
+                    className="text-xs"
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <DialogFooter className="pt-4 border-t flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
-            Cancelar
-          </Button>
-
-          <div className="flex items-center gap-2">
+          <DialogFooter className="pt-4 border-t flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => handleSave(false)}
+              onClick={() => onOpenChange(false)}
               disabled={saving}
-              className="text-slate-700"
             >
-              Salvar como Rascunho
+              Cancelar
             </Button>
 
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => handleSave(true)}
-              disabled={saving}
-              className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
-            >
-              <Check className="w-4 h-4" />
-              Salvar e Enviar para Aprovação Interna
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleSave(false)}
+                disabled={saving}
+                className="text-slate-700"
+              >
+                Salvar como Rascunho
+              </Button>
 
-    {/* MODAL CADASTRO RÁPIDO CLIENTE (PF OU PJ) SEM PERDER O FORMULÁRIO */}
-    <ModalCadastroClienteRapido
-      open={showCadastroClienteModal}
-      onOpenChange={setShowCadastroClienteModal}
-      tipo={tipoCliente}
-      onClienteCadastrado={async (novo) => {
-        if (novo.tipo === 'pj') {
-          const empList = await empresasService.list({ status: 'ativa' })
-          setEmpresas(empList)
-          setSelectedEmpresaId(novo.id)
-          loadContratosEmpresa(novo.id)
-        } else {
-          const pfList = await clientesPfService.list()
-          setClientesPf(pfList)
-          setSelectedClientePfId(novo.id)
-        }
-      }}
-    />
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleSave(true)}
+                disabled={saving}
+                className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                Salvar e Enviar para Aprovação Interna
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-    {/* MODAL CASCATA ÁREA -> SERVIÇO -> SUBSERVIÇOS -> ENTREGÁVEIS */}
-    <ModalItemPropostaCascata
-      open={showCascataModal}
-      onOpenChange={setShowCascataModal}
-      areas={areas}
-      subservicos={subservicos}
-      entregaveisPadrao={entregaveisPadrao}
-      catalogoServicos={catalogoServicos}
-      onItemConfirmado={(novoItem, entsSugeridos) => {
-        setItens([...itens, novoItem])
-        if (novoItem.disciplina && !disciplinas.includes(novoItem.disciplina)) {
-          setDisciplinas(disciplinas ? `${disciplinas}, ${novoItem.disciplina}` : novoItem.disciplina)
-        }
-        if (entsSugeridos.length > 0) {
-          const entsAtuais = entregaveis ? entregaveis.split(',').map((e) => e.trim()).filter(Boolean) : []
-          const uniao = Array.from(new Set([...entsAtuais, ...entsSugeridos]))
-          setEntregaveis(uniao.join(', '))
-        }
-      }}
-    />
+      {/* MODAL CADASTRO RÁPIDO CLIENTE (PF OU PJ) SEM PERDER O FORMULÁRIO */}
+      <ModalCadastroClienteRapido
+        open={showCadastroClienteModal}
+        onOpenChange={setShowCadastroClienteModal}
+        tipo={tipoCliente}
+        onClienteCadastrado={async (novo) => {
+          if (novo.tipo === 'pj') {
+            const empList = await empresasService.list({ status: 'ativa' })
+            setEmpresas(empList)
+            setSelectedEmpresaId(novo.id)
+            loadContratosEmpresa(novo.id)
+          } else {
+            const pfList = await clientesPfService.list()
+            setClientesPf(pfList)
+            setSelectedClientePfId(novo.id)
+          }
+        }}
+      />
+
+      {/* MODAL CASCATA ÁREA -> SERVIÇO -> SUBSERVIÇOS -> ENTREGÁVEIS */}
+      <ModalItemPropostaCascata
+        open={showCascataModal}
+        onOpenChange={setShowCascataModal}
+        areas={areas}
+        subservicos={subservicos}
+        entregaveisPadrao={entregaveisPadrao}
+        catalogoServicos={catalogoServicos}
+        onItemConfirmado={(novoItem, entsSugeridos) => {
+          setItens([...itens, novoItem])
+          if (novoItem.disciplina && !disciplinas.includes(novoItem.disciplina)) {
+            setDisciplinas(
+              disciplinas ? `${disciplinas}, ${novoItem.disciplina}` : novoItem.disciplina,
+            )
+          }
+          if (entsSugeridos.length > 0) {
+            const entsAtuais = entregaveis
+              ? entregaveis
+                  .split(',')
+                  .map((e) => e.trim())
+                  .filter(Boolean)
+              : []
+            const uniao = Array.from(new Set([...entsAtuais, ...entsSugeridos]))
+            setEntregaveis(uniao.join(', '))
+          }
+        }}
+      />
     </>
   )
 }

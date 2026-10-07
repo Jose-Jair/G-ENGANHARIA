@@ -106,11 +106,12 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
     }
     const g = gruposArea.get(areaId)!
     g.itens.push(it)
+    const bdi = Number(it.bdi_percentual ?? proposta.margem ?? 0)
     const valorItem =
-      it.preco_total !== undefined
-        ? it.preco_total
-        : (it.custo_total || 0) * (1 + (it.bdi_percentual || 0) / 100)
-    g.subtotal += valorItem
+      it.preco_total !== undefined && it.preco_total !== null
+        ? Math.round(Number(it.preco_total) * 100) / 100
+        : Math.round(Number(it.custo_total || 0) * (1 + bdi / 100) * 100) / 100
+    g.subtotal = Math.round((g.subtotal + valorItem) * 100) / 100
   })
 
   const gruposArray = Array.from(gruposArea.values())
@@ -263,19 +264,19 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
             </h2>
 
             <div className="border border-slate-300 rounded overflow-hidden">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 text-slate-900 font-bold border-b border-slate-300">
+              <table className="w-full table-fixed text-left text-xs">
+                <thead className="bg-slate-100 text-slate-900 font-bold border-b border-slate-300 break-inside-avoid [page-break-inside:avoid]">
                   <tr>
-                    <th className="py-2 px-3">Tipo de Projeto / Área &amp; Serviços</th>
-                    <th className="py-2 px-2 text-center w-16">Qtd.</th>
-                    <th className="py-2 px-3 text-right w-36">Investimento (R$)</th>
+                    <th className="py-2 px-3 w-[60%]">Tipo de Projeto / Área &amp; Serviços</th>
+                    <th className="py-2 px-2 text-center w-[15%]">Qtd.</th>
+                    <th className="py-2 px-3 text-right w-[25%]">Investimento (R$)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {gruposArray.length > 0 ? (
                     gruposArray.map((grupo, gIdx) => (
                       <React.Fragment key={gIdx}>
-                        <tr className="bg-slate-50 font-semibold text-slate-900">
+                        <tr className="bg-slate-50 font-semibold text-slate-900 print-table-row break-inside-avoid [page-break-inside:avoid]">
                           <td colSpan={2} className="py-2 px-3">
                             <span className="uppercase text-[11px] text-orange-700 tracking-wide">
                               ● {grupo.nomeArea}
@@ -286,12 +287,17 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
                           </td>
                         </tr>
                         {grupo.itens.map((it, itIdx) => {
+                          const bdi = Number(it.bdi_percentual ?? proposta.margem ?? 0)
                           const valorLinha =
-                            it.preco_total !== undefined
-                              ? it.preco_total
-                              : (it.custo_total || 0) * (1 + (it.bdi_percentual || 0) / 100)
+                            it.preco_total !== undefined && it.preco_total !== null
+                              ? Math.round(Number(it.preco_total) * 100) / 100
+                              : Math.round(Number(it.custo_total || 0) * (1 + bdi / 100) * 100) /
+                                100
                           return (
-                            <tr key={itIdx} className="text-[11px] text-slate-700">
+                            <tr
+                              key={itIdx}
+                              className="text-[11px] text-slate-700 print-table-row break-inside-avoid [page-break-inside:avoid]"
+                            >
                               <td className="py-1 px-4 pl-6">
                                 <span>{it.descricao}</span>
                                 {it.subservicos && it.subservicos.length > 0 && (
@@ -312,7 +318,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
                       </React.Fragment>
                     ))
                   ) : (
-                    <tr>
+                    <tr className="print-table-row break-inside-avoid [page-break-inside:avoid]">
                       <td colSpan={3} className="py-3 px-3 text-center text-slate-500">
                         Serviços técnicos especializados: {formatCurrencyBr(proposta.preco)}
                       </td>
@@ -320,7 +326,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
                   )}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-slate-900 text-white font-bold border-t-2 border-slate-900">
+                  <tr className="bg-slate-900 text-white font-bold border-t-2 border-slate-900 print-table-row break-inside-avoid [page-break-inside:avoid]">
                     <td colSpan={2} className="py-2.5 px-3 uppercase text-xs tracking-wider">
                       VALOR GLOBAL CONSOLIDADO
                     </td>
@@ -412,17 +418,17 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
           </section>
 
           {/* 10. SEÇÃO 8: CONDIÇÕES GERAIS */}
-          <section className="dossie-secao space-y-1.5">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
+          <section className="dossie-secao break-inside-avoid [page-break-inside:avoid] space-y-1.5">
+            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 break-inside-avoid [page-break-inside:avoid]">
               <span>8. Condições Gerais</span>
             </h2>
-            <div className="text-slate-800 whitespace-pre-wrap leading-relaxed text-justify text-[11px]">
+            <div className="text-slate-800 whitespace-pre-wrap leading-relaxed text-justify text-[11px] break-inside-avoid [page-break-inside:avoid]">
               {condicoesGeraisTexto}
             </div>
           </section>
 
           {/* 11. SEÇÃO 9: ACEITE & ASSINATURAS (MODELO GMAIS) */}
-          <section className="dossie-secao-assinaturas space-y-4 pt-4">
+          <section className="dossie-secao-assinaturas break-inside-avoid [page-break-inside:avoid] space-y-4 pt-4">
             <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
               <span>9. Aceite &amp; Assinaturas</span>
             </h2>

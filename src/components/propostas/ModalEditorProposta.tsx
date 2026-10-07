@@ -1132,14 +1132,18 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-100 text-slate-700 font-semibold border-b">
                       <tr>
-                        <th className="py-2 px-3">Área &amp; Descrição do Serviço</th>
-                        <th className="py-2 px-3 w-24">Origem</th>
-                        <th className="py-2 px-2 w-14 text-center">Unid.</th>
-                        <th className="py-2 px-2 w-16 text-center">Qtd.</th>
-                        <th className="py-2 px-2 w-24 text-right">Custo Dir.</th>
-                        <th className="py-2 px-2 w-28 text-right">Preço Venda</th>
-                        <th className="py-2 px-3 w-28 text-right">Preço Total</th>
-                        <th className="py-2 px-2 w-10 text-center"></th>
+                        <th className="py-2.5 px-3 w-[45%]">
+                          Disciplina &amp; Descrição do Serviço
+                        </th>
+                        <th className="py-2.5 px-2 w-20 text-center">Origem</th>
+                        <th className="py-2.5 px-2 w-16 text-center">Unid.</th>
+                        <th className="py-2.5 px-2 w-28 text-center bg-slate-200/80 font-bold text-slate-900">
+                          Qtd.
+                        </th>
+                        <th className="py-2.5 px-2 w-24 text-right">Custo Dir.</th>
+                        <th className="py-2.5 px-2 w-28 text-right">Preço Venda</th>
+                        <th className="py-2.5 px-3 w-32 text-right">Preço Total</th>
+                        <th className="py-2.5 px-2 w-10 text-center"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
@@ -1173,7 +1177,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
 
                           return (
                             <tr key={idx} className="hover:bg-slate-50">
-                              <td className="py-2 px-3 space-y-1">
+                              <td className="p-3.5 space-y-1 w-[45%]">
                                 <Input
                                   value={it.descricao}
                                   onChange={(e) =>
@@ -1199,7 +1203,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                                   </div>
                                 )}
                               </td>
-                              <td className="py-2 px-3">
+                              <td className="p-3.5 text-center">
                                 <Badge
                                   variant="outline"
                                   className={`text-[10px] ${
@@ -1211,14 +1215,14 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                                   {isCat ? 'Catálogo' : 'Avulso'}
                                 </Badge>
                               </td>
-                              <td className="py-2 px-2">
+                              <td className="p-3.5 text-center">
                                 <Input
                                   value={it.unidade || 'un'}
                                   onChange={(e) => handleUpdateItem(idx, 'unidade', e.target.value)}
-                                  className="h-7 text-xs text-center"
+                                  className="h-7 text-xs text-center mx-auto w-14"
                                 />
                               </td>
-                              <td className="py-2 px-2">
+                              <td className="p-3.5 text-center bg-slate-100">
                                 <Input
                                   type="number"
                                   min="0.1"
@@ -1227,10 +1231,10 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                                   onChange={(e) =>
                                     handleUpdateItem(idx, 'quantidade', e.target.value)
                                   }
-                                  className="h-7 text-xs text-center font-mono"
+                                  className="h-8 min-w-[80px] w-20 px-2.5 py-1 text-center font-mono font-bold text-sm bg-white border-slate-300 mx-auto shadow-2xs"
                                 />
                               </td>
-                              <td className="py-2 px-2 text-right">
+                              <td className="p-3.5 text-right font-mono">
                                 <Input
                                   type="number"
                                   min="0"
@@ -1244,7 +1248,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                                   title="Custo direto unitário"
                                 />
                               </td>
-                              <td className="py-2 px-2 text-right">
+                              <td className="p-3.5 text-right font-mono">
                                 {isCat ? (
                                   <Input
                                     type="number"
@@ -1276,10 +1280,10 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                                   </div>
                                 )}
                               </td>
-                              <td className="py-2 px-3 text-right font-mono font-semibold text-slate-900">
+                              <td className="p-3.5 text-right font-mono font-bold text-slate-900 text-xs">
                                 {formatCurrencyBr(precoTotalLinha)}
                               </td>
-                              <td className="py-2 px-2 text-center">
+                              <td className="p-3.5 text-center">
                                 <Button
                                   type="button"
                                   variant="ghost"

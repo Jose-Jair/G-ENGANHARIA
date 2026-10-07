@@ -82,7 +82,7 @@ export const ModalAprovacaoInterna: React.FC<ModalAprovacaoInternaProps> = ({
     setLoading(true)
     try {
       const payload: any = {
-        status: 'enviada', // Liberada para envio
+        status: 'aprovada', // Liberada para envio
       }
 
       if (isAdmin) {

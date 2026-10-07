@@ -320,6 +320,11 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
       },
     ],
     regrasAutomaticas: [
+      'Ciclo de vida formal da proposta: Rascunho → Aprovação Interna → Aprovada → Enviada (via WhatsApp, E-mail oficial ou Cópia de Link confirmada) → Visualizada → Em Negociação → Aceita ou Recusada.',
+      'Envio Manual Auditado: clicar em "Copiar Link" exige confirmação no sistema; ao confirmar, a proposta avança para "Enviada" e grava auditoria ENVIO_PROPOSTA_MANUAL com IP, usuário e dados do destinatário.',
+      'Devolutiva do Cliente e Trava de Segurança: ao solicitar ajustes pelo link público, a proposta entra em "Em Negociação", trava as ações de aceite/recusa do cliente com aviso de análise em andamento, e guarda a devolutiva no histórico cumulativo (historico_devolutivas). O desbloqueio ocorre mediante nova revisão (novo token).',
+      'Validade Jurídica do Aceite Eletrônico: o aceite via link público apoia-se em declaração expressa com concordância de termos, registro de endereço IP, timestamp UTC e hash criptográfico SHA-256 nos termos do art. 10, § 2º da Medida Provisória nº 2.200-2/2001 (validade jurídica plena de aceite eletrônico entre as partes; esclarecendo que NÃO se trata de certificado digital ICP-Brasil).',
+      'Contrato Bilateral dentro do Projeto: o aceite da proposta gera o Contrato de Prestação de Serviços Técnicos sob numeração oficial dentro do Projeto (aba "Contrato"). O projeto permanece no status inicial "Contratação" e só se torna "Ativo" após a assinatura eletrônica bilateral de ambas as partes.',
       'Numeração sequencial e contínua: PROP-AAAA-NNNN para propostas e PRJ-AAAA-NNNN para projetos gerados, garantindo rastreabilidade sem lacunas.',
       'Alçada comercial: propostas > R$ 100 mil ou com margem < 20% exigem deferimento exclusivo do perfil Admin.',
       'Validade configurável por proposta (padrão 15 dias, modelo GMAIS 5 dias), respeitada nos alertas D-3 e expiração automática.',
@@ -602,6 +607,21 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
 
 // Glossário de Termos do Negócio
 const GLOSSARIO_TERMOS = [
+  {
+    termo: 'Ciclo de Vida da Proposta',
+    definicao:
+      'Esteira formal de status da proposta: Rascunho → Aprovação Interna (alçada comercial) → Aprovada → Enviada (WhatsApp, E-mail oficial ou Link copiado) → Visualizada (pelo cliente) → Em Negociação (caso o cliente peça ajustes) → Aceita ou Recusada. Durante o status Em Negociação o link público fica travado para novo aceite até emissão de nova revisão.',
+  },
+  {
+    termo: 'Validade Jurídica do Aceite Eletrônico',
+    definicao:
+      'Mecanismo de formalização probatória em conformidade com o art. 10, § 2º da Medida Provisória nº 2.200-2/2001. Registra declaração de concordância, carimbo temporal, IP de conexão e hash SHA-256 do documento. Possui eficácia jurídica entre os contratantes como aceite eletrônico particular (não constitui certificação digital ICP-Brasil).',
+  },
+  {
+    termo: 'Contrato Bilateral do Projeto',
+    definicao:
+      'Instrumento jurídico gerado após o aceite da proposta, localizado na aba "Contrato" do projeto. O projeto recém-gerado assume o status "Contratação" e suas etapas operacionais, entregáveis e lançamentos financeiros são ativados somente após a assinatura eletrônica bilateral (G+ Engenharia e Contratante).',
+  },
   {
     termo: 'Pré-cadastro de Cliente (PF e PJ)',
     definicao:

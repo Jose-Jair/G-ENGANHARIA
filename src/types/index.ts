@@ -597,6 +597,12 @@ export interface PropostaRecord {
   aceite_hash?: string
   solicitacao_alteracao_texto?: string
   data_solicitacao_alteracao?: string
+  historico_devolutivas?: Array<{
+    data: string
+    versao?: string
+    texto: string
+    autor?: string
+  }>
   dados_complementares_preenchidos?: boolean
   contrato_servico?: string
   parecer_financeiro?: string

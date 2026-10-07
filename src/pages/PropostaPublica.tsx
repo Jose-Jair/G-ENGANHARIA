@@ -180,6 +180,29 @@ export function PropostaPublicaPage() {
     loadData()
   }, [token])
 
+  // Minuta do Contrato para visualização prévia
+  const [showMinutaModal, setShowMinutaModal] = useState(false)
+  const [clausulasMinuta, setClausulasMinuta] = useState<string>('')
+  const [loadingMinuta, setLoadingMinuta] = useState(false)
+
+  const handleAbrirMinutaContrato = async () => {
+    setShowMinutaModal(true)
+    setLoadingMinuta(true)
+    try {
+      const param = await parametrosService.get(
+        'contrato_servico_minuta_padrao',
+        'CLÁUSULA 1ª — DO OBJETO E ESCOPO TÉCNICO\nO presente instrumento tem por objeto a prestação dos serviços técnicos de engenharia discriminados na Proposta Comercial vinculada, a serem executados em estrita observância às normas técnicas brasileiras vigentes.\n\nCLÁUSULA 2ª — DO PRAZO E DA EXECUÇÃO\nOs serviços serão executados no prazo convencionado na proposta, iniciando-se a contagem a partir do fornecimento completo de todas as informações, acessos e documentações preliminares necessárias.\n\nCLÁUSULA 3ª — DAS CONDIÇÕES DE PAGAMENTO\nO pagamento será efetuado conforme os marcos e percentuais estabelecidos na proposta comercial. O atraso em qualquer pagamento sujeitará a incidência de juros moratórios de 1% ao mês e multa compensatória de 2%.\n\nCLÁUSULA 4ª — DAS ALTERAÇÕES E RETRABALHOS\nQuaisquer alterações de premissas, escopo ou solicitações supervenientes não contempladas expressamente no documento original deverão ser objeto de termo aditivo com orçamento complementar prévio.\n\nCLÁUSULA 5ª — DA CONFIDENCIALIDADE E PROPRIEDADE INTELECTUAL\nAs partes comprometem-se a manter sigilo rigoroso sobre quaisquer dados e documentos técnicos, reservando-se à Contratada a responsabilidade técnica e autoria dos projetos elaborados nos termos da legislação profissional vigente.\n\nCLÁUSULA 6ª — DA VALIDADE DO ACEITE ELETRÔNICO\nAs partes reconhecem a plena eficácia jurídica deste documento e das manifestações de vontade efetuadas eletronicamente, nos termos do art. 10, § 2º da MP nº 2.200-2/2001, com validação de autoria e integridade por meio de endereço IP, carimbo de data/hora e hash criptográfico.',
+      )
+      setClausulasMinuta(param)
+    } catch (_) {
+      setClausulasMinuta(
+        'Cláusulas gerais da minuta de prestação de serviços técnicos da G+ Engenharia Consultiva.',
+      )
+    } finally {
+      setLoadingMinuta(false)
+    }
+  }
+
   // 1. SOLICITAR ALTERAÇÕES PELO LINK
   const handleSolicitarAlteracoes = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -380,7 +403,10 @@ export function PropostaPublicaPage() {
   }
 
   const isFinalizada =
-    proposta.status === 'aceita' || proposta.status === 'recusada' || proposta.status === 'expirada'
+    proposta.status === 'aceita' ||
+    proposta.status === 'recusada' ||
+    proposta.status === 'expirada' ||
+    proposta.status === 'em_negociacao'
 
   return (
     <div className="min-h-screen bg-slate-100/80 py-4 sm:py-8 px-2 sm:px-6 lg:px-8 font-sans">
@@ -410,19 +436,21 @@ export function PropostaPublicaPage() {
         )}
 
         {proposta.status === 'em_negociacao' && (
-          <div className="bg-purple-600 text-white p-4 rounded-lg shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="bg-gradient-to-r from-purple-700 via-purple-600 to-indigo-700 text-white p-4 sm:p-5 rounded-lg shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-purple-400">
             <div className="flex items-center gap-3">
-              <MessageSquare className="w-6 h-6 text-purple-100 shrink-0" />
+              <MessageSquare className="w-7 h-7 text-purple-200 shrink-0" />
               <div>
-                <div className="font-bold text-sm">Proposta em Negociação / Análise de Ajustes</div>
-                <div className="text-xs text-purple-100">
-                  Sua solicitação de alterações foi recebida pela nossa equipe técnica e está sendo
-                  analisada para elaboração da versão final.
+                <div className="font-bold text-sm sm:text-base">
+                  Aguardando revisão da proposta ({proposta.revisao || 'Rev.00'}).
+                </div>
+                <div className="text-xs text-purple-100 mt-0.5 leading-relaxed">
+                  Nossa equipe técnica e comercial está elaborando os ajustes solicitados. Você
+                  receberá um novo link de acesso assim que a próxima versão for liberada.
                 </div>
               </div>
             </div>
-            <Badge className="bg-purple-800 text-white border-0 text-xs self-start sm:self-center">
-              Em Ajuste
+            <Badge className="bg-purple-900/90 text-purple-100 border border-purple-300 text-xs self-start sm:self-center font-mono py-1 px-2.5">
+              {proposta.revisao || 'Rev.00'} em Análise
             </Badge>
           </div>
         )}
@@ -478,9 +506,8 @@ export function PropostaPublicaPage() {
                 </CardTitle>
               </div>
               <p className="text-xs text-emerald-800 mt-1">
-                {proposta.expand?.empresa?.pre_cadastro || proposta.expand?.cliente_pf?.pre_cadastro
-                  ? 'Como seu cadastro é preliminar, complete as informações complementares abaixo para que nosso setor jurídico emita a minuta oficial do Contrato de Serviços.'
-                  : 'Por favor, revise as informações cadastradas para a elaboração do Contrato de Serviços Técnicos. Você pode ajustar qualquer divergência.'}
+                Contrato de Prestação de Serviços Técnicos gerado com sucesso sob a numeração
+                oficial. Aguardando assinatura eletrônica bilateral.
               </p>
             </CardHeader>
             <CardContent className="p-4 sm:p-6">
@@ -773,10 +800,11 @@ export function PropostaPublicaPage() {
                   <tbody className="divide-y divide-slate-200">
                     {proposta.itens_json && proposta.itens_json.length > 0 ? (
                       proposta.itens_json.map((it, idx) => {
+                        const bdi = Number(it.bdi_percentual ?? proposta.margem ?? 0)
                         const sub =
-                          it.preco_total !== undefined
-                            ? it.preco_total
-                            : (it.custo_total || 0) * (1 + (it.bdi_percentual || 0) / 100)
+                          it.preco_total !== undefined && it.preco_total !== null
+                            ? Math.round(Number(it.preco_total) * 100) / 100
+                            : Math.round(Number(it.custo_total || 0) * (1 + bdi / 100) * 100) / 100
                         return (
                           <tr key={idx} className="hover:bg-slate-50">
                             <td className="py-2 px-3 font-medium text-slate-900">{it.descricao}</td>
@@ -920,44 +948,57 @@ export function PropostaPublicaPage() {
               </span>
             </div>
 
-            {!isFinalizada && (
-              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
-                {/* Botão Solicitar Alterações */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowAlteracoesModal(true)}
-                  disabled={processingAceite}
-                  className="text-xs font-semibold text-purple-700 border-purple-300 hover:bg-purple-50 justify-center"
-                >
-                  <MessageSquare className="w-3.5 h-3.5 mr-1.5 shrink-0" />
-                  Solicitar Alterações
-                </Button>
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Botão Visualizar Minuta do Contrato */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleAbrirMinutaContrato}
+                className="text-xs font-semibold text-slate-700 border-slate-300 hover:bg-slate-100 justify-center"
+              >
+                <FileText className="w-3.5 h-3.5 mr-1.5 shrink-0 text-blue-600" />
+                Visualizar Minuta do Contrato
+              </Button>
 
-                {/* Botão Recusar Proposta (com trava de segurança) */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowRecusaModal(true)}
-                  disabled={processingAceite}
-                  className="border-red-300 text-red-700 hover:bg-red-50 text-xs font-semibold justify-center"
-                >
-                  <XCircle className="w-3.5 h-3.5 mr-1.5 shrink-0" />
-                  Recusar Proposta
-                </Button>
+              {!isFinalizada && (
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
+                  {/* Botão Solicitar Alterações */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowAlteracoesModal(true)}
+                    disabled={processingAceite}
+                    className="text-xs font-semibold text-purple-700 border-purple-300 hover:bg-purple-50 justify-center"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                    Solicitar Alterações
+                  </Button>
 
-                {/* Botão Aceitar Proposta (dupla confirmação) */}
-                <Button
-                  type="button"
-                  onClick={handleAbrirConfirmacaoAceite}
-                  disabled={processingAceite || !declaracaoAceite}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-6 shadow-sm justify-center disabled:opacity-50"
-                >
-                  <Check className="w-4 h-4 mr-1.5 shrink-0" />
-                  Aceitar Proposta
-                </Button>
-              </div>
-            )}
+                  {/* Botão Recusar Proposta (com trava de segurança) */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowRecusaModal(true)}
+                    disabled={processingAceite}
+                    className="border-red-300 text-red-700 hover:bg-red-50 text-xs font-semibold justify-center"
+                  >
+                    <XCircle className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                    Recusar Proposta
+                  </Button>
+
+                  {/* Botão Aceitar Proposta (dupla confirmação) */}
+                  <Button
+                    type="button"
+                    onClick={handleAbrirConfirmacaoAceite}
+                    disabled={processingAceite || !declaracaoAceite}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-6 shadow-sm justify-center disabled:opacity-50"
+                  >
+                    <Check className="w-4 h-4 mr-1.5 shrink-0" />
+                    Aceitar Proposta
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1117,6 +1158,63 @@ export function PropostaPublicaPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL VISUALIZAR MINUTA DO CONTRATO */}
+      <Dialog open={showMinutaModal} onOpenChange={setShowMinutaModal}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2 text-slate-900">
+              <FileText className="w-5 h-5 text-blue-600" />
+              Minuta do Contrato de Prestação de Serviços Técnicos
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Cláusulas padrão pré-contratuais que regerão a formalização após o aceite eletrônico
+              da Proposta {proposta.numero}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-3 text-xs text-slate-700">
+            <div className="bg-slate-50 border border-slate-200 rounded p-3 text-[11px] space-y-1">
+              <div>
+                <strong>Contratada:</strong> G+ Engenharia Consultiva
+              </div>
+              <div>
+                <strong>Contratante:</strong>{' '}
+                {proposta.expand?.empresa?.razao_social ||
+                  proposta.expand?.cliente_pf?.nome ||
+                  'Cliente Titular'}
+              </div>
+              <div>
+                <strong>Valor Global Proposto:</strong> {formatCurrencyBr(proposta.preco)}
+              </div>
+              <div>
+                <strong>Prazo Estimado:</strong> {proposta.prazo || '30 dias'}
+              </div>
+            </div>
+
+            <div className="bg-white border rounded-lg p-4 font-sans text-xs whitespace-pre-wrap leading-relaxed text-slate-800 max-h-[45vh] overflow-y-auto">
+              {loadingMinuta ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-5 h-5 animate-spin text-orange-600" />
+                </div>
+              ) : (
+                clausulasMinuta
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowMinutaModal(false)}
+            >
+              Fechar Minuta
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

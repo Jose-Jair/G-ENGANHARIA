@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T20:04:26.283Z",
+  "generatedAt": "2026-10-07T20:17:49.258Z",
   "collections": [
     {
       "name": "users",
@@ -1458,6 +1458,12 @@
           "required": false,
           "system": false,
           "collectionRef": "contratos_servico"
+        },
+        {
+          "name": "historico_devolutivas",
+          "type": "json",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

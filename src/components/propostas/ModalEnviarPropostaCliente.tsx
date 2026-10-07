@@ -50,20 +50,35 @@ export function ModalEnviarPropostaCliente({
     if (!open || !proposta) return
 
     // Carregar dados pré-cadastrados do destinatário
-    const emp = proposta.expand?.empresa
-    const pf = proposta.expand?.cliente_pf
+    const emp = proposta.expand?.empresa as any
+    const pf = proposta.expand?.cliente_pf as any
 
     let nome = ''
     let tel = ''
     let email = ''
 
     if (emp) {
-      nome = emp.razao_social || emp.nome_fantasia || ''
-      tel = emp.telefone || ''
+      // Priorizar contato principal se houver contato_nome/contato ou razão/fantasia
+      nome =
+        emp.contato_nome ||
+        (Array.isArray(emp.expand?.['contatos(empresa)']) &&
+          emp.expand['contatos(empresa)'][0]?.nome) ||
+        emp.razao_social ||
+        emp.nome_fantasia ||
+        ''
+      tel =
+        emp.whatsapp ||
+        (Array.isArray(emp.telefones) && emp.telefones.find((t: any) => t.whatsapp)?.numero) ||
+        emp.telefone ||
+        ''
       email = emp.email || ''
     } else if (pf) {
       nome = pf.nome || ''
-      tel = pf.telefone || ''
+      tel =
+        pf.whatsapp ||
+        (Array.isArray(pf.telefones) && pf.telefones.find((t: any) => t.whatsapp)?.numero) ||
+        pf.telefone ||
+        ''
       email = pf.email || ''
     }
 
@@ -208,7 +223,7 @@ export function ModalEnviarPropostaCliente({
         onOpenChange(op)
       }}
     >
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto pr-1">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <Send className="w-5 h-5 text-orange-600" />

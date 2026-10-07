@@ -404,6 +404,24 @@ export const propostasService = {
   },
 
   /**
+   * Registrar envio manual (cópia de link ao cliente)
+   */
+  async registrarEnvioManual(
+    propostaId: string,
+    destinatarioNome?: string,
+    destinatarioContato?: string,
+  ): Promise<{ success: boolean; message: string; link_proposta?: string }> {
+    return await pb.send('/backend/v1/propostas/registrar-envio-manual', {
+      method: 'POST',
+      body: {
+        proposta_id: propostaId,
+        destinatario_nome: destinatarioNome || '',
+        destinatario_contato: destinatarioContato || '',
+      },
+    })
+  },
+
+  /**
    * Registrar auditoria de disparo da proposta via WhatsApp
    */
   async registrarEnvioWhatsApp(params: {

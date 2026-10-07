@@ -39,9 +39,32 @@ routerAdd('POST', '/backend/v1/propostas/solicitar-alteracoes', (e) => {
     }
 
     // Atualizar status para 'em_negociacao' e salvar solicitação do cliente
+    const nowIso = new Date().toISOString()
+    const versaoAtual = proposta.getString('revisao') || 'Rev.00'
+    let historico = []
+    try {
+      const histRaw = proposta.get('historico_devolutivas')
+      if (Array.isArray(histRaw)) {
+        historico = histRaw
+      } else if (typeof histRaw === 'string' && histRaw.trim()) {
+        historico = JSON.parse(histRaw)
+      }
+    } catch (_) {
+      historico = []
+    }
+
+    const novaDevolutiva = {
+      data: nowIso,
+      versao: versaoAtual,
+      texto: texto,
+      autor: 'Cliente',
+    }
+    const historicoAtualizado = historico.concat([novaDevolutiva])
+
     proposta.set('status', 'em_negociacao')
     proposta.set('solicitacao_alteracao_texto', texto)
-    proposta.set('data_solicitacao_alteracao', new Date().toISOString())
+    proposta.set('data_solicitacao_alteracao', nowIso)
+    proposta.set('historico_devolutivas', historicoAtualizado)
     $app.save(proposta)
 
     // Registrar auditoria

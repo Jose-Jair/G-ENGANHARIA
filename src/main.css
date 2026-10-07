@@ -296,7 +296,7 @@
 @media print {
   @page {
     size: A4 portrait;
-    margin: 10mm 12mm 12mm 12mm;
+    margin: 15mm 12mm;
   }
 
   html,
@@ -394,6 +394,25 @@
   }
 
   .dossie-secao {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .print-table-row {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  table {
+    table-layout: fixed !important;
+    width: 100% !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }

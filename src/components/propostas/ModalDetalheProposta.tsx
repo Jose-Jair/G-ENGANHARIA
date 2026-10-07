@@ -6,6 +6,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,6 +31,9 @@ import {
   Briefcase,
   Send,
   Lock,
+  ChevronDown,
+  ChevronUp,
+  MessageSquareWarning,
 } from 'lucide-react'
 import { PropostaRecord, ProjetoRecord } from '@/types'
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
@@ -68,6 +81,9 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
   const [showEnviarModal, setShowEnviarModal] = useState(false)
   const [showDossieModal, setShowDossieModal] = useState(false)
   const [showContratoModal, setShowContratoModal] = useState(false)
+  const [showConfirmacaoEnvioManual, setShowConfirmacaoEnvioManual] = useState(false)
+  const [copiandoEnvioManual, setCopiandoEnvioManual] = useState(false)
+  const [expandirHistoricoDevolutivas, setExpandirHistoricoDevolutivas] = useState(false)
   const [contratoVinculado, setContratoVinculado] = useState<ContratoServicoRecord | null>(null)
   const [projetosGerados, setProjetosGerados] = useState<ProjetoRecord[]>([])
   const [percentualConvertido, setPercentualConvertido] = useState<number>(0)
@@ -224,17 +240,16 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                       <Send className="w-3.5 h-3.5" />
                       Enviar ao Cliente
                     </Button>
-
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={handleCopiarLink}
-                      className="h-8 text-xs gap-1 text-slate-700"
-                      title="Copiar link público para envio ao cliente"
+                      onClick={handleClicarCopiarLink}
+                      className="h-8 text-xs gap-1 text-slate-700 hover:text-orange-600 hover:border-orange-300"
+                      title="Copiar Link Seguro da Proposta"
                     >
                       <Copy className="w-3.5 h-3.5" />
                       Copiar Link
-                    </Button>
+                    </Button>{' '}
                   </>
                 ) : (
                   <div
@@ -305,6 +320,96 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
 
             {/* ABA DOCUMENTO */}
             <TabsContent value="documento" className="space-y-6 pt-3">
+              {/* PAINEL DESTACADO: Devolutiva do Cliente (quando status em_negociacao ou com devolutiva) */}
+              {proposta.status === 'em_negociacao' && proposta.solicitacao_alteracao_texto && (
+                <div className="bg-gradient-to-r from-purple-50 via-amber-50 to-purple-50 border-2 border-purple-300 rounded-lg p-4 shadow-sm space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-purple-100 text-purple-700 rounded-md">
+                        <MessageSquareWarning className="w-5 h-5 text-purple-700" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-purple-950">
+                            Devolutiva do Cliente (Negociação Aberta)
+                          </h4>
+                          <Badge className="bg-purple-600 hover:bg-purple-700 text-white font-mono text-[10px]">
+                            {proposta.revisao || 'Rev.00'}
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-purple-700">
+                          {proposta.data_solicitacao_alteracao
+                            ? `Recebida em ${formatDateTimeBr(proposta.data_solicitacao_alteracao)} via link público`
+                            : 'Solicitação de ajustes registrada pelo cliente'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {canEdit && onCriarRevisao && (
+                      <Button
+                        size="sm"
+                        onClick={() => onCriarRevisao(proposta)}
+                        className="h-7 text-xs bg-purple-700 hover:bg-purple-800 text-white gap-1 shrink-0 font-medium"
+                      >
+                        <History className="w-3.5 h-3.5" />
+                        Gerar Nova Revisão
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Texto integral da solicitação atual */}
+                  <div className="bg-white/90 border border-purple-200 rounded-md p-3 text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
+                    <span className="font-semibold text-purple-900 block mb-1 text-[11px] uppercase tracking-wider">
+                      Texto Integral do Cliente:
+                    </span>
+                    {proposta.solicitacao_alteracao_texto}
+                  </div>
+
+                  {/* Histórico retrátil de devolutivas anteriores */}
+                  {proposta.historico_devolutivas && proposta.historico_devolutivas.length > 0 && (
+                    <div className="border-t border-purple-200/80 pt-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandirHistoricoDevolutivas(!expandirHistoricoDevolutivas)
+                        }
+                        className="flex items-center gap-1.5 text-[11px] font-semibold text-purple-900 hover:text-purple-950 focus:outline-none"
+                      >
+                        {expandirHistoricoDevolutivas ? (
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        )}
+                        Histórico de Devolutivas Anteriores ({proposta.historico_devolutivas.length}
+                        )
+                      </button>
+
+                      {expandirHistoricoDevolutivas && (
+                        <div className="mt-2 space-y-2">
+                          {proposta.historico_devolutivas.map((dev, idx) => (
+                            <div
+                              key={idx}
+                              className="bg-purple-50/60 border border-purple-200/60 rounded p-2.5 text-xs text-slate-700"
+                            >
+                              <div className="flex items-center justify-between text-[10px] text-purple-800 font-semibold mb-1">
+                                <span>
+                                  {dev.versao || 'Versão anterior'} — {formatDateTimeBr(dev.data)}
+                                </span>
+                                <span className="text-slate-500 font-normal">
+                                  {dev.autor || 'Cliente'}
+                                </span>
+                              </div>
+                              <p className="whitespace-pre-wrap text-slate-800 leading-snug">
+                                {dev.texto}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
               {/* Bloco de Rastreabilidade Projeto-Pacote se proposta tiver projetos ou itens convertidos */}
               {(projetosGerados.length > 0 || percentualConvertido > 0) && (
                 <div className="bg-orange-50/70 border border-orange-200 rounded-lg p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
@@ -454,30 +559,69 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                         <th className="py-2 px-3 text-center">Unid.</th>
                         <th className="py-2 px-3 text-center">Qtd.</th>
                         <th className="py-2 px-3 text-right">Custo Unit.</th>
-                        <th className="py-2 px-3 text-right">Custo Total</th>
+                        <th className="py-2 px-3 text-right">Preço Venda Unit.</th>
+                        <th className="py-2 px-3 text-right">Preço Venda Total</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
                       {proposta.itens_json && proposta.itens_json.length > 0 ? (
-                        proposta.itens_json.map((it, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50">
-                            <td className="py-2 px-3 font-medium text-slate-900">{it.descricao}</td>
-                            <td className="py-2 px-3 text-slate-600">{it.disciplina || '-'}</td>
-                            <td className="py-2 px-3 text-center text-slate-600">
-                              {it.unidade || 'un'}
+                        <>
+                          {proposta.itens_json.map((it, idx) => {
+                            const bdi = Number(it.bdi_percentual ?? proposta.margem ?? 0)
+                            const qtd = Number(it.quantidade) || 1
+                            const precoTotalItem =
+                              it.preco_total != null
+                                ? Math.round(Number(it.preco_total) * 100) / 100
+                                : Math.round(Number(it.custo_total) * (1 + bdi / 100) * 100) / 100
+                            const precoUnitVenda =
+                              it.preco_venda_unitario != null
+                                ? Math.round(Number(it.preco_venda_unitario) * 100) / 100
+                                : Math.round((precoTotalItem / qtd) * 100) / 100
+
+                            return (
+                              <tr key={idx} className="hover:bg-slate-50">
+                                <td className="py-2 px-3 font-medium text-slate-900">
+                                  {it.descricao}
+                                </td>
+                                <td className="py-2 px-3 text-slate-600">{it.disciplina || '-'}</td>
+                                <td className="py-2 px-3 text-center text-slate-600">
+                                  {it.unidade || 'un'}
+                                </td>
+                                <td className="py-2 px-3 text-center font-mono">{it.quantidade}</td>
+                                <td className="py-2 px-3 text-right font-mono text-slate-600">
+                                  {formatCurrencyBr(it.custo_unitario)}
+                                </td>
+                                <td className="py-2 px-3 text-right font-mono text-slate-800">
+                                  {formatCurrencyBr(precoUnitVenda)}
+                                </td>
+                                <td className="py-2 px-3 text-right font-mono font-semibold text-slate-900">
+                                  {formatCurrencyBr(precoTotalItem)}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                          <tr className="bg-slate-50 font-semibold border-t-2 border-slate-300">
+                            <td colSpan={6} className="py-2 px-3 text-right text-slate-700">
+                              Total da Planilha de Venda:
                             </td>
-                            <td className="py-2 px-3 text-center font-mono">{it.quantidade}</td>
-                            <td className="py-2 px-3 text-right font-mono text-slate-700">
-                              {formatCurrencyBr(it.custo_unitario)}
-                            </td>
-                            <td className="py-2 px-3 text-right font-mono font-semibold text-slate-900">
-                              {formatCurrencyBr(it.custo_total)}
+                            <td className="py-2 px-3 text-right font-mono font-bold text-orange-700">
+                              {formatCurrencyBr(
+                                proposta.itens_json.reduce((acc, it) => {
+                                  const bdi = Number(it.bdi_percentual ?? proposta.margem ?? 0)
+                                  const precoTotalItem =
+                                    it.preco_total != null
+                                      ? Math.round(Number(it.preco_total) * 100) / 100
+                                      : Math.round(Number(it.custo_total) * (1 + bdi / 100) * 100) /
+                                        100
+                                  return acc + precoTotalItem
+                                }, 0),
+                              )}
                             </td>
                           </tr>
-                        ))
+                        </>
                       ) : (
                         <tr>
-                          <td colSpan={6} className="py-4 text-center text-slate-400">
+                          <td colSpan={7} className="py-4 text-center text-slate-400">
                             Nenhum item discriminado individualmente.
                           </td>
                         </tr>
@@ -776,6 +920,35 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
           </Tabs>
         </DialogContent>
       </Dialog>
+
+      {/* ALERT DIALOG DE CONFIRMAÇÃO DO ENVIO MANUAL AO COPIAR O LINK */}
+      <AlertDialog open={showConfirmacaoEnvioManual} onOpenChange={setShowConfirmacaoEnvioManual}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Envio Manual da Proposta?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-slate-600 space-y-2">
+              <p>
+                Confirma o envio manual deste link ao cliente? Ao confirmar, a proposta será marcada
+                como <strong>enviada</strong> e o evento será auditado no sistema com seu usuário e
+                registro de data/hora.
+              </p>
+              <p className="font-mono text-[11px] bg-slate-100 p-2 rounded text-slate-800 truncate">
+                {linkPublico}
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={copiandoEnvioManual}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmarEnvioManual}
+              disabled={copiandoEnvioManual}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              {copiandoEnvioManual ? 'Processando...' : 'Confirmar e Copiar Link'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* MODAL DO DOSSIÊ / PDF NO MODELO REAL GMAIS */}
       <DossiePropostaGmais

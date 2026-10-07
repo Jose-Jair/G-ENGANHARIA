@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T17:36:18.392Z",
+  "generatedAt": "2026-10-07T18:09:53.814Z",
   "collections": [
     {
       "name": "users",
@@ -1584,6 +1584,13 @@
           "type": "text",
           "required": false,
           "system": false
+        },
+        {
+          "name": "contrato_servico",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "contratos_servico"
         }
       ],
       "indexes": ["CREATE INDEX idx_projetos_codigo ON projetos (codigo)"]
@@ -3415,6 +3422,13 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "projeto",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "projetos"
         }
       ],
       "indexes": [

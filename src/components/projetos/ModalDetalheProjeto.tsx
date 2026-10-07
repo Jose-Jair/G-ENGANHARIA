@@ -29,10 +29,12 @@ import {
   UserCheck,
 } from 'lucide-react'
 
+import { ContratoServicoRecord } from '@/types'
 import { EtapasTab } from './EtapasTab'
 import { EntregaveisTab } from './EntregaveisTab'
 import { DocumentosTab } from './DocumentosTab'
 import { RiscosTab } from './RiscosTab'
+import { ContratoTab } from './ContratoTab'
 import { ModalSaudeProjeto } from './ModalSaudeProjeto'
 import { ModalCotacoesEtapa } from './ModalCotacoesEtapa'
 import { ModalAvaliacaoExecutor } from './ModalAvaliacaoExecutor'
@@ -56,6 +58,7 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
 
   const [carregando, setCarregando] = useState(true)
   const [projeto, setProjeto] = useState<ProjetoRecord | null>(null)
+  const [contratoServico, setContratoServico] = useState<ContratoServicoRecord | null>(null)
   const [etapas, setEtapas] = useState<ProjetoEtapaRecord[]>([])
   const [entregaveis, setEntregaveis] = useState<EntregavelRecord[]>([])
   const [documentos, setDocumentos] = useState<DocumentoComAlerta[]>([])
@@ -88,6 +91,7 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
       ])
 
       setProjeto(completo.projeto)
+      setContratoServico((completo as any).contratoServico || null)
       setEtapas(completo.etapas)
       setEntregaveis(completo.entregaveis)
       setDocumentos(completo.documentos)
@@ -188,12 +192,18 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                       <Badge
                         variant="outline"
                         className={`text-[10px] uppercase font-bold ${
-                          projeto.status === 'concluido'
-                            ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
-                            : 'bg-blue-950 text-blue-400 border-blue-800'
+                          projeto.status === 'contratacao'
+                            ? 'bg-amber-950 text-amber-300 border-amber-700'
+                            : projeto.status === 'concluido'
+                              ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
+                              : 'bg-blue-950 text-blue-400 border-blue-800'
                         }`}
                       >
-                        {projeto.status || 'em_andamento'}
+                        {projeto.status === 'contratacao'
+                          ? 'Em Contratação'
+                          : projeto.status === 'concluido'
+                            ? 'Concluído'
+                            : projeto.status || 'Em Andamento'}
                       </Badge>
                     </div>
 
@@ -389,8 +399,25 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
 
               {/* Corpo com as 4 Abas do Plano A */}
               <div className="p-6 bg-slate-50">
-                <Tabs defaultValue="etapas" className="space-y-4">
+                <Tabs
+                  defaultValue={projeto.status === 'contratacao' ? 'contrato' : 'etapas'}
+                  className="space-y-4"
+                >
                   <TabsList className="bg-white border border-slate-200 p-1">
+                    <TabsTrigger value="contrato" className="text-xs flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-orange-600" />
+                      Aba Contrato
+                      {contratoServico && (
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            contratoServico.status === 'assinado'
+                              ? 'bg-emerald-500'
+                              : 'bg-amber-500'
+                          }`}
+                        />
+                      )}
+                    </TabsTrigger>
+
                     <TabsTrigger value="etapas" className="text-xs flex items-center gap-1.5">
                       <Layers className="w-3.5 h-3.5" />
                       Aba Etapas ({etapas.length})
@@ -421,6 +448,19 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                       )}
                     </TabsTrigger>
                   </TabsList>
+
+                  <TabsContent value="contrato">
+                    <ContratoTab
+                      projeto={projeto}
+                      contrato={contratoServico}
+                      isAdmin={user?.role === 'admin'}
+                      canEdit={canEdit}
+                      onRefresh={() => {
+                        carregarDadosCompletos()
+                        onUpdate()
+                      }}
+                    />
+                  </TabsContent>
 
                   <TabsContent value="etapas">
                     <EtapasTab

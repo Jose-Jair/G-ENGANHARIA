@@ -27,7 +27,7 @@ export const contratosServicoService = {
       const records = await pb.collection('contratos_servico').getFullList<ContratoServicoRecord>({
         filter: `proposta = "${propostaId}"`,
         sort: '-created',
-        expand: 'proposta,empresa,cliente_pf,assinante_admin',
+        expand: 'proposta,projeto,empresa,cliente_pf,assinante_admin',
         requestKey: null,
       })
       return records[0] || null
@@ -37,9 +37,24 @@ export const contratosServicoService = {
     }
   },
 
+  async getByProjeto(projetoId: string): Promise<ContratoServicoRecord | null> {
+    try {
+      const records = await pb.collection('contratos_servico').getFullList<ContratoServicoRecord>({
+        filter: `projeto = "${projetoId}"`,
+        sort: '-created',
+        expand: 'proposta,projeto,empresa,cliente_pf,assinante_admin',
+        requestKey: null,
+      })
+      return records[0] || null
+    } catch (err) {
+      console.warn('Erro ao buscar contrato por projeto:', err)
+      return null
+    }
+  },
+
   async getById(id: string): Promise<ContratoServicoRecord> {
     return await pb.collection('contratos_servico').getOne<ContratoServicoRecord>(id, {
-      expand: 'proposta,empresa,cliente_pf,assinante_admin',
+      expand: 'proposta,projeto,empresa,cliente_pf,assinante_admin',
       requestKey: null,
     })
   },
@@ -66,7 +81,7 @@ export const contratosServicoService = {
     return await pb.collection('contratos_servico').getFullList<ContratoServicoRecord>({
       filter,
       sort: '-created',
-      expand: 'proposta,empresa,cliente_pf,assinante_admin',
+      expand: 'proposta,projeto,empresa,cliente_pf,assinante_admin',
       requestKey: null,
     })
   },

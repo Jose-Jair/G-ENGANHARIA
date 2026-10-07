@@ -638,6 +638,7 @@ export interface ContratoServicoRecord {
   id: string
   numero: string // CTR-AAAA-NNNN
   proposta: string
+  projeto?: string
   empresa?: string
   cliente_pf?: string
   objeto: string
@@ -668,6 +669,7 @@ export interface ContratoServicoRecord {
   updated: string
   expand?: {
     proposta?: PropostaRecord
+    projeto?: ProjetoRecord
     empresa?: EmpresaRecord
     cliente_pf?: ClientePfRecord
     assinante_admin?: UserRecord
@@ -711,6 +713,7 @@ export interface ProjetoRecord {
   disciplinas?: string
   proposta?: string
   contrato?: string
+  contrato_servico?: string
   empresa?: string
   cliente_pf?: string
   valor_total?: number
@@ -725,6 +728,7 @@ export interface ProjetoRecord {
   expand?: {
     proposta?: PropostaRecord
     contrato?: ContratoRecord
+    contrato_servico?: ContratoServicoRecord
     empresa?: EmpresaRecord
     cliente_pf?: ClientePfRecord
   }

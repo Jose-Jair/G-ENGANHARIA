@@ -50,7 +50,7 @@ export const projetosService = {
   async list(): Promise<ProjetoRecord[]> {
     return await pb.collection('projetos').getFullList<ProjetoRecord>({
       sort: '-created',
-      expand: 'empresa,cliente_pf,proposta,proposta.empresa,proposta.cliente_pf',
+      expand: 'empresa,cliente_pf,proposta,proposta.empresa,proposta.cliente_pf,contrato_servico',
     })
   },
 
@@ -62,7 +62,8 @@ export const projetosService = {
   },
   async getById(id: string): Promise<ProjetoRecord> {
     return await pb.collection('projetos').getOne<ProjetoRecord>(id, {
-      expand: 'proposta,proposta.empresa,proposta.cliente_pf,contrato,empresa,cliente_pf',
+      expand:
+        'proposta,proposta.empresa,proposta.cliente_pf,contrato,contrato_servico,empresa,cliente_pf',
     })
   },
 
@@ -123,8 +124,24 @@ export const projetosService = {
     return atualizado
   },
 
-  // Busca dados completos de todas as 4 abas para a tela de detalhe do projeto
+  // Busca dados completos de todas as abas (incluindo contrato de serviço) para a tela de detalhe do projeto
   async getProjetoCompleto(projetoId: string) {
+    let contratoServico: any = null
+    try {
+      // 1. Tentar buscar direto pelo campo contrato_servico ou pela relação projeto = projetoId
+      const ctrs = await pb.collection('contratos_servico').getFullList({
+        filter: `projeto = '${projetoId}'`,
+        sort: '-created',
+        expand: 'proposta,empresa,cliente_pf,assinante_admin',
+        requestKey: null,
+      })
+      if (ctrs.length > 0) {
+        contratoServico = ctrs[0]
+      }
+    } catch {
+      /* intentionally ignored */
+    }
+
     const [projeto, etapas, documentos, riscos] = await Promise.all([
       this.getById(projetoId),
       pb.collection('projeto_etapas').getFullList<ProjetoEtapaRecord>({
@@ -143,6 +160,34 @@ export const projetosService = {
       }),
     ])
 
+    // Se ainda não encontrou contrato e o projeto tem proposta vinculada, buscar por proposta
+    if (!contratoServico && projeto.proposta) {
+      try {
+        const ctrsProposta = await pb.collection('contratos_servico').getFullList({
+          filter: `proposta = '${projeto.proposta}'`,
+          sort: '-created',
+          expand: 'proposta,empresa,cliente_pf,assinante_admin',
+          requestKey: null,
+        })
+        if (ctrsProposta.length > 0) {
+          contratoServico = ctrsProposta[0]
+        }
+      } catch {
+        /* intentionally ignored */
+      }
+    } else if (!contratoServico && projeto.contrato_servico) {
+      try {
+        contratoServico = await pb
+          .collection('contratos_servico')
+          .getOne(projeto.contrato_servico, {
+            expand: 'proposta,empresa,cliente_pf,assinante_admin',
+            requestKey: null,
+          })
+      } catch {
+        /* intentionally ignored */
+      }
+    }
+
     // Carregar entregáveis de todas as etapas do projeto
     let entregaveis: EntregavelRecord[] = []
     if (etapas.length > 0) {
@@ -156,6 +201,7 @@ export const projetosService = {
 
     return {
       projeto,
+      contratoServico,
       etapas,
       entregaveis,
       documentos: this.calcularAlertasDocumentos(documentos),

@@ -30,6 +30,7 @@ import {
   Clock,
   User,
   Activity,
+  FileSignature,
 } from 'lucide-react'
 import { exportService } from '@/services/exportService'
 import { formatCnpj, formatCpf } from '@/lib/cnpj'
@@ -533,6 +534,20 @@ export const ProjetosPage: React.FC = () => {
                 <SelectItem value="atrasados">Atrasados Hoje</SelectItem>
               </SelectContent>
             </Select>
+
+            {/* Filtro Status (incluindo Em Contratação) */}
+            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+              <SelectTrigger className="text-xs h-9 col-span-2 sm:col-span-4">
+                <SelectValue placeholder="Status do Projeto" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Status</SelectItem>
+                <SelectItem value="contratacao">📝 Em Contratação (Assinatura Pendente)</SelectItem>
+                <SelectItem value="em_andamento">🚀 Em Andamento</SelectItem>
+                <SelectItem value="concluido">✅ Concluído</SelectItem>
+                <SelectItem value="cancelado">❌ Cancelado</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
@@ -747,14 +762,28 @@ export const ProjetosPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Botão para Abrir Detalhe com as 4 Abas */}
+                {/* Botão para Abrir Detalhe com as Abas */}
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <Badge
-                    variant="outline"
-                    className="text-[10px] uppercase font-semibold text-slate-600"
-                  >
-                    {prj.status || 'em_andamento'}
-                  </Badge>
+                  {prj.status === 'contratacao' ? (
+                    <Badge
+                      className="text-[10px] uppercase font-bold bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-100 flex items-center gap-1"
+                      title="Projeto aguardando assinatura bilateral do contrato de serviços"
+                    >
+                      <FileSignature className="w-3 h-3 text-amber-700" />
+                      Em Contratação
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] uppercase font-semibold ${
+                        prj.status === 'concluido'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                          : 'text-slate-600'
+                      }`}
+                    >
+                      {prj.status === 'concluido' ? 'Concluído' : prj.status || 'Em Andamento'}
+                    </Badge>
+                  )}
 
                   <div className="flex items-center gap-1.5">
                     {canViewDossie && (

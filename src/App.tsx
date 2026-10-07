@@ -23,7 +23,6 @@ import { ParceirosPage } from './pages/Parceiros'
 import { ClientesPfPage } from './pages/ClientesPf'
 import { PropostasPage } from './pages/Propostas'
 import { PropostaPublicaPage } from './pages/PropostaPublica'
-import { ContratosServicoPage } from './pages/ContratosServico'
 import { ContratoServicoPublicoPage } from './pages/ContratoServicoPublico'
 import { ProjetosPage } from './pages/Projetos'
 import { ExecutoresPage } from './pages/Executores'
@@ -92,15 +91,15 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            {/* Contratos de Serviço GMAIS (Admin, Comercial, Financeiro, Gestor) */}
+            {/* Redirecionamento legado: Contratos de Serviço agora vivem dentro do Projeto em /projetos como aba */}
             <Route
               path="/contratos-servico"
               element={
                 <ProtectedRoute allowedRoles={['admin', 'comercial', 'financeiro', 'gestor']}>
-                  <ContratosServicoPage />
+                  <Navigate to="/projetos" replace />
                 </ProtectedRoute>
               }
-            />
+            />{' '}
             {/* ETAPA 8: Módulo Projetos (Leitura: Admin, Comercial, Financeiro, Gestor; Gravação: Admin e Gestor) */}
             <Route
               path="/projetos"

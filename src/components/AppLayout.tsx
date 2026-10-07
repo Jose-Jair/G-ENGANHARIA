@@ -137,13 +137,12 @@ export default function AppLayout() {
         setBadgeSolicitacoesAlteracaoCount(0)
       }
 
-      // Regra de Contratos de Serviço aguardando assinatura do Admin
-      if (isAdmin) {
+      // Regra de Contratos de Serviço aguardando assinatura (Admin e Gestor de Projetos)
+      if (user.role === 'admin' || user.role === 'gestor') {
         try {
-          const contratosAguardando = await contratosServicoService.listAll(
-            'aguardando_assinatura_admin',
-          )
-          setBadgeContratosPendentesCount(contratosAguardando.length)
+          const contratosAguardando = await contratosServicoService.listAll()
+          const pendentes = contratosAguardando.filter((c) => c.status !== 'assinado')
+          setBadgeContratosPendentesCount(pendentes.length)
         } catch {
           /* ignore */
         }
@@ -392,31 +391,6 @@ export default function AppLayout() {
                   {(user.role === 'financeiro' || user.role === 'gestor') && (
                     <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
                       Leitura
-                    </span>
-                  )}
-                </div>
-              </NavLink>
-
-              {/* Contratos de Serviço GMAIS (Admin, Comercial, Financeiro, Gestor) */}
-              <NavLink
-                to="/contratos-servico"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <FileCheck className="w-4 h-4 text-amber-300" />
-                <div className="flex items-center justify-between flex-1">
-                  <span>Contratos de Serviço</span>
-                  {badgeContratosPendentesCount > 0 && (
-                    <span
-                      className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 shadow-xs"
-                      title={`${badgeContratosPendentesCount} contrato(s) aguardando assinatura da Diretoria`}
-                    >
-                      {badgeContratosPendentesCount}
                     </span>
                   )}
                 </div>
@@ -786,22 +760,25 @@ export default function AppLayout() {
             {user?.role && user.role !== 'executor' && (
               <NavLink
                 to={
-                  badgeSolicitacoesAlteracaoCount > 0
-                    ? '/acoes-do-dia'
-                    : badgeFinanceiroAlertasCount > 0 &&
-                        (user.role === 'admin' || user.role === 'financeiro')
-                      ? '/financeiro'
-                      : badgeDocumentosVencendoCount > 0 &&
-                          (user.role === 'admin' || user.role === 'gestor')
-                        ? '/projetos'
-                        : badgeParceirosSemDemandaCount > 0
-                          ? '/parceiros'
-                          : isAdmin && badgeCampanhasPendentesCount > 0
-                            ? '/campanhas'
-                            : '/acoes-do-dia'
+                  badgeContratosPendentesCount > 0 &&
+                  (user.role === 'admin' || user.role === 'gestor')
+                    ? '/projetos?status=contratacao'
+                    : badgeSolicitacoesAlteracaoCount > 0
+                      ? '/acoes-do-dia'
+                      : badgeFinanceiroAlertasCount > 0 &&
+                          (user.role === 'admin' || user.role === 'financeiro')
+                        ? '/financeiro'
+                        : badgeDocumentosVencendoCount > 0 &&
+                            (user.role === 'admin' || user.role === 'gestor')
+                          ? '/projetos'
+                          : badgeParceirosSemDemandaCount > 0
+                            ? '/parceiros'
+                            : isAdmin && badgeCampanhasPendentesCount > 0
+                              ? '/campanhas'
+                              : '/acoes-do-dia'
                 }
                 className="relative p-2 text-slate-600 hover:text-[#D95A2B] hover:bg-slate-100 rounded-full transition-colors"
-                title={`Notificações: ${badgeAcoesCount} ações cadência, ${badgeSolicitacoesAlteracaoCount} solicitações de alteração em propostas, ${badgeContratosPendentesCount} contratos pendentes, ${badgeCampanhasPendentesCount} campanhas pendentes, ${badgeParceirosSemDemandaCount} parceiros sem demanda (+180d), ${badgeDocumentosVencendoCount} documentos com alerta, ${badgeFinanceiroAlertasCount} alertas financeiros (D-7/D-1/Atraso)`}
+                title={`Notificações: ${badgeAcoesCount} ações cadência, ${badgeSolicitacoesAlteracaoCount} solicitações de alteração em propostas, ${badgeContratosPendentesCount} contratos pendentes de assinatura, ${badgeCampanhasPendentesCount} campanhas pendentes, ${badgeParceirosSemDemandaCount} parceiros sem demanda (+180d), ${badgeDocumentosVencendoCount} documentos com alerta, ${badgeFinanceiroAlertasCount} alertas financeiros (D-7/D-1/Atraso)`}
               >
                 <Bell className="w-5 h-5" />
                 {(badgeAcoesCount > 0 ||

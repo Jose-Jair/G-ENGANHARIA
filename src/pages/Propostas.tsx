@@ -33,7 +33,8 @@ import {
 } from '@/components/ui/select'
 import { useAuth } from '@/contexts/AuthContext'
 import { propostasService, MetricasPropostas } from '@/services/propostas'
-import { PropostaRecord } from '@/types'
+import { areasAtuacaoService } from '@/services/areasAtuacao'
+import { PropostaRecord, AreaAtuacaoRecord } from '@/types'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
 import { formatCnpj, formatCpf } from '@/lib/cnpj'
 import { useToast } from '@/hooks/use-toast'
@@ -66,6 +67,7 @@ export const PropostasPage: React.FC = () => {
 
   const [showAprovacaoModal, setShowAprovacaoModal] = useState(false)
   const [propostaAprovacao, setPropostaAprovacao] = useState<PropostaRecord | null>(null)
+  const [areasAtuacaoMap, setAreasAtuacaoMap] = useState<Map<string, string>>(new Map())
 
   // Métricas
   const [metricas, setMetricas] = useState<MetricasPropostas>({
@@ -89,7 +91,16 @@ export const PropostasPage: React.FC = () => {
   const loadPropostas = async () => {
     setLoading(true)
     try {
-      const data = await propostasService.list()
+      const [data, areasList] = await Promise.all([
+        propostasService.list(),
+        areasAtuacaoService.list().catch(() => [] as AreaAtuacaoRecord[]),
+      ])
+
+      const mapAreas = new Map<string, string>()
+      for (const a of areasList) {
+        mapAreas.set(a.id, a.nome)
+      }
+      setAreasAtuacaoMap(mapAreas)
 
       // Expiração automática ao abrir o sistema
       await propostasService.verificarEAtualizarExpiradas(data)
@@ -329,6 +340,24 @@ export const PropostasPage: React.FC = () => {
                     {
                       header: 'Contrato Vinculado',
                       accessor: (p) => p.expand?.contrato?.numero || '',
+                    },
+                    {
+                      header: 'Área de Atuação',
+                      accessor: (p) => {
+                        const itens = p.itens_json || []
+                        const nomesAreas: string[] = []
+                        for (const it of itens) {
+                          if (it.expand?.area?.nome) {
+                            nomesAreas.push(it.expand.area.nome)
+                          } else if (it.area && areasAtuacaoMap.has(it.area)) {
+                            nomesAreas.push(areasAtuacaoMap.get(it.area)!)
+                          }
+                        }
+                        if (nomesAreas.length === 0 && p.disciplinas) {
+                          nomesAreas.push(p.disciplinas)
+                        }
+                        return Array.from(new Set(nomesAreas)).filter(Boolean).join(', ') || 'Geral'
+                      },
                     },
                     {
                       header: 'Áreas de Atuação / Disciplinas',

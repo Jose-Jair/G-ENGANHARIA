@@ -224,8 +224,8 @@ export default function AppLayout() {
             Navegação Principal
           </div>
 
-          {/* ETAPA 11: DASHBOARD EXECUTIVO (Acesso exclusivo do Admin) */}
-          {isAdmin ? (
+          {/* ETAPA 11: DASHBOARD EXECUTIVO & COMERCIAL (Admin e Comercial) */}
+          {user?.role && (user.role === 'admin' || user.role === 'comercial') ? (
             <NavLink
               to="/dashboard"
               className={({ isActive }) =>
@@ -240,7 +240,7 @@ export default function AppLayout() {
               <div className="flex items-center justify-between flex-1">
                 <span>Dashboard</span>
                 <span className="text-[9px] bg-white/20 text-white px-1.5 py-0.2 rounded font-bold uppercase">
-                  Admin
+                  {isAdmin ? 'Admin' : 'Comercial'}
                 </span>
               </div>
             </NavLink>

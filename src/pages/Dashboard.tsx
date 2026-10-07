@@ -337,12 +337,12 @@ export function DashboardPage() {
                   variant="outline"
                   className="bg-orange-50 text-[#D95A2B] border-orange-200 font-bold text-[10px] uppercase tracking-wide"
                 >
-                  Exclusivo Admin
+                  {isAdmin ? 'Visão Executiva (Admin)' : 'Visão Comercial'}
                 </Badge>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Painel consolidado em tempo de execução com visão 360° de Funil, Propostas,
-                Projetos, Finanças e Alertas operacionais.
+                Painel consolidado em tempo de execução com visão 360° de Funil, Propostas, Produção
+                por Área de Atuação, Projetos e Finanças.
               </p>
             </div>
           </div>

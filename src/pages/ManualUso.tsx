@@ -256,39 +256,77 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
   {
     id: 'propostas',
     titulo: 'Módulo Propostas Comerciais',
-    subtitulo: 'Elaboração PROP-AAAA-NNNN, cálculo de margem e aceite por link público',
+    subtitulo: 'Elaboração PROP-AAAA-NNNN, cascata técnica, aceite público e conversão em Pacote',
     icone: FileText,
     corIcone: 'text-[#D95A2B]',
     perfisPermitidos: ['admin', 'comercial', 'financeiro', 'gestor'],
     descricao:
-      'Geração de propostas comerciais estruturadas com catálogo de serviços, alçadas de desconto/margem, aprovação de diretoria e envio de link seguro para o cliente.',
+      'Geração de propostas comerciais estruturadas com numeração sequencial sem lacunas (PROP-AAAA-NNNN), catálogo em cascata Área → Serviço → Subserviços com entregáveis padrão, alçadas comerciais (R$ 100 mil / margem ≥ 20%), aprovação de diretoria, envio de link seguro (/proposta/:token) e conversão total/parcial em Projeto-Pacote.',
     passos: [
       {
-        titulo: 'Criar nova proposta',
+        titulo: '1. Selecionar cliente com busca rápida ou cadastro expresso',
         descricao:
-          'Selecione o cliente (PJ ou PF), informe o objeto, prazo de validade e adicione itens do catálogo de serviços técnicos ou itens personalizados.',
+          'No editor de propostas, use o campo de cliente com autocomplete pesquisando por Razão Social, Nome Fantasia ou CNPJ/CPF (busca rápida normalizada sem pontuação). Caso o lead ainda não conste na base, cadastre-o na mesma tela via modal rápido de PJ/PF.',
       },
       {
-        titulo: 'Verificar Margem e Alçadas',
+        titulo: '2. Inserir itens com cascata Área → Serviço → Subserviços',
         descricao:
-          'O sistema calcula a Margem Bruta Operacional = (Preço - Custo Estimado) / Preço. Se a margem for inferior à alçada padrão (25%), a proposta entra automaticamente no status "Aguardando Aprovação".',
+          'Adicione disciplinas técnicas através da árvore em cascata: selecione a Área de Atuação (ex: Elétrica, Hidrossanitário, Estrutural), o Serviço do catálogo e os Subserviços associados. Os entregáveis padrão configurados na administração são carregados automaticamente, agilizando a cotação.',
+      },
+      {
+        titulo: '3. Alçadas Comerciais e Deferimento da Diretoria',
+        descricao:
+          'O sistema calcula em tempo real o valor total e a Margem Bruta = (Preço - Custo Estimado) / Preço. Propostas com valor total > R$ 100.000,00 ou margem bruta < 20% entram automaticamente em "Aguardando Aprovação de Alçada", liberando o link de envio somente após deferimento formal do Administrador.',
         dica: 'O Administrador pode deferir ou indeferir a proposta justificando a decisão no histórico auditado.',
       },
       {
-        titulo: 'Enviar link de aceite ao cliente',
+        titulo: '4. Enviar link de aceite público ao cliente (/proposta/:token)',
         descricao:
-          'Com a proposta aprovada, clique em "Copiar Link Público" (/proposta/:token). O cliente acessa o documento formal em qualquer dispositivo e assina digitalmente.',
+          'Com a proposta aprovada, clique em "Copiar Link Público". O cliente acessa o documento formal em qualquer dispositivo sem necessidade de login, analisa o escopo discriminado e assina digitalmente com registro de IP, data e hora.',
       },
       {
-        titulo: 'Formalização e Conversão em Projeto',
+        titulo: '5. Conversão em Projeto-Pacote (Total, Parcial ou Incorporação)',
         descricao:
-          'Assim que o cliente clica em "Aceitar", o sistema marca o aceite com data/hora e permite a criação imediata do Projeto com apenas um clique.',
+          'Após o aceite, acione "Converter em Projeto-Pacote". É possível converter todos os itens aprovados de uma vez (conversão total) ou selecionar itens específicos (conversão parcial). Escolha gerar um Novo Pacote de Projetos ou Incorporar a um Pacote/Projeto já existente do cliente. Cada área de atuação gera uma etapa correspondente com seus entregáveis e numeração única PRJ-AAAA-NNNN consecutiva.',
+        dica: 'Conversões parciais sucessivas mantêm a numeração sequencial sem saltos e auditam detalhadamente quais itens foram convertidos.',
       },
     ],
     regrasAutomaticas: [
-      'Alçada de margem: propostas com margem < 25% exigem aprovação do Admin.',
+      'Numeração sequencial e contínua: PROP-AAAA-NNNN para propostas e PRJ-AAAA-NNNN para projetos gerados, garantindo rastreabilidade sem lacunas.',
+      'Alçada comercial: propostas > R$ 100 mil ou com margem < 20% exigem deferimento exclusivo do perfil Admin.',
       'Tracking automático: a primeira abertura do link pelo cliente atualiza o status de "Enviada" para "Visualizada".',
       'Financeiro e Gestor possuem acesso restrito para consulta aos valores contratuais.',
+    ],
+  },
+  {
+    id: 'areas-subservicos',
+    titulo: 'Gestão de Áreas, Subserviços & Entregáveis Padrão',
+    subtitulo: 'Padronização da cascata técnica e catálogo da engenharia (Admin)',
+    icone: Layers,
+    corIcone: 'text-[#D95A2B]',
+    perfisPermitidos: ['admin'],
+    descricao:
+      'Configuração centralizada da árvore técnica utilizada na montagem de propostas e etapas operacionais: Áreas de Atuação (disciplinas da engenharia), Subserviços especializados e Entregáveis Padrão com formatos previstos.',
+    passos: [
+      {
+        titulo: '1. Gerenciar Áreas de Atuação',
+        descricao:
+          'Em Administração > Áreas & Modalidades, cadastre e ordene as especialidades atendidas pela G+ Engenharia (ex: Civil, Elétrica, Mecânica, Prevenção e Combate a Incêndio, Estrutural, Topografia).',
+      },
+      {
+        titulo: '2. Configurar Subserviços vinculados',
+        descricao:
+          'Para cada Área de Atuação, cadastre os subserviços correspondentes (ex: na área Elétrica: Subestação, SPDA, Iluminação, Entrada de Energia). Defina status ativo/inativo.',
+      },
+      {
+        titulo: '3. Cadastrar Entregáveis Padrão',
+        descricao:
+          'Defina a lista de produtos técnicos esperados por padrão em cada subserviço (ex: Pranchas DWG, Memorial Descritivo PDF, Lista de Materiais XLSX, ART de Projeto). Esses entregáveis são inseridos automaticamente ao selecionar o subserviço na proposta.',
+      },
+    ],
+    regrasAutomaticas: [
+      'Acesso restrito exclusivamente a usuários com papel Administrador.',
+      'Auditoria de cadastro, edição de ordem e desativação de itens técnicos.',
     ],
   },
   {
@@ -426,18 +464,23 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
   },
   {
     id: 'dashboard',
-    titulo: 'Dashboard Executivo 360°',
-    subtitulo: 'Painel gerencial centralizado com consolidação em tempo real',
+    titulo: 'Dashboard Executivo 360° & Comercial',
+    subtitulo: 'Painel gerencial centralizado com consolidação em tempo real e produção por área',
     icone: LayoutDashboard,
     corIcone: 'text-[#D95A2B]',
-    perfisPermitidos: ['admin'],
+    perfisPermitidos: ['admin', 'comercial'],
     descricao:
-      'Painel de bordo exclusivo da diretoria que reúne indicadores comerciais, taxas de conversão de propostas com filtro por período, saúde dos projetos operacionais e alertas críticos.',
+      'Painel de bordo da diretoria e do time comercial que reúne indicadores do funil, taxas de conversão de propostas, produção por área de atuação (emitidas, aceitas, valores propostos e fechados, projetos e etapas gerados), saúde dos projetos operacionais e alertas críticos.',
     passos: [
       {
-        titulo: 'Alternar período de propostas',
+        titulo: 'Alternar período de propostas e produção',
         descricao:
-          'Selecione entre Mês Corrente, Últimos 90 Dias ou Ano Corrente para analisar o volume orçado versus contratos fechados.',
+          'Selecione entre Mês Corrente, Últimos 90 Dias ou Ano Corrente para recalcular os indicadores de propostas e a produção discriminada por área de atuação.',
+      },
+      {
+        titulo: 'Análise de Produção por Área de Atuação',
+        descricao:
+          'Consulte a tabela e os cartões consolidados por especialidade técnica: quantidade de propostas emitidas e aceitas, taxa de conversão %, valor proposto (R$), valor fechado (R$), projetos gerados e etapas de projeto geradas.',
       },
       {
         titulo: 'Acessar alertas centralizados',
@@ -446,7 +489,7 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
       },
     ],
     regrasAutomaticas: [
-      'Visível e acessível exclusivamente ao perfil de Administrador.',
+      'Acessível aos perfis Administrador e Comercial.',
       'Abertura do Dashboard gera registro automático na trilha de auditoria.',
     ],
   },

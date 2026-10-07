@@ -3,6 +3,8 @@ import {
   EmpresaRecord,
   ContratoRecord,
   PropostaRecord,
+  PropostaItemRecord,
+  AreaAtuacaoRecord,
   ProjetoRecord,
   ProjetoEtapaRecord,
   DocumentoRecord,
@@ -239,13 +241,19 @@ export const dashboardService = {
         sort: '-created',
         expand: 'empresa,cliente_pf,contrato,criado_por',
       }),
-      pb.collection('proposta_itens').getFullList<PropostaItemRecord>({
-        sort: '-created',
-        expand: 'area,projeto_gerado,etapa_gerada',
-      }).catch(() => []),
-      pb.collection('areas_atuacao').getFullList<AreaAtuacaoRecord>({
-        sort: 'ordem,nome',
-      }).catch(() => []),
+      pb
+        .collection('proposta_itens')
+        .getFullList<PropostaItemRecord>({
+          sort: '-created',
+          expand: 'area,projeto_gerado,etapa_gerada',
+        })
+        .catch(() => []),
+      pb
+        .collection('areas_atuacao')
+        .getFullList<AreaAtuacaoRecord>({
+          sort: 'ordem,nome',
+        })
+        .catch(() => []),
       pb.collection('projetos').getFullList<ProjetoRecord>({
         sort: '-created',
         expand: 'empresa,cliente_pf,proposta',
@@ -253,40 +261,6 @@ export const dashboardService = {
       pb.collection('projeto_etapas').getFullList<ProjetoEtapaRecord>({
         sort: 'prazo',
         expand: 'projeto,executor,area',
-      }),
-      pb.collection('documentos').getFullList<DocumentoRecord>({
-        sort: 'vencimento',
-        expand: 'projeto,etapa',
-      }),
-      pb.collection('riscos').getFullList<RiscoRecord>({
-        filter: "status != 'mitigado' && status != 'encerrado'",
-        expand: 'projeto',
-      }),
-      financeiroService.listAll(),
-      executoresService.listComMetricas(notaCorteExecutor),
-      pb.collection('audit_logs').getList<AuditLogRecord>(1, 30, {
-        sort: '-created',
-        expand: 'user',
-      }),
-      parceirosService.listParceiros().catch(() => []),
-    ])
-      pb.collection('empresas').getFullList<EmpresaRecord>({ sort: 'razao_social' }),
-      pb.collection('contratos').getFullList<ContratoRecord>({ sort: '-created' }),
-      pb
-        .collection('toques')
-        .getFullList({ filter: 'status != "cancelado"', expand: 'empresa,empresa.responsavel' }),
-      pb.collection('campanhas').getFullList<CampanhaRecord>({ sort: '-created' }),
-      pb.collection('propostas').getFullList<PropostaRecord>({
-        sort: '-created',
-        expand: 'empresa,cliente_pf,contrato,criado_por',
-      }),
-      pb.collection('projetos').getFullList<ProjetoRecord>({
-        sort: '-created',
-        expand: 'empresa,cliente_pf,proposta',
-      }),
-      pb.collection('projeto_etapas').getFullList<ProjetoEtapaRecord>({
-        sort: 'prazo',
-        expand: 'projeto,executor',
       }),
       pb.collection('documentos').getFullList<DocumentoRecord>({
         sort: 'vencimento',
@@ -888,17 +862,88 @@ export const dashboardService = {
       })
     }
 
-    // Processar itens de proposta
-    for (const item of propostaItensRaw) {
-      if (!item.proposta || !mapPropostaPeriodo.has(item.proposta)) continue
-      const prop = mapPropostaPeriodo.get(item.proposta)!
-      const aId = item.area || 'outros'
-      let registro = mapaProducaoAreas.get(aId)
+    // Processar itens de proposta (tanto da coleção proposta_itens quanto do fallback itens_json)
+    const propostasProcessadasItens = new Set<string>()
 
+    if (propostaItensRaw.length > 0) {
+      for (const item of propostaItensRaw) {
+        if (!item.proposta || !mapPropostaPeriodo.has(item.proposta)) continue
+        propostasProcessadasItens.add(item.proposta)
+        const prop = mapPropostaPeriodo.get(item.proposta)!
+        const aId = item.area || 'outros'
+        let registro = mapaProducaoAreas.get(aId)
+
+        if (!registro) {
+          registro = {
+            areaId: aId,
+            areaNome: item.expand?.area?.nome || 'Outros / Sem Área',
+            propostasEmitidasIds: new Set(),
+            propostasAceitasIds: new Set(),
+            valorProposto: 0,
+            valorFechado: 0,
+            projetosGeradosIds: new Set(),
+            etapasCount: 0,
+          }
+          mapaProducaoAreas.set(aId, registro)
+        }
+
+        registro.propostasEmitidasIds.add(item.proposta)
+        registro.valorProposto += Number(item.preco_total) || 0
+
+        if (prop.status === 'aceita') {
+          registro.propostasAceitasIds.add(item.proposta)
+          registro.valorFechado += Number(item.preco_total) || 0
+        }
+
+        if (item.projeto_gerado) {
+          registro.projetosGeradosIds.add(item.projeto_gerado)
+        }
+      }
+    }
+
+    // Fallback: propostas no período que ainda não possuíam registros em proposta_itens mas possuem itens_json
+    for (const prop of propostasNoPeriodo) {
+      if (propostasProcessadasItens.has(prop.id)) continue
+      const itens = prop.itens_json || []
+      for (const item of itens) {
+        const aId = item.area || 'outros'
+        let registro = mapaProducaoAreas.get(aId)
+        if (!registro) {
+          registro = {
+            areaId: aId,
+            areaNome: item.expand?.area?.nome || item.disciplina || 'Outros / Sem Área',
+            propostasEmitidasIds: new Set(),
+            propostasAceitasIds: new Set(),
+            valorProposto: 0,
+            valorFechado: 0,
+            projetosGeradosIds: new Set(),
+            etapasCount: 0,
+          }
+          mapaProducaoAreas.set(aId, registro)
+        }
+
+        registro.propostasEmitidasIds.add(prop.id)
+        registro.valorProposto += Number(item.preco_total) || 0
+
+        if (prop.status === 'aceita') {
+          registro.propostasAceitasIds.add(prop.id)
+          registro.valorFechado += Number(item.preco_total) || 0
+        }
+
+        if (item.projeto_gerado) {
+          registro.projetosGeradosIds.add(item.projeto_gerado)
+        }
+      }
+    }
+
+    // Processar etapas de projetos por área
+    for (const etapa of etapas) {
+      const aId = etapa.area || 'outros'
+      let registro = mapaProducaoAreas.get(aId)
       if (!registro) {
         registro = {
           areaId: aId,
-          areaNome: item.expand?.area?.nome || 'Outros / Sem Área',
+          areaNome: etapa.expand?.area?.nome || 'Outros / Sem Área',
           propostasEmitidasIds: new Set(),
           propostasAceitasIds: new Set(),
           valorProposto: 0,
@@ -908,29 +953,9 @@ export const dashboardService = {
         }
         mapaProducaoAreas.set(aId, registro)
       }
-
-      registro.propostasEmitidasIds.add(item.proposta)
-      registro.valorProposto += Number(item.preco_total) || 0
-
-      if (prop.status === 'aceita') {
-        registro.propostasAceitasIds.add(item.proposta)
-        registro.valorFechado += Number(item.preco_total) || 0
-      }
-
-      if (item.projeto_gerado) {
-        registro.projetosGeradosIds.add(item.projeto_gerado)
-      }
-    }
-
-    // Processar etapas de projetos por área
-    for (const etapa of etapas) {
-      const aId = etapa.area || 'outros'
-      const registro = mapaProducaoAreas.get(aId)
-      if (registro) {
-        registro.etapasCount++
-        if (etapa.projeto) {
-          registro.projetosGeradosIds.add(etapa.projeto)
-        }
+      registro.etapasCount++
+      if (etapa.projeto) {
+        registro.projetosGeradosIds.add(etapa.projeto)
       }
     }
 

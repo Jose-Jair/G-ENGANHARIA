@@ -61,15 +61,14 @@ const App = () => (
             <Route path="/" element={<IndexPage />} />
             {/* ETAPA 11: Dashboard Executivo (Acesso Exclusivo do Admin) */}
             <Route
-              path="/dashboard"
+              path="dashboard"
               element={
-                <ProtectedRoute allowedRoles={['admin']}>
+                <ProtectedRoute allowedRoles={['admin', 'comercial']}>
                   <DashboardPage />
                 </ProtectedRoute>
               }
-            />
+            />{' '}
             <Route path="/boas-vindas" element={<WelcomePage />} />
-
             {/* MANUAL DE USO DA PLATAFORMA (Acesso a todos os perfis autenticados com login) */}
             <Route
               path="/manual"
@@ -79,7 +78,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-
             {/* ETAPA 7: Módulo Propostas (Admin e Comercial gravam; Financeiro e Gestor leem) */}
             <Route
               path="/propostas"
@@ -89,7 +87,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-
             {/* ETAPA 8: Módulo Projetos (Leitura: Admin, Comercial, Financeiro, Gestor; Gravação: Admin e Gestor) */}
             <Route
               path="/projetos"
@@ -99,7 +96,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-
             {/* ETAPA 8: Módulo Executores (Admin e Gestor gravam; Comercial leitura; Financeiro sem acesso) */}
             <Route
               path="/executores"
@@ -109,7 +105,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-
             {/* ETAPA 9: Módulo Financeiro & Fluxo de Caixa (Acesso restrito: Admin e Financeiro. Comercial, Gestor e Executor SEM acesso) */}
             <Route
               path="/financeiro"
@@ -119,7 +114,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-
             {/* Rotas de Empresas / Cadastros (Etapa 2) */}
             <Route
               path="/empresas"
@@ -129,7 +123,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-
             {/* ETAPA 6: Módulo Parceiros Demandantes (Admin e Comercial gravam; Financeiro e Gestor leem) */}
             <Route
               path="/parceiros"
@@ -139,7 +132,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-
             {/* ETAPA 6: Módulo Clientes PF (Admin e Comercial gravam; Financeiro e Gestor leem) */}
             <Route
               path="/clientes-pf"
@@ -157,7 +149,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-
             {/* Rotas do Funil de Intermediação e Cadência (Etapas 3 e 4 - Admin e Comercial) */}
             <Route
               path="/acoes-do-dia"
@@ -200,7 +191,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-
             {/* Admin only routes */}
             <Route
               path="/administracao"

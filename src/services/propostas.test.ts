@@ -82,6 +82,61 @@ describe('propostasService - Novo Modelo de Precificação e Nota Fiscal', () =>
     })
   })
 
+  describe('gerarObjetoAutomatico e gerarEscopoAutomatico (Modelo GMAIS)', () => {
+    it('gera redação formal de objeto com base no empreendimento, serviços e localização', () => {
+      const objeto = propostasService.gerarObjetoAutomatico({
+        empreendimento: 'Clínica de Fisioterapia Studio Ser',
+        municipio: 'Recife',
+        uf: 'PE',
+        itens: [
+          {
+            descricao: 'Projeto Arquitetônico Executivo',
+            quantidade: 1,
+            unidade: 'un',
+            custo_unitario: 5000,
+            custo_total: 5000,
+            preco_total: 12000,
+          },
+          {
+            descricao: 'Projeto Elétrico e Cabeamento Estruturado',
+            quantidade: 1,
+            unidade: 'un',
+            custo_unitario: 3000,
+            custo_total: 3000,
+            preco_total: 8000,
+          },
+        ],
+      })
+
+      expect(objeto).toContain('Clínica de Fisioterapia Studio Ser')
+      expect(objeto).toContain('em Recife–PE')
+      expect(objeto).toContain('Projeto Arquitetônico Executivo')
+      expect(objeto).toContain('CONTRATANTE')
+    })
+
+    it('gera escopo numerado agrupado com disciplinas e subserviços', () => {
+      const escopo = propostasService.gerarEscopoAutomatico({
+        itens: [
+          {
+            area: 'area_eletrica',
+            descricao: 'Instalações Elétricas',
+            subservicos: ['Entrada de Energia', 'SPDA e Aterramento'],
+            quantidade: 1,
+            unidade: 'un',
+            custo_unitario: 4000,
+            custo_total: 4000,
+          },
+        ],
+        areas: [{ id: 'area_eletrica', nome: 'Instalações Elétricas Prediais' }],
+      })
+
+      expect(escopo).toContain('1. PROJETO / DISCIPLINA: INSTALAÇÕES ELÉTRICAS PREDIAIS')
+      expect(escopo).toContain('• Instalações Elétricas')
+      expect(escopo).toContain('- Entrada de Energia')
+      expect(escopo).toContain('- SPDA e Aterramento')
+    })
+  })
+
   describe('restoreBodyPointerEvents', () => {
     it('restaura pointer-events no body quando bloqueado com none', () => {
       document.body.style.pointerEvents = 'none'

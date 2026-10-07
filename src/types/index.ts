@@ -460,6 +460,21 @@ export interface EntregavelPadraoRecord {
   }
 }
 
+export interface PropostaParcelaRecord {
+  id: string
+  proposta: string
+  ordem: number
+  percentual: number
+  valor: number
+  gatilho: 'contratacao' | 'entrega' | 'marco'
+  descricao: string
+  created: string
+  updated: string
+  expand?: {
+    proposta?: PropostaRecord
+  }
+}
+
 export interface CatalogoServicoRecord {
   id: string
   nome: string
@@ -548,6 +563,14 @@ export interface PropostaRecord {
   premissas?: string
   exclusoes?: string
   requer_nota?: boolean
+  // Novos campos do modelo GMAIS
+  empreendimento?: string
+  objeto?: string
+  escopo_gerado?: string
+  prazo_dias?: number
+  nota_prazo?: string
+  validade_dias?: number
+  condicoes_gerais?: string
   status:
     | 'rascunho'
     | 'aprovacao_interna'

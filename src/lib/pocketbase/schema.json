@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T01:16:15.442Z",
+  "generatedAt": "2026-10-07T12:06:20.466Z",
   "collections": [
     {
       "name": "users",
@@ -1352,6 +1352,48 @@
         {
           "name": "requer_nota",
           "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "empreendimento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "objeto",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "escopo_gerado",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prazo_dias",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nota_prazo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validade_dias",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "condicoes_gerais",
+          "type": "text",
           "required": false,
           "system": false
         }
@@ -3051,6 +3093,75 @@
       "indexes": [
         "CREATE INDEX idx_entregaveis_padrao_area ON entregaveis_padrao (area)",
         "CREATE INDEX idx_entregaveis_padrao_subservico ON entregaveis_padrao (subservico)"
+      ]
+    },
+    {
+      "name": "proposta_parcelas",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || @request.auth.role = 'gestor')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || @request.auth.role = 'gestor')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro')",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')"
+      },
+      "fields": [
+        {
+          "name": "proposta",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "propostas"
+        },
+        {
+          "name": "ordem",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "percentual",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "gatilho",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["contratacao", "entrega", "marco"]
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_proposta_parcelas_proposta ON proposta_parcelas (proposta)",
+        "CREATE INDEX idx_proposta_parcelas_ordem ON proposta_parcelas (ordem)"
       ]
     }
   ]

@@ -42,6 +42,8 @@ import { restoreBodyPointerEvents } from '@/lib/utils'
 import { ModalEditorProposta } from '@/components/propostas/ModalEditorProposta'
 import { ModalDetalheProposta } from '@/components/propostas/ModalDetalheProposta'
 import { ModalAprovacaoInterna } from '@/components/propostas/ModalAprovacaoInterna'
+import { DossiePropostaGmais } from '@/components/propostas/DossiePropostaGmais'
+import { Printer } from 'lucide-react'
 
 export const PropostasPage: React.FC = () => {
   const { user } = useAuth()
@@ -68,6 +70,8 @@ export const PropostasPage: React.FC = () => {
 
   const [showAprovacaoModal, setShowAprovacaoModal] = useState(false)
   const [propostaAprovacao, setPropostaAprovacao] = useState<PropostaRecord | null>(null)
+  const [propostaDossie, setPropostaDossie] = useState<PropostaRecord | null>(null)
+  const [showDossieModal, setShowDossieModal] = useState(false)
   const [areasAtuacaoMap, setAreasAtuacaoMap] = useState<Map<string, string>>(new Map())
 
   // Métricas
@@ -717,6 +721,20 @@ export const PropostasPage: React.FC = () => {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => {
+                              setPropostaDossie(p)
+                              setShowDossieModal(true)
+                            }}
+                            className="h-7 text-xs text-orange-700 hover:text-orange-900 hover:bg-orange-50 font-medium"
+                            title="Visualizar no modelo oficial da empresa (PDF)"
+                          >
+                            <Printer className="w-3.5 h-3.5 mr-1" />
+                            PDF GMAIS
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handleOpenDetalhes(p)}
                             className="h-7 text-xs text-blue-600 hover:text-blue-800"
                           >
@@ -767,6 +785,17 @@ export const PropostasPage: React.FC = () => {
         onSaved={() => {
           loadPropostas()
         }}
+      />
+
+      {/* MODAL DOSSIÊ / PDF MODELO OFICIAL GMAIS */}
+      <DossiePropostaGmais
+        open={showDossieModal}
+        onOpenChange={(op) => {
+          setShowDossieModal(op)
+          restoreBodyPointerEvents()
+          if (!op) setPropostaDossie(null)
+        }}
+        proposta={propostaDossie}
       />
 
       {/* MODAL DETALHE DE PROPOSTA */}

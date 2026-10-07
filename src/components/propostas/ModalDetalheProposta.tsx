@@ -27,6 +27,8 @@ import { conversaoProjetoPacoteService } from '@/services/conversaoProjetoPacote
 import { propostasService } from '@/services/propostas'
 import { restoreBodyPointerEvents } from '@/lib/utils'
 import { ModalConversaoProjetoPacote } from './ModalConversaoProjetoPacote'
+import { DossiePropostaGmais } from './DossiePropostaGmais'
+import { Printer } from 'lucide-react'
 
 interface ModalDetalhePropostaProps {
   open: boolean
@@ -54,6 +56,7 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState('documento')
   const [showConversaoModal, setShowConversaoModal] = useState(false)
+  const [showDossieModal, setShowDossieModal] = useState(false)
   const [projetosGerados, setProjetosGerados] = useState<ProjetoRecord[]>([])
   const [percentualConvertido, setPercentualConvertido] = useState<number>(0)
 
@@ -154,6 +157,17 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
 
               {/* Ações rápidas de cabeçalho */}
               <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowDossieModal(true)}
+                  className="h-8 text-xs gap-1.5 text-orange-700 border-orange-300 hover:bg-orange-50 font-semibold shadow-2xs"
+                  title="Visualizar ou imprimir proposta no formato oficial GMAIS"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Dossiê / PDF GMAIS
+                </Button>
+
                 {proposta.token_aceite && (
                   <Button
                     variant="outline"
@@ -695,6 +709,16 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
           </Tabs>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL DO DOSSIÊ / PDF NO MODELO REAL GMAIS */}
+      <DossiePropostaGmais
+        open={showDossieModal}
+        onOpenChange={(op) => {
+          setShowDossieModal(op)
+          restoreBodyPointerEvents()
+        }}
+        proposta={proposta}
+      />
 
       {/* MODAL DE CONVERSÃO EM PROJETO-PACOTE */}
       {showConversaoModal && (

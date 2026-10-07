@@ -8,6 +8,14 @@ export const parametrosService = {
     })
   },
 
+  async create(data: {
+    chave: string
+    valor: string
+    descricao?: string
+  }): Promise<ParametroRecord> {
+    return await pb.collection('parametros').create<ParametroRecord>(data)
+  },
+
   async update(id: string, data: Partial<ParametroRecord>): Promise<ParametroRecord> {
     return await pb.collection('parametros').update<ParametroRecord>(id, data)
   },

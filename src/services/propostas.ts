@@ -1,5 +1,10 @@
 import pb from '@/lib/pocketbase/client'
-import { PropostaRecord, PropostaItemRecord, PropostaRevisaoHistorico } from '@/types'
+import {
+  PropostaRecord,
+  PropostaItemRecord,
+  PropostaRevisaoHistorico,
+  PropostaParcelaRecord,
+} from '@/types'
 
 export interface CreatePropostaData {
   numero?: string
@@ -27,6 +32,22 @@ export interface CreatePropostaData {
   historico_revisoes?: PropostaRevisaoHistorico[]
   criado_por?: string
   requer_aprovacao_admin?: boolean
+  empreendimento?: string
+  objeto?: string
+  escopo_gerado?: string
+  prazo_dias?: number
+  nota_prazo?: string
+  validade_dias?: number
+  condicoes_gerais?: string
+}
+
+export interface PropostaParcelaItemInput {
+  id?: string
+  ordem?: number
+  percentual: number
+  valor: number
+  gatilho: 'contratacao' | 'entrega' | 'marco'
+  descricao: string
 }
 
 export interface UpdatePropostaData extends Partial<CreatePropostaData> {
@@ -418,6 +439,85 @@ export const propostasService = {
   },
 
   /**
+   * Gerador automático da redação do Objeto no formato oficial GMAIS
+   */
+  gerarObjetoAutomatico(params: {
+    empreendimento?: string
+    municipio?: string
+    uf?: string
+    itens?: PropostaItemRecord[]
+  }): string {
+    const emp = params.empreendimento?.trim() || 'Empreendimento'
+    const mun = params.municipio?.trim()
+    const uf = params.uf?.trim()
+    const local = mun && uf ? `em ${mun}–${uf}` : mun || (uf ? `– ${uf}` : '')
+
+    // Compilar serviços distintos por área ou disciplina
+    const servicosNomes: string[] = []
+    if (params.itens && params.itens.length > 0) {
+      for (const it of params.itens) {
+        if (it.descricao && !servicosNomes.includes(it.descricao)) {
+          servicosNomes.push(it.descricao)
+        }
+      }
+    }
+
+    const resumoServicos =
+      servicosNomes.length > 0
+        ? servicosNomes.slice(0, 4).join(', ') +
+          (servicosNomes.length > 4 ? ' e demais especialidades' : '')
+        : 'projetos de engenharia e consultoria técnica especializada'
+
+    return `Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para a elaboração de ${resumoServicos} destinados ao empreendimento "${emp}"${local ? ` ${local}` : ''}, em conformidade com as diretrizes e necessidades apresentadas pela CONTRATANTE.`
+  },
+
+  /**
+   * Gerador automático do Escopo Técnico dos Serviços no formato oficial GMAIS
+   * Gera lista numerada consolidada com cada área e seus subserviços / itens
+   */
+  gerarEscopoAutomatico(params: {
+    itens: PropostaItemRecord[]
+    areas?: Array<{ id: string; nome: string }>
+  }): string {
+    if (!params.itens || params.itens.length === 0) {
+      return ''
+    }
+
+    const linhas: string[] = []
+    let contador = 1
+
+    // Agrupar itens por área quando disponível
+    const porArea = new Map<string, PropostaItemRecord[]>()
+    for (const it of params.itens) {
+      const areaKey = it.area || 'geral'
+      if (!porArea.has(areaKey)) {
+        porArea.set(areaKey, [])
+      }
+      porArea.get(areaKey)!.push(it)
+    }
+
+    for (const [areaId, itensArea] of porArea.entries()) {
+      const areaNome =
+        params.areas?.find((a) => a.id === areaId)?.nome ||
+        (areaId !== 'geral' ? areaId : 'Serviços Técnicos')
+      linhas.push(`${contador}. PROJETO / DISCIPLINA: ${areaNome.toUpperCase()}`)
+      contador++
+
+      itensArea.forEach((it) => {
+        linhas.push(`   • ${it.descricao}`)
+        if (it.subservicos && it.subservicos.length > 0) {
+          it.subservicos.forEach((sub) => {
+            linhas.push(`     - ${sub}`)
+          })
+        }
+      })
+      linhas.push('')
+    }
+
+    return linhas.join('\n').trim()
+  },
+
+  /**
    * Preenchimento automático de variáveis de modelo:
    * {nome}, {orgao}, {valor_contrato}, {numero_proposta}, {prazo}, etc.
    */
@@ -448,6 +548,72 @@ export const propostasService = {
     }
     if (variaveis.preco) resultado = resultado.replace(/{preco}/g, variaveis.preco)
     return resultado
+  },
+
+  /**
+   * Parcelas de pagamento da proposta (proposta_parcelas)
+   */
+  async listParcelas(propostaId: string): Promise<PropostaParcelaRecord[]> {
+    return pb.collection('proposta_parcelas').getFullList<PropostaParcelaRecord>({
+      filter: `proposta = '${propostaId}'`,
+      sort: 'ordem',
+    })
+  },
+
+  async sincronizarParcelas(
+    propostaId: string,
+    parcelas: Array<{
+      id?: string
+      ordem: number
+      percentual: number
+      valor: number
+      gatilho: 'contratacao' | 'entrega' | 'marco'
+      descricao: string
+    }>,
+  ): Promise<PropostaParcelaRecord[]> {
+    const existentes = await this.listParcelas(propostaId)
+    const existentesIds = new Set(existentes.map((p) => p.id))
+    const mantidosIds = new Set<string>()
+
+    const resultados: PropostaParcelaRecord[] = []
+
+    for (let i = 0; i < parcelas.length; i++) {
+      const p = parcelas[i]
+      const dados = {
+        proposta: propostaId,
+        ordem: i + 1,
+        percentual: p.percentual,
+        valor: p.valor,
+        gatilho: p.gatilho,
+        descricao: p.descricao,
+      }
+
+      if (p.id && existentesIds.has(p.id)) {
+        mantidosIds.add(p.id)
+        const updated = await pb
+          .collection('proposta_parcelas')
+          .update<PropostaParcelaRecord>(p.id, dados)
+        resultados.push(updated)
+      } else {
+        const created = await pb
+          .collection('proposta_parcelas')
+          .create<PropostaParcelaRecord>(dados)
+        resultados.push(created)
+      }
+    }
+
+    // Remover parcelas deletadas
+    for (const ex of existentes) {
+      if (!mantidosIds.has(ex.id)) {
+        try {
+          await pb.collection('proposta_parcelas').delete(ex.id)
+        } catch {
+          /* intentionally ignored */
+        }
+      }
+    }
+
+    return resultados
   },
 
   async listItens(propostaId: string): Promise<PropostaItemRecord[]> {

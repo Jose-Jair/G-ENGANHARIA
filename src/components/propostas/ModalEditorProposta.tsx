@@ -19,7 +19,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   Plus,
   Trash2,
@@ -29,15 +28,18 @@ import {
   Check,
   FileText,
   Building2,
-  UserCheck,
   Sparkles,
   Receipt,
-  Info,
+  RotateCcw,
+  Percent,
+  Calendar,
+  AlertTriangle,
 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import {
   PropostaRecord,
   PropostaItemRecord,
+  PropostaParcelaRecord,
   EmpresaRecord,
   ClientePfRecord,
   ContratoRecord,
@@ -47,7 +49,7 @@ import {
   SubservicoRecord,
   EntregavelPadraoRecord,
 } from '@/types'
-import { propostasService } from '@/services/propostas'
+import { propostasService, PropostaParcelaItemInput } from '@/services/propostas'
 import { catalogoServicosService } from '@/services/catalogoServicos'
 import { empresasService } from '@/services/empresas'
 import { clientesPfService } from '@/services/clientesPf'
@@ -109,6 +111,12 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
   const [impostosPadrao, setImpostosPadrao] = useState(16.5)
   const [validadeDiasPadrao, setValidadeDiasPadrao] = useState(15)
 
+  // Textos e regras padrão GMAIS
+  const [padraoPremissasGmais, setPadraoPremissasGmais] = useState('')
+  const [padraoCondicoesGeraisGmais, setPadraoCondicoesGeraisGmais] = useState('')
+  const [padraoNotaPrazoGmais, setPadraoNotaPrazoGmais] = useState('')
+  const [padraoParcelasGmais, setPadraoParcelasGmais] = useState<PropostaParcelaItemInput[]>([])
+
   // Tipo de Destinatário (PJ ou PF)
   const [tipoCliente, setTipoCliente] = useState<'pj' | 'pf'>('pj')
   const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>('')
@@ -116,21 +124,23 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
   const [selectedContratoId, setSelectedContratoId] = useState<string>('')
   const [selectedModeloId, setSelectedModeloId] = useState<string>('')
 
-  // Campos da Proposta
-  const [escopo, setEscopo] = useState('')
+  // Campos do modelo GMAIS
+  const [empreendimento, setEmpreendimento] = useState('')
+  const [objeto, setObjeto] = useState('')
+  const [escopoGerado, setEscopoGerado] = useState('')
+  const [premissas, setPremissas] = useState('')
+  const [prazoDias, setPrazoDias] = useState<number>(30)
+  const [notaPrazo, setNotaPrazo] = useState('')
+  const [validadeDias, setValidadeDias] = useState<number>(15)
+  const [condicoesGerais, setCondicoesGerais] = useState('')
+
+  // Parcelas da proposta
+  const [parcelas, setParcelas] = useState<PropostaParcelaItemInput[]>([])
+
+  // Campos legados / auxiliares
   const [disciplinas, setDisciplinas] = useState('')
   const [entregaveis, setEntregaveis] = useState('')
-  const [prazo, setPrazo] = useState('30 dias corridos')
-  const [condicoesPagamento, setCondicoesPagamento] = useState(
-    '30% entrada, 40% na entrega parcial, 30% na aprovação final',
-  )
-  const [validadeData, setValidadeData] = useState('')
-  const [premissas, setPremissas] = useState(
-    'Disponibilização de acesso às instalações e documentação técnica existente.',
-  )
-  const [exclusoes, setExclusoes] = useState(
-    'Taxas de licenciamento e aprovações em órgãos públicos municipais ou estaduais.',
-  )
+  const [exclusoes, setExclusoes] = useState('')
 
   // Itens de Serviço
   const [itens, setItens] = useState<PropostaItemRecord[]>([])
@@ -166,6 +176,10 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
           paramLim,
           paramMargem,
           paramImp,
+          paramPremissas,
+          paramCondicoes,
+          paramNotaPrazo,
+          paramParcelas,
         ] = await Promise.all([
           empresasService.list({ status: 'ativa' }),
           clientesPfService.list(),
@@ -178,6 +192,19 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
           parametrosService.get('proposta_alcada_limite_valor', '100000'),
           parametrosService.get('proposta_alcada_margem_minima', '20'),
           parametrosService.get('proposta_impostos_padrao', '16.5'),
+          parametrosService.get(
+            'modelo_proposta_premissas',
+            '1. A CONTRATADA não se responsabiliza por eventuais paralisações, atrasos e/ou cancelamentos decorrentes de exigências imprevistas dos órgãos competentes.\n2. Não estão inclusos os custos de taxas dos órgãos competentes e ART/RRT.\n3. Projetos elaborados em conformidade com as normas técnicas vigentes.\n4. Estão inclusas até 2 (duas) revisões de projeto decorrentes de ajustes de concepção.',
+          ),
+          parametrosService.get(
+            'modelo_proposta_condicoes_gerais',
+            'CLÁUSULA 1ª — Alterações posteriores no projeto incorrerão em custos adicionais correspondentes às horas técnicas de retrabalho.\n\nCLÁUSULA 2ª — Os projetos e memoriais são de uso exclusivo para o empreendimento objeto desta proposta.\n\nCLÁUSULA 3ª — A rescisão imotivada sujeitará à quitação dos serviços executados acrescida de multa rescisória compensatória de 20% sobre o saldo remanescente.',
+          ),
+          parametrosService.get(
+            'modelo_proposta_nota_prazo',
+            'Os prazos serão contados em dias corridos, a partir da data de assinatura deste contrato e do fornecimento de todos os elementos e subsídios necessários ao desenvolvimento dos serviços.',
+          ),
+          parametrosService.get('modelo_proposta_parcelas_padrao', ''),
         ])
 
         setEmpresas(empData)
@@ -194,6 +221,44 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
         setMargemMinimaAlcada(parseFloat(paramMargem) || 20)
         setImpostosPadrao(parseFloat(paramImp) || 16.5)
 
+        setPadraoPremissasGmais(paramPremissas)
+        setPadraoCondicoesGeraisGmais(paramCondicoes)
+        setPadraoNotaPrazoGmais(paramNotaPrazo)
+
+        let parsedParcelas: PropostaParcelaItemInput[] = [
+          {
+            ordem: 1,
+            percentual: 50,
+            valor: 0,
+            gatilho: 'contratacao',
+            descricao: '50% (cinquenta por cento) na assinatura do contrato/aceite',
+          },
+          {
+            ordem: 2,
+            percentual: 50,
+            valor: 0,
+            gatilho: 'entrega',
+            descricao: '50% (cinquenta por cento) na entrega final dos projetos executivos',
+          },
+        ]
+        if (paramParcelas) {
+          try {
+            const arr = JSON.parse(paramParcelas)
+            if (Array.isArray(arr) && arr.length > 0) {
+              parsedParcelas = arr.map((p, i) => ({
+                ordem: p.ordem || i + 1,
+                percentual: Number(p.percentual) || 50,
+                valor: 0,
+                gatilho: p.gatilho || 'marco',
+                descricao: p.descricao || `Parcela ${i + 1}`,
+              }))
+            }
+          } catch {
+            /* intentionally ignored */
+          }
+        }
+        setPadraoParcelasGmais(parsedParcelas)
+
         // Inicializar com base na proposta existente ou nova
         if (propostaToEdit) {
           if (propostaToEdit.cliente_pf) {
@@ -209,28 +274,46 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
 
           setSelectedContratoId(propostaToEdit.contrato || '')
           setSelectedModeloId(propostaToEdit.modelo || '')
-          setEscopo(propostaToEdit.escopo || '')
+          setEmpreendimento(propostaToEdit.empreendimento || '')
+          setObjeto(propostaToEdit.objeto || propostaToEdit.escopo || '')
+          setEscopoGerado(propostaToEdit.escopo_gerado || propostaToEdit.escopo || '')
+          setPremissas(propostaToEdit.premissas || paramPremissas)
+          setPrazoDias(propostaToEdit.prazo_dias || 30)
+          setNotaPrazo(propostaToEdit.nota_prazo || paramNotaPrazo)
+          setValidadeDias(propostaToEdit.validade_dias || valDias)
+          setCondicoesGerais(propostaToEdit.condicoes_gerais || paramCondicoes)
+
           setDisciplinas(propostaToEdit.disciplinas || '')
           setEntregaveis(propostaToEdit.entregaveis || '')
-          setPrazo(propostaToEdit.prazo || '30 dias corridos')
-          setCondicoesPagamento(propostaToEdit.condicoes_pagamento || '')
-          setPremissas(propostaToEdit.premissas || '')
           setExclusoes(propostaToEdit.exclusoes || '')
-
-          if (propostaToEdit.validade) {
-            setValidadeData(propostaToEdit.validade.substring(0, 10))
-          }
 
           setItens(propostaToEdit.itens_json || [])
           setMargemPercent(propostaToEdit.margem ?? 35)
           setImpostosPercent(propostaToEdit.impostos ?? 16.5)
           setRequerNota(Boolean(propostaToEdit.requer_nota))
-        } else {
-          // Nova proposta
-          const hoje = new Date()
-          hoje.setDate(hoje.getDate() + valDias)
-          setValidadeData(hoje.toISOString().substring(0, 10))
 
+          // Carregar parcelas salvas
+          try {
+            const parcelasExistentes = await propostasService.listParcelas(propostaToEdit.id)
+            if (parcelasExistentes && parcelasExistentes.length > 0) {
+              setParcelas(
+                parcelasExistentes.map((p) => ({
+                  id: p.id,
+                  ordem: p.ordem,
+                  percentual: p.percentual,
+                  valor: p.valor,
+                  gatilho: p.gatilho,
+                  descricao: p.descricao,
+                })),
+              )
+            } else {
+              setParcelas(parsedParcelas)
+            }
+          } catch (_) {
+            setParcelas(parsedParcelas)
+          }
+        } else {
+          // Nova proposta GMAIS
           if (initialClientePfId) {
             setTipoCliente('pf')
             setSelectedClientePfId(initialClientePfId)
@@ -240,25 +323,44 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
             loadContratosEmpresa(initialEmpresaId)
           }
 
+          setPremissas(paramPremissas)
+          setCondicoesGerais(paramCondicoes)
+          setNotaPrazo(paramNotaPrazo)
+          setValidadeDias(valDias)
+          setPrazoDias(30)
+          setParcelas(parsedParcelas)
+
           // Se tiver item no catálogo, adicionar um item inicial de exemplo
           if (cataData.length > 0 && itens.length === 0) {
             const primeiro = cataData[0]
-            setItens([
-              {
-                servico: primeiro.id,
-                origem: 'catalogo',
-                descricao: primeiro.nome,
-                disciplina: primeiro.disciplina,
-                unidade: primeiro.unidade,
-                quantidade: 1,
-                custo_unitario: 0,
-                custo_total: 0,
-                preco_venda_unitario: primeiro.preco_base,
-                preco_total: primeiro.preco_base,
-                bdi_percentual: 0,
-              },
-            ])
+            const primeiroItem: PropostaItemRecord = {
+              servico: primeiro.id,
+              origem: 'catalogo',
+              descricao: primeiro.nome,
+              disciplina: primeiro.disciplina,
+              unidade: primeiro.unidade,
+              quantidade: 1,
+              custo_unitario: 0,
+              custo_total: 0,
+              preco_venda_unitario: primeiro.preco_base,
+              preco_total: primeiro.preco_base,
+              bdi_percentual: 0,
+            }
+            setItens([primeiroItem])
             setDisciplinas(primeiro.disciplina)
+
+            // Auto preencher objeto e escopo inicial
+            const objAuto = propostasService.gerarObjetoAutomatico({
+              empreendimento: '',
+              itens: [primeiroItem],
+            })
+            setObjeto(objAuto)
+            setEscopoGerado(
+              propostasService.gerarEscopoAutomatico({
+                itens: [primeiroItem],
+                areas: areasData,
+              }),
+            )
           }
         }
       } catch (err) {
@@ -285,6 +387,82 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
   const handleEmpresaChange = (empId: string) => {
     setSelectedEmpresaId(empId)
     loadContratosEmpresa(empId)
+
+    // Se empreendimento ainda vazio, sugerir nome da empresa
+    const emp = empresas.find((e) => e.id === empId)
+    if (emp && !empreendimento) {
+      setEmpreendimento(emp.razao_social || emp.nome_fantasia || '')
+    }
+  }
+
+  // Totais calculados
+  const custoTotalItens = itens.reduce((acc, curr) => acc + (curr.custo_total || 0), 0)
+  const hasPrecoTotalItens = itens.length > 0 && itens.some((it) => it.preco_total !== undefined)
+  const precoVendaItens = hasPrecoTotalItens
+    ? itens.reduce((acc, curr) => {
+        if (curr.preco_total !== undefined) return acc + curr.preco_total
+        const bdi = curr.bdi_percentual ?? margemPercent ?? 0
+        return acc + (curr.custo_total || 0) * (1 + bdi / 100)
+      }, 0)
+    : undefined
+
+  const totais = propostasService.calcularTotais(
+    custoTotalItens,
+    margemPercent,
+    impostosPercent,
+    precoVendaItens,
+    requerNota,
+  )
+
+  // Atualizar valores monetários das parcelas quando o preço total mudar
+  useEffect(() => {
+    if (totais.precoTotal > 0 && parcelas.length > 0) {
+      setParcelas((prev) =>
+        prev.map((p) => ({
+          ...p,
+          valor: Math.round(((totais.precoTotal * p.percentual) / 100) * 100) / 100,
+        })),
+      )
+    }
+  }, [totais.precoTotal])
+
+  // Recalcular objeto e escopo automaticamente quando solicitado ou na primeira inserção
+  const handleAutoGerarObjetoEEscopo = () => {
+    let mun: string | undefined
+    let uf: string | undefined
+
+    if (tipoCliente === 'pj') {
+      const emp = empresas.find((e) => e.id === selectedEmpresaId)
+      if (emp) {
+        mun = emp.municipio
+        uf = emp.uf
+      }
+    } else {
+      const pf = clientesPf.find((c) => c.id === selectedClientePfId)
+      if (pf) {
+        mun = pf.municipio
+        uf = pf.uf
+      }
+    }
+
+    const novoObjeto = propostasService.gerarObjetoAutomatico({
+      empreendimento,
+      municipio: mun,
+      uf: uf,
+      itens,
+    })
+    const novoEscopo = propostasService.gerarEscopoAutomatico({
+      itens,
+      areas,
+    })
+
+    setObjeto(novoObjeto)
+    setEscopoGerado(novoEscopo)
+
+    toast({
+      title: 'Objeto e Escopo Gerados',
+      description: 'Textos oficiais pré-redigidos a partir do empreendimento e itens selecionados.',
+    })
   }
 
   // Adicionar item do catálogo ou avulso
@@ -349,7 +527,6 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
       item.preco_total = Math.round(q * pv * 100) / 100
       item.bdi_percentual = 0
     } else {
-      // Item avulso
       const bdi = field === 'bdi_percentual' ? parseFloat(value) || 0 : item.bdi_percentual || 0
       item.bdi_percentual = bdi
       item.preco_total = Math.round(item.custo_total * (1 + bdi / 100) * 100) / 100
@@ -363,7 +540,58 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
     setItens((prev) => prev.filter((_, i) => i !== index))
   }
 
-  // Preenchimento com Modelo
+  // Manipulação de Parcelas
+  const somaPercentuaisParcelas = parcelas.reduce((acc, p) => acc + (Number(p.percentual) || 0), 0)
+  const parcelasValidas = Math.abs(somaPercentuaisParcelas - 100) < 0.01
+
+  const handleAddParcela = () => {
+    const proxOrdem = parcelas.length + 1
+    const restante = Math.max(0, 100 - somaPercentuaisParcelas)
+    const valorParc = Math.round(((totais.precoTotal * restante) / 100) * 100) / 100
+    setParcelas([
+      ...parcelas,
+      {
+        ordem: proxOrdem,
+        percentual: restante,
+        valor: valorParc,
+        gatilho: 'marco',
+        descricao: `${restante}% na entrega da fase ${proxOrdem}`,
+      },
+    ])
+  }
+
+  const handleRemoveParcela = (idx: number) => {
+    if (parcelas.length <= 1) {
+      toast({
+        title: 'Aviso',
+        description: 'A proposta deve ter ao menos uma parcela de pagamento.',
+        variant: 'destructive',
+      })
+      return
+    }
+    const novas = parcelas.filter((_, i) => i !== idx).map((p, i) => ({ ...p, ordem: i + 1 }))
+    setParcelas(novas)
+  }
+
+  const handleUpdateParcela = (
+    idx: number,
+    field: keyof PropostaParcelaItemInput,
+    value: string | number,
+  ) => {
+    setParcelas((prev) =>
+      prev.map((p, i) => {
+        if (i !== idx) return p
+        const updated = { ...p, [field]: value }
+        if (field === 'percentual') {
+          const perc = parseFloat(String(value)) || 0
+          updated.valor = Math.round(((totais.precoTotal * perc) / 100) * 100) / 100
+        }
+        return updated
+      }),
+    )
+  }
+
+  // Preenchimento com Modelo de E-mail/Texto existente
   const handleAplicarModelo = (modeloId: string) => {
     setSelectedModeloId(modeloId)
     const modelo = modelos.find((m) => m.id === modeloId)
@@ -390,43 +618,20 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
       nome: nomeCliente,
       orgao: orgaoContrato,
       valor_contrato: valorContratoStr,
-      prazo: prazo,
+      prazo: `${prazoDias} dias corridos`,
       disciplinas: disciplinas,
     })
 
-    setEscopo(textoComVariaveis)
-
+    setObjeto(textoComVariaveis)
     toast({
-      title: 'Modelo Aplicado',
+      title: 'Modelo Aplicado ao Objeto',
       description: `Variáveis preenchidas automaticamente a partir de "${modelo.nome}".`,
     })
   }
 
-  // Totais calculados
-  // Novo modelo: cada item tem seu preço_total (catálogo = preco_base*qtd; avulso = custo* (1+bdi%))
-  // Se propostas legadas não tiverem preco_total nos itens, calcular preço de venda base como custo + margem geral
-  const custoTotalItens = itens.reduce((acc, curr) => acc + (curr.custo_total || 0), 0)
-  const hasPrecoTotalItens = itens.length > 0 && itens.some((it) => it.preco_total !== undefined)
-  const precoVendaItens = hasPrecoTotalItens
-    ? itens.reduce((acc, curr) => {
-        if (curr.preco_total !== undefined) return acc + curr.preco_total
-        const bdi = curr.bdi_percentual ?? margemPercent ?? 0
-        return acc + (curr.custo_total || 0) * (1 + bdi / 100)
-      }, 0)
-    : undefined
-
-  const totais = propostasService.calcularTotais(
-    custoTotalItens,
-    margemPercent,
-    impostosPercent,
-    precoVendaItens,
-    requerNota,
-  )
-
   // Verifica se há custo direto informado para a alçada
   const temCustoInformado = custoTotalItens > 0
 
-  // Reavaliação de alçada: usa a margem efetiva calculada. Se custo não informado, avalia por valor total
   useEffect(() => {
     const margemParaAlcada = temCustoInformado ? totais.margemEfetivaPercent : margemPercent
     const aval = propostasService.avaliarAlcada(
@@ -448,7 +653,6 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
 
   // Salvar Proposta
   const handleSave = async (enviarParaAprovacao: boolean = false) => {
-    // Registrar auditoria se houver alteração na exigência de nota fiscal em proposta já existente
     if (propostaToEdit && propostaToEdit.requer_nota !== requerNota) {
       try {
         await auditService.log({
@@ -468,6 +672,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
         console.warn('Erro ao registrar auditoria de alteração de nota fiscal:', err)
       }
     }
+
     if (tipoCliente === 'pj' && !selectedEmpresaId) {
       toast({
         variant: 'destructive',
@@ -484,11 +689,11 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
       })
       return
     }
-    if (!escopo.trim()) {
+    if (!objeto.trim()) {
       toast({
         variant: 'destructive',
-        title: 'Escopo obrigatório',
-        description: 'Descreva o escopo técnico da proposta.',
+        title: 'Objeto obrigatório',
+        description: 'Preencha o objeto técnico da proposta (ou clique em Gerar Automaticamente).',
       })
       return
     }
@@ -500,15 +705,41 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
       })
       return
     }
+    if (!parcelasValidas) {
+      toast({
+        variant: 'destructive',
+        title: 'Parcelas inválidas',
+        description: `A soma dos percentuais das parcelas deve ser exatamente 100% (atual: ${somaPercentuaisParcelas}%).`,
+      })
+      return
+    }
 
     setSaving(true)
     try {
+      // Calcular data de validade a partir do prazo de validade em dias
+      const diasValidadeCalc = validadeDias > 0 ? validadeDias : validadeDiasPadrao
+      const dtVal = new Date()
+      dtVal.setDate(dtVal.getDate() + diasValidadeCalc)
+
+      // Montar resumo textual de condições de pagamento
+      const condicoesTexto = parcelas.map((p) => `${p.percentual}% (${p.descricao})`).join('; ')
+
       const payload: any = {
         empresa: tipoCliente === 'pj' ? selectedEmpresaId : undefined,
         cliente_pf: tipoCliente === 'pf' ? selectedClientePfId : undefined,
         contrato: tipoCliente === 'pj' ? selectedContratoId || undefined : undefined,
         modelo: selectedModeloId || undefined,
-        escopo,
+        // Novos campos modelo GMAIS
+        empreendimento,
+        objeto,
+        escopo_gerado: escopoGerado || objeto,
+        premissas,
+        prazo_dias: prazoDias,
+        nota_prazo: notaPrazo,
+        validade_dias: diasValidadeCalc,
+        condicoes_gerais: condicoesGerais,
+        // Compatibilidade legada
+        escopo: objeto,
         disciplinas:
           disciplinas ||
           itens
@@ -516,12 +747,9 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
             .filter(Boolean)
             .join(', '),
         entregaveis,
-        prazo,
-        condicoes_pagamento: condicoesPagamento,
-        validade: validadeData
-          ? new Date(validadeData + 'T23:59:59.000Z').toISOString()
-          : undefined,
-        premissas,
+        prazo: `${prazoDias} dias corridos`,
+        condicoes_pagamento: condicoesTexto,
+        validade: dtVal.toISOString(),
         exclusoes,
         custo: totais.custo,
         margem: temCustoInformado ? totais.margemEfetivaPercent : margemPercent,
@@ -539,16 +767,27 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
       let res: PropostaRecord
       if (propostaToEdit) {
         res = await propostasService.update(propostaToEdit.id, payload)
+        // Sincronizar parcelas no banco
+        await propostasService.sincronizarParcelas(
+          res.id,
+          parcelas.map((p, idx) => ({ ...p, ordem: p.ordem ?? idx + 1 })),
+        )
+
         toast({
           title: 'Proposta Atualizada',
-          description: `Proposta ${res.numero} atualizada com sucesso.`,
+          description: `Proposta ${res.numero} e suas parcelas foram salvas com sucesso.`,
         })
       } else {
         payload.criado_por = currentUserId
         payload.status = enviarParaAprovacao ? 'aprovacao_interna' : 'rascunho'
         res = await propostasService.create(payload)
 
-        // Se tiver empresa vinculada, mover empresa no funil para "Com proposta elaborada" (Req. G)
+        // Sincronizar parcelas no banco
+        await propostasService.sincronizarParcelas(
+          res.id,
+          parcelas.map((p, idx) => ({ ...p, ordem: p.ordem ?? idx + 1 })),
+        )
+
         if (selectedEmpresaId) {
           try {
             await empresasService.update(selectedEmpresaId, {
@@ -561,8 +800,8 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
         }
 
         toast({
-          title: 'Proposta Elaborada',
-          description: `Proposta gerada com numeração automática no servidor e vinculada ao funil.`,
+          title: 'Proposta GMAIS Elaborada',
+          description: `Proposta ${res.numero} gerada com sucesso com ${parcelas.length} parcelas registradas.`,
         })
       }
 
@@ -604,11 +843,11 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                   <FileText className="w-5 h-5 text-blue-600" />
                   {propostaToEdit
                     ? `Editar Proposta ${propostaToEdit.numero} (${propostaToEdit.revisao || 'Rev.00'})`
-                    : 'Elaborar Nova Proposta de Engenharia'}
+                    : 'Elaborar Proposta Técnica GMAIS'}
                 </DialogTitle>
                 <DialogDescription className="text-xs">
-                  Numeração sequencial anual PROP-AAAA-NNNN gerada no servidor, cálculo BDI e
-                  validação de alçada de aprovação.
+                  Padrão oficial da empresa: Objeto, Escopo gerado por disciplina, Premissas, Prazo,
+                  Investimento consolidado e Parcelamento com gatilhos.
                 </DialogDescription>
               </div>
               {propostaToEdit && (
@@ -620,12 +859,12 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
           </DialogHeader>
 
           <div className="space-y-6 pt-2 text-xs">
-            {/* 1. SELEÇÃO DE CLIENTE COM AUTOCOMPLETE DINÂMICO E CADASTRO RÁPIDO SEM PERDA */}
+            {/* 1. DESTINATÁRIO E EMPREENDIMENTO */}
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <span className="font-semibold text-slate-800 flex items-center gap-1.5">
                   <Building2 className="w-4 h-4 text-orange-600" />
-                  1. Destinatário e Contrato (Busca Dinâmica PF/PJ)
+                  1. Contratante &amp; Empreendimento
                 </span>
 
                 <div className="flex items-center gap-2">
@@ -666,17 +905,34 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                   onOpenNovoClienteModal={() => setShowCadastroClienteModal(true)}
                 />
 
-                {tipoCliente === 'pj' ? (
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-800">
+                    Nome do Empreendimento / Obra *
+                  </Label>
+                  <Input
+                    value={empreendimento}
+                    onChange={(e) => setEmpreendimento(e.target.value)}
+                    placeholder="Ex.: Clínica de Fisioterapia Studio Ser, Edifício Horizonte..."
+                    className="h-9 text-xs"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Exibido no cabeçalho do PDF e na redação formal do Objeto da Proposta.
+                  </span>
+                </div>
+              </div>
+
+              {tipoCliente === 'pj' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                   <div className="space-y-1">
-                    <Label className="text-xs font-semibold text-slate-800">
-                      Contrato Público Vinculado
+                    <Label className="text-xs font-medium text-slate-700">
+                      Contrato Público Vinculado (se aplicável)
                     </Label>
                     <Select
                       value={selectedContratoId}
                       onValueChange={setSelectedContratoId}
                       disabled={contratos.length === 0}
                     >
-                      <SelectTrigger className="h-9 text-xs">
+                      <SelectTrigger className="h-8 text-xs">
                         <SelectValue
                           placeholder={
                             contratos.length > 0
@@ -696,32 +952,21 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                       </SelectContent>
                     </Select>
                   </div>
-                ) : (
-                  <div className="space-y-1 flex flex-col justify-end">
-                    <p className="text-[11px] text-slate-500 bg-white p-2.5 rounded border border-slate-200">
-                      <strong className="text-slate-800 block mb-0.5">Regra LGPD:</strong>
-                      Cliente PF cadastrado com consentimento explícito arquivado no sistema para
-                      orçamentos e projetos.
-                    </p>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
-            {/* 2. ITENS DE SERVIÇO E CÁLCULO DE PREÇO */}
+            {/* 2. ITENS DE SERVIÇO, ÁREAS E INVESTIMENTO */}
             <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-2">
                 <div>
                   <span className="font-semibold text-slate-800 flex items-center gap-1.5">
                     <Calculator className="w-4 h-4 text-emerald-600" />
-                    2. Itens do Catálogo e Planilha de Preço
+                    2. Serviços &amp; Composição do Investimento por Área
                   </span>
                   <p className="text-[11px] text-slate-500">
-                    Valores do catálogo já incluem margem de venda. Total = Preço de venda dos itens{' '}
-                    {requerNota
-                      ? `+ Impostos (${impostosPercent}%)`
-                      : '(sem impostos / nota desligada)'}
-                    .
+                    Insira os serviços por área de atuação. O dossiê/PDF organizará o investimento
+                    em tabela por área seguida do valor global consolidado.
                   </p>
                 </div>
 
@@ -751,12 +996,12 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-100 text-slate-700 font-semibold border-b">
                     <tr>
-                      <th className="py-2 px-3">Descrição do Serviço &amp; Especialidades</th>
+                      <th className="py-2 px-3">Área &amp; Descrição do Serviço</th>
                       <th className="py-2 px-3 w-24">Origem</th>
                       <th className="py-2 px-2 w-14 text-center">Unid.</th>
                       <th className="py-2 px-2 w-16 text-center">Qtd.</th>
                       <th className="py-2 px-2 w-24 text-right">Custo Dir.</th>
-                      <th className="py-2 px-2 w-28 text-right">Preço Venda Unit.</th>
+                      <th className="py-2 px-2 w-28 text-right">Preço Venda</th>
                       <th className="py-2 px-3 w-28 text-right">Preço Total</th>
                       <th className="py-2 px-2 w-10 text-center"></th>
                     </tr>
@@ -794,7 +1039,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                               <Input
                                 value={it.descricao}
                                 onChange={(e) => handleUpdateItem(idx, 'descricao', e.target.value)}
-                                className="h-7 text-xs"
+                                className="h-7 text-xs font-medium"
                               />
                               {(areaObj || (it.subservicos && it.subservicos.length > 0)) && (
                                 <div className="flex flex-wrap items-center gap-1">
@@ -856,7 +1101,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                                   handleUpdateItem(idx, 'custo_unitario', e.target.value)
                                 }
                                 className="h-7 text-xs text-right font-mono"
-                                title="Custo direto unitário (opcional para cálculo de margem efetiva)"
+                                title="Custo direto unitário"
                               />
                             </td>
                             <td className="py-2 px-2 text-right">
@@ -870,7 +1115,6 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                                     handleUpdateItem(idx, 'preco_venda_unitario', e.target.value)
                                   }
                                   className="h-7 text-xs text-right font-mono font-medium"
-                                  title="Preço de venda unitário do catálogo (já inclui margem)"
                                 />
                               ) : (
                                 <div className="space-y-0.5">
@@ -886,7 +1130,6 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                                         handleUpdateItem(idx, 'bdi_percentual', e.target.value)
                                       }
                                       className="h-6 w-14 text-[11px] text-center font-mono"
-                                      title="Margem de lucro / BDI do item avulso (%)"
                                     />
                                     <span className="text-[10px] text-slate-500">%</span>
                                   </div>
@@ -930,13 +1173,13 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                         Cliente exigirá nota fiscal?
                       </Label>
                       <Badge variant={requerNota ? 'default' : 'secondary'} className="text-[10px]">
-                        {requerNota ? 'Nota Fiscal Ativa' : 'Nota Fiscal Desligada'}
+                        {requerNota ? 'Nota Fiscal Ativa' : 'Nota Fiscal Desligada (Padrão)'}
                       </Badge>
                     </div>
                     <p className="text-[11px] text-slate-500 mt-0.5">
                       {requerNota
-                        ? 'Com nota ativa: os impostos/tributos serão adicionados ao preço final e destacados na proposta.'
-                        : 'Cliente não exigirá nota — impostos não aplicados.'}
+                        ? 'Com nota ativa: os impostos/tributos serão adicionados ao preço final e a proposta exibirá observação formal de emissão de NF.'
+                        : 'Cliente não exigirá nota: o PDF indicará observação informando que os valores não contemplam emissão de NF.'}
                     </p>
                   </div>
                 </div>
@@ -953,7 +1196,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                 </div>
               </div>
 
-              {/* PAINEL REORGANIZADO: Custo direto, Preço de venda, Margem efetiva %, Impostos */}
+              {/* PAINEL DE INVESTIMENTO CONSOLIDADO */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
                 <div className="space-y-0.5">
                   <Label className="text-[11px] font-medium text-slate-600">
@@ -971,13 +1214,13 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
 
                 <div className="space-y-0.5">
                   <Label className="text-[11px] font-medium text-slate-600">
-                    Preço de Venda (sem impostos)
+                    Preço de Venda dos Serviços
                   </Label>
                   <div className="text-base font-bold font-mono text-blue-900">
                     {formatCurrencyBr(totais.precoVendaSemImpostos)}
                   </div>
                   <span className="text-[10px] text-slate-500 block">
-                    Soma dos itens de venda da proposta
+                    Soma das áreas e especialidades
                   </span>
                 </div>
 
@@ -1052,12 +1295,12 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                 <div className="col-span-1 sm:col-span-2 lg:col-span-4 bg-emerald-50/90 p-3 rounded-lg border border-emerald-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                   <div>
                     <Label className="text-xs font-bold text-emerald-900 block">
-                      Preço Total Final da Proposta
+                      VALOR GLOBAL CONSOLIDADO DA PROPOSTA
                     </Label>
                     <span className="text-[11px] text-emerald-800">
                       {requerNota
-                        ? 'Preço de venda dos itens + impostos aplicados'
-                        : 'Preço de venda direto dos itens (sem impostos / nota fiscal não exigida)'}
+                        ? 'Investimento global com tributos inclusos (exigência de NF)'
+                        : 'Investimento global sem tributos adicionais (cliente não exigirá NF)'}
                     </span>
                   </div>
                   <div className="text-2xl font-black font-mono text-emerald-700">
@@ -1086,26 +1329,173 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                       : 'Aprovação Autônoma do Comercial'}
                   </div>
                   <p className="text-[11px] mt-0.5 opacity-90">{alcadaInfo.motivoAlcada}</p>
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    Regra parametrizada: Limite até {formatCurrencyBr(limiteAlcadaValor)} e Margem
-                    mínima de {margemMinimaAlcada}%. Acima disso exige validação da Diretoria/Admin.
-                  </p>
                 </div>
               </div>
             </div>
 
-            {/* 3. MODELOS E CONTEÚDO TÉCNICO */}
+            {/* 3. PARCELAMENTO & CONDIÇÕES DE PAGAMENTO (GMAIS 50/50 OU PERSONALIZADO) */}
+            <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-2">
+                <div>
+                  <span className="font-semibold text-slate-800 flex items-center gap-1.5">
+                    <Percent className="w-4 h-4 text-blue-600" />
+                    3. Condições de Pagamento — Parcelas da Proposta
+                  </span>
+                  <p className="text-[11px] text-slate-500">
+                    Padrão GMAIS: 50% na contratação / 50% na entrega final. Ao converter em
+                    projeto, as contas a receber são geradas fracionadas por estas parcelas.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={
+                      parcelasValidas
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 text-[10px]'
+                        : 'bg-red-50 text-red-800 border-red-300 text-[10px]'
+                    }
+                  >
+                    Soma: {somaPercentuaisParcelas}%{' '}
+                    {parcelasValidas ? '✓ (OK)' : '— Deve somar 100%'}
+                  </Badge>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddParcela}
+                    className="h-7 text-xs gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Nova Parcela
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {parcelas.map((parc, pIdx) => (
+                  <div
+                    key={pIdx}
+                    className="p-2.5 bg-slate-50 border border-slate-200 rounded-md grid grid-cols-1 sm:grid-cols-12 gap-2 items-center"
+                  >
+                    <div className="sm:col-span-1 font-mono text-xs font-bold text-slate-700 flex items-center gap-1">
+                      <Badge variant="secondary" className="text-[10px] px-1.5">
+                        #{parc.ordem || pIdx + 1}
+                      </Badge>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <Label className="text-[10px] text-slate-500 block sm:hidden">
+                        Percentual
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={parc.percentual}
+                          onChange={(e) =>
+                            handleUpdateParcela(pIdx, 'percentual', parseFloat(e.target.value) || 0)
+                          }
+                          className="text-xs h-7 pr-5 font-mono text-right"
+                        />
+                        <span className="text-[10px] text-slate-400 absolute right-2 top-1.5 font-bold">
+                          %
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-2 text-right">
+                      <Label className="text-[10px] text-slate-500 block sm:hidden">Valor R$</Label>
+                      <div className="font-mono font-semibold text-xs text-blue-900 bg-white border border-slate-200 px-2 py-1 rounded h-7 flex items-center justify-end">
+                        {formatCurrencyBr(
+                          parc.valor || (totais.precoTotal * parc.percentual) / 100,
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-3">
+                      <Label className="text-[10px] text-slate-500 block sm:hidden">Gatilho</Label>
+                      <Select
+                        value={parc.gatilho}
+                        onValueChange={(val: 'contratacao' | 'entrega' | 'marco') =>
+                          handleUpdateParcela(pIdx, 'gatilho', val)
+                        }
+                      >
+                        <SelectTrigger className="text-xs h-7">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="contratacao">Contratação / Aceite</SelectItem>
+                          <SelectItem value="entrega">Entrega Final</SelectItem>
+                          <SelectItem value="marco">Marco / Etapa</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="sm:col-span-3">
+                      <Label className="text-[10px] text-slate-500 block sm:hidden">
+                        Descrição
+                      </Label>
+                      <Input
+                        value={parc.descricao}
+                        onChange={(e) => handleUpdateParcela(pIdx, 'descricao', e.target.value)}
+                        placeholder="Ex.: 50% na contratação..."
+                        className="text-xs h-7"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-1 text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveParcela(pIdx)}
+                        className="h-7 w-7 p-0 text-red-600 hover:text-red-800"
+                        title="Remover parcela"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {!parcelasValidas && (
+                <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-800 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                  <span>
+                    A soma dos percentuais deve totalizar exatamente 100% (atual:{' '}
+                    {somaPercentuaisParcelas}%).
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* 4. REDAÇÃO OFICIAL GMAIS (OBJETO, ESCOPO, PREMISSAS, PRAZOS, VALIDADE E CONDIÇÕES) */}
             <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-2">
                 <span className="font-semibold text-slate-800 flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-purple-600" />
-                  3. Modelo de Texto e Especificações Técnicas
+                  4. Redação Oficial GMAIS (Dossiê/PDF)
                 </span>
 
                 <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAutoGerarObjetoEEscopo}
+                    className="h-7 text-xs gap-1.5 text-purple-700 border-purple-300 hover:bg-purple-50"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    Gerar Objeto &amp; Escopo Automaticamente
+                  </Button>
+
                   <Select value={selectedModeloId} onValueChange={handleAplicarModelo}>
-                    <SelectTrigger className="h-8 text-xs w-[240px]">
-                      <SelectValue placeholder="Aplicar Modelo Padrão..." />
+                    <SelectTrigger className="h-7 text-xs w-[180px]">
+                      <SelectValue placeholder="Modelo de texto..." />
                     </SelectTrigger>
                     <SelectContent>
                       {modelos.map((m) => (
@@ -1118,93 +1508,144 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                 </div>
               </div>
 
+              {/* 1. OBJETO */}
               <div className="space-y-1">
-                <Label className="text-xs font-medium">Escopo Técnico dos Serviços *</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-slate-800">
+                    1. Objeto da Proposta *
+                  </Label>
+                  <span className="text-[10px] text-slate-500">
+                    Pré-redigido conforme serviços, cliente e empreendimento
+                  </span>
+                </div>
                 <Textarea
-                  rows={4}
-                  value={escopo}
-                  onChange={(e) => setEscopo(e.target.value)}
-                  placeholder="Detalhamento das atividades, metodologias e escopo a ser entregue..."
-                  className="text-xs font-sans"
+                  rows={3}
+                  value={objeto}
+                  onChange={(e) => setObjeto(e.target.value)}
+                  placeholder="Esta proposta comercial tem como objetivo a prestação de serviços técnicos para..."
+                  className="text-xs font-sans leading-relaxed"
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Disciplinas Envolvidas</Label>
-                  <Input
-                    value={disciplinas}
-                    onChange={(e) => setDisciplinas(e.target.value)}
-                    placeholder="Ex: Arquitetura, Estruturas, Instalações Prediais, BIM"
-                    className="text-xs h-9"
-                  />
+              {/* 2. ESCOPO DOS SERVIÇOS (NUMERADO) */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-slate-800">
+                    2. Escopo dos Serviços (Lista Numerada)
+                  </Label>
+                  <span className="text-[10px] text-slate-500">
+                    Consolidado automaticamente por projetos e especialidades
+                  </span>
+                </div>
+                <Textarea
+                  rows={4}
+                  value={escopoGerado}
+                  onChange={(e) => setEscopoGerado(e.target.value)}
+                  placeholder="1. PROJETO / DISCIPLINA: ARQUITETURA..."
+                  className="text-xs font-mono text-[11px] leading-relaxed"
+                />
+              </div>
+
+              {/* 3. PREMISSAS */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-slate-800">
+                    3. Premissas Técnicas da Proposta
+                  </Label>
+                  <span className="text-[10px] text-slate-500">
+                    Padrão oficial da empresa (editável por proposta)
+                  </span>
+                </div>
+                <Textarea
+                  rows={4}
+                  value={premissas}
+                  onChange={(e) => setPremissas(e.target.value)}
+                  className="text-xs font-sans leading-relaxed"
+                />
+              </div>
+
+              {/* 4. PRAZO E NOTA */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                <div className="md:col-span-3 space-y-1">
+                  <Label className="text-xs font-semibold text-slate-800">
+                    4. Prazo de Execução (dias)
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      min={1}
+                      value={prazoDias}
+                      onChange={(e) => setPrazoDias(parseInt(e.target.value, 10) || 0)}
+                      className="text-xs h-9 font-mono"
+                    />
+                    <span className="absolute right-3 top-2.5 text-[10px] text-slate-500">
+                      dias corridos
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Entregáveis Previstos</Label>
+                <div className="md:col-span-9 space-y-1">
+                  <Label className="text-xs font-semibold text-slate-800">
+                    Nota de Contagem de Prazos
+                  </Label>
                   <Input
-                    value={entregaveis}
-                    onChange={(e) => setEntregaveis(e.target.value)}
-                    placeholder="Ex: Memoriais, pranchas em DWG/PDF, modelo IFC e ART"
+                    value={notaPrazo}
+                    onChange={(e) => setNotaPrazo(e.target.value)}
+                    placeholder="Os prazos serão contados em dias corridos..."
                     className="text-xs h-9"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Prazo de Execução</Label>
-                  <Input
-                    value={prazo}
-                    onChange={(e) => setPrazo(e.target.value)}
-                    placeholder="Ex: 45 dias corridos"
-                    className="text-xs h-9"
-                  />
+              {/* 5. VALIDADE DA PROPOSTA (DIAS) */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                <div className="md:col-span-4 space-y-1">
+                  <Label className="text-xs font-semibold text-slate-800">
+                    7. Validade da Proposta (em dias)
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={180}
+                      value={validadeDias}
+                      onChange={(e) => setValidadeDias(parseInt(e.target.value, 10) || 0)}
+                      className="text-xs h-9 font-mono pr-12"
+                    />
+                    <span className="absolute right-3 top-2.5 text-[10px] text-slate-500 font-medium">
+                      dias
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-500">
+                    Padrão do sistema: 15 dias (o modelo GMAIS usa 5, 100% editável).
+                  </span>
                 </div>
 
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Condições de Pagamento</Label>
-                  <Input
-                    value={condicoesPagamento}
-                    onChange={(e) => setCondicoesPagamento(e.target.value)}
-                    placeholder="Ex: 30% entrada + 70% na entrega"
-                    className="text-xs h-9"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Validade da Proposta (Data Limite)</Label>
-                  <Input
-                    type="date"
-                    value={validadeData}
-                    onChange={(e) => setValidadeData(e.target.value)}
-                    className="text-xs h-9 font-mono"
-                  />
+                <div className="md:col-span-8 space-y-1 flex flex-col justify-end">
+                  <div className="p-2.5 rounded bg-slate-50 border border-slate-200 text-slate-700 text-[11px]">
+                    <strong>Regra de Expiração &amp; Lembretes:</strong> O sistema respeita este
+                    prazo de {validadeDias} dias corridos para enviar alertas D-3 e atualizar
+                    automaticamente o status para &quot;Expirada&quot;.
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Premissas e Requisitos</Label>
-                  <Textarea
-                    rows={2}
-                    value={premissas}
-                    onChange={(e) => setPremissas(e.target.value)}
-                    placeholder="Condições técnicas prévias para início dos serviços..."
-                    className="text-xs"
-                  />
+              {/* 6. CONDIÇÕES GERAIS (3 CLÁUSULAS CONTRATUAIS) */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-slate-800">
+                    8. Condições Gerais &amp; Cláusulas Rescisórias
+                  </Label>
+                  <span className="text-[10px] text-slate-500">
+                    Cláusulas 1ª (alterações), 2ª (uso exclusivo) e 3ª (rescisão e multa de 20%)
+                  </span>
                 </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Exclusões</Label>
-                  <Textarea
-                    rows={2}
-                    value={exclusoes}
-                    onChange={(e) => setExclusoes(e.target.value)}
-                    placeholder="Serviços ou taxas não contemplados nesta proposta..."
-                    className="text-xs"
-                  />
-                </div>
+                <Textarea
+                  rows={5}
+                  value={condicoesGerais}
+                  onChange={(e) => setCondicoesGerais(e.target.value)}
+                  className="text-xs font-sans leading-relaxed"
+                />
               </div>
             </div>
           </div>
@@ -1226,7 +1667,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={() => handleSave(false)}
-                disabled={saving}
+                disabled={saving || !parcelasValidas}
                 className="text-slate-700"
               >
                 Salvar como Rascunho
@@ -1236,7 +1677,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                 type="button"
                 size="sm"
                 onClick={() => handleSave(true)}
-                disabled={saving}
+                disabled={saving || !parcelasValidas}
                 className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
               >
                 <Check className="w-4 h-4" />
@@ -1262,6 +1703,10 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
               setEmpresas(empList)
               setSelectedEmpresaId(novo.id)
               loadContratosEmpresa(novo.id)
+              if (!empreendimento) {
+                const cadastrado = empList.find((e) => e.id === novo.id)
+                setEmpreendimento(cadastrado?.razao_social || cadastrado?.nome_fantasia || '')
+              }
             } else {
               const pfList = await clientesPfService.list()
               setClientesPf(pfList)
@@ -1286,7 +1731,9 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
         catalogoServicos={catalogoServicos}
         onItemConfirmado={(novoItem, entsSugeridos) => {
           try {
-            setItens((prev) => [...prev, novoItem])
+            const novosItens = [...itens, novoItem]
+            setItens(novosItens)
+
             if (novoItem.disciplina) {
               setDisciplinas((prevDisc) => {
                 if (!prevDisc) return novoItem.disciplina || ''
@@ -1306,6 +1753,17 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                 return uniao.join(', ')
               })
             }
+
+            // Atualizar o escopo gerado caso ainda não tenha sido customizado
+            if (!escopoGerado || escopoGerado.trim().length === 0) {
+              setEscopoGerado(
+                propostasService.gerarEscopoAutomatico({
+                  itens: novosItens,
+                  areas,
+                }),
+              )
+            }
+
             toast({
               title: 'Item Adicionado',
               description: `"${novoItem.descricao}" foi incluído na proposta.`,
@@ -1325,3 +1783,4 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
     </>
   )
 }
+export default ModalEditorProposta

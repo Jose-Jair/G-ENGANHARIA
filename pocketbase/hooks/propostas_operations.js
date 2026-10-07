@@ -211,67 +211,160 @@ onRecordAfterUpdateSuccess((e) => {
       console.log('Erro ao criar projeto a partir de proposta aceita: ' + err)
     }
 
-    // 2. CRIAR CONTA A RECEBER EM RASCUNHO NA COLEÇÃO CONTAS
+    // 2. CRIAR CONTA(S) A RECEBER EM RASCUNHO NA COLEÇÃO CONTAS
+    // Se a proposta possui parcelas cadastradas em proposta_parcelas, fracionar o faturamento
     try {
       const contasCol = $app.findCollectionByNameOrId('contas')
-      const novaConta = new Record(contasCol)
       const requerNotaProposta = rec.getBool('requer_nota')
       const aliquotaImpostos = rec.getInt('impostos') || 0
+      const auditCol = $app.findCollectionByNameOrId('audit_logs')
 
-      novaConta.set('tipo', 'receber')
-      if (projetoCriadoId) {
-        novaConta.set('projeto', projetoCriadoId)
-      }
-      novaConta.set('proposta', propostaId)
-      novaConta.set(
-        'descricao',
-        'Recebimento de Proposta Aceita ' +
-          propostaNumero +
-          (requerNotaProposta ? ' (Com NF)' : ' (Sem NF)'),
-      )
-      novaConta.set('valor', preco)
-      novaConta.set('status', 'rascunho')
-      novaConta.set('forma_pagamento', condicoesPagamento)
-      novaConta.set('bloqueada_por_fechamento', false)
-
-      // Se requer nota fiscal e tem impostos informados, calcular retenção e líquido
-      if (requerNotaProposta && aliquotaImpostos > 0) {
-        const retencao =
-          Math.round(((preco * aliquotaImpostos) / (100 + aliquotaImpostos)) * 100) / 100
-        novaConta.set('retencao_impostos', retencao)
-        novaConta.set('valor_liquido', Math.round((preco - retencao) * 100) / 100)
-      } else {
-        novaConta.set('retencao_impostos', 0)
-        novaConta.set('valor_liquido', preco)
-      }
-
-      // Vencimento padrão: +30 dias a partir de hoje
-      const dataVenc = new Date()
-      dataVenc.setDate(dataVenc.getDate() + 30)
-      novaConta.set('vencimento', dataVenc.toISOString().substring(0, 10) + ' 12:00:00.000Z')
-
-      $app.save(novaConta)
-
-      // Auditoria da criação da conta
+      // Buscar parcelas da proposta
+      let parcelas = []
       try {
-        const auditCol = $app.findCollectionByNameOrId('audit_logs')
-        const aRec = new Record(auditCol)
-        aRec.set('acao', 'CRIACAO_AUTOMATICA_CONTA_RECEBER')
-        aRec.set('entidade', 'contas')
-        aRec.set('registro_id', novaConta.id)
-        aRec.set('detalhes', {
-          mensagem:
-            'Conta a receber em rascunho gerada por aceite da proposta ' +
+        parcelas = $app.findRecordsByFilter(
+          'proposta_parcelas',
+          "proposta = '" + propostaId + "'",
+          'ordem',
+          50,
+          0,
+        )
+      } catch (errParc) {
+        console.log('Erro ao buscar parcelas da proposta: ' + errParc)
+      }
+
+      if (parcelas && parcelas.length > 0) {
+        // Fracionamento em múltiplas contas a receber conforme as parcelas
+        for (let i = 0; i < parcelas.length; i++) {
+          const parc = parcelas[i]
+          const ordem = parc.getInt('ordem') || i + 1
+          const perc = parc.getFloat('percentual') || 0
+          const valorParc = parc.getFloat('valor') || (preco * perc) / 100
+          const descParc = parc.getString('descricao') || `Parcela ${ordem}/${parcelas.length}`
+          const gatilho = parc.getString('gatilho') || 'marco'
+
+          const novaConta = new Record(contasCol)
+          novaConta.set('tipo', 'receber')
+          if (projetoCriadoId) {
+            novaConta.set('projeto', projetoCriadoId)
+          }
+          novaConta.set('proposta', propostaId)
+          novaConta.set(
+            'descricao',
+            'Proposta ' +
+              propostaNumero +
+              ' — Parcela ' +
+              ordem +
+              '/' +
+              parcelas.length +
+              ' (' +
+              perc +
+              '% - ' +
+              descParc +
+              ')' +
+              (requerNotaProposta ? ' (Com NF)' : ' (Sem NF)'),
+          )
+          novaConta.set('valor', valorParc)
+          novaConta.set('status', 'rascunho')
+          novaConta.set('forma_pagamento', 'Gatilho: ' + gatilho + ' | ' + condicoesPagamento)
+          novaConta.set('bloqueada_por_fechamento', false)
+
+          if (requerNotaProposta && aliquotaImpostos > 0) {
+            const retencao =
+              Math.round(((valorParc * aliquotaImpostos) / (100 + aliquotaImpostos)) * 100) / 100
+            novaConta.set('retencao_impostos', retencao)
+            novaConta.set('valor_liquido', Math.round((valorParc - retencao) * 100) / 100)
+          } else {
+            novaConta.set('retencao_impostos', 0)
+            novaConta.set('valor_liquido', valorParc)
+          }
+
+          // Vencimento estimado: parcela 1 em 15 dias, parcela 2 em 45 dias, etc.
+          const diasVenc = i === 0 ? 15 : (i + 1) * 30
+          const dataVenc = new Date()
+          dataVenc.setDate(dataVenc.getDate() + diasVenc)
+          novaConta.set('vencimento', dataVenc.toISOString().substring(0, 10) + ' 12:00:00.000Z')
+
+          $app.save(novaConta)
+
+          try {
+            const aRec = new Record(auditCol)
+            aRec.set('acao', 'CRIACAO_AUTOMATICA_CONTA_RECEBER')
+            aRec.set('entidade', 'contas')
+            aRec.set('registro_id', novaConta.id)
+            aRec.set('detalhes', {
+              mensagem:
+                'Conta a receber da parcela ' +
+                ordem +
+                '/' +
+                parcelas.length +
+                ' gerada por aceite da proposta ' +
+                propostaNumero +
+                (requerNotaProposta ? ' (com exigência de NF)' : ' (sem exigência de NF)'),
+              ordem: ordem,
+              percentual: perc,
+              valor: valorParc,
+              gatilho: gatilho,
+              requer_nota: requerNotaProposta,
+              proposta_id: propostaId,
+            })
+            $app.save(aRec)
+          } catch (_) {}
+        }
+      } else {
+        // Fallback: criar conta única integral se não houver parcelas cadastradas
+        const novaConta = new Record(contasCol)
+        novaConta.set('tipo', 'receber')
+        if (projetoCriadoId) {
+          novaConta.set('projeto', projetoCriadoId)
+        }
+        novaConta.set('proposta', propostaId)
+        novaConta.set(
+          'descricao',
+          'Recebimento de Proposta Aceita ' +
             propostaNumero +
-            (requerNotaProposta ? ' (com exigência de NF)' : ' (sem exigência de NF)'),
-          valor: preco,
-          requer_nota: requerNotaProposta,
-          proposta_id: propostaId,
-        })
-        $app.save(aRec)
-      } catch (_) {}
+            (requerNotaProposta ? ' (Com NF)' : ' (Sem NF)'),
+        )
+        novaConta.set('valor', preco)
+        novaConta.set('status', 'rascunho')
+        novaConta.set('forma_pagamento', condicoesPagamento)
+        novaConta.set('bloqueada_por_fechamento', false)
+
+        if (requerNotaProposta && aliquotaImpostos > 0) {
+          const retencao =
+            Math.round(((preco * aliquotaImpostos) / (100 + aliquotaImpostos)) * 100) / 100
+          novaConta.set('retencao_impostos', retencao)
+          novaConta.set('valor_liquido', Math.round((preco - retencao) * 100) / 100)
+        } else {
+          novaConta.set('retencao_impostos', 0)
+          novaConta.set('valor_liquido', preco)
+        }
+
+        const dataVenc = new Date()
+        dataVenc.setDate(dataVenc.getDate() + 30)
+        novaConta.set('vencimento', dataVenc.toISOString().substring(0, 10) + ' 12:00:00.000Z')
+
+        $app.save(novaConta)
+
+        try {
+          const aRec = new Record(auditCol)
+          aRec.set('acao', 'CRIACAO_AUTOMATICA_CONTA_RECEBER')
+          aRec.set('entidade', 'contas')
+          aRec.set('registro_id', novaConta.id)
+          aRec.set('detalhes', {
+            mensagem:
+              'Conta a receber integral em rascunho gerada por aceite da proposta ' +
+              propostaNumero +
+              (requerNotaProposta ? ' (com exigência de NF)' : ' (sem exigência de NF)'),
+            valor: preco,
+            requer_nota: requerNotaProposta,
+            proposta_id: propostaId,
+          })
+          $app.save(aRec)
+        } catch (_) {}
+      }
     } catch (err) {
-      console.log('Erro ao gerar conta a receber: ' + err)
+      console.log('Erro ao gerar conta(s) a receber: ' + err)
     }
 
     // 3. CONVERSÃO DO PROSPECT EM PARCEIRO NO FUNIL (se empresa PJ)

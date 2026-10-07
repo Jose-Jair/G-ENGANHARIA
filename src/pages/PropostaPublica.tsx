@@ -327,16 +327,28 @@ export const PropostaPublicaPage: React.FC = () => {
               </div>
             </div>
 
-            {/* SEÇÃO 2: ESCOPO TÉCNICO */}
+            {/* SEÇÃO 2: OBJETO & ESCOPO TÉCNICO GMAIS */}
+            {proposta.objeto && (
+              <div className="space-y-2">
+                <h3 className="font-bold text-sm text-slate-900 border-b pb-1">
+                  1. Objeto da Proposta
+                </h3>
+                <div className="whitespace-pre-wrap leading-relaxed text-slate-700 bg-white p-2">
+                  {proposta.objeto}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <h3 className="font-bold text-sm text-slate-900 border-b pb-1">
-                1. Escopo e Metodologia dos Trabalhos
+                {proposta.objeto
+                  ? '2. Escopo dos Serviços'
+                  : '1. Escopo e Metodologia dos Trabalhos'}
               </h3>
               <div className="whitespace-pre-wrap leading-relaxed text-slate-700 bg-white p-2">
-                {proposta.escopo}
+                {proposta.escopo_gerado || proposta.escopo}
               </div>
             </div>
-
             {/* SEÇÃO 3: DISCIPLINAS E ENTREGÁVEIS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
@@ -368,7 +380,7 @@ export const PropostaPublicaPage: React.FC = () => {
                   <thead className="bg-slate-100 text-slate-800 font-semibold border-b">
                     <tr>
                       <th className="py-2.5 px-3">Item / Serviço</th>
-                      <th className="py-2.5 px-3">Disciplina</th>
+                      <th className="py-2.5 px-3">Disciplina / Área</th>
                       <th className="py-2.5 px-3 text-center">Unid.</th>
                       <th className="py-2.5 px-3 text-center">Qtd.</th>
                       <th className="py-2.5 px-3 text-right">Subtotal</th>
@@ -376,19 +388,25 @@ export const PropostaPublicaPage: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {proposta.itens_json && proposta.itens_json.length > 0 ? (
-                      proposta.itens_json.map((it, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50">
-                          <td className="py-2 px-3 font-medium text-slate-900">{it.descricao}</td>
-                          <td className="py-2 px-3 text-slate-600">{it.disciplina || '-'}</td>
-                          <td className="py-2 px-3 text-center text-slate-600">
-                            {it.unidade || 'un'}
-                          </td>
-                          <td className="py-2 px-3 text-center font-mono">{it.quantidade}</td>
-                          <td className="py-2 px-3 text-right font-mono font-semibold text-slate-900">
-                            {formatCurrencyBr(it.custo_total)}
-                          </td>
-                        </tr>
-                      ))
+                      proposta.itens_json.map((it, idx) => {
+                        const sub =
+                          it.preco_total !== undefined
+                            ? it.preco_total
+                            : (it.custo_total || 0) * (1 + (it.bdi_percentual || 0) / 100)
+                        return (
+                          <tr key={idx} className="hover:bg-slate-50">
+                            <td className="py-2 px-3 font-medium text-slate-900">{it.descricao}</td>
+                            <td className="py-2 px-3 text-slate-600">{it.disciplina || '-'}</td>
+                            <td className="py-2 px-3 text-center text-slate-600">
+                              {it.unidade || 'un'}
+                            </td>
+                            <td className="py-2 px-3 text-center font-mono">{it.quantidade}</td>
+                            <td className="py-2 px-3 text-right font-mono font-semibold text-slate-900">
+                              {formatCurrencyBr(sub)}
+                            </td>
+                          </tr>
+                        )
+                      })
                     ) : (
                       <tr>
                         <td colSpan={5} className="py-3 px-3 text-slate-500 italic">
@@ -408,6 +426,21 @@ export const PropostaPublicaPage: React.FC = () => {
                     </tr>
                   </tfoot>
                 </table>
+              </div>
+
+              {/* OBSERVAÇÃO SOBRE NOTA FISCAL NA PÁGINA PÚBLICA */}
+              <div className="p-2.5 bg-slate-50 border rounded text-[11px] text-slate-600">
+                <strong>Observação Fiscal: </strong>
+                {proposta.requer_nota ? (
+                  <span>
+                    O valor global <strong>contempla a emissão de nota fiscal</strong> com tributos
+                    inclusos.
+                  </span>
+                ) : (
+                  <span>
+                    Os valores informados <strong>não contemplam emissão de nota fiscal</strong>.
+                  </span>
+                )}
               </div>
             </div>
 

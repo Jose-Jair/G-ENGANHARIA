@@ -264,38 +264,79 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
       'Geração de propostas comerciais estruturadas com numeração sequencial sem lacunas (PROP-AAAA-NNNN), catálogo em cascata Área → Serviço → Subserviços com entregáveis padrão, alçadas comerciais (R$ 100 mil / margem ≥ 20%), aprovação de diretoria, envio de link seguro (/proposta/:token) e conversão total/parcial em Projeto-Pacote.',
     passos: [
       {
-        titulo: '1. Selecionar cliente com busca rápida ou cadastro expresso',
+        titulo: '1. Selecionar cliente e preencher empreendimento',
         descricao:
-          'No editor de propostas, use o campo de cliente com autocomplete pesquisando por Razão Social, Nome Fantasia ou CNPJ/CPF (busca rápida normalizada sem pontuação). Caso o lead ainda não conste na base, cadastre-o na mesma tela via modal rápido de PJ/PF.',
+          'No editor de propostas, selecione o cliente PJ ou PF e informe obrigatoriamente o Nome do Empreendimento (ex: "Clínica Studio Ser", "Edifício Horizonte"). Esse nome constará no cabeçalho formal do PDF GMAIS e na redação do Objeto.',
       },
       {
         titulo: '2. Inserir itens com cascata Área → Serviço → Subserviços',
         descricao:
-          'Adicione disciplinas técnicas através da árvore em cascata: selecione a Área de Atuação (ex: Elétrica, Hidrossanitário, Estrutural), o Serviço do catálogo e os Subserviços associados. Os entregáveis padrão configurados na administração são carregados automaticamente, agilizando a cotação.',
+          'Adicione disciplinas técnicas através da árvore em cascata: selecione a Área de Atuação, Serviço do catálogo e Subserviços associados. O investimento será tabulado automaticamente por área técnica no modelo do PDF.',
       },
       {
-        titulo: '3. Alçadas Comerciais e Deferimento da Diretoria',
+        titulo: '3. Redação Oficial GMAIS & Automações de Objeto e Escopo',
         descricao:
-          'O sistema calcula em tempo real o valor total e a Margem Bruta = (Preço - Custo Estimado) / Preço. Propostas com valor total > R$ 100.000,00 ou margem bruta < 20% entram automaticamente em "Aguardando Aprovação de Alçada", liberando o link de envio somente após deferimento formal do Administrador.',
-        dica: 'O Administrador pode deferir ou indeferir a proposta justificando a decisão no histórico auditado.',
+          'O sistema gera automaticamente o Objeto formal e o Escopo numerado consolidado por especialidade com base nos serviços e no empreendimento. Premissas, condições gerais (3 cláusulas) e nota de prazo em dias corridos nascem pré-preenchidas e 100% editáveis por proposta.',
       },
       {
-        titulo: '4. Enviar link de aceite público ao cliente (/proposta/:token)',
+        titulo: '4. Parcelamento com Gatilhos (Padrão 50/50 editável)',
         descricao:
-          'Com a proposta aprovada, clique em "Copiar Link Público". O cliente acessa o documento formal em qualquer dispositivo sem necessidade de login, analisa o escopo discriminado e assina digitalmente com registro de IP, data e hora.',
+          'Configure as parcelas da proposta com seus percentuais e gatilhos contratuais (contratação, entrega ou marco). As parcelas devem somar 100% e alimentarão o faturamento fracionado de contas a receber no módulo financeiro.',
       },
       {
-        titulo: '5. Conversão em Projeto-Pacote (Total, Parcial ou Incorporação)',
+        titulo: '5. Exigência de Nota Fiscal (Interruptor)',
         descricao:
-          'Após o aceite, acione "Converter em Projeto-Pacote". É possível converter todos os itens aprovados de uma vez (conversão total) ou selecionar itens específicos (conversão parcial). Escolha gerar um Novo Pacote de Projetos ou Incorporar a um Pacote/Projeto já existente do cliente. Cada área de atuação gera uma etapa correspondente com seus entregáveis e numeração única PRJ-AAAA-NNNN consecutiva.',
-        dica: 'Conversões parciais sucessivas mantêm a numeração sequencial sem saltos e auditam detalhadamente quais itens foram convertidos.',
+          'Por padrão desligada, ative quando o cliente exigir formalmente a emissão de NF. O sistema aplica os impostos tributários e exibe no PDF a respectiva observação fiscal obrigatória.',
+      },
+      {
+        titulo: '6. Emissão do Dossiê/PDF no Modelo GMAIS',
+        descricao:
+          'Clique em "Dossiê / PDF GMAIS" para abrir a reprodução fiel do modelo oficial da empresa: cabeçalho com logo G+, seções numeradas (1. Objeto a 9. Aceite/Assinaturas), tabela por área + valor global consolidado e folha de assinaturas das partes pronta para impressão ou PDF.',
+      },
+      {
+        titulo: '7. Conversão em Projeto-Pacote com Faturamento Fracionado',
+        descricao:
+          'Ao converter a proposta aceita em projeto, as contas a receber em rascunho são geradas fracionadas de acordo com as parcelas configuradas (ex: 50% contratação e 50% entrega), respeitando a incidência ou não de nota fiscal.',
       },
     ],
     regrasAutomaticas: [
       'Numeração sequencial e contínua: PROP-AAAA-NNNN para propostas e PRJ-AAAA-NNNN para projetos gerados, garantindo rastreabilidade sem lacunas.',
       'Alçada comercial: propostas > R$ 100 mil ou com margem < 20% exigem deferimento exclusivo do perfil Admin.',
+      'Validade configurável por proposta (padrão 15 dias, modelo GMAIS 5 dias), respeitada nos alertas D-3 e expiração automática.',
+      'Contas a receber fracionadas automaticamente conforme as parcelas cadastradas na proposta.',
       'Tracking automático: a primeira abertura do link pelo cliente atualiza o status de "Enviada" para "Visualizada".',
       'Financeiro e Gestor possuem acesso restrito para consulta aos valores contratuais.',
+    ],
+  },
+  {
+    id: 'modelo-proposta-gmais',
+    titulo: 'Administração do Modelo da Proposta GMAIS (Admin)',
+    subtitulo: 'Gestão centralizada de textos padrão, cláusulas contratuais e parcelamento',
+    icone: FileText,
+    corIcone: 'text-blue-600',
+    perfisPermitidos: ['admin'],
+    descricao:
+      'Tela exclusiva do perfil Administrador em Administração > "Modelo Proposta GMAIS" para customizar a redação padrão de premissas, condições gerais (3 cláusulas contratuais), nota sobre contagem de prazos e configuração das parcelas padrão de novas propostas.',
+    passos: [
+      {
+        titulo: '1. Configurar Premissas Padrão',
+        descricao:
+          'Edite os itens de premissas técnicas que alimentam as propostas recém-criadas, cobrindo exonerações de atrasos de órgãos, pagamento de taxas ART/RRT e limite de revisões de arquitetura.',
+      },
+      {
+        titulo: '2. Cláusulas de Condições Gerais',
+        descricao:
+          'Mantenha as 3 cláusulas contratuais da empresa: Cláusula 1ª (alterações e horas adicionais), Cláusula 2ª (uso exclusivo e direitos) e Cláusula 3ª (rescisão imotivada e multa compensatória de 20%).',
+      },
+      {
+        titulo: '3. Estrutura de Parcelamento Padrão',
+        descricao:
+          'Defina o percentual, gatilhos (contratação, entrega, marco) e descrições das parcelas sugeridas para novas propostas. O botão "Restaurar Padrões GMAIS" permite retornar a qualquer momento aos parâmetros de fábrica da empresa.',
+      },
+    ],
+    regrasAutomaticas: [
+      'Acesso estritamente restrito a Administradores.',
+      'Alterações nos parâmetros do modelo padrão afetam apenas novas propostas ou itens recém-gerados, preservando o histórico de propostas emitidas anteriormente.',
     ],
   },
   {

@@ -16,6 +16,7 @@ import {
 import { catalogoServicosService } from '@/services/catalogoServicos'
 import { areasAtuacaoService } from '@/services/areasAtuacao'
 import { GestaoAreasModalidades } from '@/components/administracao/GestaoAreasModalidades'
+import { GestaoModeloProposta } from '@/components/administracao/GestaoModeloProposta'
 import { AreaAtuacaoRecord } from '@/types'
 import { formatCurrencyBr } from '@/lib/formatters'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -59,6 +60,7 @@ import {
   ShieldAlert,
   Wrench,
   Layers,
+  FileText,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { formatDateBr, formatDateTimeBr } from '@/lib/formatters'
@@ -645,10 +647,17 @@ export default function AdministracaoPage() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-2 md:grid-cols-6 bg-slate-200/80 p-1">
+        <TabsList className="grid grid-cols-2 md:grid-cols-7 bg-slate-200/80 p-1">
           <TabsTrigger value="usuarios" className="gap-2 text-xs font-medium">
             <Users className="w-4 h-4" />
             <span>Usuários ({usersList.length})</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="modelo_proposta"
+            className="gap-2 text-xs font-medium text-blue-700 data-[state=active]:bg-white"
+          >
+            <FileText className="w-4 h-4 text-blue-600" />
+            <span>Modelo Proposta GMAIS</span>
           </TabsTrigger>
           <TabsTrigger value="areas_atuacao" className="gap-2 text-xs font-medium">
             <Layers className="w-4 h-4 text-orange-600" />
@@ -664,13 +673,18 @@ export default function AdministracaoPage() {
           </TabsTrigger>
           <TabsTrigger value="modelos" className="gap-2 text-xs font-medium">
             <FileCode2 className="w-4 h-4" />
-            <span>Modelos ({modelosList.length})</span>
+            <span>Modelos E-mail ({modelosList.length})</span>
           </TabsTrigger>
           <TabsTrigger value="motivos" className="gap-2 text-xs font-medium">
             <ListFilter className="w-4 h-4" />
             <span>Motivos ({motivosList.length})</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* ABA MODELO DA PROPOSTA GMAIS */}
+        <TabsContent value="modelo_proposta" className="space-y-4">
+          <GestaoModeloProposta />
+        </TabsContent>
 
         {/* 1. ABA USUÁRIOS */}
         <TabsContent value="usuarios" className="space-y-4">

@@ -316,34 +316,40 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
     corIcone: 'text-[#D95A2B]',
     perfisPermitidos: ['admin', 'comercial'],
     descricao:
-      'Recurso inteligente de ponta integrado ao editor de propostas comerciais. O operador comercial ou administrador descreve o pedido do cliente em linguagem livre e o agente nativo de IA estrutura a pré-montagem do empreendimento, disciplinas, catálogo de serviços, entregáveis, objeto, escopo, prazo, nota fiscal e parcelamento.',
+      'Recurso inteligente de ponta integrado ao editor de propostas comerciais ("Elaborar Nova Proposta de Engenharia"). Exibido SOMENTE para os perfis Admin e Comercial (Gestor e Executor não veem o painel nem possuem permissão no backend). O operador descreve o pedido em linguagem livre e o agente nativo Skip Cloud estrutura a pré-montagem completa: empreendimento, áreas sugeridas com serviços/subserviços, entregáveis técnicos para marcar com checkboxes, objeto e escopo pré-redigidos GMAIS, prazo, nota fiscal e parcelas 50/50.',
     passos: [
       {
-        titulo: '1. Acesso Exclusivo por Perfil',
+        titulo: '1. Acesso Exclusivo por Perfil (Admin e Comercial)',
         descricao:
-          'O assistente inteligente é exclusivo para os perfis Comercial e Administrador. Perfis operacionais como Gestor de Projetos ou Executor não possuem acesso ao recurso.',
+          'O painel do assistente inteligente é exibido na lateral do editor de propostas somente para usuários com perfil Administrador ou Comercial. Usuários com perfil Gestor de Projetos, Financeiro ou Executor externo não veem o painel e qualquer tentativa de chamada ao endpoint /backend/v1/propostas/assistente-ia é bloqueada no servidor com código 403 Forbidden.',
       },
       {
-        titulo: '2. Envio do Pedido em Linguagem Livre',
+        titulo: '2. Descrever o Pedido em Linguagem Livre',
         descricao:
-          'No editor de propostas, utilize a caixa lateral do Assistente IA para descrever o projeto (ex: "projeto estrutural de galpão industrial de 1.200 m² em Campinas-SP, com hidráulico e sanitário, precisa de nota fiscal, prazo 90 dias, pagamento 50/50").',
+          'No painel lateral "Assistente IA GMAIS", digite o pedido do cliente em linguagem natural (ex.: "projeto estrutural de galpão industrial de 1.200 m² em Campinas-SP, com hidráulico e sanitário, precisa de nota fiscal, prazo 90 dias, pagamento 50/50"). Pressione Enter ou clique em "Consultar IA".',
       },
       {
-        titulo: '3. Prévia Técnica Revisável',
+        titulo: '3. Prévia Técnica Revisável com Entregáveis Selecionáveis',
         descricao:
-          'O assistente consulta o catálogo de serviços ativos, áreas e textos modelo da G+, estruturando um resumo explicativo e uma pré-montagem completa. O botão "Revisar Prévia" permite conferir cada item antes de transferir os dados.',
+          'O assistente processa o pedido contra o catálogo de serviços e áreas da GMAIS, gerando uma prévia detalhada com itens, valores, objeto e escopo redigidos. Clique em "Revisar Prévia" para conferir cada elemento e marcar/desmarcar os entregáveis técnicos sugeridos através de checkboxes antes de transferir qualquer dado.',
       },
       {
-        titulo: '4. Aplicação Segura e Auditoria Imutável',
+        titulo: '4. Aplicação Segura ("Aplicar à Proposta")',
         descricao:
-          'O agente nunca grava diretamente no banco. Os dados só preenchem a proposta quando o usuário clica em "Aplicar à Proposta". Cada aplicação gera registro formal na trilha de auditoria imutável do sistema.',
+          'Nada é gravado no banco ou na proposta sem o clique explícito em "Aplicar à Proposta". Ao clicar, os campos do formulário (empreendimento, serviços, objeto, escopo, prazo, nota fiscal e parcelas) são preenchidos automaticamente para que o operador faça a revisão final antes de salvar.',
+      },
+      {
+        titulo: '5. Auditoria Compulsória Automática (APLICACAO_SUGESTAO_ASSISTENTE_IA)',
+        descricao:
+          'Cada clique em "Aplicar à Proposta" dispara automaticamente um registro na trilha de Auditoria Imutável sob a ação APLICACAO_SUGESTAO_ASSISTENTE_IA, registrando quem aplicou, quando, qual proposta, empreendimento detectado, quantidade de itens, entregáveis selecionados e parcelas.',
       },
     ],
     regrasAutomaticas: [
-      'Acesso restrito no servidor (hook e agente) apenas para papéis Admin e Comercial (erro 403 para outros perfis).',
-      'Gravação bloqueada caso a proposta esteja com status diferente de Rascunho ou Aprovação Interna.',
-      'Auditoria compulsória registra usuário, proposta, empreendimento e disciplinas aplicadas.',
-      'Obedece às regras de alçada comercial: valores acima de R$ 100 mil ou margem < 20% exigem deferimento do Administrador.',
+      'Validação de permissão dupla: frontend oculta o painel para perfis não autorizados e o hook no servidor bloqueia com 403 Forbidden para quem não for Admin ou Comercial.',
+      'Aplicação 100% sob controle humano: nada é gravado no banco de dados sem a confirmação e o clique em "Aplicar à Proposta".',
+      'Bloqueio de segurança em propostas com status diferente de Rascunho ou Aprovação Interna.',
+      'Registro compulsório de auditoria imutável (ação APLICACAO_SUGESTAO_ASSISTENTE_IA) na coleção audit_logs.',
+      'Compatibilidade total com as regras de alçada comercial (limite de R$ 100 mil e margem mínima de 20%).',
     ],
   },
   {

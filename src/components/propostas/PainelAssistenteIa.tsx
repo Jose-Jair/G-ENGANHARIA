@@ -14,11 +14,13 @@ import {
   Receipt,
   RotateCcw,
   Calendar,
+  CheckSquare,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -63,6 +65,7 @@ export const PainelAssistenteIa: React.FC<PainelAssistenteIaProps> = ({
   const [sugestaoAtual, setSugestaoAtual] = useState<SugestaoPropostaIa | null>(null)
   const [showPreviaModal, setShowPreviaModal] = useState(false)
   const [aplicadaSucesso, setAplicadaSucesso] = useState(false)
+  const [entregaveisSelecionados, setEntregaveisSelecionados] = useState<string[]>([])
 
   // Bloqueio de aplicação se proposta já foi enviada/aprovada/aceita
   const isBloqueadaParaGravacao =
@@ -123,7 +126,31 @@ export const PainelAssistenteIa: React.FC<PainelAssistenteIaProps> = ({
 
   const handleAbrirPrevia = (sug: SugestaoPropostaIa) => {
     setSugestaoAtual(sug)
+    // Inicializar entregáveis selecionados a partir da sugestão
+    const listaEnt: string[] = []
+    if (sug.entregaveis) {
+      const splitEnt = sug.entregaveis
+        .split(/[,;\n]/)
+        .map((e) => e.trim())
+        .filter(Boolean)
+      listaEnt.push(...splitEnt)
+    }
+    // Adicionar entregáveis dos itens de serviço se houver
+    if (sug.itens && Array.isArray(sug.itens)) {
+      sug.itens.forEach((it) => {
+        if (it.subservicos && Array.isArray(it.subservicos)) {
+          // subservicos podem carregar entregáveis implícitos
+        }
+      })
+    }
+    setEntregaveisSelecionados(Array.from(new Set(listaEnt)))
     setShowPreviaModal(true)
+  }
+
+  const handleToggleEntregavelPrevia = (nomeEnt: string) => {
+    setEntregaveisSelecionados((prev) =>
+      prev.includes(nomeEnt) ? prev.filter((e) => e !== nomeEnt) : [...prev, nomeEnt],
+    )
   }
 
   const handleConfirmarAplicacao = async () => {
@@ -140,8 +167,15 @@ export const PainelAssistenteIa: React.FC<PainelAssistenteIaProps> = ({
     }
 
     try {
-      // 1. Aplicar na proposta (campos do formulário)
-      onAplicarSugestao(sugestaoAtual)
+      // 1. Aplicar na proposta (campos do formulário), respeitando os entregáveis revisados pelo usuário
+      const sugestaoParaAplicar: SugestaoPropostaIa = {
+        ...sugestaoAtual,
+        entregaveis:
+          entregaveisSelecionados.length > 0
+            ? entregaveisSelecionados.join(', ')
+            : sugestaoAtual.entregaveis,
+      }
+      onAplicarSugestao(sugestaoParaAplicar)
 
       // 2. Registrar auditoria permanente obrigatória
       await auditService.log({
@@ -159,6 +193,8 @@ export const PainelAssistenteIa: React.FC<PainelAssistenteIaProps> = ({
           prazo_dias: sugestaoAtual.prazo_dias,
           requer_nota: sugestaoAtual.requer_nota,
           total_parcelas: sugestaoAtual.parcelas?.length || 0,
+          total_entregaveis_selecionados: entregaveisSelecionados.length,
+          entregaveis_selecionados: entregaveisSelecionados,
           timestamp: new Date().toISOString(),
         },
       })
@@ -464,7 +500,66 @@ export const PainelAssistenteIa: React.FC<PainelAssistenteIaProps> = ({
                 </div>
               </div>
 
-              {/* 4. OBJETO E ESCOPO PRÉ-REDIGIDOS */}
+              {/* 4. ENTREGÁVEIS TÉCNICOS COM SELEÇÃO REVISÁVEL (CHECKBOXES) */}
+              <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[11px] text-emerald-950 flex items-center gap-1.5 uppercase tracking-wide">
+                    <CheckSquare className="w-3.5 h-3.5 text-emerald-600" />
+                    Entregáveis Técnicos Sugeridos (Selecione para aplicar)
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-emerald-100 text-emerald-800 border-emerald-300"
+                  >
+                    {entregaveisSelecionados.length} selecionado(s)
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-slate-600">
+                  Marque ou desmarque os entregáveis que devem ser inseridos na proposta e
+                  alimentarão as etapas de projetos.
+                </p>
+
+                {entregaveisSelecionados.length === 0 && !sugestaoAtual.entregaveis ? (
+                  <p className="text-[11px] text-slate-400 italic">
+                    Nenhum entregável padrão sugerido pelo assistente.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 max-h-36 overflow-y-auto">
+                    {Array.from(
+                      new Set([
+                        ...entregaveisSelecionados,
+                        ...(sugestaoAtual.entregaveis
+                          ? sugestaoAtual.entregaveis
+                              .split(/[,;\n]/)
+                              .map((e) => e.trim())
+                              .filter(Boolean)
+                          : []),
+                      ]),
+                    ).map((ent, idx) => {
+                      const checked = entregaveisSelecionados.includes(ent)
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => handleToggleEntregavelPrevia(ent)}
+                          className={`flex items-center space-x-2 p-1.5 rounded cursor-pointer border text-xs transition-colors ${
+                            checked
+                              ? 'bg-white border-emerald-400 text-emerald-950 font-medium'
+                              : 'bg-slate-50 border-slate-200 text-slate-500'
+                          }`}
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => handleToggleEntregavelPrevia(ent)}
+                          />
+                          <span className="truncate">{ent}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 5. OBJETO E ESCOPO PRÉ-REDIGIDOS */}
               {sugestaoAtual.objeto && (
                 <div className="space-y-1">
                   <span className="font-bold text-[11px] text-slate-800 uppercase tracking-wide">

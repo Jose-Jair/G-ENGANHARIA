@@ -564,13 +564,16 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
       }
     }
 
-    // 7. Parcelas sugeridas
+    // 7. Parcelas sugeridas (com recálculo imediato do valor monetário se preço > 0)
     if (sug.parcelas && sug.parcelas.length > 0) {
       setParcelas(
         sug.parcelas.map((p, idx) => ({
           ordem: p.ordem || idx + 1,
           percentual: p.percentual,
-          valor: 0,
+          valor:
+            totais.precoTotal > 0
+              ? Math.round(((totais.precoTotal * p.percentual) / 100) * 100) / 100
+              : 0,
           gatilho: p.gatilho || (idx === 0 ? 'contratacao' : 'entrega'),
           descricao: p.descricao,
         })),

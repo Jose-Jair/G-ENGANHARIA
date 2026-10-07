@@ -538,7 +538,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
 
         return {
           servico: catItem?.id || '',
-          area: areaEncontrada?.id || catItem?.area_atuacao || '',
+          area: areaEncontrada?.id || catItem?.area || '',
           origem: catItem ? 'catalogo' : 'avulso',
           descricao: si.descricao,
           disciplina: si.disciplina || catItem?.disciplina || '',

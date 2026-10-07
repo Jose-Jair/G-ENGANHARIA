@@ -3,6 +3,7 @@ import { EmpresaRecord, ClientePfRecord } from '@/types'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import { Search, Building2, User, Plus, Check, X } from 'lucide-react'
 
 // Normalização para busca insensível a maiúsculas/minúsculas e acentos
@@ -234,11 +235,19 @@ export const ClienteAutocomplete: React.FC<ClienteAutocompleteProps> = ({
                     >
                       <div>
                         <div className="font-semibold text-slate-900 flex items-center gap-1.5">
-                          {e.razao_social}
+                          <span>{e.razao_social}</span>
                           {e.nome_fantasia && (
                             <span className="text-[11px] text-slate-500 font-normal">
                               ({e.nome_fantasia})
                             </span>
+                          )}
+                          {e.pre_cadastro && (
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] px-1 py-0 bg-amber-50 text-amber-700 border-amber-200"
+                            >
+                              Pré-cadastro
+                            </Badge>
                           )}
                         </div>
                         <div className="text-[11px] text-slate-500 font-mono">
@@ -280,7 +289,17 @@ export const ClienteAutocomplete: React.FC<ClienteAutocompleteProps> = ({
                     className="px-3 py-2 hover:bg-orange-50 cursor-pointer flex items-center justify-between border-b border-slate-100 last:border-b-0"
                   >
                     <div>
-                      <div className="font-semibold text-slate-900">{c.nome}</div>
+                      <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                        <span>{c.nome}</span>
+                        {c.pre_cadastro && (
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] px-1 py-0 bg-amber-50 text-amber-700 border-amber-200"
+                          >
+                            Pré-cadastro
+                          </Badge>
+                        )}
+                      </div>
                       <div className="text-[11px] text-slate-500 font-mono">
                         {c.cpf ? `CPF: ${c.cpf}` : 'Sem CPF'} •{' '}
                         {c.email || c.telefone || 'Sem contato'}

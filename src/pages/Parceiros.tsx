@@ -79,6 +79,7 @@ export function ParceirosPage() {
   const [filtroCurva, setFiltroCurva] = useState<string>('todos')
   const [filtroAlerta, setFiltroAlerta] = useState<string>('todos')
   const [ordenacao, setOrdenacao] = useState<'receita' | 'score' | 'demanda' | 'nome'>('receita')
+  const [incluirPreCadastros, setIncluirPreCadastros] = useState(false)
 
   // Modais
   const [parceiroSelecionado, setParceiroSelecionado] = useState<EmpresaRecord | null>(null)
@@ -126,7 +127,7 @@ export function ParceirosPage() {
 
       // 2. Carregar entidades de banco
       const [parcs, props, projs, conts, contrs] = await Promise.all([
-        parceirosService.listParceiros(),
+        parceirosService.listParceiros({ incluirPreCadastros }),
         parceirosService.listPropostas(),
         parceirosService.listProjetos(),
         parceirosService.listContasReceber(),
@@ -147,7 +148,7 @@ export function ParceirosPage() {
 
   useEffect(() => {
     carregarDados()
-  }, [])
+  }, [incluirPreCadastros])
 
   // 3. Calcular Indicadores e Curva ABC Dinâmica
   const indicadores = useMemo(() => {
@@ -510,6 +511,20 @@ export function ParceirosPage() {
               </Select>
             </div>
 
+            {canWrite && (
+              <div className="flex items-center">
+                <label className="flex items-center gap-1.5 h-8 px-2.5 border border-slate-200 rounded bg-white text-xs text-slate-700 cursor-pointer select-none hover:bg-slate-50 w-full">
+                  <input
+                    type="checkbox"
+                    checked={incluirPreCadastros}
+                    onChange={(e) => setIncluirPreCadastros(e.target.checked)}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                  />
+                  <span>Incluir pré-cadastros</span>
+                </label>
+              </div>
+            )}
+
             <div>
               <Select value={filtroAlerta} onValueChange={setFiltroAlerta}>
                 <SelectTrigger className="text-xs h-8">
@@ -639,8 +654,16 @@ export function ParceirosPage() {
                               #{ind.ranking}
                             </span>
                             <div>
-                              <div className="font-semibold text-slate-900 hover:text-blue-600 transition-colors">
-                                {emp.razao_social}
+                              <div className="font-semibold text-slate-900 hover:text-blue-600 transition-colors flex items-center gap-1.5">
+                                <span>{emp.razao_social}</span>
+                                {emp.pre_cadastro && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[9px] px-1 py-0 bg-amber-50 text-amber-700 border-amber-200 font-normal"
+                                  >
+                                    Pré-cadastro
+                                  </Badge>
+                                )}
                               </div>
                               <div className="text-[11px] text-slate-400 font-mono">
                                 {formatCnpj(emp.cnpj) || 'CNPJ não informado'}{' '}

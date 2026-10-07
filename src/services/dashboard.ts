@@ -231,7 +231,9 @@ export const dashboardService = {
       auditLogs,
       parceiros,
     ] = await Promise.all([
-      pb.collection('empresas').getFullList<EmpresaRecord>({ sort: 'razao_social' }),
+      pb
+        .collection('empresas')
+        .getFullList<EmpresaRecord>({ filter: 'pre_cadastro != true', sort: 'razao_social' }),
       pb.collection('contratos').getFullList<ContratoRecord>({ sort: '-created' }),
       pb
         .collection('toques')

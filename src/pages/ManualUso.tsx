@@ -243,15 +243,30 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
       {
         titulo: 'Cadastrar Cliente PF',
         descricao:
-          'Preencha nome completo, CPF validado pelo algoritmo oficial, telefone formatado com DDD, e-mail e endereço.',
+          'Preencha nome completo, CPF validado pelo algoritmo oficial, telefones com indicador WhatsApp, e-mail e endereço com busca automática por CEP.',
       },
       {
         titulo: 'Vincular a Propostas e Projetos',
         descricao:
-          'Ao elaborar propostas ou abrir projetos, selecione a opção "Pessoa Física" e vincule ao cadastro correspondente.',
+          'Ao elaborar propostas ou abrir projetos, selecione a opção "Pessoa Física" e vincule ao cadastro correspondente. Cadastros rápidos via proposta nascem como Pré-cadastro até o aceite.',
+      },
+      {
+        titulo: 'Exclusão ou Anonimização LGPD (Exclusivo Administrador)',
+        descricao:
+          'Apenas usuários com perfil Administrador podem acionar o botão de exclusão, exigindo dupla confirmação digitando o nome exato do cliente. Se o cliente não possuir propostas vinculadas, o registro é excluído permanentemente (evento EXCLUSAO_CLIENTE_PF). Se possuir propostas vinculadas, o sistema executa a ANONIMIZAÇÃO LGPD: mantém o vínculo com o histórico fiscal/contratual, mas apaga CPF, telefones, e-mail e endereço, alterando o nome para "Cliente removido a pedido (LGPD)" (evento ANONIMIZACAO_CLIENTE_PF).',
+      },
+      {
+        titulo: 'Filtro Opcional de Pré-cadastros',
+        descricao:
+          'Cadastros originados pela janela rápida da proposta ficam ocultos por padrão das listagens gerais e das métricas de topo. Administradores e Comerciais podem marcar o filtro "Incluir pré-cadastros" para inspecioná-los.',
       },
     ],
-    regrasAutomaticas: ['Validação matemática estrita de CPF na criação e edição de registros.'],
+    regrasAutomaticas: [
+      'Validação matemática estrita de CPF na criação e edição de registros.',
+      'Exclusão bloqueada no servidor para perfis não-Admin.',
+      'Anonimização compulsória com preservação de integridade fiscal e contratual caso haja propostas vinculadas.',
+      'Pré-cadastros não são contabilizados em métricas e rol principal até que haja o aceite formal da proposta.',
+    ],
   },
   {
     id: 'propostas',
@@ -266,7 +281,12 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
       {
         titulo: '1. Selecionar cliente e preencher empreendimento',
         descricao:
-          'No editor de propostas, selecione o cliente PJ ou PF e informe obrigatoriamente o Nome do Empreendimento (ex: "Clínica Studio Ser", "Edifício Horizonte"). Esse nome constará no cabeçalho formal do PDF GMAIS e na redação do Objeto.',
+          'No editor de propostas, selecione o cliente PJ ou PF e informe obrigatoriamente o Nome do Empreendimento (ex: "Clínica Studio Ser", "Edifício Horizonte"). Esse nome constará no cabeçalho formal do PDF GMAIS e na redação do Objeto. É possível cadastrar novos clientes (PJ ou PF) diretamente pelo botão "Cadastrar novo cliente" da janela rápida; estes nascem com o status "Pré-cadastro".',
+      },
+      {
+        titulo: '1.1. Pré-cadastros e Promoção Automática no Aceite',
+        descricao:
+          'Clientes criados via janela rápida permanecem como pré-cadastros fora de métricas, curva ABC, funil e listagens padrão até o aceite formal da proposta. Ao ocorrer o aceite pelo cliente ou pelo comercial, o cadastro é promovido a cliente definitivo (PF) ou Parceiro Demandante (PJ), com auditoria automática PROMOCAO_CLIENTE_ACEITE.',
       },
       {
         titulo: '2. Inserir itens com cascata Área → Serviço → Subserviços',
@@ -582,6 +602,16 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
 
 // Glossário de Termos do Negócio
 const GLOSSARIO_TERMOS = [
+  {
+    termo: 'Pré-cadastro de Cliente (PF e PJ)',
+    definicao:
+      'Cadastro temporário originado da janela rápida de criação de clientes na elaboração de propostas. Não entra em contagens de topo, curvas ABC, funil nem dashboards até que ocorra o aceite formal da proposta (PROMOCAO_CLIENTE_ACEITE). Sem aceite (recusada, expirada ou em negociação), permanece como pré-cadastro indefinidamente.',
+  },
+  {
+    termo: 'Anonimização LGPD (Cliente PF)',
+    definicao:
+      'Mecanismo de proteção à privacidade aplicável quando um Administrador solicita a remoção de um Cliente Pessoa Física que possui propostas contratuais vinculadas. Para não quebrar a rastreabilidade fiscal, técnica e orçamentária dos projetos, o identificador é preservado e dados pessoais (CPF, telefones, e-mail, endereço) são definitivamente apagados, assumindo o nome fictício "Cliente removido a pedido (LGPD)" com auditoria compulsória.',
+  },
   {
     termo: 'Curva ABC (Cortes Pareto)',
     definicao:

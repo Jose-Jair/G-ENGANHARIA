@@ -175,6 +175,9 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
         porte: empresaForm.porte,
         etapa_funil: 'com_proposta_elaborada',
         status: 'ativa',
+        pre_cadastro: true,
+        observacoes:
+          'Cadastrada via janela rápida na elaboração de proposta (pré-cadastro até o aceite).',
       })
 
       toast({
@@ -250,6 +253,9 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
         base_legal: clientePfForm.base_legal,
         consentimento_lgpd: true,
         data_consentimento: new Date().toISOString(),
+        pre_cadastro: true,
+        observacoes:
+          'Cadastrado via janela rápida na elaboração de proposta (pré-cadastro até o aceite).',
       })
 
       toast({

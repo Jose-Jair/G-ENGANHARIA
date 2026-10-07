@@ -11,6 +11,7 @@ export interface EmpresaFilters {
   status?: string
   situacao_cadastral?: string
   municipio?: string
+  incluirPreCadastros?: boolean
 }
 
 export interface CreateEmpresaData {
@@ -43,6 +44,7 @@ export interface CreateEmpresaData {
   proxima_acao_data?: string
   proxima_acao_desc?: string
   observacoes?: string
+  pre_cadastro?: boolean
 }
 
 export const empresasService = {
@@ -96,6 +98,11 @@ export const empresasService = {
 
     if (filters?.status && filters.status !== 'todos') {
       filterParts.push(`status = '${filters.status}'`)
+    }
+
+    // Por padrão NÃO traz pré-cadastros, exceto se explicitamente solicitado
+    if (!filters?.incluirPreCadastros) {
+      filterParts.push('pre_cadastro != true')
     }
 
     const filterString = filterParts.length > 0 ? filterParts.join(' && ') : ''

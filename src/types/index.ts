@@ -143,6 +143,7 @@ export interface EmpresaRecord {
   proxima_acao_data?: string
   proxima_acao_desc?: string
   observacoes?: string
+  pre_cadastro?: boolean
   created: string
   updated: string
   expand?: {
@@ -417,6 +418,7 @@ export interface ClientePfRecord {
   data_consentimento?: string
   endereco?: string
   observacoes?: string
+  pre_cadastro?: boolean
   created: string
   updated: string
 }

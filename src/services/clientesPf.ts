@@ -22,6 +22,7 @@ export interface CreateClientePfData {
   data_consentimento?: string
   endereco?: string
   observacoes?: string
+  pre_cadastro?: boolean
   // Proposta opcional
   propostaOpcional?: {
     numero: string
@@ -49,6 +50,7 @@ export interface UpdateClientePfData {
   data_consentimento?: string
   endereco?: string
   observacoes?: string
+  pre_cadastro?: boolean
 }
 
 export interface ClientePfComMetricas extends ClientePfRecord {
@@ -59,10 +61,12 @@ export interface ClientePfComMetricas extends ClientePfRecord {
 
 export const clientesPfService = {
   /**
-   * Lista todos os clientes PF
+   * Lista clientes PF (por padrão exclui pré-cadastros, a não ser que incluirPreCadastros seja true)
    */
-  async list(): Promise<ClientePfRecord[]> {
+  async list(options?: { incluirPreCadastros?: boolean }): Promise<ClientePfRecord[]> {
+    const filter = options?.incluirPreCadastros ? '' : 'pre_cadastro != true'
     return await pb.collection('clientes_pf').getFullList<ClientePfRecord>({
+      filter: filter || undefined,
       sort: 'nome',
     })
   },
@@ -121,6 +125,7 @@ export const clientesPfService = {
       data_consentimento: dados.data_consentimento || new Date().toISOString().split('T')[0],
       endereco: dados.endereco || '',
       observacoes: dados.observacoes || '',
+      pre_cadastro: Boolean(dados.pre_cadastro),
     })
 
     // Se forneceu proposta opcional, cria vinculada
@@ -156,6 +161,29 @@ export const clientesPfService = {
   },
 
   /**
+   * Exclui ou anonimiza cliente PF via backend com dupla confirmação
+   * Se tiver propostas vinculadas -> anonimização LGPD
+   * Se não tiver propostas vinculadas -> exclusão física real
+   */
+  async excluirOuAnonimizar(
+    id: string,
+    confirmacaoNome: string,
+  ): Promise<{
+    acao: 'excluido' | 'anonimizado'
+    mensagem: string
+    propostas_vinculadas?: number
+  }> {
+    return await pb.send<{
+      acao: 'excluido' | 'anonimizado'
+      mensagem: string
+      propostas_vinculadas?: number
+    }>(`/backend/v1/clientes-pf/${id}/excluir-ou-anonimizar`, {
+      method: 'POST',
+      body: { confirmacao_nome: confirmacaoNome },
+    })
+  },
+
+  /**
    * Exclui cliente PF (restrito a Admin pelas regras da collection)
    */
   async delete(id: string): Promise<boolean> {
@@ -174,10 +202,13 @@ export const clientesPfService = {
 
   /**
    * Carrega clientes PF com métricas calculadas (receita acumulada e nº de projetos)
+   * Por padrão ignora pré-cadastros, a não ser que incluirPreCadastros seja true
    */
-  async listComMetricas(): Promise<ClientePfComMetricas[]> {
+  async listComMetricas(options?: {
+    incluirPreCadastros?: boolean
+  }): Promise<ClientePfComMetricas[]> {
     const [clientes, todasPropostas] = await Promise.all([
-      this.list(),
+      this.list(options),
       pb.collection('propostas').getFullList<PropostaRecord>({
         filter: "cliente_pf != ''",
       }),

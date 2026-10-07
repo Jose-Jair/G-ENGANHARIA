@@ -75,6 +75,7 @@ export default function EmpresasPage() {
   const [filtroNaoContatar, setFiltroNaoContatar] = useState<
     'excluir' | 'todos' | 'apenas_bloqueados'
   >('excluir')
+  const [incluirPreCadastros, setIncluirPreCadastros] = useState(false)
 
   // Painel de filtros avançados recolhível no mobile ou expansível
   const [filtrosAvancadosAbertos, setFiltrosAvancadosAbertos] = useState(true)
@@ -101,7 +102,7 @@ export default function EmpresasPage() {
     setLoading(true)
     try {
       const [empList, contList, userList, paramList, ncList] = await Promise.all([
-        empresasService.list(),
+        empresasService.list({ incluirPreCadastros }),
         contratosService.listAll(),
         usersService.list(),
         parametrosService.list(),
@@ -131,7 +132,7 @@ export default function EmpresasPage() {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [incluirPreCadastros])
 
   // Mapa de contratos ativos por empresa para apuração rápida de coluna e alertas
   const contratosPorEmpresa = useMemo(() => {
@@ -396,6 +397,7 @@ export default function EmpresasPage() {
     setStatus('todas')
     setTemContratoAtivo('todos')
     setFiltroNaoContatar('excluir')
+    setIncluirPreCadastros(false)
   }
 
   // Determinar quais filtros estão ativos para os chips removíveis
@@ -410,7 +412,8 @@ export default function EmpresasPage() {
       responsavel !== 'todos' ||
       status !== 'todas' ||
       temContratoAtivo !== 'todos' ||
-      filtroNaoContatar !== 'excluir'
+      filtroNaoContatar !== 'excluir' ||
+      incluirPreCadastros
     )
   }, [
     buscaInput,
@@ -423,6 +426,7 @@ export default function EmpresasPage() {
     status,
     temContratoAtivo,
     filtroNaoContatar,
+    incluirPreCadastros,
   ])
 
   const [exportando, setExportando] = useState(false)
@@ -891,6 +895,24 @@ export default function EmpresasPage() {
                   <option value="apenas_bloqueados">Apenas Bloqueados</option>
                 </select>
               </div>
+
+              {/* Filtro: Pré-cadastros (Admin e Comercial) */}
+              {canEdit && (
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">
+                    Pré-cadastros
+                  </label>
+                  <label className="flex items-center gap-1.5 h-8 px-2 border border-slate-200 rounded bg-white text-xs text-slate-700 cursor-pointer select-none hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={incluirPreCadastros}
+                      onChange={(e) => setIncluirPreCadastros(e.target.checked)}
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                    />
+                    <span>Incluir pré-cadastros</span>
+                  </label>
+                </div>
+              )}
             </div>
 
             {/* Linha secundária de filtros: Responsável & Status Ativa/Inativa */}
@@ -1251,6 +1273,14 @@ export default function EmpresasPage() {
                           <div className="font-semibold text-slate-900 text-sm">
                             {emp.nome_fantasia || emp.razao_social}
                           </div>
+                          {emp.pre_cadastro && (
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] px-1.5 py-0 bg-amber-50 text-amber-700 border-amber-300 font-bold"
+                            >
+                              Pré-cadastro
+                            </Badge>
+                          )}
                           {bloqueada && (
                             <Badge
                               variant="outline"

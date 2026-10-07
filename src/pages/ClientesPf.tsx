@@ -24,10 +24,16 @@ import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
 import { formatCpf, formatPhoneBr } from '@/lib/cnpj'
 import { ModalCriarClientePf } from '@/components/clientesPf/ModalCriarClientePf'
 import { ClientePfDetailModal } from '@/components/clientesPf/ClientePfDetailModal'
+import { ModalExcluirAnonimizarClientePf } from '@/components/clientesPf/ModalExcluirAnonimizarClientePf'
 import { parceirosService } from '@/services/parceiros'
+import { Trash2 } from 'lucide-react'
 
 export function ClientesPfPage() {
   const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
+  const isComercial = user?.role === 'comercial'
+  const podeVerPreCadastros = isAdmin || isComercial
+
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [clientes, setClientes] = useState<ClientePfComMetricas[]>([])
@@ -36,11 +42,13 @@ export function ClientesPfPage() {
   // Busca e filtro
   const [busca, setBusca] = useState('')
   const [filtroBaseLegal, setFiltroBaseLegal] = useState<string>('todos')
+  const [incluirPreCadastros, setIncluirPreCadastros] = useState(false)
 
   // Modais
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [clienteSelecionado, setClienteSelecionado] = useState<ClientePfRecord | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showExcluirModal, setShowExcluirModal] = useState(false)
 
   // Permissões: Admin e Comercial criam/editam; Financeiro e Gestor leem; Executor sem acesso
   const canWrite = user?.role === 'admin' || user?.role === 'comercial'
@@ -49,7 +57,7 @@ export function ClientesPfPage() {
     setLoading(true)
     try {
       const [list, props] = await Promise.all([
-        clientesPfService.listComMetricas(),
+        clientesPfService.listComMetricas({ incluirPreCadastros }),
         parceirosService.listPropostas(),
       ])
       setClientes(list)
@@ -63,7 +71,7 @@ export function ClientesPfPage() {
 
   useEffect(() => {
     carregarDados()
-  }, [])
+  }, [incluirPreCadastros])
 
   // Métricas do topo
   const metricas = useMemo(() => {
@@ -296,6 +304,20 @@ export function ClientesPfPage() {
                 <option value="legitimo_interesse">Legítimo Interesse</option>
               </select>
             </div>
+
+            {podeVerPreCadastros && (
+              <div className="flex items-center">
+                <label className="flex items-center gap-2 px-3 py-1.5 rounded border border-slate-200 bg-slate-50 text-xs text-slate-700 cursor-pointer select-none hover:bg-slate-100 h-8 w-full sm:w-auto">
+                  <input
+                    type="checkbox"
+                    checked={incluirPreCadastros}
+                    onChange={(e) => setIncluirPreCadastros(e.target.checked)}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                  />
+                  <span>Incluir pré-cadastros</span>
+                </label>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -376,15 +398,29 @@ export function ClientesPfPage() {
                       className="hover:bg-slate-50/80 cursor-pointer transition-colors"
                     >
                       <td className="py-3 px-4">
-                        <div className="font-semibold text-slate-900 hover:text-blue-600">
-                          {cli.nome}
+                        <div className="font-semibold text-slate-900 hover:text-blue-600 flex items-center gap-1.5">
+                          <span>{cli.nome}</span>
+                          {cli.pre_cadastro && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 font-normal"
+                            >
+                              Pré-cadastro
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-[11px] text-slate-400">
                           {cli.endereco || 'Endereço não informado'}
                         </div>
                       </td>
 
-                      <td className="py-3 px-3 font-mono text-slate-700">{formatCpf(cli.cpf)}</td>
+                      <td className="py-3 px-3 font-mono text-slate-700">
+                        {cli.cpf ? (
+                          formatCpf(cli.cpf)
+                        ) : (
+                          <span className="italic text-slate-400">Sem CPF (LGPD)</span>
+                        )}
+                      </td>
 
                       <td className="py-3 px-3 text-slate-600">
                         <div>{cli.email || '-'}</div>
@@ -417,18 +453,35 @@ export function ClientesPfPage() {
                       </td>
 
                       <td className="py-3 px-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs text-blue-600 hover:text-blue-800"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            abrirDetalhe(cli)
-                          }}
-                        >
-                          Detalhes
-                          <ChevronRight className="w-3.5 h-3.5 ml-1" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs text-blue-600 hover:text-blue-800"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              abrirDetalhe(cli)
+                            }}
+                          >
+                            Detalhes
+                            <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                          </Button>
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Excluir ou anonimizar segundo LGPD (exclusivo Admin)"
+                              className="h-7 w-7 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setClienteSelecionado(cli)
+                                setShowExcluirModal(true)
+                              }}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -452,6 +505,23 @@ export function ClientesPfPage() {
         cliente={clienteSelecionado}
         propostas={propostas}
         onClienteUpdated={() => carregarDados()}
+        onExcluirClick={(c) => {
+          setShowDetailModal(false)
+          setClienteSelecionado(c)
+          setShowExcluirModal(true)
+        }}
+      />
+
+      {/* Modal Exclusão / Anonimização LGPD (Admin) */}
+      <ModalExcluirAnonimizarClientePf
+        open={showExcluirModal}
+        onOpenChange={setShowExcluirModal}
+        cliente={clienteSelecionado}
+        propostas={propostas}
+        onSuccess={() => {
+          setClienteSelecionado(null)
+          carregarDados()
+        }}
       />
     </div>
   )

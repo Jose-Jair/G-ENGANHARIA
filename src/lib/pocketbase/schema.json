@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T12:34:07.674Z",
+  "generatedAt": "2026-10-07T13:01:51.192Z",
   "collections": [
     {
       "name": "users",
@@ -525,6 +525,12 @@
         {
           "name": "bairro",
           "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pre_cadastro",
+          "type": "bool",
           "required": false,
           "system": false
         }
@@ -1097,6 +1103,12 @@
         {
           "name": "uf",
           "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pre_cadastro",
+          "type": "bool",
           "required": false,
           "system": false
         }

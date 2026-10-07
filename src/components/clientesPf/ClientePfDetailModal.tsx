@@ -47,6 +47,8 @@ import { clientesPfService, UpdateClientePfData } from '@/services/clientesPf'
 import { ListaTelefones } from '@/components/comum/ListaTelefones'
 import { EnderecoComCep, EnderecoValue } from '@/components/comum/EnderecoComCep'
 import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/contexts/AuthContext'
+import { Trash2 } from 'lucide-react'
 
 interface ClientePfDetailModalProps {
   open: boolean
@@ -54,6 +56,7 @@ interface ClientePfDetailModalProps {
   cliente: ClientePfRecord | null
   propostas: PropostaRecord[]
   onClienteUpdated?: (updated: ClientePfRecord) => void
+  onExcluirClick?: (cliente: ClientePfRecord) => void
 }
 
 export function ClientePfDetailModal({
@@ -62,7 +65,10 @@ export function ClientePfDetailModal({
   cliente,
   propostas,
   onClienteUpdated,
+  onExcluirClick,
 }: ClientePfDetailModalProps) {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<'dados' | 'propostas' | 'timeline'>('dados')
   const [timelineLogs, setTimelineLogs] = useState<AuditLogRecord[]>([])
@@ -315,46 +321,63 @@ export function ClientePfDetailModal({
                     : 'Edite contatos com WhatsApp, envie e-mails diretos e gerencie o endereço completo.'}
                 </p>
               </div>
-              {modoEdicao ? (
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                {isAdmin && !modoEdicao && (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setModoEdicao(false)}
-                    disabled={salvando}
-                    className="text-xs h-8"
+                    onClick={() => {
+                      if (cliente) onExcluirClick?.(cliente)
+                    }}
+                    className="border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-semibold h-8"
+                    title="Excluir cadastro ou anonimizar segundo LGPD (exclusivo Admin)"
                   >
-                    <X className="w-3.5 h-3.5 mr-1" />
-                    Cancelar
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5 text-rose-600" />
+                    Excluir / Anonimizar
                   </Button>
+                )}
+                {modoEdicao ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setModoEdicao(false)}
+                      disabled={salvando}
+                      className="text-xs h-8"
+                    >
+                      <X className="w-3.5 h-3.5 mr-1" />
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleSalvarEdicao}
+                      disabled={salvando}
+                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8"
+                    >
+                      {salvando ? (
+                        <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                      ) : (
+                        <Save className="w-3.5 h-3.5 mr-1" />
+                      )}
+                      Salvar Alterações
+                    </Button>
+                  </>
+                ) : (
                   <Button
                     type="button"
+                    variant="outline"
                     size="sm"
-                    onClick={handleSalvarEdicao}
-                    disabled={salvando}
-                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8"
+                    onClick={() => setModoEdicao(true)}
+                    className="bg-white border-blue-200 text-blue-700 hover:bg-blue-50 text-xs font-semibold h-8"
                   >
-                    {salvando ? (
-                      <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                    ) : (
-                      <Save className="w-3.5 h-3.5 mr-1" />
-                    )}
-                    Salvar Alterações
+                    <Edit className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+                    Editar Dados
                   </Button>
-                </div>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setModoEdicao(true)}
-                  className="bg-white border-blue-200 text-blue-700 hover:bg-blue-50 text-xs font-semibold h-8"
-                >
-                  <Edit className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
-                  Editar Dados
-                </Button>
-              )}
+                )}
+              </div>
             </div>
 
             {modoEdicao ? (

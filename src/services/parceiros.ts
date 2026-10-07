@@ -32,11 +32,14 @@ export interface CreateParceiroDiretoData {
 
 export const parceirosService = {
   /**
-   * Lista todas as empresas parceiras (etapa_funil = 'parceira')
+   * Lista todas as empresas parceiras (etapa_funil = 'parceira' e não pré-cadastro)
    */
-  async listParceiros(): Promise<EmpresaRecord[]> {
+  async listParceiros(options?: { incluirPreCadastros?: boolean }): Promise<EmpresaRecord[]> {
+    const filter = options?.incluirPreCadastros
+      ? "etapa_funil = 'parceira'"
+      : "etapa_funil = 'parceira' && pre_cadastro != true"
     return await pb.collection('empresas').getFullList<EmpresaRecord>({
-      filter: "etapa_funil = 'parceira'",
+      filter,
       sort: 'razao_social',
       expand: 'responsavel',
     })

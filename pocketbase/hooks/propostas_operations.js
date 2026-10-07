@@ -367,45 +367,119 @@ onRecordAfterUpdateSuccess((e) => {
       console.log('Erro ao gerar conta(s) a receber: ' + err)
     }
 
-    // 3. CONVERSÃO DO PROSPECT EM PARCEIRO NO FUNIL (se empresa PJ)
+    // 3. PROMOÇÃO DO PRÉ-CADASTRO E CONVERSÃO EM PARCEIRO NO FUNIL (PJ ou PF)
     if (empresaId) {
       try {
         const empresa = $app.findRecordById('empresas', empresaId)
         if (empresa) {
           const etapaAtual = empresa.getString('etapa_funil')
+          const eraPreCadastro = empresa.getBool('pre_cadastro')
+
+          let houveMudanca = false
+          if (eraPreCadastro) {
+            empresa.set('pre_cadastro', false)
+            houveMudanca = true
+          }
+
           if (etapaAtual !== 'parceira') {
             empresa.set('etapa_anterior', etapaAtual)
             empresa.set('etapa_funil', 'parceira')
             empresa.set('status', 'ativa')
+            houveMudanca = true
+          }
+
+          if (houveMudanca) {
             empresa.set(
               'observacoes',
               (empresa.getString('observacoes') || '') +
-                '\n[Conversão em Parceira]: Proposta ' +
+                '\n[Promoção por Aceite]: Proposta ' +
                 propostaNumero +
                 ' aceita em ' +
-                new Date().toISOString(),
+                new Date().toISOString() +
+                (eraPreCadastro ? ' (pré-cadastro promovido a definitivo)' : ''),
             )
             $app.save(empresa)
 
-            // Auditoria específica da conversão
-            try {
-              const auditCol = $app.findCollectionByNameOrId('audit_logs')
-              const aRec = new Record(auditCol)
-              aRec.set('acao', 'CONVERSAO_EM_PARCEIRA')
-              aRec.set('entidade', 'empresas')
-              aRec.set('registro_id', empresaId)
-              aRec.set('detalhes', {
-                mensagem:
-                  'Empresa convertida para Parceira pelo aceite da proposta ' + propostaNumero,
-                etapa_anterior: etapaAtual,
-                proposta_numero: propostaNumero,
-              })
-              $app.save(aRec)
-            } catch (_) {}
+            // Auditoria de promoção por aceite
+            if (eraPreCadastro) {
+              try {
+                const auditCol = $app.findCollectionByNameOrId('audit_logs')
+                const aRec = new Record(auditCol)
+                aRec.set('acao', 'PROMOCAO_CLIENTE_ACEITE')
+                aRec.set('entidade', 'empresas')
+                aRec.set('registro_id', empresaId)
+                aRec.set('detalhes', {
+                  tipo: 'pj',
+                  mensagem:
+                    'Empresa promovida de pré-cadastro a parceiro definitivo pelo aceite da proposta ' +
+                    propostaNumero,
+                  proposta_id: propostaId,
+                  proposta_numero: propostaNumero,
+                })
+                $app.save(aRec)
+              } catch (_) {}
+            }
+
+            // Auditoria específica da conversão em parceira
+            if (etapaAtual !== 'parceira') {
+              try {
+                const auditCol = $app.findCollectionByNameOrId('audit_logs')
+                const aRec = new Record(auditCol)
+                aRec.set('acao', 'CONVERSAO_EM_PARCEIRA')
+                aRec.set('entidade', 'empresas')
+                aRec.set('registro_id', empresaId)
+                aRec.set('detalhes', {
+                  mensagem:
+                    'Empresa convertida para Parceira pelo aceite da proposta ' + propostaNumero,
+                  etapa_anterior: etapaAtual,
+                  proposta_numero: propostaNumero,
+                })
+                $app.save(aRec)
+              } catch (_) {}
+            }
           }
         }
       } catch (err) {
-        console.log('Erro ao converter empresa em parceira: ' + err)
+        console.log('Erro ao converter empresa em parceira/promover: ' + err)
+      }
+    }
+
+    // Se cliente PF, promover de pré-cadastro a cliente definitivo
+    if (clientePfId) {
+      try {
+        const clientePf = $app.findRecordById('clientes_pf', clientePfId)
+        if (clientePf && clientePf.getBool('pre_cadastro')) {
+          clientePf.set('pre_cadastro', false)
+          clientePf.set(
+            'observacoes',
+            (clientePf.getString('observacoes') || '') +
+              '\n[Promoção por Aceite]: Proposta ' +
+              propostaNumero +
+              ' aceita em ' +
+              new Date().toISOString() +
+              ' (promovido a cliente definitivo)',
+          )
+          $app.save(clientePf)
+
+          try {
+            const auditCol = $app.findCollectionByNameOrId('audit_logs')
+            const aRec = new Record(auditCol)
+            aRec.set('acao', 'PROMOCAO_CLIENTE_ACEITE')
+            aRec.set('entidade', 'clientes_pf')
+            aRec.set('registro_id', clientePfId)
+            aRec.set('detalhes', {
+              tipo: 'pf',
+              mensagem:
+                'Cliente PF promovido de pré-cadastro a definitivo pelo aceite da proposta ' +
+                propostaNumero,
+              proposta_id: propostaId,
+              proposta_numero: propostaNumero,
+            })
+            $app.save(aRec)
+          } catch (_) {}
+        }
+      } catch (errPf) {
+        console.log('Erro ao promover cliente PF por aceite: ' + errPf)
       }
     }
   }

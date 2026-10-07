@@ -450,9 +450,9 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
           'Defina o cronograma quebrando o projeto em etapas lógicas (ex: Levantamento Topográfico, Projeto Estrutural, Memorial Descritivo) com datas de início e entrega.',
       },
       {
-        titulo: 'Vincular entregáveis e gerenciar versões',
+        titulo: 'Vincular entregáveis e gerenciar versões (Arquivos até 100 MB)',
         descricao:
-          'Adicione os entregáveis esperados com versionamento (Rev.00, Rev.01) e registre aprovações técnicas.',
+          'Adicione os entregáveis esperados com versionamento (Rev.00, Rev.01) e anexe pranchas CAD, pacotes BIM ou memoriais em PDF em alta resolução com limite ampliado para até 100 MB por arquivo.',
       },
       {
         titulo: 'Monitorar saúde do projeto (Semáforo Verde / Amarelo / Vermelho)',
@@ -460,9 +460,9 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
           'O sistema sugere a saúde com base em atrasos de etapas e documentos vencidos. O Gestor de Projetos pode confirmar ou alterar a saúde fundamentando a decisão.',
       },
       {
-        titulo: 'Alertas de vencimento de documentos',
+        titulo: 'Documentos técnicos com anexo ampliado (até 100 MB)',
         descricao:
-          'Documentos com validade (ART/RRT, certidões, licenças ambientais) geram alertas preventivos nos prazos D-30, D-15, D-7 e D-1.',
+          'Documentos com validade (ART/RRT, TRT, Ordens de Serviço, Medições e licenças ambientais) aceitam arquivos digitais pesados de até 100 MB e geram alertas preventivos de vencimento nos prazos D-30, D-15, D-7 e D-1.',
       },
       {
         titulo: 'Emitir Dossiê Consolidado (Layout A4)',

@@ -64,6 +64,15 @@ export const DocumentosTab: React.FC<DocumentosTabProps> = ({
 
   const handleSalvar = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (arquivo && arquivo.size > 104857600) {
+      toast({
+        title: 'Arquivo excede o limite',
+        description: `O arquivo selecionado possui ${(arquivo.size / (1024 * 1024)).toFixed(1)} MB. O limite máximo permitido é de 100 MB.`,
+        variant: 'destructive',
+      })
+      return
+    }
+
     setSalvando(true)
     try {
       const payload: CreateDocumentoData = {
@@ -375,13 +384,27 @@ export const DocumentosTab: React.FC<DocumentosTabProps> = ({
             </div>
 
             <div>
-              <Label htmlFor="fileDoc">Arquivo Digitalizado (PDF)</Label>
+              <Label htmlFor="fileDoc">Arquivo Digitalizado (PDF / DWG / BIM / etc.)</Label>
               <Input
                 id="fileDoc"
                 type="file"
-                onChange={(e) => setArquivo(e.target.files?.[0] || null)}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] || null
+                  if (f && f.size > 104857600) {
+                    toast({
+                      title: 'Arquivo muito grande',
+                      description: `O arquivo tem ${(f.size / (1024 * 1024)).toFixed(1)} MB e ultrapassa o teto de 100 MB.`,
+                      variant: 'destructive',
+                    })
+                  }
+                  setArquivo(f)
+                }}
                 className="mt-1 cursor-pointer"
               />
+              <p className="text-[11px] text-slate-500 mt-1">
+                Limite aumentado para até 100 MB por arquivo (adequado para memoriais e pranchas em
+                alta resolução).
+              </p>
             </div>
 
             <DialogFooter className="pt-2">

@@ -879,7 +879,7 @@ export default function AdministracaoPage() {
                       <th className="py-3 px-4">Área de Atuação</th>
                       <th className="py-3 px-4">Disciplina</th>
                       <th className="py-3 px-4">Unidade</th>
-                      <th className="py-3 px-4 text-right">Preço Base (Ref.)</th>
+                      <th className="py-3 px-4 text-right">Preço de Venda (R$)</th>
                       <th className="py-3 px-4">Status</th>
                       <th className="py-3 px-4 text-right">Ações</th>
                     </tr>
@@ -1709,7 +1709,7 @@ export default function AdministracaoPage() {
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label htmlFor="catPreco" className="text-xs">
-                  Preço Base de Referência (R$)
+                  Preço de Venda (R$)
                 </Label>
                 <Input
                   id="catPreco"

@@ -31,7 +31,10 @@ import {
   Building2,
   UserCheck,
   Sparkles,
+  Receipt,
+  Info,
 } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import {
   PropostaRecord,
   PropostaItemRecord,
@@ -51,6 +54,7 @@ import { clientesPfService } from '@/services/clientesPf'
 import { contratosService } from '@/services/contratos'
 import { modelosService } from '@/services/modelos'
 import { parametrosService } from '@/services/parametros'
+import { auditService } from '@/services/audit'
 import {
   areasAtuacaoService,
   subservicosService,
@@ -131,6 +135,8 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
   const [itens, setItens] = useState<PropostaItemRecord[]>([])
   const [margemPercent, setMargemPercent] = useState<number>(35)
   const [impostosPercent, setImpostosPercent] = useState<number>(16.5)
+  // Decisão do usuário: nota fiscal DESLIGADA por padrão
+  const [requerNota, setRequerNota] = useState<boolean>(false)
 
   // Alçada calculada
   const [alcadaInfo, setAlcadaInfo] = useState<{ requerAdmin: boolean; motivoAlcada: string }>({
@@ -216,6 +222,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
           setItens(propostaToEdit.itens_json || [])
           setMargemPercent(propostaToEdit.margem ?? 35)
           setImpostosPercent(propostaToEdit.impostos ?? 16.5)
+          setRequerNota(Boolean(propostaToEdit.requer_nota))
         } else {
           // Nova proposta
           const hoje = new Date()
@@ -237,12 +244,16 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
             setItens([
               {
                 servico: primeiro.id,
+                origem: 'catalogo',
                 descricao: primeiro.nome,
                 disciplina: primeiro.disciplina,
                 unidade: primeiro.unidade,
                 quantidade: 1,
-                custo_unitario: primeiro.preco_base,
-                custo_total: primeiro.preco_base,
+                custo_unitario: 0,
+                custo_total: 0,
+                preco_venda_unitario: primeiro.preco_base,
+                preco_total: primeiro.preco_base,
+                bdi_percentual: 0,
               },
             ])
             setDisciplinas(primeiro.disciplina)
@@ -274,33 +285,43 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
     loadContratosEmpresa(empId)
   }
 
-  // Adicionar item do catálogo
+  // Adicionar item do catálogo ou avulso
   const handleAddItem = (servicoId?: string) => {
     if (servicoId) {
       const servico = catalogoServicos.find((s) => s.id === servicoId)
       if (servico) {
         const novoItem: PropostaItemRecord = {
           servico: servico.id,
+          origem: 'catalogo',
           descricao: servico.nome,
           disciplina: servico.disciplina,
           unidade: servico.unidade,
           quantidade: 1,
-          custo_unitario: servico.preco_base,
-          custo_total: servico.preco_base,
+          custo_unitario: 0,
+          custo_total: 0,
+          preco_venda_unitario: servico.preco_base,
+          preco_total: servico.preco_base,
+          bdi_percentual: 0,
         }
         setItens([...itens, novoItem])
         return
       }
     }
 
-    // Item avulso
+    // Item avulso: custo direto informado + margem BDI
+    const custoAvulso = 5000
+    const bdiAvulso = margemPercent || 25
+    const precoAvulso = Math.round(custoAvulso * (1 + bdiAvulso / 100) * 100) / 100
     const novoItemAvulso: PropostaItemRecord = {
+      origem: 'avulso',
       descricao: 'Serviço Técnico Especializado',
       disciplina: 'Engenharia Geral',
       unidade: 'un',
       quantidade: 1,
-      custo_unitario: 5000,
-      custo_total: 5000,
+      custo_unitario: custoAvulso,
+      custo_total: custoAvulso,
+      bdi_percentual: bdiAvulso,
+      preco_total: precoAvulso,
     }
     setItens([...itens, novoItemAvulso])
   }
@@ -309,10 +330,27 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
     const updated = [...itens]
     const item = { ...updated[index], [field]: value }
 
-    if (field === 'quantidade' || field === 'custo_unitario') {
-      const q = field === 'quantidade' ? parseFloat(value) || 0 : item.quantidade
-      const c = field === 'custo_unitario' ? parseFloat(value) || 0 : item.custo_unitario
-      item.custo_total = Math.round(q * c * 100) / 100
+    const q = field === 'quantidade' ? parseFloat(value) || 0 : item.quantidade || 0
+    const c = field === 'custo_unitario' ? parseFloat(value) || 0 : item.custo_unitario || 0
+    item.custo_total = Math.round(q * c * 100) / 100
+
+    if (item.origem === 'catalogo') {
+      const pv =
+        field === 'preco_venda_unitario'
+          ? parseFloat(value) || 0
+          : item.preco_venda_unitario !== undefined
+            ? item.preco_venda_unitario
+            : item.preco_total && q > 0
+              ? item.preco_total / q
+              : 0
+      item.preco_venda_unitario = pv
+      item.preco_total = Math.round(q * pv * 100) / 100
+      item.bdi_percentual = 0
+    } else {
+      // Item avulso
+      const bdi = field === 'bdi_percentual' ? parseFloat(value) || 0 : item.bdi_percentual || 0
+      item.bdi_percentual = bdi
+      item.preco_total = Math.round(item.custo_total * (1 + bdi / 100) * 100) / 100
     }
 
     updated[index] = item
@@ -364,22 +402,71 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
   }
 
   // Totais calculados
+  // Novo modelo: cada item tem seu preço_total (catálogo = preco_base*qtd; avulso = custo* (1+bdi%))
+  // Se propostas legadas não tiverem preco_total nos itens, calcular preço de venda base como custo + margem geral
   const custoTotalItens = itens.reduce((acc, curr) => acc + (curr.custo_total || 0), 0)
-  const totais = propostasService.calcularTotais(custoTotalItens, margemPercent, impostosPercent)
+  const hasPrecoTotalItens = itens.length > 0 && itens.some((it) => it.preco_total !== undefined)
+  const precoVendaItens = hasPrecoTotalItens
+    ? itens.reduce((acc, curr) => {
+        if (curr.preco_total !== undefined) return acc + curr.preco_total
+        const bdi = curr.bdi_percentual ?? margemPercent ?? 0
+        return acc + (curr.custo_total || 0) * (1 + bdi / 100)
+      }, 0)
+    : undefined
 
-  // Reavaliação de alçada
+  const totais = propostasService.calcularTotais(
+    custoTotalItens,
+    margemPercent,
+    impostosPercent,
+    precoVendaItens,
+    requerNota,
+  )
+
+  // Verifica se há custo direto informado para a alçada
+  const temCustoInformado = custoTotalItens > 0
+
+  // Reavaliação de alçada: usa a margem efetiva calculada. Se custo não informado, avalia por valor total
   useEffect(() => {
+    const margemParaAlcada = temCustoInformado ? totais.margemEfetivaPercent : margemPercent
     const aval = propostasService.avaliarAlcada(
       totais.precoTotal,
-      margemPercent,
+      margemParaAlcada,
       limiteAlcadaValor,
       margemMinimaAlcada,
+      temCustoInformado,
     )
     setAlcadaInfo(aval)
-  }, [totais.precoTotal, margemPercent, limiteAlcadaValor, margemMinimaAlcada])
+  }, [
+    totais.precoTotal,
+    totais.margemEfetivaPercent,
+    margemPercent,
+    limiteAlcadaValor,
+    margemMinimaAlcada,
+    temCustoInformado,
+  ])
 
   // Salvar Proposta
   const handleSave = async (enviarParaAprovacao: boolean = false) => {
+    // Registrar auditoria se houver alteração na exigência de nota fiscal em proposta já existente
+    if (propostaToEdit && propostaToEdit.requer_nota !== requerNota) {
+      try {
+        await auditService.log({
+          action: 'proposta.alterar_exigencia_nota',
+          entity_type: 'propostas',
+          entity_id: propostaToEdit.id,
+          details: {
+            proposta_numero: propostaToEdit.numero,
+            anterior: propostaToEdit.requer_nota ?? false,
+            novo: requerNota,
+            motivo: requerNota
+              ? 'Cliente passou a exigir nota fiscal (impostos aplicados)'
+              : 'Cliente não exigirá nota fiscal (impostos desativados)',
+          },
+        })
+      } catch (err) {
+        console.warn('Erro ao registrar auditoria de alteração de nota fiscal:', err)
+      }
+    }
     if (tipoCliente === 'pj' && !selectedEmpresaId) {
       toast({
         variant: 'destructive',
@@ -436,8 +523,9 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
         premissas,
         exclusoes,
         custo: totais.custo,
-        margem: margemPercent,
-        impostos: impostosPercent,
+        margem: temCustoInformado ? totais.margemEfetivaPercent : margemPercent,
+        impostos: requerNota ? impostosPercent : 0,
+        requer_nota: requerNota,
         preco: totais.precoTotal,
         requer_aprovacao_admin: alcadaInfo.requerAdmin,
         itens_json: itens,
@@ -615,9 +703,11 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                     2. Itens do Catálogo e Planilha de Preço
                   </span>
                   <p className="text-[11px] text-slate-500">
-                    Preço = Custo dos itens + Margem ({margemPercent}%) + Impostos (
-                    {impostosPercent}
-                    %)
+                    Valores do catálogo já incluem margem de venda. Total = Preço de venda dos itens{' '}
+                    {requerNota
+                      ? `+ Impostos (${impostosPercent}%)`
+                      : '(sem impostos / nota desligada)'}
+                    .
                   </p>
                 </div>
 
@@ -627,7 +717,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                     onClick={() => setShowCascataModal(true)}
                     className="h-8 text-xs gap-1.5 bg-orange-600 hover:bg-orange-700 text-white font-medium"
                   >
-                    <Plus className="w-3.5 h-3.5" />+ Inserir por Área & Catálogo
+                    <Plus className="w-3.5 h-3.5" />+ Inserir por Área &amp; Catálogo
                   </Button>
 
                   <Button
@@ -647,19 +737,20 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-100 text-slate-700 font-semibold border-b">
                     <tr>
-                      <th className="py-2 px-3">Descrição do Serviço & Especialidades</th>
-                      <th className="py-2 px-3 w-28">Disciplina</th>
-                      <th className="py-2 px-2 w-16">Unid.</th>
-                      <th className="py-2 px-2 w-20 text-center">Qtd.</th>
-                      <th className="py-2 px-3 w-28 text-right">Custo Unit. (R$)</th>
-                      <th className="py-2 px-3 w-28 text-right">Custo Total</th>
+                      <th className="py-2 px-3">Descrição do Serviço &amp; Especialidades</th>
+                      <th className="py-2 px-3 w-24">Origem</th>
+                      <th className="py-2 px-2 w-14 text-center">Unid.</th>
+                      <th className="py-2 px-2 w-16 text-center">Qtd.</th>
+                      <th className="py-2 px-2 w-24 text-right">Custo Dir.</th>
+                      <th className="py-2 px-2 w-28 text-right">Preço Venda Unit.</th>
+                      <th className="py-2 px-3 w-28 text-right">Preço Total</th>
                       <th className="py-2 px-2 w-10 text-center"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {itens.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-6 text-center text-slate-400">
+                        <td colSpan={8} className="py-6 text-center text-slate-400">
                           Nenhum item adicionado à proposta. Clique em &quot;+ Inserir por Área
                           &amp; Catálogo&quot; acima.
                         </td>
@@ -667,6 +758,22 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                     ) : (
                       itens.map((it, idx) => {
                         const areaObj = areas.find((a) => a.id === it.area)
+                        const isCat =
+                          it.origem === 'catalogo' ||
+                          (Boolean(it.servico) && it.origem !== 'avulso')
+                        const precoUnit =
+                          it.preco_venda_unitario !== undefined
+                            ? it.preco_venda_unitario
+                            : it.preco_total && it.quantidade > 0
+                              ? it.preco_total / it.quantidade
+                              : (it.custo_unitario || 0) * (1 + (it.bdi_percentual || 0) / 100)
+                        const precoTotalLinha =
+                          it.preco_total !== undefined
+                            ? it.preco_total
+                            : Math.round(
+                                (it.custo_total || 0) * (1 + (it.bdi_percentual || 0) / 100) * 100,
+                              ) / 100
+
                         return (
                           <tr key={idx} className="hover:bg-slate-50">
                             <td className="py-2 px-3 space-y-1">
@@ -694,13 +801,16 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                               )}
                             </td>
                             <td className="py-2 px-3">
-                              <Input
-                                value={it.disciplina || ''}
-                                onChange={(e) =>
-                                  handleUpdateItem(idx, 'disciplina', e.target.value)
-                                }
-                                className="h-7 text-xs"
-                              />
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] ${
+                                  isCat
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                                }`}
+                              >
+                                {isCat ? 'Catálogo' : 'Avulso'}
+                              </Badge>
                             </td>
                             <td className="py-2 px-2">
                               <Input
@@ -721,20 +831,56 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                                 className="h-7 text-xs text-center font-mono"
                               />
                             </td>
-                            <td className="py-2 px-3 text-right">
+                            <td className="py-2 px-2 text-right">
                               <Input
                                 type="number"
                                 min="0"
                                 step="0.01"
-                                value={it.custo_unitario}
+                                placeholder="0,00"
+                                value={it.custo_unitario || 0}
                                 onChange={(e) =>
                                   handleUpdateItem(idx, 'custo_unitario', e.target.value)
                                 }
                                 className="h-7 text-xs text-right font-mono"
+                                title="Custo direto unitário (opcional para cálculo de margem efetiva)"
                               />
                             </td>
-                            <td className="py-2 px-3 text-right font-mono font-medium text-slate-900">
-                              {formatCurrencyBr(it.custo_total)}
+                            <td className="py-2 px-2 text-right">
+                              {isCat ? (
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={precoUnit}
+                                  onChange={(e) =>
+                                    handleUpdateItem(idx, 'preco_venda_unitario', e.target.value)
+                                  }
+                                  className="h-7 text-xs text-right font-mono font-medium"
+                                  title="Preço de venda unitário do catálogo (já inclui margem)"
+                                />
+                              ) : (
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center gap-1 justify-end">
+                                    <span className="text-[10px] text-slate-500">BDI:</span>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      step="1"
+                                      value={it.bdi_percentual || 0}
+                                      onChange={(e) =>
+                                        handleUpdateItem(idx, 'bdi_percentual', e.target.value)
+                                      }
+                                      className="h-6 w-14 text-[11px] text-center font-mono"
+                                      title="Margem de lucro / BDI do item avulso (%)"
+                                    />
+                                    <span className="text-[10px] text-slate-500">%</span>
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-semibold text-slate-900">
+                              {formatCurrencyBr(precoTotalLinha)}
                             </td>
                             <td className="py-2 px-2 text-center">
                               <Button
@@ -755,62 +901,152 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                 </table>
               </div>
 
-              {/* Configuração de Margem e Impostos */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                <div>
+              {/* INTERRUPTOR: CLIENTE EXIGIRÁ NOTA FISCAL? */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-lg border border-slate-200 bg-slate-50 gap-3">
+                <div className="flex items-start gap-2.5">
+                  <Receipt
+                    className={`w-5 h-5 shrink-0 mt-0.5 ${requerNota ? 'text-blue-600' : 'text-slate-400'}`}
+                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Label
+                        htmlFor="switchNotaFiscal"
+                        className="text-xs font-semibold text-slate-900 cursor-pointer"
+                      >
+                        Cliente exigirá nota fiscal?
+                      </Label>
+                      <Badge variant={requerNota ? 'default' : 'secondary'} className="text-[10px]">
+                        {requerNota ? 'Nota Fiscal Ativa' : 'Nota Fiscal Desligada'}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {requerNota
+                        ? 'Com nota ativa: os impostos/tributos serão adicionados ao preço final e destacados na proposta.'
+                        : 'Cliente não exigirá nota — impostos não aplicados.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <Switch
+                    id="switchNotaFiscal"
+                    checked={requerNota}
+                    onCheckedChange={setRequerNota}
+                  />
+                  <Label htmlFor="switchNotaFiscal" className="text-xs font-medium cursor-pointer">
+                    {requerNota ? 'Sim' : 'Não'}
+                  </Label>
+                </div>
+              </div>
+
+              {/* PAINEL REORGANIZADO: Custo direto, Preço de venda, Margem efetiva %, Impostos */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+                <div className="space-y-0.5">
                   <Label className="text-[11px] font-medium text-slate-600">
-                    Custo Direto Base
+                    Custo Direto Informado
                   </Label>
                   <div className="text-base font-bold font-mono text-slate-800">
                     {formatCurrencyBr(totais.custo)}
                   </div>
+                  <span className="text-[10px] text-slate-500 block">
+                    {temCustoInformado
+                      ? 'Soma dos custos diretos dos itens'
+                      : 'Nenhum custo informado nos itens'}
+                  </span>
                 </div>
 
-                <div>
+                <div className="space-y-0.5">
                   <Label className="text-[11px] font-medium text-slate-600">
-                    Margem de Lucro (%):
+                    Preço de Venda (sem impostos)
                   </Label>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.5"
-                      value={margemPercent}
-                      onChange={(e) => setMargemPercent(parseFloat(e.target.value) || 0)}
-                      className="h-8 text-xs font-mono w-24"
-                    />
-                    <span className="text-[11px] font-mono text-slate-600">
-                      +{formatCurrencyBr(totais.valorMargem)}
+                  <div className="text-base font-bold font-mono text-blue-900">
+                    {formatCurrencyBr(totais.precoVendaSemImpostos)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block">
+                    Soma dos itens de venda da proposta
+                  </span>
+                </div>
+
+                <div className="space-y-0.5">
+                  <Label className="text-[11px] font-medium text-slate-600">
+                    Margem Efetiva Calculada
+                  </Label>
+                  <div className="flex items-baseline gap-1.5">
+                    <span
+                      className={`text-base font-bold font-mono ${
+                        !temCustoInformado
+                          ? 'text-slate-600'
+                          : totais.margemEfetivaPercent >= margemMinimaAlcada
+                            ? 'text-emerald-700'
+                            : 'text-amber-700'
+                      }`}
+                    >
+                      {temCustoInformado ? `${totais.margemEfetivaPercent}%` : '—'}
+                    </span>
+                    {temCustoInformado && (
+                      <span className="text-[11px] font-mono text-slate-500">
+                        ({formatCurrencyBr(totais.margemEfetivaValor)})
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block">
+                    {temCustoInformado
+                      ? '(Preço de venda − Custo direto)'
+                      : 'Sem custo informado — alçada avalia valor total'}
+                  </span>
+                </div>
+
+                <div
+                  className={`p-2.5 rounded border transition-colors ${
+                    requerNota
+                      ? 'bg-amber-50/80 border-amber-200'
+                      : 'bg-slate-100/70 border-slate-200 opacity-80'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] font-semibold text-slate-700">
+                      Impostos / Tributos
+                    </Label>
+                    <Badge variant="outline" className="text-[9px] py-0 px-1 font-mono">
+                      {requerNota ? `${impostosPercent}%` : '0%'}
+                    </Badge>
+                  </div>
+                  <div className="text-sm font-bold font-mono text-slate-800 mt-0.5">
+                    {formatCurrencyBr(totais.valorImpostos)}
+                  </div>
+                  {requerNota ? (
+                    <div className="flex items-center gap-1 mt-1">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={impostosPercent}
+                        onChange={(e) => setImpostosPercent(parseFloat(e.target.value) || 0)}
+                        className="h-6 text-[11px] font-mono w-16 px-1 text-center bg-white"
+                        title="Alíquota de impostos (%)"
+                      />
+                      <span className="text-[10px] text-slate-500">% tributos</span>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] text-slate-500 block mt-1 italic">
+                      Cliente não exigirá nota — impostos não aplicados
+                    </span>
+                  )}
+                </div>
+
+                <div className="col-span-1 sm:col-span-2 lg:col-span-4 bg-emerald-50/90 p-3 rounded-lg border border-emerald-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-xs font-bold text-emerald-900 block">
+                      Preço Total Final da Proposta
+                    </Label>
+                    <span className="text-[11px] text-emerald-800">
+                      {requerNota
+                        ? 'Preço de venda dos itens + impostos aplicados'
+                        : 'Preço de venda direto dos itens (sem impostos / nota fiscal não exigida)'}
                     </span>
                   </div>
-                </div>
-
-                <div>
-                  <Label className="text-[11px] font-medium text-slate-600">
-                    Impostos / Tributos (%):
-                  </Label>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.1"
-                      value={impostosPercent}
-                      onChange={(e) => setImpostosPercent(parseFloat(e.target.value) || 0)}
-                      className="h-8 text-xs font-mono w-24"
-                    />
-                    <span className="text-[11px] font-mono text-slate-600">
-                      +{formatCurrencyBr(totais.valorImpostos)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="bg-emerald-50/80 p-2.5 rounded border border-emerald-200">
-                  <Label className="text-[11px] font-semibold text-emerald-800">
-                    Preço Total da Proposta
-                  </Label>
-                  <div className="text-lg font-bold font-mono text-emerald-700">
+                  <div className="text-2xl font-black font-mono text-emerald-700">
                     {formatCurrencyBr(totais.precoTotal)}
                   </div>
                 </div>

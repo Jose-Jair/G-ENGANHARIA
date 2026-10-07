@@ -16,6 +16,7 @@ export interface CreatePropostaData {
   custo?: number
   margem?: number
   impostos?: number
+  requer_nota?: boolean
   condicoes_pagamento?: string
   validade?: string
   premissas?: string
@@ -195,14 +196,30 @@ export const propostasService = {
     margemPercent: number,
     limiteValor: number = 100000,
     margemMinima: number = 20,
+    custoInformado: boolean = true,
   ): { requerAdmin: boolean; motivoAlcada: string } {
     const excedePreco = preco > limiteValor
+
+    // Quando custo não for informado no item, a alçada considera apenas o valor total
+    if (!custoInformado) {
+      if (excedePreco) {
+        return {
+          requerAdmin: true,
+          motivoAlcada: `Valor total (R$ ${preco.toLocaleString('pt-BR')}) superior à alçada comercial de R$ ${limiteValor.toLocaleString('pt-BR')} (sem custo direto informado)`,
+        }
+      }
+      return {
+        requerAdmin: false,
+        motivoAlcada: 'Dentro da alçada autônoma do Comercial por valor total',
+      }
+    }
+
     const margemAbaixo = margemPercent < margemMinima
 
     if (excedePreco && margemAbaixo) {
       return {
         requerAdmin: true,
-        motivoAlcada: `Valor (R$ ${preco.toLocaleString('pt-BR')}) acima de R$ ${limiteValor.toLocaleString('pt-BR')} e Margem (${margemPercent.toFixed(1)}%) abaixo de ${margemMinima}%`,
+        motivoAlcada: `Valor (R$ ${preco.toLocaleString('pt-BR')}) acima de R$ ${limiteValor.toLocaleString('pt-BR')} e Margem efetiva (${margemPercent.toFixed(1)}%) abaixo de ${margemMinima}%`,
       }
     }
     if (excedePreco) {
@@ -214,7 +231,7 @@ export const propostasService = {
     if (margemAbaixo) {
       return {
         requerAdmin: true,
-        motivoAlcada: `Margem de lucro (${margemPercent.toFixed(1)}%) inferior ao piso mínimo de ${margemMinima}%`,
+        motivoAlcada: `Margem de lucro efetiva (${margemPercent.toFixed(1)}%) inferior ao piso mínimo de ${margemMinima}%`,
       }
     }
 
@@ -235,21 +252,38 @@ export const propostasService = {
     custoTotal: number,
     margemPercent: number,
     impostosPercent: number,
+    precoVendaBase?: number,
+    requerNota: boolean = false,
   ): {
     custo: number
     valorMargem: number
     valorImpostos: number
+    precoVendaSemImpostos: number
     precoTotal: number
+    margemEfetivaValor: number
+    margemEfetivaPercent: number
   } {
-    const valorMargem = (custoTotal * margemPercent) / 100
-    const valorImpostos = (custoTotal * impostosPercent) / 100
-    const precoTotal = custoTotal + valorMargem + valorImpostos
+    // Se precoVendaBase fornecido (soma dos preços de venda dos itens), usar o novo modelo
+    // Caso contrário (compatibilidade legada), calcular precoVendaBase = custoTotal + (custoTotal * margemPercent / 100)
+    const baseVenda =
+      precoVendaBase !== undefined && precoVendaBase >= 0
+        ? precoVendaBase
+        : custoTotal + (custoTotal * margemPercent) / 100
+
+    const impostosAplicaveis = requerNota ? impostosPercent : 0
+    const valorImpostos = (baseVenda * impostosAplicaveis) / 100
+    const precoTotal = baseVenda + valorImpostos
+    const margemEfetivaValor = baseVenda - custoTotal
+    const margemEfetivaPercent = baseVenda > 0 ? (margemEfetivaValor / baseVenda) * 100 : 0
 
     return {
       custo: Math.round(custoTotal * 100) / 100,
-      valorMargem: Math.round(valorMargem * 100) / 100,
+      valorMargem: Math.round(margemEfetivaValor * 100) / 100,
       valorImpostos: Math.round(valorImpostos * 100) / 100,
+      precoVendaSemImpostos: Math.round(baseVenda * 100) / 100,
       precoTotal: Math.round(precoTotal * 100) / 100,
+      margemEfetivaValor: Math.round(margemEfetivaValor * 100) / 100,
+      margemEfetivaPercent: Math.round(margemEfetivaPercent * 10) / 10,
     }
   },
 

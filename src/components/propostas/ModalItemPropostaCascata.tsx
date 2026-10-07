@@ -87,15 +87,29 @@ export const ModalItemPropostaCascata: React.FC<ModalItemPropostaCascataProps> =
       (!e.subservico || selectedSubservicoIds.includes(e.subservico)),
   )
 
+  // Origem do item: 'catalogo' se selecionou um serviço de referência, 'avulso' se nenhum
+  const [origem, setOrigem] = useState<'catalogo' | 'avulso'>('catalogo')
+  const [precoVendaUnitario, setPrecoVendaUnitario] = useState<number>(0)
+  const [erroValidacao, setErroValidacao] = useState<string>('')
+
   // Quando seleciona um serviço do catálogo
   const handleSelectServico = (servicoId: string) => {
     setSelectedServicoId(servicoId)
+    setErroValidacao('')
+    if (servicoId === '__nenhum__') {
+      setOrigem('avulso')
+      setBdiPercent(25)
+      return
+    }
     const serv = catalogoServicos.find((s) => s.id === servicoId)
     if (serv) {
+      setOrigem('catalogo')
       setDescricao(serv.nome)
       setDisciplina(serv.disciplina)
       setUnidade(serv.unidade)
-      setCustoUnitario(serv.preco_base)
+      setPrecoVendaUnitario(serv.preco_base)
+      setCustoUnitario(0) // Custo direto pode ser informado opcionalmente
+      setBdiPercent(0) // Itens do catálogo já têm margem embutida (BDI = 0)
     }
   }
 
@@ -133,10 +147,13 @@ export const ModalItemPropostaCascata: React.FC<ModalItemPropostaCascataProps> =
     if (servs.length > 0) {
       handleSelectServico(servs[0].id)
     } else {
+      setOrigem('avulso')
       const areaObj = areas.find((a) => a.id === novaAreaId)
       setDescricao(areaObj ? `Serviço de ${areaObj.nome}` : 'Serviço de Engenharia')
       setDisciplina('Engenharia')
       setCustoUnitario(5000)
+      setPrecoVendaUnitario(0)
+      setBdiPercent(25)
     }
   }
 
@@ -150,10 +167,19 @@ export const ModalItemPropostaCascata: React.FC<ModalItemPropostaCascataProps> =
   }
 
   const custoTotal = Math.round(quantidade * custoUnitario * 100) / 100
-  const precoTotalItem = Math.round(custoTotal * (1 + bdiPercent / 100) * 100) / 100
+
+  // Se a origem for catálogo, o Preço de Venda = preco_base × quantidade direto (SEM margem adicional)
+  // Se for avulso, Preço = Custo × (1 + BDI%)
+  const precoTotalItem =
+    origem === 'catalogo'
+      ? Math.round(quantidade * precoVendaUnitario * 100) / 100
+      : Math.round(custoTotal * (1 + bdiPercent / 100) * 100) / 100
 
   const handleConfirmar = () => {
-    if (!descricao.trim()) return
+    if (!descricao.trim()) {
+      setErroValidacao('A descrição do serviço na proposta é obrigatória.')
+      return
+    }
 
     const nomesSubservicos = subservicos
       .filter((s) => selectedSubservicoIds.includes(s.id))
@@ -161,14 +187,17 @@ export const ModalItemPropostaCascata: React.FC<ModalItemPropostaCascataProps> =
 
     const item: PropostaItemRecord = {
       area: selectedAreaId,
-      servico: selectedServicoId || undefined,
+      servico:
+        selectedServicoId && selectedServicoId !== '__nenhum__' ? selectedServicoId : undefined,
+      origem: origem,
       descricao: descricao.trim(),
       disciplina: disciplina.trim() || undefined,
       unidade: unidade.trim() || 'un',
       quantidade: quantidade > 0 ? quantidade : 1,
       custo_unitario: custoUnitario,
       custo_total: custoTotal,
-      bdi_percentual: bdiPercent,
+      preco_venda_unitario: origem === 'catalogo' ? precoVendaUnitario : undefined,
+      bdi_percentual: origem === 'catalogo' ? 0 : bdiPercent,
       preco_total: precoTotalItem,
       subservicos: nomesSubservicos,
       status_conversao: 'nao_convertido',
@@ -188,11 +217,23 @@ export const ModalItemPropostaCascata: React.FC<ModalItemPropostaCascataProps> =
           </DialogTitle>
           <DialogDescription className="text-xs">
             Seleção guiada: Área de Atuação → Serviço do Catálogo → Subserviços específicos e
-            Entregáveis técnicos sugeridos.
+            Entregáveis técnicos sugeridos. Os valores do catálogo já incluem margem de lucro.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 pt-2 text-xs">
+          {erroValidacao && (
+            <div className="p-2.5 bg-red-50 border border-red-200 rounded text-red-700 text-xs flex items-center justify-between">
+              <span>{erroValidacao}</span>
+              <button
+                type="button"
+                onClick={() => setErroValidacao('')}
+                className="text-red-500 hover:text-red-800 font-bold ml-2"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           {/* PASSO 1: ÁREA DE ATUAÇÃO */}
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-slate-800">
@@ -235,6 +276,9 @@ export const ModalItemPropostaCascata: React.FC<ModalItemPropostaCascataProps> =
                       {s.nome} ({formatCurrencyBr(s.preco_base)}/{s.unidade})
                     </SelectItem>
                   ))}
+                  <SelectItem value="__nenhum__">
+                    — Não usar catálogo (Item técnico avulso) —
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -257,9 +301,12 @@ export const ModalItemPropostaCascata: React.FC<ModalItemPropostaCascataProps> =
             <Input
               required
               value={descricao}
-              onChange={(e) => setDescricao(e.target.value)}
+              onChange={(e) => {
+                setDescricao(e.target.value)
+                if (e.target.value.trim()) setErroValidacao('')
+              }}
               placeholder="Ex: Projeto Executivo de Estruturas em Concreto Armado"
-              className="text-xs h-9"
+              className={`text-xs h-9 ${erroValidacao ? 'border-red-400 focus:ring-red-400' : ''}`}
             />
           </div>
 
@@ -358,63 +405,117 @@ export const ModalItemPropostaCascata: React.FC<ModalItemPropostaCascataProps> =
             )}
           </div>
 
-          {/* PASSO 5: QUANTIDADE, UNIDADE, CUSTO E BDI */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
-            <div className="space-y-1">
-              <Label className="text-[11px] text-slate-600">Unidade</Label>
-              <Input
-                value={unidade}
-                onChange={(e) => setUnidade(e.target.value)}
-                placeholder="Ex: m², un"
-                className="text-xs h-8 text-center"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-[11px] text-slate-600">Quantidade</Label>
-              <Input
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={quantidade}
-                onChange={(e) => setQuantidade(parseFloat(e.target.value) || 0)}
-                className="text-xs h-8 font-mono text-center"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-[11px] text-slate-600">Custo Direto (R$)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={custoUnitario}
-                onChange={(e) => setCustoUnitario(parseFloat(e.target.value) || 0)}
-                className="text-xs h-8 font-mono text-right"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-[11px] text-slate-600">BDI Sugerido (%)</Label>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="1"
-                value={bdiPercent}
-                onChange={(e) => setBdiPercent(parseFloat(e.target.value) || 0)}
-                className="text-xs h-8 font-mono text-center"
-              />
-            </div>
-
-            <div className="col-span-2 sm:col-span-4 flex items-center justify-between pt-2 border-t border-slate-200">
-              <span className="text-slate-600 text-[11px]">
-                Custo Total Direto:{' '}
-                <strong className="font-mono text-slate-900">{formatCurrencyBr(custoTotal)}</strong>
+          {/* PASSO 5: QUANTIDADE, UNIDADE, VALORES E MARGEM */}
+          <div className="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-800">
+                5. Precificação do Item ({origem === 'catalogo' ? 'Origem Catálogo' : 'Item Avulso'}
+                )
               </span>
-              <span className="text-emerald-700 text-xs font-semibold">
-                Preço c/ BDI:{' '}
+              <Badge variant="outline" className="text-[10px]">
+                {origem === 'catalogo'
+                  ? 'Preço do Catálogo já inclui Margem'
+                  : 'Margem BDI Aplicada'}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="space-y-1">
+                <Label className="text-[11px] text-slate-600">Unidade</Label>
+                <Input
+                  value={unidade}
+                  onChange={(e) => setUnidade(e.target.value)}
+                  placeholder="Ex: m², un"
+                  className="text-xs h-8 text-center"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[11px] text-slate-600">Quantidade</Label>
+                <Input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={quantidade}
+                  onChange={(e) => setQuantidade(parseFloat(e.target.value) || 0)}
+                  className="text-xs h-8 font-mono text-center"
+                />
+              </div>
+
+              {origem === 'catalogo' ? (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-600">Preço de Venda Unit. (R$)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={precoVendaUnitario}
+                      onChange={(e) => setPrecoVendaUnitario(parseFloat(e.target.value) || 0)}
+                      className="text-xs h-8 font-mono text-right font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-600">
+                      Custo Direto Unit. (Opcional)
+                    </Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0,00"
+                      value={custoUnitario}
+                      onChange={(e) => setCustoUnitario(parseFloat(e.target.value) || 0)}
+                      className="text-xs h-8 font-mono text-right"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-600">Custo Direto (R$)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={custoUnitario}
+                      onChange={(e) => setCustoUnitario(parseFloat(e.target.value) || 0)}
+                      className="text-xs h-8 font-mono text-right"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-600">BDI Sugerido (%)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={bdiPercent}
+                      onChange={(e) => setBdiPercent(parseFloat(e.target.value) || 0)}
+                      className="text-xs h-8 font-mono text-center"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-2 border-t border-slate-200 gap-1 text-[11px]">
+              <span className="text-slate-600">
+                Custo Direto:{' '}
+                <strong className="font-mono text-slate-900">
+                  {custoTotal > 0 ? formatCurrencyBr(custoTotal) : 'Não informado'}
+                </strong>
+              </span>
+              <span className="text-emerald-700 font-semibold">
+                Preço de Venda do Item:{' '}
                 <strong className="font-mono text-sm">{formatCurrencyBr(precoTotalItem)}</strong>
+                {origem === 'catalogo' && (
+                  <span className="ml-1 text-[10px] text-slate-500 font-normal">
+                    (Sem margem adicional)
+                  </span>
+                )}
               </span>
             </div>
           </div>

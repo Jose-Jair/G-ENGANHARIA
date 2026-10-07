@@ -215,16 +215,35 @@ onRecordAfterUpdateSuccess((e) => {
     try {
       const contasCol = $app.findCollectionByNameOrId('contas')
       const novaConta = new Record(contasCol)
+      const requerNotaProposta = rec.getBool('requer_nota')
+      const aliquotaImpostos = rec.getInt('impostos') || 0
+
       novaConta.set('tipo', 'receber')
       if (projetoCriadoId) {
         novaConta.set('projeto', projetoCriadoId)
       }
       novaConta.set('proposta', propostaId)
-      novaConta.set('descricao', 'Recebimento de Proposta Aceita ' + propostaNumero)
+      novaConta.set(
+        'descricao',
+        'Recebimento de Proposta Aceita ' +
+          propostaNumero +
+          (requerNotaProposta ? ' (Com NF)' : ' (Sem NF)'),
+      )
       novaConta.set('valor', preco)
       novaConta.set('status', 'rascunho')
       novaConta.set('forma_pagamento', condicoesPagamento)
       novaConta.set('bloqueada_por_fechamento', false)
+
+      // Se requer nota fiscal e tem impostos informados, calcular retenção e líquido
+      if (requerNotaProposta && aliquotaImpostos > 0) {
+        const retencao =
+          Math.round(((preco * aliquotaImpostos) / (100 + aliquotaImpostos)) * 100) / 100
+        novaConta.set('retencao_impostos', retencao)
+        novaConta.set('valor_liquido', Math.round((preco - retencao) * 100) / 100)
+      } else {
+        novaConta.set('retencao_impostos', 0)
+        novaConta.set('valor_liquido', preco)
+      }
 
       // Vencimento padrão: +30 dias a partir de hoje
       const dataVenc = new Date()
@@ -241,8 +260,12 @@ onRecordAfterUpdateSuccess((e) => {
         aRec.set('entidade', 'contas')
         aRec.set('registro_id', novaConta.id)
         aRec.set('detalhes', {
-          mensagem: 'Conta a receber em rascunho gerada por aceite da proposta ' + propostaNumero,
+          mensagem:
+            'Conta a receber em rascunho gerada por aceite da proposta ' +
+            propostaNumero +
+            (requerNotaProposta ? ' (com exigência de NF)' : ' (sem exigência de NF)'),
           valor: preco,
+          requer_nota: requerNotaProposta,
           proposta_id: propostaId,
         })
         $app.save(aRec)

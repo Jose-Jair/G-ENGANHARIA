@@ -437,8 +437,16 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                     <span className="font-mono text-slate-800">{proposta.margem || 0}%</span>
                   </div>
                   <div className="flex justify-between">
+                    <span className="text-slate-600">Exigência de Nota Fiscal:</span>
+                    <span className="font-semibold text-slate-800">
+                      {proposta.requer_nota ? 'Sim (com nota)' : 'Não (sem nota)'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-slate-600">Tributos e Impostos:</span>
-                    <span className="font-mono text-slate-800">{proposta.impostos || 0}%</span>
+                    <span className="font-mono text-slate-800">
+                      {proposta.requer_nota ? `${proposta.impostos || 0}%` : '0% (desligado)'}
+                    </span>
                   </div>
                   <div className="flex justify-between border-t border-blue-200 pt-2 text-sm font-bold text-blue-900">
                     <span>Preço Total da Proposta:</span>

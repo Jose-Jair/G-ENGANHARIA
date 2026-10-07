@@ -482,6 +482,7 @@ export interface PropostaItemRecord {
   proposta?: string
   servico?: string
   area?: string
+  origem?: 'catalogo' | 'avulso'
   subservicos?: string[] // IDs ou nomes de subserviços
   status_conversao?: 'nao_convertido' | 'convertido'
   projeto_gerado?: string
@@ -493,6 +494,7 @@ export interface PropostaItemRecord {
   quantidade: number
   custo_unitario: number
   custo_total: number
+  preco_venda_unitario?: number
   bdi_percentual?: number
   preco_total?: number
   created?: string
@@ -545,6 +547,7 @@ export interface PropostaRecord {
   validade?: string
   premissas?: string
   exclusoes?: string
+  requer_nota?: boolean
   status:
     | 'rascunho'
     | 'aprovacao_interna'

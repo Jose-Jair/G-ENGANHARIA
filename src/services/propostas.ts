@@ -139,25 +139,59 @@ export const propostasService = {
       expand: 'empresa,cliente_pf,contrato,modelo,criado_por',
     })
 
-    // Sincronizar itens na tabela proposta_itens
+    // Sincronizar itens na tabela proposta_itens (sanitizado contra erro 400 no PocketBase)
     if (data.itens_json && Array.isArray(data.itens_json)) {
       for (const item of data.itens_json) {
         try {
-          await pb.collection('proposta_itens').create({
+          const payloadItem: Record<string, any> = {
             proposta: created.id,
-            servico: item.servico || null,
-            area: item.area || null,
-            subservicos: item.subservicos || [],
-            status_conversao: item.status_conversao || 'nao_convertido',
             descricao: item.descricao,
             disciplina: item.disciplina || '',
             unidade: item.unidade || 'un',
-            quantidade: item.quantidade || 1,
-            custo_unitario: item.custo_unitario || 0,
-            custo_total: item.custo_total || 0,
-            bdi_percentual: item.bdi_percentual || 0,
-            preco_total: item.preco_total || 0,
-          })
+            subservicos: item.subservicos || [],
+            status_conversao: item.status_conversao || 'nao_convertido',
+            quantidade: Number(item.quantidade) || 1,
+            custo_unitario: Number(item.custo_unitario) || 0,
+            custo_total: Number(item.custo_total) || 0,
+            bdi_percentual: Number(item.bdi_percentual) || 0,
+            preco_total: Number(item.preco_total) || 0,
+          }
+
+          // Relações opcionais: incluir APENAS se ID for válido (não vazio e não '__nenhum__')
+          if (
+            item.servico &&
+            item.servico !== '__nenhum__' &&
+            typeof item.servico === 'string' &&
+            item.servico.trim().length > 0
+          ) {
+            payloadItem.servico = item.servico.trim()
+          }
+          if (
+            item.area &&
+            item.area !== '__nenhum__' &&
+            typeof item.area === 'string' &&
+            item.area.trim().length > 0
+          ) {
+            payloadItem.area = item.area.trim()
+          }
+          if (
+            item.projeto_gerado &&
+            item.projeto_gerado !== '__nenhum__' &&
+            typeof item.projeto_gerado === 'string' &&
+            item.projeto_gerado.trim().length > 0
+          ) {
+            payloadItem.projeto_gerado = item.projeto_gerado.trim()
+          }
+          if (
+            item.etapa_gerada &&
+            item.etapa_gerada !== '__nenhum__' &&
+            typeof item.etapa_gerada === 'string' &&
+            item.etapa_gerada.trim().length > 0
+          ) {
+            payloadItem.etapa_gerada = item.etapa_gerada.trim()
+          }
+
+          await pb.collection('proposta_itens').create(payloadItem)
         } catch (itemErr) {
           console.warn('Erro ao salvar item na tabela proposta_itens:', itemErr)
         }
@@ -172,7 +206,7 @@ export const propostasService = {
       expand: 'empresa,cliente_pf,contrato,modelo,criado_por',
     })
 
-    // Se itens_json foi atualizado, sincronizar com proposta_itens
+    // Se itens_json foi atualizado, sincronizar com proposta_itens (sanitizado contra erro 400 no PocketBase)
     if (data.itens_json && Array.isArray(data.itens_json)) {
       try {
         const existingItens = await pb.collection('proposta_itens').getFullList({
@@ -186,21 +220,55 @@ export const propostasService = {
             await pb.collection('proposta_itens').delete(old.id)
           }
           for (const item of data.itens_json) {
-            await pb.collection('proposta_itens').create({
+            const payloadItem: Record<string, any> = {
               proposta: id,
-              servico: item.servico || null,
-              area: item.area || null,
-              subservicos: item.subservicos || [],
-              status_conversao: item.status_conversao || 'nao_convertido',
               descricao: item.descricao,
               disciplina: item.disciplina || '',
               unidade: item.unidade || 'un',
-              quantidade: item.quantidade || 1,
-              custo_unitario: item.custo_unitario || 0,
-              custo_total: item.custo_total || 0,
-              bdi_percentual: item.bdi_percentual || 0,
-              preco_total: item.preco_total || 0,
-            })
+              subservicos: item.subservicos || [],
+              status_conversao: item.status_conversao || 'nao_convertido',
+              quantidade: Number(item.quantidade) || 1,
+              custo_unitario: Number(item.custo_unitario) || 0,
+              custo_total: Number(item.custo_total) || 0,
+              bdi_percentual: Number(item.bdi_percentual) || 0,
+              preco_total: Number(item.preco_total) || 0,
+            }
+
+            // Relações opcionais: incluir APENAS se ID for válido (não vazio e não '__nenhum__')
+            if (
+              item.servico &&
+              item.servico !== '__nenhum__' &&
+              typeof item.servico === 'string' &&
+              item.servico.trim().length > 0
+            ) {
+              payloadItem.servico = item.servico.trim()
+            }
+            if (
+              item.area &&
+              item.area !== '__nenhum__' &&
+              typeof item.area === 'string' &&
+              item.area.trim().length > 0
+            ) {
+              payloadItem.area = item.area.trim()
+            }
+            if (
+              item.projeto_gerado &&
+              item.projeto_gerado !== '__nenhum__' &&
+              typeof item.projeto_gerado === 'string' &&
+              item.projeto_gerado.trim().length > 0
+            ) {
+              payloadItem.projeto_gerado = item.projeto_gerado.trim()
+            }
+            if (
+              item.etapa_gerada &&
+              item.etapa_gerada !== '__nenhum__' &&
+              typeof item.etapa_gerada === 'string' &&
+              item.etapa_gerada.trim().length > 0
+            ) {
+              payloadItem.etapa_gerada = item.etapa_gerada.trim()
+            }
+
+            await pb.collection('proposta_itens').create(payloadItem)
           }
         }
       } catch (err) {

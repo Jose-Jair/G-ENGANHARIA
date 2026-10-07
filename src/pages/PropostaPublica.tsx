@@ -829,14 +829,73 @@ export function PropostaPublicaPage() {
                     )}
                   </tbody>
                   <tfoot className="bg-slate-50 border-t font-semibold">
-                    <tr>
-                      <td colSpan={4} className="py-3 px-3 text-right text-slate-800 text-sm">
-                        Valor Total da Proposta:
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono text-base font-bold text-blue-700">
-                        {formatCurrencyBr(proposta.preco)}
-                      </td>
-                    </tr>
+                    {(() => {
+                      const itensList = proposta.itens_json || []
+                      const subtotalItens =
+                        Math.round(
+                          itensList.reduce((acc, it) => {
+                            const bdi = Number(it.bdi_percentual ?? proposta.margem ?? 0)
+                            const sub =
+                              it.preco_total !== undefined && it.preco_total !== null
+                                ? Math.round(Number(it.preco_total) * 100) / 100
+                                : Math.round(Number(it.custo_total || 0) * (1 + bdi / 100) * 100) /
+                                  100
+                            return acc + sub
+                          }, 0) * 100,
+                        ) / 100
+
+                      const aliquota = proposta.requer_nota ? Number(proposta.impostos) || 0 : 0
+                      const valorImpostos =
+                        proposta.requer_nota && aliquota > 0
+                          ? Math.round(((subtotalItens * aliquota) / 100) * 100) / 100
+                          : 0
+
+                      const totalFinal =
+                        proposta.requer_nota && aliquota > 0
+                          ? Math.round((subtotalItens + valorImpostos) * 100) / 100
+                          : subtotalItens > 0
+                            ? subtotalItens
+                            : Math.round(Number(proposta.preco || 0) * 100) / 100
+
+                      return (
+                        <>
+                          {proposta.requer_nota && aliquota > 0 && itensList.length > 0 && (
+                            <>
+                              <tr>
+                                <td
+                                  colSpan={4}
+                                  className="py-2 px-3 text-right text-slate-600 text-xs"
+                                >
+                                  Subtotal dos Serviços:
+                                </td>
+                                <td className="py-2 px-3 text-right font-mono text-xs text-slate-800">
+                                  {formatCurrencyBr(subtotalItens)}
+                                </td>
+                              </tr>
+                              <tr>
+                                <td
+                                  colSpan={4}
+                                  className="py-2 px-3 text-right text-slate-600 text-xs"
+                                >
+                                  Impostos com NF ({aliquota}%):
+                                </td>
+                                <td className="py-2 px-3 text-right font-mono text-xs text-slate-800">
+                                  {formatCurrencyBr(valorImpostos)}
+                                </td>
+                              </tr>
+                            </>
+                          )}
+                          <tr>
+                            <td colSpan={4} className="py-3 px-3 text-right text-slate-800 text-sm">
+                              Valor Total da Proposta:
+                            </td>
+                            <td className="py-3 px-3 text-right font-mono text-base font-bold text-blue-700">
+                              {formatCurrencyBr(totalFinal)}
+                            </td>
+                          </tr>
+                        </>
+                      )
+                    })()}
                   </tfoot>
                 </table>
               </div>

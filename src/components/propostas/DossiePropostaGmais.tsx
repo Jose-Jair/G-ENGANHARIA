@@ -116,6 +116,25 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
 
   const gruposArray = Array.from(gruposArea.values())
 
+  // Subtotal consolidado dos serviços (soma exata dos itens exibidos)
+  const subtotalServicos =
+    Math.round(gruposArray.reduce((acc, g) => acc + g.subtotal, 0) * 100) / 100
+
+  // Alíquota de impostos discriminada quando requer_nota
+  const aliquotaImpostos = proposta.requer_nota ? Number(proposta.impostos) || 0 : 0
+  const valorImpostosDiscriminado =
+    proposta.requer_nota && aliquotaImpostos > 0
+      ? Math.round(((subtotalServicos * aliquotaImpostos) / 100) * 100) / 100
+      : 0
+
+  // Investimento Global (subtotal dos serviços + linha discriminada de impostos quando requer_nota)
+  const investimentoGlobal =
+    proposta.requer_nota && aliquotaImpostos > 0
+      ? Math.round((subtotalServicos + valorImpostosDiscriminado) * 100) / 100
+      : subtotalServicos > 0
+        ? subtotalServicos
+        : Math.round(Number(proposta.preco || 0) * 100) / 100
+
   // Prazos e Validade
   const diasPrazo = proposta.prazo_dias || 30
   const diasValidade = proposta.validade_dias || 15
@@ -326,12 +345,32 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
                   )}
                 </tbody>
                 <tfoot>
+                  {proposta.requer_nota && aliquotaImpostos > 0 && (
+                    <>
+                      <tr className="bg-slate-100 font-semibold text-slate-700 border-t border-slate-300 print-table-row break-inside-avoid [page-break-inside:avoid]">
+                        <td colSpan={2} className="py-2 px-3 text-right text-xs">
+                          Subtotal dos Serviços:
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-xs text-slate-800">
+                          {formatCurrencyBr(subtotalServicos)}
+                        </td>
+                      </tr>
+                      <tr className="bg-slate-100 font-semibold text-slate-700 border-t border-slate-200 print-table-row break-inside-avoid [page-break-inside:avoid]">
+                        <td colSpan={2} className="py-2 px-3 text-right text-xs">
+                          Impostos Incidentes com NF ({aliquotaImpostos}%):
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-xs text-slate-800">
+                          {formatCurrencyBr(valorImpostosDiscriminado)}
+                        </td>
+                      </tr>
+                    </>
+                  )}
                   <tr className="bg-slate-900 text-white font-bold border-t-2 border-slate-900 print-table-row break-inside-avoid [page-break-inside:avoid]">
                     <td colSpan={2} className="py-2.5 px-3 uppercase text-xs tracking-wider">
-                      VALOR GLOBAL CONSOLIDADO
+                      INVESTIMENTO GLOBAL CONSOLIDADO
                     </td>
                     <td className="py-2.5 px-3 text-right font-mono text-sm text-orange-400">
-                      {formatCurrencyBr(proposta.preco)}
+                      {formatCurrencyBr(investimentoGlobal)}
                     </td>
                   </tr>
                 </tfoot>

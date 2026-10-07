@@ -678,15 +678,18 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                             </td>
                             <td className="py-2 px-3 text-right font-mono font-bold text-orange-700">
                               {formatCurrencyBr(
-                                proposta.itens_json.reduce((acc, it) => {
-                                  const bdi = Number(it.bdi_percentual ?? proposta.margem ?? 0)
-                                  const precoTotalItem =
-                                    it.preco_total != null
-                                      ? Math.round(Number(it.preco_total) * 100) / 100
-                                      : Math.round(Number(it.custo_total) * (1 + bdi / 100) * 100) /
-                                        100
-                                  return acc + precoTotalItem
-                                }, 0),
+                                Math.round(
+                                  proposta.itens_json.reduce((acc, it) => {
+                                    const bdi = Number(it.bdi_percentual ?? proposta.margem ?? 0)
+                                    const precoTotalItem =
+                                      it.preco_total != null
+                                        ? Math.round(Number(it.preco_total) * 100) / 100
+                                        : Math.round(
+                                            Number(it.custo_total) * (1 + bdi / 100) * 100,
+                                          ) / 100
+                                    return acc + precoTotalItem
+                                  }, 0) * 100,
+                                ) / 100,
                               )}
                             </td>
                           </tr>

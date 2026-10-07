@@ -203,11 +203,270 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
       console.log('Erro ao auditar aceite digital: ' + errAudit)
     }
 
+    // =========================================================================
+    // CADEIA COMPLETA DE CRIAÇÃO DO CONTRATO E PROJETO NO ACEITE (DEFITO 1)
+    // Regra: idempotência 1 proposta = 1 contrato = 1 projeto
+    // =========================================================================
+    const propostaId = proposta.id
+    const propostaNumero = proposta.getString('numero')
+    const empresaId = proposta.getString('empresa')
+    const clientePfId = proposta.getString('cliente_pf')
+    const preco = proposta.getFloat('preco') || 0
+    const prazoDias = proposta.getInt('prazo_dias') || 30
+    const notaPrazo =
+      proposta.getString('nota_prazo') ||
+      'Os prazos serão contados em dias corridos, a partir da data de assinatura deste contrato e do fornecimento de todos os elementos e subsídios necessários ao desenvolvimento dos serviços.'
+    const objeto =
+      proposta.getString('objeto') ||
+      proposta.getString('escopo') ||
+      'Prestação de serviços técnicos especializados de engenharia'
+
+    let contratoCriado = null
+    let projetoCriado = null
+
+    try {
+      // (a) Checagem de idempotência do contrato
+      const contratosExistentes = $app.findRecordsByFilter(
+        'contratos_servico',
+        "proposta = '" + propostaId + "'",
+        '-created',
+        1,
+        0,
+      )
+
+      if (contratosExistentes.length > 0) {
+        contratoCriado = contratosExistentes[0]
+      } else {
+        // (b) Gerar número CTR-AAAA-NNNN sequencial por ano
+        const anoAtual = new Date().getFullYear()
+        const prefixoCTR = 'CTR-' + anoAtual + '-'
+        const contratosDoAno = $app.findRecordsByFilter(
+          'contratos_servico',
+          "numero ~ '" + prefixoCTR + "'",
+          '-numero',
+          1,
+          0,
+        )
+
+        let proximoSeqCtr = 1
+        if (contratosDoAno.length > 0) {
+          const ultimoNumero = contratosDoAno[0].getString('numero')
+          const partes = ultimoNumero.split('-')
+          const ultimoSeq = parseInt(partes[2], 10)
+          if (!isNaN(ultimoSeq)) {
+            proximoSeqCtr = ultimoSeq + 1
+          }
+        }
+        const numeroCTR = prefixoCTR + ('0000' + proximoSeqCtr).slice(-4)
+
+        // (c) Ler cláusulas do modelo em parametros
+        let clausulasTexto = ''
+        try {
+          const paramClausulas = $app.findFirstRecordByData(
+            'parametros',
+            'chave',
+            'contrato_servico_clausulas_padrao',
+          )
+          if (paramClausulas) {
+            clausulasTexto = paramClausulas.getString('valor')
+          }
+        } catch (_) {}
+
+        // Espelho das parcelas
+        let parcelas = []
+        try {
+          const parcs = $app.findRecordsByFilter(
+            'proposta_parcelas',
+            "proposta = '" + propostaId + "'",
+            'ordem',
+            50,
+            0,
+          )
+          parcelas = parcs.map((p) => ({
+            ordem: p.getInt('ordem'),
+            percentual: p.getFloat('percentual'),
+            valor: p.getFloat('valor'),
+            gatilho: p.getString('gatilho'),
+            descricao: p.getString('descricao'),
+          }))
+        } catch (_) {}
+
+        // (d) Criar contrato
+        const contratosCol = $app.findCollectionByNameOrId('contratos_servico')
+        const novoContrato = new Record(contratosCol)
+        novoContrato.set('numero', numeroCTR)
+        novoContrato.set('proposta', propostaId)
+        if (empresaId) novoContrato.set('empresa', empresaId)
+        if (clientePfId) novoContrato.set('cliente_pf', clientePfId)
+        novoContrato.set('objeto', objeto)
+        novoContrato.set('valor_total', preco)
+        novoContrato.set('prazo_dias', prazoDias)
+        novoContrato.set('nota_prazo', notaPrazo)
+        novoContrato.set('clausulas_texto', clausulasTexto)
+        novoContrato.set('parcelas_json', parcelas)
+        novoContrato.set('status', 'aguardando_assinatura_admin')
+        novoContrato.set('token_assinatura_cliente', $security.randomString(32))
+
+        $app.save(novoContrato)
+        contratoCriado = novoContrato
+
+        // (f) Salvar proposta.contrato_servico = id do contrato
+        try {
+          proposta.set('contrato_servico', novoContrato.id)
+          $app.save(proposta)
+        } catch (errPropVinculo) {
+          console.log('Erro ao atualizar vinculo contrato_servico na proposta: ' + errPropVinculo)
+        }
+
+        // (g) Auditar evento de geração do contrato no servidor
+        try {
+          const auditCol = $app.findCollectionByNameOrId('audit_logs')
+          const aRec = new Record(auditCol)
+          aRec.set('acao', 'GERACAO_CONTRATO_SERVICO')
+          aRec.set('entidade', 'contratos_servico')
+          aRec.set('registro_id', novoContrato.id)
+          aRec.set('detalhes', {
+            mensagem:
+              'Contrato de serviços gerado automaticamente pelo aceite digital da proposta ' +
+              propostaNumero,
+            contrato_numero: numeroCTR,
+            proposta_id: propostaId,
+            proposta_numero: propostaNumero,
+            valor: preco,
+            ip: clientIp,
+          })
+          aRec.set('ip', clientIp)
+          $app.save(aRec)
+        } catch (_) {}
+      }
+
+      // (e) Criar projeto PRJ-AAAA-NNNN com status "Em Contratação", saúde verde,
+      // vínculo com proposta e contrato, SEM etapas/entregáveis/contas
+      const projetosExistentes = $app.findRecordsByFilter(
+        'projetos',
+        "proposta = '" + propostaId + "'",
+        '-created',
+        1,
+        0,
+      )
+
+      if (projetosExistentes.length > 0) {
+        projetoCriado = projetosExistentes[0]
+        let prjModificado = false
+        if (!projetoCriado.getString('contrato_servico') && contratoCriado) {
+          projetoCriado.set('contrato_servico', contratoCriado.id)
+          prjModificado = true
+        }
+        if (prjModificado) {
+          $app.save(projetoCriado)
+        }
+        if (contratoCriado && !contratoCriado.getString('projeto')) {
+          contratoCriado.set('projeto', projetoCriado.id)
+          $app.save(contratoCriado)
+        }
+      } else {
+        const anoAtual = new Date().getFullYear()
+        const prefixoPRJ = 'PRJ-' + anoAtual + '-'
+        const projetosDoAno = $app.findRecordsByFilter(
+          'projetos',
+          "codigo ~ '" + prefixoPRJ + "'",
+          '-codigo',
+          1,
+          0,
+        )
+
+        let proximoSeqPrj = 1
+        if (projetosDoAno.length > 0) {
+          const ultimoCodigo = projetosDoAno[0].getString('codigo')
+          const partes = ultimoCodigo.split('-')
+          const ultimoSeq = parseInt(partes[2], 10)
+          if (!isNaN(ultimoSeq)) {
+            proximoSeqPrj = ultimoSeq + 1
+          }
+        }
+        const codigoPRJ = prefixoPRJ + ('0000' + proximoSeqPrj).slice(-4)
+
+        let nomeCliente = 'Cliente'
+        if (empresaId) {
+          try {
+            const emp = $app.findRecordById('empresas', empresaId)
+            if (emp) nomeCliente = emp.getString('razao_social')
+          } catch (_) {}
+        } else if (clientePfId) {
+          try {
+            const pf = $app.findRecordById('clientes_pf', clientePfId)
+            if (pf) nomeCliente = pf.getString('nome')
+          } catch (_) {}
+        }
+
+        const contratoNumero = contratoCriado ? contratoCriado.getString('numero') : ''
+        const projetosCol = $app.findCollectionByNameOrId('projetos')
+        const novoProjeto = new Record(projetosCol)
+        novoProjeto.set('codigo', codigoPRJ)
+        novoProjeto.set(
+          'nome',
+          'Projeto: ' + (contratoNumero || propostaNumero) + ' — ' + nomeCliente,
+        )
+        novoProjeto.set('descricao', objeto)
+        novoProjeto.set('proposta', propostaId)
+        if (contratoCriado) {
+          novoProjeto.set('contrato_servico', contratoCriado.id)
+        }
+        if (empresaId) novoProjeto.set('empresa', empresaId)
+        if (clientePfId) novoProjeto.set('cliente_pf', clientePfId)
+        novoProjeto.set('valor_total', preco)
+        novoProjeto.set('subcontratacao_autorizada', true)
+        novoProjeto.set('saude', 'verde')
+        novoProjeto.set('status', 'Em Contratação')
+
+        $app.save(novoProjeto)
+        projetoCriado = novoProjeto
+
+        // Atualizar contrato com o id do projeto criado
+        if (contratoCriado) {
+          try {
+            contratoCriado.set('projeto', novoProjeto.id)
+            $app.save(contratoCriado)
+          } catch (_) {}
+        }
+
+        // (g) Auditar evento de criação do projeto no servidor
+        try {
+          const auditCol = $app.findCollectionByNameOrId('audit_logs')
+          const aRec = new Record(auditCol)
+          aRec.set('acao', 'CRIACAO_PROJETO_CONTRATACAO')
+          aRec.set('entidade', 'projetos')
+          aRec.set('registro_id', novoProjeto.id)
+          aRec.set('detalhes', {
+            mensagem:
+              'Projeto criado em status "Em Contratação" pelo aceite digital da Proposta ' +
+              propostaNumero,
+            codigo: codigoPRJ,
+            status: 'Em Contratação',
+            contrato_id: contratoCriado ? contratoCriado.id : null,
+            contrato_numero: contratoNumero,
+            proposta_id: propostaId,
+            proposta_numero: propostaNumero,
+            valor: preco,
+            ip: clientIp,
+          })
+          aRec.set('ip', clientIp)
+          $app.save(aRec)
+        } catch (_) {}
+      }
+    } catch (errCadeia) {
+      console.log('Erro na cadeia de criação contrato/projeto no aceite digital: ' + errCadeia)
+    }
+
     return e.json(200, {
       success: true,
       message: 'Aceite registrado com pleno sucesso e validade jurídica!',
       proposta_id: proposta.id,
       proposta_numero: proposta.getString('numero'),
+      contrato_id: contratoCriado ? contratoCriado.id : null,
+      contrato_numero: contratoCriado ? contratoCriado.getString('numero') : null,
+      projeto_id: projetoCriado ? projetoCriado.id : null,
+      projeto_codigo: projetoCriado ? projetoCriado.getString('codigo') : null,
       hash: hashFinal,
       data_aceite: nowIso,
     })

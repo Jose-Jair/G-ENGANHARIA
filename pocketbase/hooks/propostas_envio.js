@@ -21,8 +21,8 @@ routerAdd(
 
       const body = reqInfo.body || {}
       const propostaId = body.proposta_id
-      const destinatarioEmail = (body.destinatario_email || '').trim()
-      const destinatarioNome = (body.destinatario_nome || '').trim()
+      let destinatarioEmail = (body.destinatario_email || '').trim()
+      let destinatarioNome = (body.destinatario_nome || '').trim()
       const assuntoCustom = body.assunto
       const corpoCustom = body.corpo
 
@@ -30,20 +30,114 @@ routerAdd(
         return e.json(400, { message: 'ID da proposta não informado' })
       }
 
-      if (!destinatarioEmail || !destinatarioEmail.includes('@')) {
-        return e.json(400, { message: 'E-mail destinatário inválido ou não informado' })
-      }
-
       const proposta = $app.findRecordById('propostas', propostaId)
       if (!proposta) {
         return e.json(404, { message: 'Proposta não encontrada' })
       }
 
-      // PORTÃO DE VALIDAÇÃO: Proposta precisa estar validada/aprovada para ser enviada
+      // Fallback de destinatário: se destinatario_email vier vazio, buscar no e-mail da empresa ou do cliente PF vinculado
+      if (!destinatarioEmail) {
+        const empId = proposta.getString('empresa')
+        const pfId = proposta.getString('cliente_pf')
+
+        if (empId) {
+          try {
+            const emp = $app.findRecordById('empresas', empId)
+            if (emp) {
+              destinatarioEmail = (emp.getString('email') || '').trim()
+              if (!destinatarioNome) {
+                destinatarioNome = emp.getString('razao_social') || emp.getString('nome_fantasia')
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (!destinatarioEmail && pfId) {
+          try {
+            const pf = $app.findRecordById('clientes_pf', pfId)
+            if (pf) {
+              destinatarioEmail = (pf.getString('email') || '').trim()
+              if (!destinatarioNome) {
+                destinatarioNome = pf.getString('nome')
+              }
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (!destinatarioEmail || !destinatarioEmail.includes('@')) {
+        return e.json(400, {
+          message: 'E-mail destinatário inválido ou não informado no cadastro do cliente/empresa.',
+        })
+      }
+
+      // PORTÃO DE VALIDAÇÃO: rejeitar expirada/recusada; exigir aprovação prévia
       const statusAtual = proposta.getString('status')
+      if (statusAtual === 'expirada' || statusAtual === 'recusada') {
+        return e.json(400, {
+          message:
+            'Esta proposta está com status "' +
+            statusAtual +
+            '" e não pode ser enviada ao cliente.',
+        })
+      }
+
       if (statusAtual === 'rascunho' || statusAtual === 'aprovacao_interna') {
         return e.json(400, {
           message: 'A proposta precisa ser aprovada internamente antes do envio ao cliente.',
+        })
+      }
+
+      // CHECAGEM RIGOROSA DA LISTA "NÃO CONTATAR" (Opt-Out LGPD)
+      const empId = proposta.getString('empresa')
+      let bloqueado = false
+      if (empId) {
+        try {
+          const bEmp = $app.findRecordsByFilter(
+            'nao_contatar',
+            "empresa = '" + empId + "'",
+            '-created',
+            1,
+            0,
+          )
+          if (bEmp.length > 0) bloqueado = true
+        } catch (_) {}
+      }
+      if (!bloqueado && destinatarioEmail) {
+        try {
+          const bMail = $app.findRecordsByFilter(
+            'nao_contatar',
+            "email ~ '" + destinatarioEmail + "'",
+            '-created',
+            1,
+            0,
+          )
+          if (bMail.length > 0) bloqueado = true
+        } catch (_) {}
+      }
+
+      if (bloqueado) {
+        try {
+          const auditCol = $app.findCollectionByNameOrId('audit_logs')
+          const aRec = new Record(auditCol)
+          aRec.set('user', reqInfo.auth.id)
+          aRec.set('user_email', reqInfo.auth.getString('email'))
+          aRec.set('acao', 'BLOQUEIO_NAO_CONTATAR')
+          aRec.set('entidade', 'propostas')
+          aRec.set('registro_id', propostaId)
+          aRec.set('detalhes', {
+            motivo:
+              'Envio de proposta bloqueado por compliance: destinatário ou empresa cadastrado na lista Não Contatar.',
+            proposta_numero: proposta.getString('numero'),
+            destinatario_email: destinatarioEmail,
+          })
+          aRec.set('ip', reqInfo.remoteIP || '')
+          $app.save(aRec)
+        } catch (_) {}
+
+        return e.json(403, {
+          message:
+            'Envio bloqueado por compliance LGPD: este e-mail ou empresa consta na lista "Não Contatar".',
         })
       }
 
@@ -104,11 +198,17 @@ routerAdd(
           'Prezado(a) {nome},\n\nSegue o link para visualização e aceite da Proposta {numero}:\n{link_proposta}\n\nAtenciosamente,\nG+ Engenharia'
       }
 
-      // Substituição de variáveis
-      const precoFmt = (proposta.getFloat('preco') || 0).toLocaleString('pt-BR', {
-        style: 'currency',
-        currency: 'BRL',
-      })
+      // Substituição de variáveis — runtime Goja não suporta toLocaleString('pt-BR')
+      // Função própria de formatação monetária (toFixed(2) com troca de separadores para R$ 0.000,00)
+      const numPreco = proposta.getFloat('preco') || 0
+      const fixStr = numPreco.toFixed(2)
+      const partesValor = fixStr.split('.')
+      let intPart = partesValor[0]
+      const decPart = partesValor[1]
+      // Formatar milhares com ponto
+      intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+      const precoFmt = 'R$ ' + intPart + ',' + decPart
+
       const validadeData = proposta.getString('validade')
         ? proposta.getString('validade').substring(0, 10).split('-').reverse().join('/')
         : '15 dias'

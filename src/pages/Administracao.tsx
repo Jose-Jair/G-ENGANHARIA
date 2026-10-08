@@ -1509,11 +1509,22 @@ export default function AdministracaoPage() {
 
               <div className="space-y-1">
                 <Label className="text-xs">Valor do Parâmetro</Label>
-                <Input
-                  value={paramValue}
-                  onChange={(e) => setParamValue(e.target.value)}
-                  className="text-xs font-mono h-9"
-                />
+                {paramValue.length > 50 ||
+                paramValue.includes('\n') ||
+                editingParam.chave.includes('texto') ? (
+                  <Textarea
+                    rows={4}
+                    value={paramValue}
+                    onChange={(e) => setParamValue(e.target.value)}
+                    className="text-xs font-mono"
+                  />
+                ) : (
+                  <Input
+                    value={paramValue}
+                    onChange={(e) => setParamValue(e.target.value)}
+                    className="text-xs font-mono h-9"
+                  />
+                )}
               </div>
 
               <div className="space-y-1">

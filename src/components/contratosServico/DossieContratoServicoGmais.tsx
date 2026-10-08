@@ -49,7 +49,7 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="dossie-contrato-dialog max-w-4xl max-h-[95vh] overflow-y-auto p-0 bg-slate-100 print:bg-white print:max-w-none print:max-h-none print:h-auto print:overflow-visible print:p-0 print:border-none print:shadow-none print:static print:transform-none">
+      <DialogContent className="dossie-contrato-dialog w-[98vw] max-w-4xl max-h-[95vh] overflow-y-auto overflow-x-hidden p-0 bg-slate-100 print:bg-white print:max-w-none print:max-h-none print:h-auto print:overflow-visible print:p-0 print:border-none print:shadow-none print:static print:transform-none">
         {/* Barra superior de ações (oculta na impressão) */}
         <div className="p-4 bg-slate-900 text-white flex items-center justify-between print:hidden sticky top-0 z-50 shadow-md">
           <div className="flex items-center gap-2">
@@ -74,9 +74,9 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
         </div>
 
         {/* ÁREA DO DOCUMENTO PARA VISUALIZAÇÃO E IMPRESSÃO (Folha A4 / Modelo GMAIS) */}
-        <div className="dossie-contrato-documento p-8 sm:p-12 bg-white max-w-4xl mx-auto text-slate-900 font-sans text-xs leading-relaxed space-y-6 print:p-0 print:m-0 print:max-w-none print:w-full print:text-black print:space-y-4">
+        <div className="dossie-contrato-documento p-4 sm:p-8 md:p-12 bg-white w-full max-w-4xl mx-auto text-slate-900 font-sans text-xs leading-relaxed space-y-5 print:p-0 print:m-0 print:max-w-none print:w-full print:text-black print:space-y-3 print:space-y-reverse-0">
           {/* 1. CABEÇALHO COM LOGO E DADOS G+ */}
-          <div className="dossie-secao flex items-start justify-between border-b-2 border-slate-900 pb-4">
+          <div className="dossie-secao flex items-start justify-between border-b-2 border-slate-900 pb-3">
             <div className="flex items-center gap-3">
               <GPlusLogo size={42} variant="horizontal" />
             </div>
@@ -118,37 +118,43 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
           </div>
 
           {/* 3. CLÁUSULA PRIMEIRA: OBJETO */}
-          <section className="dossie-secao space-y-1.5">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
+          <section className="dossie-secao space-y-1.5 break-inside-avoid [page-break-inside:avoid]">
+            <h2 className="dossie-titulo-clausula text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 [break-after:avoid] [page-break-after:avoid]">
               <span>Cláusula 1ª — Do Objeto dos Serviços</span>
             </h2>
-            <p className="text-justify text-slate-800 leading-relaxed whitespace-pre-wrap">
-              {contrato.objeto ||
-                'Prestação de serviços técnicos especializados de engenharia consultiva e desenvolvimento de projetos executivos.'}
+            <p className="text-justify text-slate-800 leading-relaxed whitespace-pre-line">
+              {(
+                contrato.objeto ||
+                'Prestação de serviços técnicos especializados de engenharia consultiva e desenvolvimento de projetos executivos.'
+              )
+                .replace(/\n{3,}/g, '\n\n')
+                .trim()}
             </p>
           </section>
 
           {/* 4. CLÁUSULA SEGUNDA: PRAZO DE EXECUÇÃO */}
-          <section className="dossie-secao space-y-1.5">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
+          <section className="dossie-secao space-y-1.5 break-inside-avoid [page-break-inside:avoid]">
+            <h2 className="dossie-titulo-clausula text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 [break-after:avoid] [page-break-after:avoid]">
               <span>Cláusula 2ª — Do Prazo de Execução</span>
             </h2>
             <div className="text-slate-800 space-y-1">
               <p>
                 O prazo total estimado para o desenvolvimento dos serviços ora contratados é de{' '}
-                <strong>{contrato.prazo_dias || 30} (trinta) dias corridos</strong>.
+                <strong>{contrato.prazo_dias || 30} dias corridos</strong>.
               </p>
               <p className="text-[11px] text-slate-600 italic leading-normal">
                 <strong>Nota de Prazo:</strong>{' '}
-                {contrato.nota_prazo ||
-                  'Os prazos serão contados em dias corridos a partir da data de assinatura deste contrato e da disponibilização de todos os elementos técnicos necessários.'}
+                {(
+                  contrato.nota_prazo ||
+                  'Os prazos serão contados em dias corridos a partir da data de assinatura deste contrato e da disponibilização de todos os elementos técnicos necessários.'
+                ).trim()}
               </p>
             </div>
           </section>
 
           {/* 5. CLÁUSULA TERCEIRA: VALOR GLOBAL E FORMA DE PAGAMENTO */}
-          <section className="dossie-secao space-y-2">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 flex items-center justify-between">
+          <section className="dossie-secao space-y-2 break-inside-avoid [page-break-inside:avoid]">
+            <h2 className="dossie-titulo-clausula text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 flex items-center justify-between [break-after:avoid] [page-break-after:avoid]">
               <span>Cláusula 3ª — Do Valor Global e Condições de Pagamento</span>
             </h2>
 
@@ -162,7 +168,7 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
             </div>
 
             {contrato.parcelas_json && contrato.parcelas_json.length > 0 && (
-              <div className="border border-slate-300 rounded overflow-hidden mt-2">
+              <div className="border border-slate-300 rounded overflow-hidden overflow-x-auto print:overflow-visible mt-2">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-100 text-slate-900 font-bold border-b border-slate-300">
                     <tr>
@@ -192,19 +198,23 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
           </section>
 
           {/* 6. CLÁUSULA QUARTA: CONDIÇÕES GERAIS E CLÁUSULAS CONTRATUAIS */}
-          <section className="dossie-secao space-y-1.5">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
+          <section className="dossie-secao space-y-1.5 break-inside-avoid [page-break-inside:avoid]">
+            <h2 className="dossie-titulo-clausula text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 [break-after:avoid] [page-break-after:avoid]">
               <span>Cláusula 4ª — Das Cláusulas e Condições Gerais</span>
             </h2>
-            <div className="text-slate-800 whitespace-pre-wrap leading-relaxed text-justify text-[11px] p-3.5 bg-slate-50 border border-slate-300 rounded">
-              {contrato.clausulas_texto ||
-                'CLÁUSULA 1ª — As alterações no projeto ou nas premissas solicitadas pela CONTRATANTE incorrerão em custos adicionais correspondentes às horas técnicas de retrabalho necessárias.\n\nCLÁUSULA 2ª — Os documentos e arquivos digitais são de uso exclusivo para o empreendimento objeto deste contrato.\n\nCLÁUSULA 3ª — A rescisão imotivada sujeitará a parte infratora à quitação dos serviços executados, acrescida de multa rescisória compensatória de 20% sobre o saldo remanescente.'}
+            <div className="text-slate-800 whitespace-pre-line leading-relaxed text-justify text-[11px] p-3.5 bg-slate-50 border border-slate-300 rounded">
+              {(
+                contrato.clausulas_texto ||
+                'CLÁUSULA 1ª — As alterações no projeto ou nas premissas solicitadas pela CONTRATANTE incorrerão em custos adicionais correspondentes às horas técnicas de retrabalho necessárias.\n\nCLÁUSULA 2ª — Os documentos e arquivos digitais são de uso exclusivo para o empreendimento objeto deste contrato.\n\nCLÁUSULA 3ª — A rescisão imotivada sujeitará a parte infratora à quitação dos serviços executados, acrescida de multa rescisória compensatória de 20% sobre o saldo remanescente.'
+              )
+                .replace(/\n{3,}/g, '\n\n')
+                .trim()}
             </div>
           </section>
 
           {/* 7. SEÇÃO DE ASSINATURAS ELETRÔNICAS DAS PARTES */}
-          <section className="dossie-secao-assinaturas space-y-4 pt-4">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
+          <section className="dossie-secao-assinaturas break-inside-avoid [page-break-inside:avoid] space-y-3 pt-3">
+            <h2 className="dossie-titulo-clausula text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 [break-after:avoid] [page-break-after:avoid]">
               <span>Registro de Formalização e Assinaturas Eletrônicas</span>
             </h2>
             <p className="text-[11px] text-slate-600 text-justify">
@@ -214,7 +224,7 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
               e hash criptográfico.
             </p>
 
-            <div className="grid grid-cols-2 gap-8 text-xs pt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8 text-xs pt-3">
               {/* Box Contratada G+ */}
               <div className="p-3.5 border border-slate-300 rounded bg-slate-50">
                 <div className="font-bold text-slate-900 text-xs mb-1">

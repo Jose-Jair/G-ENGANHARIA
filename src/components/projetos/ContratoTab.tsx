@@ -14,6 +14,7 @@ import {
   ExternalLink,
   AlertCircle,
   FileSignature,
+  MessageSquare,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +26,7 @@ import { ContratoServicoRecord, ProjetoRecord } from '@/types'
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
 import { contratosServicoService } from '@/services/contratosServico'
 import { DossieContratoServicoGmais } from '@/components/contratosServico/DossieContratoServicoGmais'
+import { ModalEnviarContratoWhatsApp } from '@/components/contratosServico/ModalEnviarContratoWhatsApp'
 import { useToast } from '@/hooks/use-toast'
 
 interface ContratoTabProps {
@@ -45,10 +47,10 @@ export function ContratoTab({
   const { toast } = useToast()
   const [assinandoAdmin, setAssinandoAdmin] = useState(false)
   const [salvandoClausulas, setSalvandoClausulas] = useState(false)
-  const [clausulasTexto, setClausulasTexto] = useState(contrato?.clausulas_texto || '')
+  const [clausulasTexto, setClausulasTexto] = useState('')
   const [uploadingPdf, setUploadingPdf] = useState(false)
   const [dossieOpen, setDossieOpen] = useState(false)
-
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false)
   // Atualizar cláusulas locais se contrato mudar
   React.useEffect(() => {
     if (contrato) {
@@ -214,32 +216,45 @@ export function ContratoTab({
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs gap-1.5 border-orange-200 text-orange-700 hover:bg-orange-50"
+                className="h-8 text-xs gap-1.5 border-orange-200 text-orange-700 hover:bg-orange-50 font-semibold"
                 onClick={() => setDossieOpen(true)}
               >
                 <Printer className="w-3.5 h-3.5 text-orange-600" />
-                Imprimir / PDF Oficial GMAIS
+                Imprimir / PDF Contrato
               </Button>
+
               {contrato.token_assinatura_cliente && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  asChild
-                  className="h-8 text-xs text-slate-700 hover:text-orange-600 gap-1"
-                >
-                  <a
-                    href={`/contrato-servico/${contrato.token_assinatura_cliente}`}
-                    target="_blank"
-                    rel="noreferrer"
+                <>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowWhatsAppModal(true)}
+                    className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-semibold shadow-xs"
+                    title="Enviar link de assinatura via WhatsApp"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Abrir Link Público
-                  </a>
-                </Button>
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    Enviar WhatsApp
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    className="h-8 text-xs text-blue-700 border-blue-200 hover:bg-blue-50 gap-1"
+                  >
+                    <a
+                      href={`/contrato-servico/${contrato.token_assinatura_cliente}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Abrir Link Público
+                    </a>
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -401,12 +416,23 @@ export function ContratoTab({
                       variant="outline"
                       size="sm"
                       className="h-7 text-xs px-2 shrink-0"
+                      title="Copiar Link"
                       onClick={() => {
                         navigator.clipboard.writeText(linkAssinaturaCliente)
                         toast({ title: 'Link de assinatura copiado!' })
                       }}
                     >
                       <Copy className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setShowWhatsAppModal(true)}
+                      className="h-7 text-xs px-2 bg-emerald-600 hover:bg-emerald-700 text-white gap-1 shrink-0"
+                      title="Enviar por WhatsApp"
+                    >
+                      <MessageSquare className="w-3 h-3" />
+                      WhatsApp
                     </Button>
                   </div>
                 </div>
@@ -483,6 +509,17 @@ export function ContratoTab({
         onOpenChange={setDossieOpen}
         contrato={contrato}
       />
+
+      {showWhatsAppModal && contrato && (
+        <ModalEnviarContratoWhatsApp
+          open={showWhatsAppModal}
+          onOpenChange={setShowWhatsAppModal}
+          contrato={contrato}
+          onEnvioConcluido={() => {
+            onRefresh()
+          }}
+        />
+      )}
     </div>
   )
 }

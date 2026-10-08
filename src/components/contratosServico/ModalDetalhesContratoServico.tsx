@@ -26,9 +26,11 @@ import {
   Printer,
   UserCheck,
   ExternalLink,
+  MessageSquare,
 } from 'lucide-react'
 import { ContratoServicoRecord } from '@/types'
 import { DossieContratoServicoGmais } from './DossieContratoServicoGmais'
+import { ModalEnviarContratoWhatsApp } from './ModalEnviarContratoWhatsApp'
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
 import { contratosServicoService } from '@/services/contratosServico'
 import { useToast } from '@/hooks/use-toast'
@@ -57,6 +59,7 @@ export function ModalDetalhesContratoServico({
   const [clausulasTexto, setClausulasTexto] = useState('')
   const [uploadingPdf, setUploadingPdf] = useState(false)
   const [dossieOpen, setDossieOpen] = useState(false)
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false)
 
   const loadContrato = async () => {
     if (!contratoId) return
@@ -173,12 +176,12 @@ export function ModalDetalhesContratoServico({
         onOpenChange(op)
       }}
     >
-      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-6">
+      <DialogContent className="w-[96vw] max-w-3xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
         <DialogHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b pb-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <DialogTitle className="text-lg font-bold text-slate-900">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 border-b pb-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <DialogTitle className="text-lg font-bold text-slate-900 truncate">
                   {contrato.numero}
                 </DialogTitle>
                 <Badge
@@ -197,38 +200,51 @@ export function ModalDetalhesContratoServico({
                       : 'Aguardando Assinatura Cliente'}
                 </Badge>
               </div>
-              <DialogDescription className="text-xs mt-1">
+              <DialogDescription className="text-xs mt-1 truncate">
                 Contrato de Prestação de Serviços Técnicos originado da Proposta{' '}
                 <strong>{contrato.expand?.proposta?.numero || 'S/N'}</strong>
               </DialogDescription>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs gap-1.5 border-orange-200 text-orange-700 hover:bg-orange-50"
+                className="h-8 text-xs gap-1.5 border-orange-200 text-orange-700 hover:bg-orange-50 font-semibold"
                 onClick={() => setDossieOpen(true)}
               >
                 <Printer className="w-3.5 h-3.5 text-orange-600" />
-                Imprimir / PDF Oficial GMAIS
+                Imprimir / PDF Contrato
               </Button>
+
               {contrato.token_assinatura_cliente && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  asChild
-                  className="h-8 text-xs text-slate-700 hover:text-orange-600 gap-1"
-                >
-                  <a
-                    href={`/contrato-servico/${contrato.token_assinatura_cliente}`}
-                    target="_blank"
-                    rel="noreferrer"
+                <>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowWhatsAppModal(true)}
+                    className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-semibold shadow-xs"
+                    title="Enviar link de assinatura ao cliente via WhatsApp"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Abrir Link Público
-                  </a>
-                </Button>
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    Enviar WhatsApp
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    className="h-8 text-xs text-blue-700 border-blue-200 hover:bg-blue-50 gap-1"
+                  >
+                    <a
+                      href={`/contrato-servico/${contrato.token_assinatura_cliente}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Abrir Link Público
+                    </a>
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -377,12 +393,23 @@ export function ModalDetalhesContratoServico({
                       variant="outline"
                       size="sm"
                       className="h-7 text-xs px-2 shrink-0"
+                      title="Copiar Link"
                       onClick={() => {
                         navigator.clipboard.writeText(linkAssinaturaCliente)
                         toast({ title: 'Link copiado!' })
                       }}
                     >
                       <Copy className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setShowWhatsAppModal(true)}
+                      className="h-7 text-xs px-2 bg-emerald-600 hover:bg-emerald-700 text-white gap-1 shrink-0"
+                      title="Enviar por WhatsApp"
+                    >
+                      <MessageSquare className="w-3 h-3" />
+                      WhatsApp
                     </Button>
                   </div>
                 </div>
@@ -471,6 +498,20 @@ export function ModalDetalhesContratoServico({
         onOpenChange={setDossieOpen}
         contrato={contrato}
       />
+
+      {showWhatsAppModal && contrato && (
+        <ModalEnviarContratoWhatsApp
+          open={showWhatsAppModal}
+          onOpenChange={(op) => {
+            setShowWhatsAppModal(op)
+            restoreBodyPointerEvents()
+          }}
+          contrato={contrato}
+          onEnvioConcluido={() => {
+            if (onUpdated) onUpdated()
+          }}
+        />
+      )}
     </Dialog>
   )
 }

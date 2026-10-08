@@ -249,24 +249,26 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
         }}
       >
         <DialogContent
-          className="max-w-4xl max-h-[92vh] overflow-y-auto p-6"
+          className="w-[96vw] max-w-4xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6"
           onCloseAutoFocus={() => restoreBodyPointerEvents()}
         >
           <DialogHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b pb-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <DialogTitle className="text-xl font-bold text-slate-900">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 border-b pb-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <DialogTitle className="text-lg sm:text-xl font-bold text-slate-900 truncate">
                     {proposta.numero}
                   </DialogTitle>
-                  <Badge variant="outline" className="font-mono">
+                  <Badge variant="outline" className="font-mono text-xs">
                     {proposta.revisao || 'Rev.00'}
                   </Badge>
                   {getStatusBadge(proposta.status)}
                 </div>
-                <DialogDescription className="text-xs mt-1 flex items-center gap-2">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  Criada em {formatDateBr(proposta.created)}
+                <DialogDescription className="text-xs mt-1 flex flex-wrap items-center gap-2 text-slate-500">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                    Criada em {formatDateBr(proposta.created)}
+                  </span>
                   {proposta.validade && (
                     <span>• Validade até {formatDateBr(proposta.validade)}</span>
                   )}
@@ -274,7 +276,7 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
               </div>
 
               {/* Ações rápidas de cabeçalho */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {/* Botão Ver Contrato de Serviços (se gerado) */}
                 {contratoVinculado && (
                   <Button
@@ -374,21 +376,23 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
             </div>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="pt-2">
-            <TabsList className="bg-slate-100 p-1">
-              <TabsTrigger value="documento" className="text-xs gap-1.5">
-                <FileText className="w-4 h-4" />
-                Documento da Proposta
-              </TabsTrigger>
-              <TabsTrigger value="historico" className="text-xs gap-1.5">
-                <History className="w-4 h-4" />
-                Histórico de Revisões ({proposta.historico_revisoes?.length || 0})
-              </TabsTrigger>
-              <TabsTrigger value="status" className="text-xs gap-1.5">
-                <Clock className="w-4 h-4" />
-                Timeline & Auditoria
-              </TabsTrigger>
-            </TabsList>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="pt-2 w-full">
+            <div className="overflow-x-auto pb-1">
+              <TabsList className="bg-slate-100 p-1 w-full sm:w-auto flex justify-start">
+                <TabsTrigger value="documento" className="text-xs gap-1.5 whitespace-nowrap">
+                  <FileText className="w-4 h-4" />
+                  Documento da Proposta
+                </TabsTrigger>
+                <TabsTrigger value="historico" className="text-xs gap-1.5 whitespace-nowrap">
+                  <History className="w-4 h-4" />
+                  Histórico de Revisões ({proposta.historico_revisoes?.length || 0})
+                </TabsTrigger>
+                <TabsTrigger value="status" className="text-xs gap-1.5 whitespace-nowrap">
+                  <Clock className="w-4 h-4" />
+                  Timeline & Auditoria
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             {/* ABA DOCUMENTO */}
             <TabsContent value="documento" className="space-y-6 pt-3">
@@ -622,8 +626,8 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                   4. Planilha Orçamentária de Serviços
                 </h4>
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full text-left text-xs">
+                <div className="border rounded-lg overflow-hidden overflow-x-auto">
+                  <table className="w-full min-w-[580px] text-left text-xs">
                     <thead className="bg-slate-100 text-slate-700 font-semibold border-b">
                       <tr>
                         <th className="py-2 px-3">Item / Serviço</th>

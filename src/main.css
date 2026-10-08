@@ -396,6 +396,14 @@
   .dossie-secao {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  .dossie-secao h2,
+  .dossie-secao h3,
+  .dossie-titulo-clausula {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 
   .print-table-row {
@@ -417,11 +425,16 @@
     break-inside: avoid !important;
   }
 
+  /* Bloco de assinaturas: evita quebra dentro dele, sem forçar página em branco desnecessária */
   .dossie-secao-assinaturas {
-    page-break-before: always !important;
-    break-before: page !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+  }
+
+  /* Evitar margens / paddings excessivos ou duplicados na impressão */
+  .dossie-gmais-documento > * + *,
+  .dossie-contrato-documento > * + * {
+    margin-top: 0.6rem !important;
   }
 
   /* Quebras de página controladas */

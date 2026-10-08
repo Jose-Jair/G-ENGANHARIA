@@ -324,8 +324,8 @@ export function ContratoServicoPublicoPage() {
                 <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">
                   Condições de Pagamento e Cronograma de Parcelas
                 </h4>
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full text-left text-xs">
+                <div className="border rounded-lg overflow-hidden overflow-x-auto">
+                  <table className="w-full min-w-[500px] text-left text-xs">
                     <thead className="bg-slate-100 text-slate-800 font-semibold border-b">
                       <tr>
                         <th className="py-2 px-3 text-center w-12">#</th>

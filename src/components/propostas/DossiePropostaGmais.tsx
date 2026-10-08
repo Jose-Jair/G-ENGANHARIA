@@ -155,7 +155,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="dossie-gmais-dialog max-w-4xl max-h-[95vh] overflow-y-auto p-0 bg-slate-100 print:bg-white print:max-w-none print:max-h-none print:h-auto print:overflow-visible print:p-0 print:border-none print:shadow-none print:static print:transform-none">
+      <DialogContent className="dossie-gmais-dialog w-[98vw] max-w-4xl max-h-[95vh] overflow-y-auto overflow-x-hidden p-0 bg-slate-100 print:bg-white print:max-w-none print:max-h-none print:h-auto print:overflow-visible print:p-0 print:border-none print:shadow-none print:static print:transform-none">
         {/* Barra superior de ações (oculta na impressão) */}
         <div className="p-4 bg-slate-900 text-white flex items-center justify-between print:hidden sticky top-0 z-50 shadow-md">
           <div className="flex items-center gap-2">
@@ -181,9 +181,9 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
         </div>
 
         {/* ÁREA DO DOCUMENTO PARA VISUALIZAÇÃO E IMPRESSÃO (Folha A4 / Modelo GMAIS) */}
-        <div className="dossie-gmais-documento p-8 sm:p-12 bg-white max-w-4xl mx-auto text-slate-900 font-sans text-xs leading-relaxed space-y-6 print:p-0 print:m-0 print:max-w-none print:w-full print:text-black print:space-y-4">
+        <div className="dossie-gmais-documento p-4 sm:p-8 md:p-12 bg-white w-full max-w-4xl mx-auto text-slate-900 font-sans text-xs leading-relaxed space-y-5 print:p-0 print:m-0 print:max-w-none print:w-full print:text-black print:space-y-3 print:space-y-reverse-0">
           {/* 1. CABEÇALHO COM LOGO E DADOS G+ */}
-          <div className="dossie-secao flex items-start justify-between border-b-2 border-slate-900 pb-4">
+          <div className="dossie-secao flex items-start justify-between border-b-2 border-slate-900 pb-3">
             <div className="flex items-center gap-3">
               <GPlusLogo size={42} variant="horizontal" />
             </div>
@@ -227,62 +227,70 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
           </div>
 
           {/* 3. SEÇÃO 1: OBJETO */}
-          <section className="dossie-secao space-y-1.5">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 flex items-center justify-between">
+          <section className="dossie-secao space-y-1.5 break-inside-avoid [page-break-inside:avoid]">
+            <h2 className="dossie-titulo-clausula text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 flex items-center justify-between [break-after:avoid] [page-break-after:avoid]">
               <span>1. Objeto</span>
             </h2>
-            <p className="text-justify text-slate-800 leading-relaxed whitespace-pre-wrap">
-              {proposta.objeto ||
+            <p className="text-justify text-slate-800 leading-relaxed whitespace-pre-line">
+              {(
+                proposta.objeto ||
                 proposta.escopo ||
-                `Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para o empreendimento "${empreendimentoNome}".`}
+                `Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para o empreendimento "${empreendimentoNome}".`
+              )
+                .replace(/\n{3,}/g, '\n\n')
+                .trim()}
             </p>
           </section>
 
           {/* 4. SEÇÃO 2: ESCOPO DOS SERVIÇOS (NUMERADO) */}
-          <section className="dossie-secao space-y-1.5">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
+          <section className="dossie-secao space-y-1.5 break-inside-avoid [page-break-inside:avoid]">
+            <h2 className="dossie-titulo-clausula text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 [break-after:avoid] [page-break-after:avoid]">
               <span>2. Escopo dos Serviços</span>
             </h2>
-            <div className="text-slate-800 whitespace-pre-wrap font-sans leading-relaxed text-justify">
-              {proposta.escopo_gerado ||
+            <div className="text-slate-800 whitespace-pre-line font-sans leading-relaxed text-justify">
+              {(
+                proposta.escopo_gerado ||
                 proposta.escopo ||
-                'Detalhamento do escopo e atividades técnicas a serem executadas conforme especificações contratuais.'}
+                'Detalhamento do escopo e atividades técnicas a serem executadas conforme especificações contratuais.'
+              )
+                .replace(/\n{3,}/g, '\n\n')
+                .trim()}
             </div>
           </section>
 
           {/* 5. SEÇÃO 3: PREMISSAS */}
-          <section className="dossie-secao space-y-1.5">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
+          <section className="dossie-secao space-y-1.5 break-inside-avoid [page-break-inside:avoid]">
+            <h2 className="dossie-titulo-clausula text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 [break-after:avoid] [page-break-after:avoid]">
               <span>3. Premissas</span>
             </h2>
-            <div className="text-slate-800 whitespace-pre-wrap leading-relaxed text-justify">
-              {premissasTexto}
+            <div className="text-slate-800 whitespace-pre-line leading-relaxed text-justify">
+              {premissasTexto.replace(/\n{3,}/g, '\n\n').trim()}
             </div>
           </section>
 
           {/* 6. SEÇÃO 4: PRAZO DE EXECUÇÃO */}
-          <section className="dossie-secao space-y-1.5">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
+          <section className="dossie-secao space-y-1.5 break-inside-avoid [page-break-inside:avoid]">
+            <h2 className="dossie-titulo-clausula text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 [break-after:avoid] [page-break-after:avoid]">
               <span>4. Prazo de Execução</span>
             </h2>
             <div className="text-slate-800 space-y-1">
               <p>
                 O prazo estimado total para o desenvolvimento dos serviços é de{' '}
-                <strong>{diasPrazo} (trinta) dias</strong>.
+                <strong>{diasPrazo} dias corridos</strong>.
               </p>
               <p className="text-[11px] text-slate-600 italic leading-normal">
-                <strong>Nota:</strong> {notaPrazoTexto}
+                <strong>Nota:</strong> {notaPrazoTexto.trim()}
               </p>
             </div>
           </section>
 
           {/* 7. SEÇÃO 5: INVESTIMENTO (TABELA POR ÁREA + VALOR GLOBAL CONSOLIDADO) */}
-          <section className="dossie-secao space-y-2">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 flex items-center justify-between">
+          <section className="dossie-secao space-y-2 break-inside-avoid [page-break-inside:avoid]">
+            <h2 className="dossie-titulo-clausula text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 flex items-center justify-between [break-after:avoid] [page-break-after:avoid]">
               <span>5. Investimento</span>
             </h2>
 
-            <div className="border border-slate-300 rounded overflow-hidden">
+            <div className="border border-slate-300 rounded overflow-hidden overflow-x-auto print:overflow-visible">
               <table className="w-full table-fixed text-left text-xs">
                 <thead className="bg-slate-100 text-slate-900 font-bold border-b border-slate-300 break-inside-avoid [page-break-inside:avoid]">
                   <tr>
@@ -398,13 +406,13 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
           </section>
 
           {/* 8. SEÇÃO 6: CONDIÇÕES DE PAGAMENTO (PARCELAS) */}
-          <section className="dossie-secao space-y-1.5">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
+          <section className="dossie-secao space-y-1.5 break-inside-avoid [page-break-inside:avoid]">
+            <h2 className="dossie-titulo-clausula text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 [break-after:avoid] [page-break-after:avoid]">
               <span>6. Condições de Pagamento</span>
             </h2>
             <div className="space-y-1 text-slate-800">
               <p>O pagamento dos serviços será efetuado conforme o cronograma e gatilhos abaixo:</p>
-              <div className="border border-slate-300 rounded overflow-hidden">
+              <div className="border border-slate-300 rounded overflow-hidden overflow-x-auto print:overflow-visible">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-100 text-slate-900 font-semibold border-b border-slate-300">
                     <tr>
@@ -445,8 +453,8 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
           </section>
 
           {/* 9. SEÇÃO 7: VALIDADE DA PROPOSTA */}
-          <section className="dossie-secao space-y-1.5">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
+          <section className="dossie-secao space-y-1.5 break-inside-avoid [page-break-inside:avoid]">
+            <h2 className="dossie-titulo-clausula text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 [break-after:avoid] [page-break-after:avoid]">
               <span>7. Validade da Proposta</span>
             </h2>
             <p className="text-slate-800">
@@ -458,17 +466,17 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
 
           {/* 10. SEÇÃO 8: CONDIÇÕES GERAIS */}
           <section className="dossie-secao break-inside-avoid [page-break-inside:avoid] space-y-1.5">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 break-inside-avoid [page-break-inside:avoid]">
+            <h2 className="dossie-titulo-clausula text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 [break-after:avoid] [page-break-after:avoid]">
               <span>8. Condições Gerais</span>
             </h2>
-            <div className="text-slate-800 whitespace-pre-wrap leading-relaxed text-justify text-[11px] break-inside-avoid [page-break-inside:avoid]">
-              {condicoesGeraisTexto}
+            <div className="text-slate-800 whitespace-pre-line leading-relaxed text-justify text-[11px]">
+              {condicoesGeraisTexto.replace(/\n{3,}/g, '\n\n').trim()}
             </div>
           </section>
 
           {/* 11. SEÇÃO 9: ACEITE & ASSINATURAS (MODELO GMAIS) */}
-          <section className="dossie-secao-assinaturas break-inside-avoid [page-break-inside:avoid] space-y-4 pt-4">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1">
+          <section className="dossie-secao-assinaturas break-inside-avoid [page-break-inside:avoid] space-y-3 pt-3">
+            <h2 className="dossie-titulo-clausula text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 [break-after:avoid] [page-break-after:avoid]">
               <span>9. Aceite &amp; Assinaturas</span>
             </h2>
             <p className="text-[11px] text-slate-600 text-justify">
@@ -477,7 +485,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
               partes firmam o presente instrumento.
             </p>
 
-            <div className="pt-10 grid grid-cols-2 gap-12 text-center text-xs">
+            <div className="pt-6 grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-12 text-center text-xs">
               <div className="space-y-1">
                 <div className="border-t border-slate-900 pt-2 font-bold text-slate-900">
                   {proponenteNome}
@@ -493,7 +501,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
               </div>
             </div>
 
-            <div className="text-center text-[10px] text-slate-400 pt-4">
+            <div className="text-center text-[10px] text-slate-400 pt-3">
               Documento gerado pelo sistema GESTÃO G+ em{' '}
               {formatDateTimeBr(new Date().toISOString())} • Proposta {proposta.numero}
             </div>

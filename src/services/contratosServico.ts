@@ -127,6 +127,29 @@ export const contratosServicoService = {
   },
 
   /**
+   * Registra envio do link de assinatura do contrato via WhatsApp com auditoria
+   */
+  async registrarEnvioWhatsApp(params: {
+    contratoId: string
+    telefone: string
+    destinatarioNome: string
+    mensagem: string
+  }): Promise<void> {
+    await auditService.log({
+      action: 'ENVIO_CONTRATO_WHATSAPP',
+      entity_type: 'contratos_servico',
+      entity_id: params.contratoId,
+      details: {
+        canal: 'whatsapp',
+        telefone: params.telefone,
+        destinatario: params.destinatarioNome,
+        mensagem_preview: params.mensagem.substring(0, 160),
+        disparado_em: new Date().toISOString(),
+      },
+    })
+  },
+
+  /**
    * Upload de arquivo PDF final assinado
    */
   async uploadPdfAssinado(contratoId: string, file: File): Promise<ContratoServicoRecord> {

@@ -50,6 +50,12 @@ export interface SubcontratoPublicoData {
     nome: string
     descricao: string
     disciplinas: string
+    grupo?: string
+  }
+  grupo?: {
+    id: string
+    codigo: string
+    nome: string
   }
   contrato_original?: {
     id: string

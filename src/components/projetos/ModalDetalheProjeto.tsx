@@ -17,6 +17,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
+import {
   Briefcase,
   Calendar,
   DollarSign,
@@ -29,6 +37,7 @@ import {
   Building2,
   UserCheck,
   FolderKanban,
+  FileSignature,
 } from 'lucide-react'
 
 import { ContratoServicoRecord } from '@/types'
@@ -64,6 +73,7 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
   const [carregando, setCarregando] = useState(true)
   const [projeto, setProjeto] = useState<ProjetoRecord | null>(null)
   const [contratoServico, setContratoServico] = useState<ContratoServicoRecord | null>(null)
+  const [activeTab, setActiveTab] = useState<string>('etapas')
   const [etapas, setEtapas] = useState<ProjetoEtapaRecord[]>([])
   const [entregaveis, setEntregaveis] = useState<EntregavelRecord[]>([])
   const [documentos, setDocumentos] = useState<DocumentoComAlerta[]>([])
@@ -98,6 +108,11 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
 
       setProjeto(completo.projeto)
       setContratoServico((completo as any).contratoServico || null)
+      if (completo.projeto?.status === 'contratacao') {
+        setActiveTab('contrato')
+      } else {
+        setActiveTab('etapas')
+      }
       setEtapas(completo.etapas)
       setEntregaveis(completo.entregaveis)
       setDocumentos(completo.documentos)
@@ -180,9 +195,93 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
             </div>
           ) : projeto ? (
             <div className="flex flex-col">
-              {/* Header do Projeto */}
+              {/* Header do Projeto com Breadcrumb de Rastreabilidade (Bloco 6) */}
               <div className="p-6 bg-slate-900 text-white border-b border-slate-800">
-                {' '}
+                {/* Breadcrumb navegável da cadeia CTR → GPR → PRJ */}
+                <div className="mb-4 pb-3 border-b border-slate-800/80">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <Breadcrumb>
+                      <BreadcrumbList className="text-xs text-slate-400">
+                        {/* Elo 1: Contrato de Serviço Original (CTR) */}
+                        {contratoServico?.numero ? (
+                          <BreadcrumbItem>
+                            <BreadcrumbLink
+                              asChild
+                              className="text-cyan-400 hover:text-cyan-300 cursor-pointer font-mono flex items-center gap-1 transition-colors"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab('contrato')}
+                                title="Ver detalhes do Contrato de Serviço (Aba Contrato)"
+                                className="inline-flex items-center gap-1 hover:underline"
+                              >
+                                <FileSignature className="w-3 h-3 text-cyan-400" />
+                                <span>{contratoServico.numero}</span>
+                              </button>
+                            </BreadcrumbLink>
+                          </BreadcrumbItem>
+                        ) : (
+                          <BreadcrumbItem>
+                            <span className="font-mono text-slate-500 flex items-center gap-1">
+                              <FileSignature className="w-3 h-3" />
+                              <span>CTR: Sem contrato</span>
+                            </span>
+                          </BreadcrumbItem>
+                        )}
+
+                        <BreadcrumbSeparator className="text-slate-600" />
+
+                        {/* Elo 2: Grupo de Projetos (GPR) */}
+                        {projeto.grupo ? (
+                          <BreadcrumbItem>
+                            <BreadcrumbLink
+                              asChild
+                              className="text-amber-400 hover:text-amber-300 cursor-pointer font-mono flex items-center gap-1 transition-colors"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onOpenChange(false)
+                                  navigate(`/projetos/grupo/${projeto.grupo}`)
+                                }}
+                                title="Navegar para a gestão do Grupo de Projetos"
+                                className="inline-flex items-center gap-1 hover:underline"
+                              >
+                                <FolderKanban className="w-3 h-3 text-amber-400" />
+                                <span>
+                                  {projeto.expand?.grupo?.codigo ||
+                                    `GPR (${projeto.grupo.slice(0, 8)})`}
+                                </span>
+                              </button>
+                            </BreadcrumbLink>
+                          </BreadcrumbItem>
+                        ) : (
+                          <BreadcrumbItem>
+                            <span className="font-mono text-slate-500 flex items-center gap-1">
+                              <FolderKanban className="w-3 h-3" />
+                              <span>GPR: Individual</span>
+                            </span>
+                          </BreadcrumbItem>
+                        )}
+
+                        <BreadcrumbSeparator className="text-slate-600" />
+
+                        {/* Elo 3: Projeto Atual (PRJ) */}
+                        <BreadcrumbItem>
+                          <BreadcrumbPage className="text-white font-mono font-bold flex items-center gap-1 bg-blue-600/30 text-blue-300 border border-blue-500/40 px-2 py-0.5 rounded">
+                            <Briefcase className="w-3 h-3 text-blue-300" />
+                            <span>{projeto.codigo}</span>
+                          </BreadcrumbPage>
+                        </BreadcrumbItem>
+                      </BreadcrumbList>
+                    </Breadcrumb>
+
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 hidden sm:inline-block">
+                      Rastreabilidade: CTR → GPR → PRJ
+                    </span>
+                  </div>
+                </div>
+
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
@@ -447,10 +546,7 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
 
               {/* Corpo com as 4 Abas do Plano A */}
               <div className="p-6 bg-slate-50">
-                <Tabs
-                  defaultValue={projeto.status === 'contratacao' ? 'contrato' : 'etapas'}
-                  className="space-y-4"
-                >
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
                   <TabsList className="bg-white border border-slate-200 p-1">
                     <TabsTrigger value="contrato" className="text-xs flex items-center gap-1.5">
                       <FileText className="w-3.5 h-3.5 text-orange-600" />

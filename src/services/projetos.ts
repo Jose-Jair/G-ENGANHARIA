@@ -102,7 +102,7 @@ export const projetosService = {
   async getById(id: string): Promise<ProjetoRecord> {
     return await pb.collection('projetos').getOne<ProjetoRecord>(id, {
       expand:
-        'proposta,proposta.empresa,proposta.cliente_pf,contrato,contrato_servico,empresa,cliente_pf',
+        'proposta,proposta.empresa,proposta.cliente_pf,contrato,contrato_servico,grupo,empresa,cliente_pf',
     })
   },
 
@@ -165,22 +165,6 @@ export const projetosService = {
 
   // Busca dados completos de todas as abas (incluindo contrato de serviço) para a tela de detalhe do projeto
   async getProjetoCompleto(projetoId: string) {
-    let contratoServico: any = null
-    try {
-      // 1. Tentar buscar direto pelo campo contrato_servico ou pela relação projeto = projetoId
-      const ctrs = await pb.collection('contratos_servico').getFullList({
-        filter: `projeto = '${projetoId}'`,
-        sort: '-created',
-        expand: 'proposta,empresa,cliente_pf,assinante_admin',
-        requestKey: null,
-      })
-      if (ctrs.length > 0) {
-        contratoServico = ctrs[0]
-      }
-    } catch {
-      /* intentionally ignored */
-    }
-
     const [projeto, etapas, documentos, riscos] = await Promise.all([
       this.getById(projetoId),
       pb.collection('projeto_etapas').getFullList<ProjetoEtapaRecord>({
@@ -199,7 +183,59 @@ export const projetosService = {
       }),
     ])
 
-    // Se ainda não encontrou contrato e o projeto tem proposta vinculada, buscar por proposta
+    let contratoServico: any = null
+
+    // 1. Tentar buscar direto pelo ID do contrato_servico informado no projeto
+    if (projeto.contrato_servico) {
+      try {
+        contratoServico = await pb
+          .collection('contratos_servico')
+          .getOne(projeto.contrato_servico, {
+            expand: 'proposta,empresa,cliente_pf,assinante_admin',
+            requestKey: null,
+          })
+      } catch {
+        /* intentionally ignored */
+      }
+    }
+
+    // 2. Tentar buscar pela relação projeto = projetoId
+    if (!contratoServico) {
+      try {
+        const ctrs = await pb.collection('contratos_servico').getFullList({
+          filter: `projeto = '${projetoId}'`,
+          sort: '-created',
+          expand: 'proposta,empresa,cliente_pf,assinante_admin',
+          requestKey: null,
+        })
+        if (ctrs.length > 0) {
+          contratoServico = ctrs[0]
+        }
+      } catch {
+        /* intentionally ignored */
+      }
+    }
+
+    // 3. Se o projeto pertence a um grupo, buscar o contrato do grupo ou através do grupo
+    if (!contratoServico && projeto.grupo) {
+      try {
+        const grupo = await pb.collection('grupos_projetos').getOne(projeto.grupo, {
+          requestKey: null,
+        })
+        if (grupo?.contrato_servico) {
+          contratoServico = await pb
+            .collection('contratos_servico')
+            .getOne(grupo.contrato_servico, {
+              expand: 'proposta,empresa,cliente_pf,assinante_admin',
+              requestKey: null,
+            })
+        }
+      } catch {
+        /* intentionally ignored */
+      }
+    }
+
+    // 4. Se ainda não encontrou contrato e o projeto tem proposta vinculada, buscar por proposta
     if (!contratoServico && projeto.proposta) {
       try {
         const ctrsProposta = await pb.collection('contratos_servico').getFullList({
@@ -211,17 +247,6 @@ export const projetosService = {
         if (ctrsProposta.length > 0) {
           contratoServico = ctrsProposta[0]
         }
-      } catch {
-        /* intentionally ignored */
-      }
-    } else if (!contratoServico && projeto.contrato_servico) {
-      try {
-        contratoServico = await pb
-          .collection('contratos_servico')
-          .getOne(projeto.contrato_servico, {
-            expand: 'proposta,empresa,cliente_pf,assinante_admin',
-            requestKey: null,
-          })
       } catch {
         /* intentionally ignored */
       }

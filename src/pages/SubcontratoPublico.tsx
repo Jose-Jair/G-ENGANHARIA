@@ -176,6 +176,77 @@ export const SubcontratoPublicoPage: React.FC = () => {
               <p className="text-xs text-slate-300">
                 Vinculação Direta ao Contrato Original • Mediação G+
               </p>
+
+              {/* Badges de Rastreabilidade CTR → GPR → PRJ → SUB (Bloco 6) */}
+              <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2 border-t border-white/10 text-xs">
+                <span className="text-[10px] uppercase font-semibold text-slate-300 tracking-wider mr-1">
+                  Cadeia de Rastreabilidade:
+                </span>
+
+                {sub.contrato_original?.numero ? (
+                  <Badge
+                    variant="outline"
+                    className="bg-white/10 text-cyan-200 border-cyan-400/40 text-[11px] font-mono font-medium px-2 py-0.5"
+                    title={`Contrato de Serviço Original: ${sub.contrato_original.numero}`}
+                  >
+                    CTR: {sub.contrato_original.numero}
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="bg-white/5 text-slate-400 border-white/10 text-[10px] font-mono"
+                  >
+                    CTR: Não vinculado
+                  </Badge>
+                )}
+
+                <span className="text-slate-400 text-xs">→</span>
+
+                {sub.grupo?.codigo ? (
+                  <Badge
+                    variant="outline"
+                    className="bg-white/10 text-amber-200 border-amber-400/40 text-[11px] font-mono font-medium px-2 py-0.5"
+                    title={`Grupo de Projetos: ${sub.grupo.codigo}${sub.grupo.nome ? ` — ${sub.grupo.nome}` : ''}`}
+                  >
+                    GPR: {sub.grupo.codigo}
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="bg-white/5 text-slate-400 border-white/10 text-[10px] font-mono"
+                  >
+                    GPR: Individual
+                  </Badge>
+                )}
+
+                <span className="text-slate-400 text-xs">→</span>
+
+                {sub.projeto?.codigo ? (
+                  <Badge
+                    variant="outline"
+                    className="bg-white/10 text-blue-200 border-blue-400/40 text-[11px] font-mono font-medium px-2 py-0.5"
+                    title={`Projeto: ${sub.projeto.codigo}${sub.projeto.nome ? ` — ${sub.projeto.nome}` : ''}`}
+                  >
+                    PRJ: {sub.projeto.codigo}
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="bg-white/5 text-slate-400 border-white/10 text-[10px] font-mono"
+                  >
+                    PRJ: —
+                  </Badge>
+                )}
+
+                <span className="text-slate-400 text-xs">→</span>
+
+                <Badge
+                  className="bg-[#D95A2B] text-white text-[11px] font-mono font-bold px-2 py-0.5 shadow-xs"
+                  title="Termo de Subcontratação atual"
+                >
+                  SUB: {sub.numero}
+                </Badge>
+              </div>
             </div>
           </div>
 
@@ -261,11 +332,25 @@ export const SubcontratoPublicoPage: React.FC = () => {
               <strong className="text-slate-900 text-sm block">
                 {sub.projeto?.codigo} — {sub.projeto?.nome}
               </strong>
-              <span className="text-slate-500 text-[11px]">
+              <span className="text-slate-500 text-[11px] block">
                 {sub.modo_execucao === 'terceirizada_integral'
                   ? 'Terceirização Integral (100%)'
                   : 'Terceirização Parcial'}
               </span>
+              {(sub.contrato_original?.numero || sub.grupo?.codigo) && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[10px] font-mono">
+                  {sub.contrato_original?.numero && (
+                    <span className="bg-cyan-50 text-cyan-800 border border-cyan-200 px-1.5 py-0.5 rounded font-semibold">
+                      CTR: {sub.contrato_original.numero}
+                    </span>
+                  )}
+                  {sub.grupo?.codigo && (
+                    <span className="bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-semibold">
+                      GPR: {sub.grupo.codigo}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>

@@ -464,7 +464,9 @@ export const propostasService = {
       body: {
         proposta_id: params.propostaId,
         destinatario_email: params.destinatarioEmail,
+        destinatarioEmail: params.destinatarioEmail,
         destinatario_nome: params.destinatarioNome,
+        destinatarioNome: params.destinatarioNome,
         assunto: params.assunto,
         corpo: params.corpo,
       },
@@ -502,7 +504,9 @@ export const propostasService = {
       body: {
         proposta_id: params.propostaId,
         destinatario_telefone: params.destinatarioTelefone,
+        destinatarioTelefone: params.destinatarioTelefone,
         destinatario_nome: params.destinatarioNome,
+        destinatarioNome: params.destinatarioNome,
       },
     })
   },

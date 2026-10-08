@@ -787,6 +787,8 @@ routerAdd('GET', '/backend/v1/subcontratos/obter-por-token/{token}', (e) => {
       }
     } catch (_) {}
 
+    let grupoData = null
+
     try {
       const prj = $app.findRecordById('projetos', sub.getString('projeto'))
       if (prj) {
@@ -796,12 +798,42 @@ routerAdd('GET', '/backend/v1/subcontratos/obter-por-token/{token}', (e) => {
           nome: prj.getString('nome'),
           descricao: prj.getString('descricao'),
           disciplinas: prj.getString('disciplinas'),
+          grupo: prj.getString('grupo'),
+        }
+
+        const grupoId = sub.getString('grupo') || prj.getString('grupo')
+        if (grupoId) {
+          try {
+            const grp = $app.findRecordById('grupos_projetos', grupoId)
+            if (grp) {
+              grupoData = {
+                id: grp.id,
+                codigo: grp.getString('codigo'),
+                nome: grp.getString('nome'),
+              }
+            }
+          } catch (_) {}
         }
       }
     } catch (_) {}
 
     try {
-      const csId = sub.getString('contrato_servico_origem')
+      let csId = sub.getString('contrato_servico_origem')
+      if (!csId && sub.getString('projeto')) {
+        // Tentar localizar contrato de serviço associado ao projeto se não preenchido direto
+        try {
+          const csRecords = $app.findRecordsByFilter(
+            'contratos_servico',
+            "projeto = '" + sub.getString('projeto') + "'",
+            '-created',
+            1,
+            0,
+          )
+          if (csRecords.length > 0) {
+            csId = csRecords[0].id
+          }
+        } catch (_) {}
+      }
       if (csId) {
         const cs = $app.findRecordById('contratos_servico', csId)
         if (cs) {
@@ -837,6 +869,7 @@ routerAdd('GET', '/backend/v1/subcontratos/obter-por-token/{token}', (e) => {
       executor_hash: sub.getString('executor_hash'),
       executor: executorData,
       projeto: projetoData,
+      grupo: grupoData,
       contrato_original: contratoOriginalData,
     })
   } catch (err) {

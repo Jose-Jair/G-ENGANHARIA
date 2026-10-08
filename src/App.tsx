@@ -29,6 +29,7 @@ import { ProjetosPage } from './pages/Projetos'
 import { GrupoProjetosPage } from './pages/GrupoProjetos'
 import { ExecutoresPage } from './pages/Executores'
 import { CotacaoPublicaPage } from './pages/CotacaoPublica'
+import { SubcontratoPublicoPage } from './pages/SubcontratoPublico'
 import { FinanceiroPage } from './pages/Financeiro'
 import { ManualUsoPage } from './pages/ManualUso'
 import NotFound from './pages/NotFound'
@@ -58,6 +59,9 @@ const App = () => (
 
           {/* Rota pública de resposta de cotação do executor (Etapa 8) - sem login */}
           <Route path="/cotacao/:token" element={<CotacaoPublicaPage />} />
+
+          {/* Rota pública de assinatura eletrônica do Termo de Subcontratação (Bloco 5) - sem login */}
+          <Route path="/subcontrato/:token" element={<SubcontratoPublicoPage />} />
 
           {/* Authenticated routes wrapped with AppLayout */}
           <Route

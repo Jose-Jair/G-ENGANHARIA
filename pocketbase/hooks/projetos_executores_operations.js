@@ -17,6 +17,59 @@ onRecordCreate((e) => {
     if (!rec.getString('status')) {
       rec.set('status', 'convite_enviado')
     }
+
+    // Se a cotação tiver projeto e não tiver grupo, tentar preencher grupo automaticamente
+    const prjId = rec.getString('projeto')
+    if (prjId && !rec.getString('grupo')) {
+      try {
+        const prj = $app.findRecordById('projetos', prjId)
+        if (prj && prj.getString('grupo')) {
+          rec.set('grupo', prj.getString('grupo'))
+        }
+      } catch (_) {}
+    }
+  }
+
+  // Numeração automática sequencial sem lacunas para subcontratos (SUB-AAAA-NNNN)
+  if (rec.collection().name === 'subcontratos') {
+    const anoAtual = new Date().getFullYear()
+    const prefixo = 'SUB-' + anoAtual + '-'
+
+    let numeroExistente = rec.getString('numero')
+    if (!numeroExistente || !numeroExistente.startsWith(prefixo)) {
+      try {
+        const subDoAno = $app.findRecordsByFilter(
+          'subcontratos',
+          "numero ~ '" + prefixo + "'",
+          '-numero',
+          1,
+          0,
+        )
+
+        let proximoSeq = 1
+        if (subDoAno.length > 0) {
+          const ultimoNumero = subDoAno[0].getString('numero')
+          const partes = ultimoNumero.split('-')
+          const ultimoSeq = parseInt(partes[2], 10)
+          if (!isNaN(ultimoSeq)) {
+            proximoSeq = ultimoSeq + 1
+          }
+        }
+
+        const seqStr = ('0000' + proximoSeq).slice(-4)
+        rec.set('numero', prefixo + seqStr)
+      } catch (err) {
+        console.log('Erro ao gerar numeração automática de subcontrato: ' + err)
+      }
+    }
+
+    if (!rec.getString('token_assinatura')) {
+      rec.set('token_assinatura', $security.randomString(32))
+    }
+
+    if (!rec.getString('status')) {
+      rec.set('status', 'aguardando_assinatura')
+    }
   }
   e.next()
 })
@@ -267,7 +320,7 @@ onRecordAfterUpdateSuccess((e) => {
         console.log('Erro ao recalcular nota no update: ' + err)
       }
     }
-  } // Ao escolher uma cotação (escolhida = true), vincular executor à etapa e desmarcar outras
+  } // Ao escolher uma cotação (escolhida = true), vincular executor ao projeto/etapa e desmarcar outras
   if (rec.collection().name === 'cotacoes') {
     const isEscolhida = rec.getBool('escolhida')
     const original = rec.original()
@@ -275,37 +328,60 @@ onRecordAfterUpdateSuccess((e) => {
 
     if (isEscolhida && !wasEscolhida) {
       const etapaId = rec.getString('etapa')
+      const projetoId = rec.getString('projeto')
       const executorId = rec.getString('executor')
       const cotacaoId = rec.id
 
       try {
-        // Desmarcar as outras cotações da mesma etapa
-        const outras = $app.findRecordsByFilter(
-          'cotacoes',
-          "etapa = '" + etapaId + "' && id != '" + cotacaoId + "'",
-          '',
-          100,
-          0,
-        )
-        for (let i = 0; i < outras.length; i++) {
-          const o = outras[i]
-          if (o.getBool('escolhida') || o.getString('status') !== 'recusada') {
-            o.set('escolhida', false)
-            if (o.getString('status') !== 'recusada') {
-              o.set('status', 'nao_escolhida')
+        // 1. Se vinculada ao projeto diretamente (novo eixo Bloco 5)
+        if (projetoId) {
+          const outrasPrj = $app.findRecordsByFilter(
+            'cotacoes',
+            "projeto = '" + projetoId + "' && id != '" + cotacaoId + "'",
+            '',
+            100,
+            0,
+          )
+          for (let i = 0; i < outrasPrj.length; i++) {
+            const o = outrasPrj[i]
+            if (o.getBool('escolhida') || o.getString('status') !== 'recusada') {
+              o.set('escolhida', false)
+              if (o.getString('status') !== 'recusada') {
+                o.set('status', 'nao_escolhida')
+              }
+              $app.save(o)
             }
-            $app.save(o)
           }
         }
 
-        // Vincular executor à etapa e atualizar status da etapa
-        const etapa = $app.findRecordById('projeto_etapas', etapaId)
-        if (etapa) {
-          etapa.set('executor', executorId)
-          if (etapa.getString('status') === 'cotacao') {
-            etapa.set('status', 'a_iniciar')
+        // 2. Se também vinculada a etapa (legado ou mista)
+        if (etapaId) {
+          const outrasEtapa = $app.findRecordsByFilter(
+            'cotacoes',
+            "etapa = '" + etapaId + "' && id != '" + cotacaoId + "'",
+            '',
+            100,
+            0,
+          )
+          for (let i = 0; i < outrasEtapa.length; i++) {
+            const o = outrasEtapa[i]
+            if (o.getBool('escolhida') || o.getString('status') !== 'recusada') {
+              o.set('escolhida', false)
+              if (o.getString('status') !== 'recusada') {
+                o.set('status', 'nao_escolhida')
+              }
+              $app.save(o)
+            }
           }
-          $app.save(etapa)
+
+          const etapa = $app.findRecordById('projeto_etapas', etapaId)
+          if (etapa) {
+            etapa.set('executor', executorId)
+            if (etapa.getString('status') === 'cotacao') {
+              etapa.set('status', 'a_iniciar')
+            }
+            $app.save(etapa)
+          }
         }
 
         // Registrar auditoria da escolha de cotação
@@ -316,11 +392,12 @@ onRecordAfterUpdateSuccess((e) => {
           aRec.set('entidade', 'cotacoes')
           aRec.set('registro_id', cotacaoId)
           aRec.set('detalhes', {
+            projeto_id: projetoId,
             etapa_id: etapaId,
             executor_id: executorId,
             preco_ofertado: rec.getFloat('preco_ofertado'),
             prazo_ofertado: rec.getString('prazo_ofertado'),
-            mensagem: 'Cotação escolhida e executor vinculado à etapa',
+            mensagem: 'Cotação escolhida para o projeto/etapa',
           })
           $app.save(aRec)
         } catch (_) {}

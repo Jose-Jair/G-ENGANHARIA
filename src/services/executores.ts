@@ -268,7 +268,9 @@ export const executoresService = {
 
 // COTAÇÕES
 export interface CreateCotacaoData {
-  etapa: string
+  etapa?: string
+  projeto?: string
+  grupo?: string
   executor: string
   escopo?: string
   prazo_resposta?: string
@@ -276,6 +278,21 @@ export interface CreateCotacaoData {
 }
 
 export interface RespostaCotacaoData {
+  preco_ofertado: number
+  prazo_ofertado: string
+  observacoes?: string
+}
+
+export interface SolicitarCotacoesMultiplosData {
+  projeto_id: string
+  executores_ids: string[]
+  escopo?: string
+  data_limite?: string
+  enviar_email?: boolean
+}
+
+export interface RespostaCotacaoExternaData {
+  cotacao_id: string
   preco_ofertado: number
   prazo_ofertado: string
   observacoes?: string
@@ -290,10 +307,26 @@ export const cotacoesService = {
     })
   },
 
+  async listByProjeto(projetoId: string): Promise<CotacaoRecord[]> {
+    return await pb.collection('cotacoes').getFullList<CotacaoRecord>({
+      filter: `projeto = '${projetoId}'`,
+      sort: '-created',
+      expand: 'executor,projeto,etapa,registrado_por',
+    })
+  },
+
+  async listByGrupo(grupoId: string): Promise<CotacaoRecord[]> {
+    return await pb.collection('cotacoes').getFullList<CotacaoRecord>({
+      filter: `grupo = '${grupoId}'`,
+      sort: '-created',
+      expand: 'executor,projeto,etapa',
+    })
+  },
+
   async getByToken(token: string): Promise<CotacaoRecord> {
     const list = await pb.collection('cotacoes').getFullList<CotacaoRecord>({
       filter: `token = '${token}'`,
-      expand: 'etapa,etapa.projeto,executor',
+      expand: 'etapa,etapa.projeto,projeto,executor',
     })
     if (list.length === 0) {
       throw new Error('Cotação não encontrada ou token inválido')
@@ -309,6 +342,26 @@ export const cotacoesService = {
     })
   },
 
+  // Disparo em lote de solicitação de cotação para múltiplos executores homologados
+  async solicitarCotacoesMultiplos(
+    data: SolicitarCotacoesMultiplosData,
+  ): Promise<{ success: boolean; total_cotacoes: number }> {
+    return await pb.send('/backend/v1/projetos/solicitar-cotacoes', {
+      method: 'POST',
+      body: data,
+    })
+  },
+
+  // Registro de resposta recebida fora do sistema (telefone, WhatsApp, reunião)
+  async registrarRespostaExterna(
+    data: RespostaCotacaoExternaData,
+  ): Promise<{ success: boolean; cotacao_id: string }> {
+    return await pb.send('/backend/v1/cotacoes/registrar-resposta-externa', {
+      method: 'POST',
+      body: data,
+    })
+  },
+
   async responderPorToken(token: string, resposta: RespostaCotacaoData): Promise<CotacaoRecord> {
     const cotacao = await this.getByToken(token)
     return await pb.collection('cotacoes').update<CotacaoRecord>(cotacao.id, {
@@ -320,7 +373,7 @@ export const cotacoesService = {
     })
   },
 
-  // Escolha da proposta vencedora (o hook do servidor desmarca as outras e vincula à etapa)
+  // Escolha da proposta vencedora (o hook do servidor desmarca as outras e vincula)
   async escolherCotacao(cotacaoId: string): Promise<CotacaoRecord> {
     return await pb.collection('cotacoes').update<CotacaoRecord>(cotacaoId, {
       escolhida: true,

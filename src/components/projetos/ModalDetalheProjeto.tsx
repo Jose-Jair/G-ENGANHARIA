@@ -39,6 +39,8 @@ import { RiscosTab } from './RiscosTab'
 import { ContratoTab } from './ContratoTab'
 import { ModalSaudeProjeto } from './ModalSaudeProjeto'
 import { ModalCotacoesEtapa } from './ModalCotacoesEtapa'
+import { ModalCotacoesProjeto } from './ModalCotacoesProjeto'
+import { MessageSquareQuote } from 'lucide-react'
 import { ModalAvaliacaoExecutor } from './ModalAvaliacaoExecutor'
 import { ModalDossieProjeto } from './ModalDossieProjeto'
 
@@ -71,6 +73,7 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
   // Modais secundários
   const [modalSaudeOpen, setModalSaudeOpen] = useState(false)
   const [modalCotacoesOpen, setModalCotacoesOpen] = useState(false)
+  const [modalCotacoesProjetoOpen, setModalCotacoesProjetoOpen] = useState(false)
   const [modalDossieOpen, setModalDossieOpen] = useState(false)
   const [etapaCotacaoSelecionada, setEtapaCotacaoSelecionada] = useState<ProjetoEtapaRecord | null>(
     null,
@@ -299,7 +302,18 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                       </p>
                     )}
 
-                    <div className="flex items-center gap-1.5 mt-1">
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap justify-end">
+                      {/* Botão Cotações do Projeto (Bloco 5) */}
+                      <Button
+                        size="sm"
+                        onClick={() => setModalCotacoesProjetoOpen(true)}
+                        className="text-[11px] bg-[#D95A2B] hover:bg-[#C44E22] text-white h-6 px-2.5 shadow-xs font-semibold"
+                        title="Abrir cotações, comparativo e subcontratação deste projeto"
+                      >
+                        <MessageSquareQuote className="w-3 h-3 mr-1" />
+                        Cotações do Projeto
+                      </Button>
+
                       {canViewDossie && (
                         <Button
                           variant="outline"
@@ -571,6 +585,19 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
         open={modalCotacoesOpen}
         onOpenChange={setModalCotacoesOpen}
         etapa={etapaCotacaoSelecionada}
+        executores={executores}
+        canEdit={canEdit}
+        onSuccess={() => {
+          carregarDadosCompletos()
+          onUpdate()
+        }}
+      />
+
+      {/* BLOCO 5: Cotações por Projeto com Comparativo Inteligente e Subcontratação */}
+      <ModalCotacoesProjeto
+        open={modalCotacoesProjetoOpen}
+        onOpenChange={setModalCotacoesProjetoOpen}
+        projeto={projeto}
         executores={executores}
         canEdit={canEdit}
         onSuccess={() => {

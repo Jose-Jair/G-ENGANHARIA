@@ -1,0 +1,846 @@
+// Hook de operações do BLOCO 5: Cotações por Projeto, Subcontratação e Assinatura Digital do Executor
+// Endpoints REST dedicados com segurança, auditoria completa, geração de parcelas financeiras e disparo de e-mails/notificações
+
+// 1. Endpoint: Criar solicitação de cotação para múltiplos executores (por Projeto) com disparo de e-mail e auditoria
+routerAdd(
+  'POST',
+  '/backend/v1/projetos/solicitar-cotacoes',
+  (e) => {
+    try {
+      const reqInfo = e.requestInfo()
+      if (!reqInfo.auth) {
+        return e.json(401, { message: 'Autenticação necessária' })
+      }
+
+      const role = reqInfo.auth.getString('role')
+      if (role !== 'admin' && role !== 'gestor') {
+        return e.json(403, {
+          message: 'Apenas Administradores e Gestores de Projetos podem solicitar cotações.',
+        })
+      }
+
+      const body = reqInfo.body || {}
+      const projetoId = body.projeto_id
+      const executoresIds = Array.isArray(body.executores_ids) ? body.executores_ids : []
+      const escopo = (body.escopo || '').trim()
+      const dataLimite = body.data_limite || ''
+      const enviarEmail = body.enviar_email !== false
+
+      if (!projetoId) {
+        return e.json(400, { message: 'ID do projeto não informado' })
+      }
+      if (executoresIds.length === 0) {
+        return e.json(400, { message: 'Selecione ao menos um executor homologado para cotar' })
+      }
+
+      const projeto = $app.findRecordById('projetos', projetoId)
+      if (!projeto) {
+        return e.json(404, { message: 'Projeto não encontrado' })
+      }
+
+      const cotacoesCol = $app.findCollectionByNameOrId('cotacoes')
+      const auditCol = $app.findCollectionByNameOrId('audit_logs')
+      const cotacoesCriadas = []
+
+      const appUrl =
+        ($app.settings().meta && $app.settings().meta.appUrl) || 'http://localhost:5173'
+      const senderAddress =
+        ($app.settings().meta && $app.settings().meta.senderAddress) || 'nao-responder@skip.dev'
+      const senderName =
+        ($app.settings().meta && $app.settings().meta.senderName) || 'G+ Engenharia Consultiva'
+
+      for (let i = 0; i < executoresIds.length; i++) {
+        const execId = executoresIds[i]
+        try {
+          const executor = $app.findRecordById('executores', execId)
+          if (!executor) continue
+
+          // Somente executores homologados/ativos podem receber cotação
+          if (executor.getString('status') === 'suspenso') {
+            continue
+          }
+
+          const token = $security.randomString(32)
+          const novaCotacao = new Record(cotacoesCol)
+          novaCotacao.set('projeto', projetoId)
+          if (projeto.getString('grupo')) {
+            novaCotacao.set('grupo', projeto.getString('grupo'))
+          }
+          novaCotacao.set('executor', execId)
+          novaCotacao.set(
+            'escopo',
+            escopo ||
+              projeto.getString('descricao') ||
+              'Execução técnica dos serviços de engenharia',
+          )
+          if (dataLimite) {
+            novaCotacao.set('data_limite', dataLimite)
+            novaCotacao.set('prazo_resposta', dataLimite)
+          }
+          novaCotacao.set('token', token)
+          novaCotacao.set('status', 'convite_enviado')
+          novaCotacao.set('escolhida', false)
+          novaCotacao.set('registrado_por', reqInfo.auth.id)
+
+          $app.save(novaCotacao)
+          cotacoesCriadas.push(novaCotacao)
+
+          const linkCotacao = appUrl + '/cotacao/' + token
+
+          // Auditoria de convite
+          try {
+            const aRec = new Record(auditCol)
+            aRec.set('user', reqInfo.auth.id)
+            aRec.set('user_email', reqInfo.auth.getString('email'))
+            aRec.set('acao', 'CONVITE_COTACAO_PROJETO')
+            aRec.set('entidade', 'cotacoes')
+            aRec.set('registro_id', novaCotacao.id)
+            aRec.set('detalhes', {
+              mensagem:
+                'Solicitação de cotação enviada para o executor ' +
+                executor.getString('nome') +
+                ' no projeto ' +
+                projeto.getString('codigo'),
+              projeto_id: projetoId,
+              projeto_codigo: projeto.getString('codigo'),
+              executor_id: execId,
+              executor_nome: executor.getString('nome'),
+              data_limite: dataLimite,
+              link_cotacao: linkCotacao,
+            })
+            aRec.set('ip', reqInfo.remoteIP || '')
+            $app.save(aRec)
+          } catch (_) {}
+
+          // Envio de e-mail ao executor se solicitado e se houver e-mail cadastrado
+          const execEmail = executor.getString('email')
+          if (enviarEmail && execEmail && execEmail.includes('@')) {
+            try {
+              const htmlEmail =
+                '<!DOCTYPE html><html><body style="font-family: sans-serif; background: #f8fafc; padding: 20px; color: #1e293b;">' +
+                '<div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden;">' +
+                '<div style="background: #1E2A4A; padding: 20px; border-bottom: 3px solid #D95A2B; color: #fff;">' +
+                '<span style="font-size: 18px; font-weight: bold;">G+ ENGENHARIA</span><br/>' +
+                '<span style="font-size: 11px; color: #cbd5e1;">Solicitação de Cotação Técnica</span>' +
+                '</div>' +
+                '<div style="padding: 24px; font-size: 14px; line-height: 1.6;">' +
+                '<p>Prezado(a) <strong>' +
+                executor.getString('nome') +
+                '</strong>,</p>' +
+                '<p>A G+ Engenharia convida sua equipe a apresentar cotação de preço e prazo para o projeto <strong>' +
+                projeto.getString('codigo') +
+                ' (' +
+                projeto.getString('nome') +
+                ')</strong>.</p>' +
+                (dataLimite
+                  ? '<p><strong>Prazo limite para resposta:</strong> ' +
+                    dataLimite.substring(0, 10).split('-').reverse().join('/') +
+                    '</p>'
+                  : '') +
+                '<p style="background: #f1f5f9; padding: 12px; border-radius: 6px; font-size: 13px;">' +
+                '<strong>Escopo:</strong><br/>' +
+                (escopo ||
+                  projeto.getString('descricao') ||
+                  'Detalhamento do projeto de engenharia') +
+                '</p>' +
+                '<div style="text-align: center; margin: 28px 0;">' +
+                '<a href="' +
+                linkCotacao +
+                '" style="background: #D95A2B; color: #ffffff; font-weight: bold; text-decoration: none; padding: 12px 24px; border-radius: 6px; display: inline-block;">Acessar e Responder Cotação</a>' +
+                '</div>' +
+                '</div>' +
+                '<div style="padding: 14px; background: #f1f5f9; font-size: 11px; text-align: center; color: #64748b;">' +
+                'G+ Engenharia Consultiva • Coordenação de Executores' +
+                '</div>' +
+                '</div></body></html>'
+
+              const msg = new MailerMessage({
+                from: { address: senderAddress, name: senderName },
+                to: [{ address: execEmail, name: executor.getString('nome') }],
+                subject:
+                  'Solicitação de Cotação — Projeto ' +
+                  projeto.getString('codigo') +
+                  ' — G+ Engenharia',
+                html: htmlEmail,
+              })
+              $app.newMailClient().send(msg)
+            } catch (errMail) {
+              console.log('Aviso ao enviar e-mail de cotação para executor: ' + errMail)
+            }
+          }
+        } catch (errExec) {
+          console.log('Erro ao processar executor na cotação: ' + errExec)
+        }
+      }
+
+      return e.json(200, {
+        success: true,
+        message: 'Cotações solicitadas com sucesso!',
+        total_cotacoes: cotacoesCriadas.length,
+      })
+    } catch (err) {
+      console.log('Erro interno em solicitar-cotacoes: ' + err)
+      return e.json(500, { message: 'Erro interno ao solicitar cotações: ' + err })
+    }
+  },
+  $apis.requireAuth(),
+)
+
+// 2. Endpoint: Registrar resposta recebida fora do sistema (ex: telefone, WhatsApp, reunião)
+routerAdd(
+  'POST',
+  '/backend/v1/cotacoes/registrar-resposta-externa',
+  (e) => {
+    try {
+      const reqInfo = e.requestInfo()
+      if (!reqInfo.auth) {
+        return e.json(401, { message: 'Autenticação necessária' })
+      }
+
+      const role = reqInfo.auth.getString('role')
+      if (role !== 'admin' && role !== 'gestor') {
+        return e.json(403, {
+          message: 'Apenas Administradores e Gestores de Projetos podem registrar respostas.',
+        })
+      }
+
+      const body = reqInfo.body || {}
+      const cotacaoId = body.cotacao_id
+      const precoOfertado = parseFloat(body.preco_ofertado)
+      const prazoOfertado = (body.prazo_ofertado || '').trim()
+      const observacoes = (body.observacoes || '').trim()
+
+      if (!cotacaoId) {
+        return e.json(400, { message: 'ID da cotação não informado' })
+      }
+      if (isNaN(precoOfertado) || precoOfertado <= 0) {
+        return e.json(400, { message: 'Preço ofertado deve ser maior que zero' })
+      }
+      if (!prazoOfertado) {
+        return e.json(400, { message: 'Prazo ofertado é obrigatório' })
+      }
+
+      const cotacao = $app.findRecordById('cotacoes', cotacaoId)
+      if (!cotacao) {
+        return e.json(404, { message: 'Cotação não encontrada' })
+      }
+
+      cotacao.set('preco_ofertado', precoOfertado)
+      cotacao.set('prazo_ofertado', prazoOfertado)
+      cotacao.set('observacoes', observacoes)
+      cotacao.set('status', 'respondida')
+      cotacao.set('resposta_externa', true)
+      cotacao.set('data_resposta', new Date().toISOString())
+      cotacao.set('registrado_por', reqInfo.auth.id)
+
+      $app.save(cotacao)
+
+      // Auditoria
+      try {
+        const auditCol = $app.findCollectionByNameOrId('audit_logs')
+        const aRec = new Record(auditCol)
+        aRec.set('user', reqInfo.auth.id)
+        aRec.set('user_email', reqInfo.auth.getString('email'))
+        aRec.set('acao', 'RESPOSTA_COTACAO_EXTERNA')
+        aRec.set('entidade', 'cotacoes')
+        aRec.set('registro_id', cotacaoId)
+        aRec.set('detalhes', {
+          mensagem: 'Resposta de cotação registrada manualmente pelo gestor',
+          preco_ofertado: precoOfertado,
+          prazo_ofertado: prazoOfertado,
+          observacoes: observacoes,
+        })
+        aRec.set('ip', reqInfo.remoteIP || '')
+        $app.save(aRec)
+      } catch (_) {}
+
+      return e.json(200, {
+        success: true,
+        message: 'Resposta de cotação registrada com sucesso!',
+        cotacao_id: cotacaoId,
+      })
+    } catch (err) {
+      console.log('Erro interno em registrar-resposta-externa: ' + err)
+      return e.json(500, { message: 'Erro interno ao registrar resposta: ' + err })
+    }
+  },
+  $apis.requireAuth(),
+)
+
+// 3. Endpoint: Contratar Executor para o Projeto (Gera Subcontrato + Contas a Pagar + Auditoria + Notificação)
+routerAdd(
+  'POST',
+  '/backend/v1/projetos/contratar-executor',
+  (e) => {
+    try {
+      const reqInfo = e.requestInfo()
+      if (!reqInfo.auth) {
+        return e.json(401, { message: 'Autenticação necessária' })
+      }
+
+      const role = reqInfo.auth.getString('role')
+      if (role !== 'admin' && role !== 'gestor') {
+        return e.json(403, {
+          message: 'Apenas Administradores e Gestores de Projetos podem contratar executores.',
+        })
+      }
+
+      const body = reqInfo.body || {}
+      const projetoId = body.projeto_id
+      const cotacaoId = body.cotacao_id
+      const modoExecucao = body.modo_execucao // 'terceirizada_parcial' | 'terceirizada_integral'
+      const descricaoDelegada = (body.descricao_delegada || '').trim()
+      const condicoesPagamento = (body.condicoes_pagamento || '').trim()
+      const parcelas = Array.isArray(body.parcelas) ? body.parcelas : []
+
+      if (!projetoId) {
+        return e.json(400, { message: 'ID do projeto não informado' })
+      }
+      if (!cotacaoId) {
+        return e.json(400, { message: 'ID da cotação vencedora não informado' })
+      }
+      if (modoExecucao !== 'terceirizada_parcial' && modoExecucao !== 'terceirizada_integral') {
+        return e.json(400, { message: 'Modo de execução inválido para contratação externa' })
+      }
+      if (modoExecucao === 'terceirizada_parcial' && !descricaoDelegada) {
+        return e.json(400, {
+          message:
+            'A descrição da parte delegada é obrigatória para contratação terceirizada parcial.',
+        })
+      }
+
+      const projeto = $app.findRecordById('projetos', projetoId)
+      if (!projeto) {
+        return e.json(404, { message: 'Projeto não encontrado' })
+      }
+
+      const cotacao = $app.findRecordById('cotacoes', cotacaoId)
+      if (!cotacao) {
+        return e.json(404, { message: 'Cotação não encontrada' })
+      }
+
+      const executorId = cotacao.getString('executor')
+      const executor = $app.findRecordById('executores', executorId)
+      if (!executor) {
+        return e.json(404, { message: 'Executor não encontrado' })
+      }
+
+      // Validação de executor homologado
+      if (executor.getString('status') === 'suspenso') {
+        return e.json(400, {
+          message: 'Executor está suspenso e não pode ser contratado.',
+        })
+      }
+
+      const precoContratado = cotacao.getFloat('preco_ofertado') || 0
+      if (precoContratado <= 0) {
+        return e.json(400, {
+          message: 'A cotação precisa possuir um preço ofertado válido para gerar a contratação.',
+        })
+      }
+
+      // 1. Herdar automaticamente o Contrato Original de referência e suas propriedades (PRAZO e CLÁUSULAS)
+      let contratoServicoOrigem = null
+      let prazoDiasContratoOriginal = 30
+      let notaPrazoContratoOriginal = ''
+      let clausulasContratoOriginal = ''
+
+      const contratoServicoId = projeto.getString('contrato_servico')
+      if (contratoServicoId) {
+        try {
+          contratoServicoOrigem = $app.findRecordById('contratos_servico', contratoServicoId)
+          if (contratoServicoOrigem) {
+            prazoDiasContratoOriginal = contratoServicoOrigem.getInt('prazo_dias') || 30
+            notaPrazoContratoOriginal = contratoServicoOrigem.getString('nota_prazo') || ''
+            clausulasContratoOriginal = contratoServicoOrigem.getString('clausulas_texto') || ''
+          }
+        } catch (_) {}
+      }
+
+      // Se não encontrou no contrato de serviço, busca nas configurações de parâmetros
+      let clausulasTermo = ''
+      try {
+        const pClausulas = $app.findFirstRecordByData(
+          'parametros',
+          'chave',
+          'subcontrato_clausulas_padrao',
+        )
+        if (pClausulas) {
+          clausulasTermo = pClausulas.getString('valor')
+        }
+      } catch (_) {}
+
+      if (!clausulasTermo) {
+        clausulasTermo = clausulasContratoOriginal || 'Cláusulas de Subcontratação da G+ Engenharia'
+      }
+
+      // Substituição de variáveis no modelo de cláusulas
+      const numPreco = precoContratado.toFixed(2)
+      const partesValor = numPreco.split('.')
+      let intPart = partesValor[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+      const precoFmt = 'R$ ' + intPart + ',' + partesValor[1]
+
+      clausulasTermo = clausulasTermo
+        .split('{prazo_dias_contrato}')
+        .join(String(prazoDiasContratoOriginal))
+        .split('{valor_subcontrato}')
+        .join(precoFmt)
+        .split('{projeto_codigo}')
+        .join(projeto.getString('codigo'))
+        .split('{executor_nome}')
+        .join(executor.getString('nome'))
+
+      // 2. Gerar número sequencial SUB-AAAA-NNNN sem lacunas
+      const anoAtual = new Date().getFullYear()
+      const prefixoSUB = 'SUB-' + anoAtual + '-'
+      let proximoSeqSub = 1
+      try {
+        const subsDoAno = $app.findRecordsByFilter(
+          'subcontratos',
+          "numero ~ '" + prefixoSUB + "'",
+          '-numero',
+          1,
+          0,
+        )
+        if (subsDoAno.length > 0) {
+          const ult = subsDoAno[0].getString('numero')
+          const partes = ult.split('-')
+          const num = parseInt(partes[2], 10)
+          if (!isNaN(num)) proximoSeqSub = num + 1
+        }
+      } catch (_) {}
+
+      const seqStr = ('0000' + proximoSeqSub).slice(-4)
+      const numeroSub = prefixoSUB + seqStr
+      const tokenAssinatura = $security.randomString(32)
+
+      // 3. Criar registro na coleção 'subcontratos'
+      const subcontratosCol = $app.findCollectionByNameOrId('subcontratos')
+      const novoSub = new Record(subcontratosCol)
+      novoSub.set('numero', numeroSub)
+      novoSub.set('projeto', projetoId)
+      if (projeto.getString('grupo')) {
+        novoSub.set('grupo', projeto.getString('grupo'))
+      }
+      if (contratoServicoId) {
+        novoSub.set('contrato_servico_origem', contratoServicoId)
+      }
+      novoSub.set('executor', executorId)
+      novoSub.set('cotacao', cotacaoId)
+      novoSub.set('modo_execucao', modoExecucao)
+      novoSub.set('descricao_escopo', cotacao.getString('escopo') || projeto.getString('descricao'))
+      novoSub.set('descricao_delegada', descricaoDelegada)
+      novoSub.set('valor_total', precoContratado)
+      novoSub.set('prazo_dias', prazoDiasContratoOriginal)
+      novoSub.set(
+        'nota_prazo',
+        notaPrazoContratoOriginal ||
+          'O projeto do executor terá a mesma duração do contrato original de referência (' +
+            prazoDiasContratoOriginal +
+            ' dias).',
+      )
+      novoSub.set('clausulas_texto', clausulasTermo)
+      novoSub.set('condicoes_pagamento', condicoesPagamento)
+      novoSub.set('parcelas_json', parcelas)
+      novoSub.set('status', 'aguardando_assinatura')
+      novoSub.set('token_assinatura', tokenAssinatura)
+      novoSub.set('emitido_por', reqInfo.auth.id)
+      novoSub.set('data_emissao', new Date().toISOString())
+
+      $app.save(novoSub)
+
+      // 4. Marcar cotação como ESCOLHIDA (e desmarcar demais)
+      cotacao.set('escolhida', true)
+      cotacao.set('status', 'escolhida')
+      $app.save(cotacao)
+
+      // 5. Atualizar modo de execução e descrição delegada no Projeto
+      projeto.set('modo_execucao', modoExecucao)
+      projeto.set('descricao_delegada', descricaoDelegada)
+      $app.save(projeto)
+
+      // 6. Gerar CONTAS A PAGAR integradas ao financeiro existente
+      const contasCol = $app.findCollectionByNameOrId('contas')
+      const auditCol = $app.findCollectionByNameOrId('audit_logs')
+
+      let parcelasParaCriar = parcelas
+      if (!parcelasParaCriar || parcelasParaCriar.length === 0) {
+        // Se nenhuma parcela detalhada informada, cria parcela única padrão
+        const vencPadrao = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .substring(0, 10)
+        parcelasParaCriar = [
+          {
+            numero: 1,
+            descricao: 'Subcontratação ' + numeroSub + ' — Parcela Única',
+            valor: precoContratado,
+            vencimento: vencPadrao,
+          },
+        ]
+      }
+
+      for (let pIdx = 0; pIdx < parcelasParaCriar.length; pIdx++) {
+        const p = parcelasParaCriar[pIdx]
+        const valorParc = Number(p.valor) || 0
+        if (valorParc <= 0) continue
+
+        const desc =
+          p.descricao ||
+          'Subcontratação ' +
+            numeroSub +
+            ' (' +
+            projeto.getString('codigo') +
+            ') — Parcela ' +
+            (pIdx + 1) +
+            '/' +
+            parcelasParaCriar.length
+
+        const venc = p.vencimento
+          ? `${p.vencimento.substring(0, 10)} 12:00:00.000Z`
+          : new Date(Date.now() + (pIdx + 1) * 30 * 24 * 60 * 60 * 1000)
+              .toISOString()
+              .substring(0, 10) + ' 12:00:00.000Z'
+
+        try {
+          const novaConta = new Record(contasCol)
+          novaConta.set('tipo', 'pagar')
+          novaConta.set('projeto', projetoId)
+          novaConta.set('executor', executorId)
+          novaConta.set('subcontrato', novoSub.id)
+          novaConta.set('descricao', desc)
+          novaConta.set('valor', valorParc)
+          novaConta.set('valor_liquido', valorParc)
+          novaConta.set('vencimento', venc)
+          novaConta.set('status', 'prevista')
+          novaConta.set('forma_pagamento', 'Transferência Bancária (PIX)')
+          novaConta.set('bloqueada_por_fechamento', false)
+          $app.save(novaConta)
+        } catch (cErr) {
+          console.log('Erro ao criar conta a pagar do subcontrato: ' + cErr)
+        }
+      }
+
+      // 7. Auditoria Completa da Contratação
+      try {
+        const aRec = new Record(auditCol)
+        aRec.set('user', reqInfo.auth.id)
+        aRec.set('user_email', reqInfo.auth.getString('email'))
+        aRec.set('acao', 'CONTRATACAO_EXECUTOR_SUBCONTRATO')
+        aRec.set('entidade', 'subcontratos')
+        aRec.set('registro_id', novoSub.id)
+        aRec.set('detalhes', {
+          mensagem:
+            'Executor ' +
+            executor.getString('nome') +
+            ' contratado para o projeto ' +
+            projeto.getString('codigo') +
+            ' (' +
+            modoExecucao +
+            '). Subcontrato ' +
+            numeroSub +
+            ' emitido.',
+          numero_subcontrato: numeroSub,
+          subcontrato_id: novoSub.id,
+          projeto_id: projetoId,
+          projeto_codigo: projeto.getString('codigo'),
+          cotacao_id: cotacaoId,
+          executor_id: executorId,
+          executor_nome: executor.getString('nome'),
+          modo_execucao: modoExecucao,
+          descricao_delegada: descricaoDelegada,
+          valor_total: precoContratado,
+          prazo_dias: prazoDiasContratoOriginal,
+        })
+        aRec.set('ip', reqInfo.remoteIP || '')
+        $app.save(aRec)
+      } catch (_) {}
+
+      // 8. Envio de e-mail ao executor informando da contratação
+      const appUrl =
+        ($app.settings().meta && $app.settings().meta.appUrl) || 'http://localhost:5173'
+      const linkSubcontrato = appUrl + '/subcontrato/' + tokenAssinatura
+      const execEmail = executor.getString('email')
+
+      if (execEmail && execEmail.includes('@')) {
+        try {
+          const senderAddress =
+            ($app.settings().meta && $app.settings().meta.senderAddress) || 'nao-responder@skip.dev'
+          const senderName =
+            ($app.settings().meta && $app.settings().meta.senderName) || 'G+ Engenharia Consultiva'
+
+          const htmlEmail =
+            '<!DOCTYPE html><html><body style="font-family: sans-serif; background: #f8fafc; padding: 20px; color: #1e293b;">' +
+            '<div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden;">' +
+            '<div style="background: #1E2A4A; padding: 20px; border-bottom: 3px solid #D95A2B; color: #fff;">' +
+            '<span style="font-size: 18px; font-weight: bold;">G+ ENGENHARIA</span><br/>' +
+            '<span style="font-size: 11px; color: #cbd5e1;">Contratação Técnica & Termo de Subcontratação</span>' +
+            '</div>' +
+            '<div style="padding: 24px; font-size: 14px; line-height: 1.6;">' +
+            '<p>Prezado(a) <strong>' +
+            executor.getString('nome') +
+            '</strong>,</p>' +
+            '<p>Temos a satisfação de informar que sua proposta comercial foi a <strong>selecionada</strong> para o projeto <strong>' +
+            projeto.getString('codigo') +
+            ' (' +
+            projeto.getString('nome') +
+            ')</strong>.</p>' +
+            '<p>O <strong>Termo de Subcontratação ' +
+            numeroSub +
+            '</strong> foi emitido e está pronto para sua assinatura eletrônica segura.</p>' +
+            '<p style="background: #f1f5f9; padding: 12px; border-radius: 6px; font-size: 13px;">' +
+            '<strong>Modalidade:</strong> ' +
+            (modoExecucao === 'terceirizada_integral'
+              ? 'Terceirização Integral (100%)'
+              : 'Terceirização Parcial') +
+            '<br/>' +
+            '<strong>Valor Global:</strong> ' +
+            precoFmt +
+            '<br/>' +
+            '<strong>Duração:</strong> ' +
+            prazoDiasContratoOriginal +
+            ' dias (conforme Contrato Original)' +
+            '</p>' +
+            '<div style="text-align: center; margin: 28px 0;">' +
+            '<a href="' +
+            linkSubcontrato +
+            '" style="background: #D95A2B; color: #ffffff; font-weight: bold; text-decoration: none; padding: 12px 24px; border-radius: 6px; display: inline-block;">Revisar e Assinar Termo de Subcontratação</a>' +
+            '</div>' +
+            '</div>' +
+            '<div style="padding: 14px; background: #f1f5f9; font-size: 11px; text-align: center; color: #64748b;">' +
+            'G+ Engenharia Consultiva • Gestão Integrada de Subcontratos' +
+            '</div>' +
+            '</div></body></html>'
+
+          const msg = new MailerMessage({
+            from: { address: senderAddress, name: senderName },
+            to: [{ address: execEmail, name: executor.getString('nome') }],
+            subject: 'Parabéns! Contratação Aprovada — Termo ' + numeroSub + ' — G+ Engenharia',
+            html: htmlEmail,
+          })
+          $app.newMailClient().send(msg)
+        } catch (eMail) {
+          console.log('Aviso ao enviar e-mail de contratação: ' + eMail)
+        }
+      }
+
+      return e.json(200, {
+        success: true,
+        message: 'Executor contratado com sucesso! Termo de subcontratação gerado.',
+        subcontrato_id: novoSub.id,
+        numero: numeroSub,
+        token_assinatura: tokenAssinatura,
+        link_assinatura: linkSubcontrato,
+      })
+    } catch (err) {
+      console.log('Erro interno em contratar-executor: ' + err)
+      return e.json(500, { message: 'Erro interno ao contratar executor: ' + err })
+    }
+  },
+  $apis.requireAuth(),
+)
+
+// 4. Endpoint Público: Assinatura Eletrônica do Termo de Subcontratação pelo Executor (sem login, via Token)
+routerAdd('POST', '/backend/v1/subcontratos/assinar-executor', (e) => {
+  try {
+    const reqInfo = e.requestInfo()
+    const body = reqInfo.body || {}
+    const token = body.token_assinatura
+    const declaracao = body.declaracao === true
+    const nomeAssinante = (body.nome_assinante || '').trim()
+    const documentoAssinante = (body.documento_assinante || '').trim()
+
+    if (!token) {
+      return e.json(400, { message: 'Token de assinatura não informado' })
+    }
+    if (!declaracao) {
+      return e.json(400, {
+        message: 'Declaração de concordância com o termo e as cláusulas é obrigatória.',
+      })
+    }
+    if (!nomeAssinante || !documentoAssinante) {
+      return e.json(400, {
+        message: 'Nome completo e CPF/CNPJ do responsável são obrigatórios para a assinatura.',
+      })
+    }
+
+    const records = $app.findRecordsByFilter(
+      'subcontratos',
+      "token_assinatura = '" + token + "'",
+      '-created',
+      1,
+      0,
+    )
+    if (records.length === 0) {
+      return e.json(404, { message: 'Termo de subcontratação não localizado ou link inválido' })
+    }
+
+    const sub = records[0]
+
+    if (sub.getString('status') === 'assinado') {
+      return e.json(200, {
+        success: true,
+        message: 'Este Termo de Subcontratação já foi assinado.',
+        subcontrato_id: sub.id,
+      })
+    }
+
+    const clientIp =
+      reqInfo.remoteIP || (reqInfo.headers && reqInfo.headers['x-forwarded-for']) || '127.0.0.1'
+    const clientUserAgent = (reqInfo.headers && reqInfo.headers['user-agent']) || 'Navegador Web'
+    const nowIso = new Date().toISOString()
+
+    const hashPayload =
+      sub.getString('numero') +
+      '|' +
+      nomeAssinante +
+      '|' +
+      documentoAssinante +
+      '|' +
+      clientIp +
+      '|' +
+      nowIso
+    const executorHash = $security.sha256(hashPayload)
+
+    sub.set('executor_nome_assinante', nomeAssinante)
+    sub.set('executor_documento_assinante', documentoAssinante)
+    sub.set('data_assinatura_executor', nowIso)
+    sub.set('executor_ip', clientIp)
+    sub.set('executor_user_agent', clientUserAgent)
+    sub.set('executor_declaracao', true)
+    sub.set('executor_hash', executorHash)
+    sub.set('status', 'assinado')
+
+    $app.save(sub)
+
+    // Auditoria da assinatura do executor
+    try {
+      const auditCol = $app.findCollectionByNameOrId('audit_logs')
+      const aRec = new Record(auditCol)
+      aRec.set('acao', 'ASSINATURA_EXECUTOR_SUBCONTRATO')
+      aRec.set('entidade', 'subcontratos')
+      aRec.set('registro_id', sub.id)
+      aRec.set('detalhes', {
+        mensagem:
+          'Termo de Subcontratação ' +
+          sub.getString('numero') +
+          ' assinado eletronicamente pelo executor ' +
+          nomeAssinante,
+        subcontrato_numero: sub.getString('numero'),
+        nome_assinante: nomeAssinante,
+        documento_assinante: documentoAssinante,
+        ip: clientIp,
+        hash: executorHash,
+      })
+      aRec.set('ip', clientIp)
+      $app.save(aRec)
+    } catch (_) {}
+
+    return e.json(200, {
+      success: true,
+      message: 'Termo de Subcontratação assinado com sucesso!',
+      subcontrato_id: sub.id,
+      numero: sub.getString('numero'),
+      hash: executorHash,
+    })
+  } catch (err) {
+    console.log('Erro interno em assinar-executor: ' + err)
+    return e.json(500, { message: 'Erro interno ao assinar subcontrato: ' + err })
+  }
+})
+
+// 5. Endpoint Público: Obter detalhes do Subcontrato por token para visualização na tela pública
+routerAdd('GET', '/backend/v1/subcontratos/obter-por-token/{token}', (e) => {
+  try {
+    const token = e.request.pathValue('token')
+    if (!token) {
+      return e.json(400, { message: 'Token não informado' })
+    }
+
+    const records = $app.findRecordsByFilter(
+      'subcontratos',
+      "token_assinatura = '" + token + "'",
+      '-created',
+      1,
+      0,
+    )
+    if (records.length === 0) {
+      return e.json(404, { message: 'Termo de subcontratação não encontrado ou link expirado' })
+    }
+
+    const sub = records[0]
+    let executorData = null
+    let projetoData = null
+    let contratoOriginalData = null
+
+    try {
+      const exec = $app.findRecordById('executores', sub.getString('executor'))
+      if (exec) {
+        executorData = {
+          id: exec.id,
+          nome: exec.getString('nome'),
+          cpf_cnpj: exec.getString('cpf_cnpj'),
+          conselho: exec.getString('conselho'),
+          numero_registro: exec.getString('numero_registro'),
+          email: exec.getString('email'),
+          telefone: exec.getString('telefone'),
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const prj = $app.findRecordById('projetos', sub.getString('projeto'))
+      if (prj) {
+        projetoData = {
+          id: prj.id,
+          codigo: prj.getString('codigo'),
+          nome: prj.getString('nome'),
+          descricao: prj.getString('descricao'),
+          disciplinas: prj.getString('disciplinas'),
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const csId = sub.getString('contrato_servico_origem')
+      if (csId) {
+        const cs = $app.findRecordById('contratos_servico', csId)
+        if (cs) {
+          contratoOriginalData = {
+            id: cs.id,
+            numero: cs.getString('numero'),
+            objeto: cs.getString('objeto'),
+            prazo_dias: cs.getInt('prazo_dias'),
+            nota_prazo: cs.getString('nota_prazo'),
+          }
+        }
+      }
+    } catch (_) {}
+
+    return e.json(200, {
+      id: sub.id,
+      numero: sub.getString('numero'),
+      status: sub.getString('status'),
+      modo_execucao: sub.getString('modo_execucao'),
+      descricao_escopo: sub.getString('descricao_escopo'),
+      descricao_delegada: sub.getString('descricao_delegada'),
+      valor_total: sub.getFloat('valor_total'),
+      prazo_dias: sub.getInt('prazo_dias'),
+      nota_prazo: sub.getString('nota_prazo'),
+      clausulas_texto: sub.getString('clausulas_texto'),
+      condicoes_pagamento: sub.getString('condicoes_pagamento'),
+      parcelas_json: sub.get('parcelas_json'),
+      data_emissao: sub.getString('data_emissao') || sub.getString('created'),
+      // Dados de assinatura caso já assinado
+      executor_nome_assinante: sub.getString('executor_nome_assinante'),
+      executor_documento_assinante: sub.getString('executor_documento_assinante'),
+      data_assinatura_executor: sub.getString('data_assinatura_executor'),
+      executor_hash: sub.getString('executor_hash'),
+      executor: executorData,
+      projeto: projetoData,
+      contrato_original: contratoOriginalData,
+    })
+  } catch (err) {
+    console.log('Erro ao obter subcontrato por token: ' + err)
+    return e.json(500, { message: 'Erro interno ao buscar subcontrato: ' + err })
+  }
+})

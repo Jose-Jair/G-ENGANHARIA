@@ -43,6 +43,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ModalDetalheProjeto } from '@/components/projetos/ModalDetalheProjeto'
+import { ModalCotacoesProjeto } from '@/components/projetos/ModalCotacoesProjeto'
+import { subcontratosService } from '@/services/subcontratos'
+import { cotacoesService, executoresService } from '@/services/executores'
+import { SubcontratoRecord, CotacaoRecord, ExecutorRecord } from '@/types'
+import { MessageSquareQuote, FileSignature, ShieldCheck, CheckCircle } from 'lucide-react'
 
 export function GrupoProjetosPage() {
   const { id } = useParams<{ id: string }>()
@@ -54,6 +59,13 @@ export function GrupoProjetosPage() {
   const [dados, setDados] = useState<GrupoComProjetosEDetalhes | null>(null)
   const [projetoSelecionadoId, setProjetoSelecionadoId] = useState<string | null>(null)
   const [modalDetalheOpen, setModalDetalheOpen] = useState(false)
+
+  // Bloco 5: Cotações e Subcontratações no Grupo
+  const [modalCotacoesProjetoOpen, setModalCotacoesProjetoOpen] = useState(false)
+  const [projetoParaCotacoes, setProjetoParaCotacoes] = useState<ProjetoRecord | null>(null)
+  const [executoresHomologados, setExecutoresHomologados] = useState<ExecutorRecord[]>([])
+  const [cotacoesDoGrupo, setCotacoesDoGrupo] = useState<CotacaoRecord[]>([])
+  const [subcontratosDoGrupo, setSubcontratosDoGrupo] = useState<SubcontratoRecord[]>([])
 
   // Modal para alterar modo de execução de um projeto
   const [projetoParaEdicaoModo, setProjetoParaEdicaoModo] = useState<ProjetoRecord | null>(null)
@@ -70,6 +82,20 @@ export function GrupoProjetosPage() {
     try {
       const resp = await gruposProjetosService.getGrupoCompleto(id)
       setDados(resp)
+
+      // Bloco 5: Carregar cotações, subcontratos do grupo e executores
+      try {
+        const [cotList, subList, exList] = await Promise.all([
+          cotacoesService.listByGrupo(id),
+          subcontratosService.listByGrupo(id),
+          executoresService.list(),
+        ])
+        setCotacoesDoGrupo(cotList)
+        setSubcontratosDoGrupo(subList)
+        setExecutoresHomologados(exList)
+      } catch {
+        /* intentionally ignored */
+      }
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar Grupo de Projetos',
@@ -270,17 +296,30 @@ export function GrupoProjetosPage() {
             </div>
           </div>
 
-          {/* Card de Valor Total Consolidado */}
-          <div className="bg-white/10 backdrop-blur-xs p-4 rounded-lg border border-white/15 min-w-[220px] text-right">
-            <span className="text-[11px] uppercase tracking-wider text-slate-300 block">
-              Valor Total Consolidado
-            </span>
-            <span className="text-2xl font-black text-white mt-1 block">
-              {formatCurrencyBr(valorTotalConsolidado)}
-            </span>
-            <span className="text-[10px] text-slate-300 block mt-0.5">
-              Soma dos {projetos.length} projetos do grupo
-            </span>
+          {/* Card de Valor Total Consolidado e Indicador de Subcontratações */}
+          <div className="flex flex-col gap-2 min-w-[240px]">
+            <div className="bg-white/10 backdrop-blur-xs p-4 rounded-lg border border-white/15 text-right">
+              <span className="text-[11px] uppercase tracking-wider text-slate-300 block">
+                Valor Total Consolidado
+              </span>
+              <span className="text-2xl font-black text-white mt-1 block">
+                {formatCurrencyBr(valorTotalConsolidado)}
+              </span>
+              <span className="text-[10px] text-slate-300 block mt-0.5">
+                Soma dos {projetos.length} projetos do grupo
+              </span>
+            </div>
+
+            <div className="bg-white/10 backdrop-blur-xs px-3 py-2 rounded-lg border border-white/15 flex items-center justify-between text-xs text-white">
+              <span className="flex items-center gap-1.5 text-slate-200">
+                <FileSignature className="w-3.5 h-3.5 text-[#D95A2B]" />
+                Subcontratações:
+              </span>
+              <span className="font-bold text-[#D95A2B] font-mono">
+                {subcontratosDoGrupo.length} emitidas (
+                {subcontratosDoGrupo.filter((s) => s.status === 'assinado').length} assinadas)
+              </span>
+            </div>
           </div>
         </div>
 
@@ -436,19 +475,36 @@ export function GrupoProjetosPage() {
                         </div>
                       </div>
 
-                      <div className="sm:text-right flex sm:flex-col justify-between sm:justify-center">
-                        <span className="text-slate-400 block text-[11px]">Ações</span>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setProjetoSelecionadoId(prj.id)
-                            setModalDetalheOpen(true)
-                          }}
-                          className="bg-slate-900 hover:bg-slate-800 text-white text-xs h-7 px-3 mt-0.5"
-                        >
-                          <ExternalLink className="w-3 h-3 mr-1" />
-                          Abrir Ficha do Projeto
-                        </Button>
+                      <div className="sm:text-right flex flex-wrap sm:flex-col justify-between sm:justify-center gap-1.5">
+                        <span className="text-slate-400 block text-[11px]">Ações Bloco 5</span>
+                        <div className="flex items-center gap-1.5">
+                          {/* Botão de Cotações & Subcontratação do Projeto */}
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setProjetoParaCotacoes(prj)
+                              setModalCotacoesProjetoOpen(true)
+                            }}
+                            className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs h-7 px-2.5 shadow-xs font-semibold"
+                            title="Acompanhar cotações, comparar propostas e subcontratar"
+                          >
+                            <MessageSquareQuote className="w-3.5 h-3.5 mr-1" />
+                            Cotações ({cotacoesDoGrupo.filter((c) => c.projeto === prj.id).length})
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setProjetoSelecionadoId(prj.id)
+                              setModalDetalheOpen(true)
+                            }}
+                            className="bg-white hover:bg-slate-100 text-slate-800 text-xs h-7 px-2.5"
+                          >
+                            <ExternalLink className="w-3 h-3 mr-1" />
+                            Ficha
+                          </Button>
+                        </div>
                       </div>
                     </div>
 
@@ -561,6 +617,16 @@ export function GrupoProjetosPage() {
         onOpenChange={setModalDetalheOpen}
         projetoId={projetoSelecionadoId}
         onUpdate={carregarDados}
+      />
+
+      {/* BLOCO 5: Modal de Cotações do Projeto com Comparativo Inteligente e Subcontratação */}
+      <ModalCotacoesProjeto
+        open={modalCotacoesProjetoOpen}
+        onOpenChange={setModalCotacoesProjetoOpen}
+        projeto={projetoParaCotacoes}
+        executores={executoresHomologados}
+        canEdit={canOperate}
+        onSuccess={carregarDados}
       />
     </div>
   )

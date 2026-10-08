@@ -874,7 +874,9 @@ export interface RiscoRecord {
 
 export interface CotacaoRecord {
   id: string
-  etapa: string
+  etapa?: string
+  projeto?: string
+  grupo?: string
   executor: string
   escopo?: string
   prazo_resposta?: string
@@ -886,11 +888,66 @@ export interface CotacaoRecord {
   escolhida?: boolean
   token?: string
   data_resposta?: string
+  resposta_externa?: boolean
+  registrado_por?: string
   created: string
   updated: string
   expand?: {
     etapa?: ProjetoEtapaRecord
+    projeto?: ProjetoRecord
+    grupo?: GrupoProjetosRecord
     executor?: ExecutorRecord
+    registrado_por?: UserRecord
+  }
+}
+
+export type StatusSubcontrato = 'minuta' | 'aguardando_assinatura' | 'assinado' | 'cancelado'
+
+export interface ParcelaSubcontratoItem {
+  numero?: number
+  descricao?: string
+  valor: number
+  vencimento?: string
+  gatilho?: string
+}
+
+export interface SubcontratoRecord {
+  id: string
+  numero: string // SUB-AAAA-NNNN
+  projeto: string
+  grupo?: string
+  contrato_servico_origem?: string
+  executor: string
+  cotacao?: string
+  modo_execucao: 'terceirizada_parcial' | 'terceirizada_integral'
+  descricao_escopo?: string
+  descricao_delegada?: string
+  valor_total: number
+  prazo_dias?: number
+  nota_prazo?: string
+  clausulas_texto?: string
+  condicoes_pagamento?: string
+  parcelas_json?: ParcelaSubcontratoItem[]
+  status: StatusSubcontrato
+  token_assinatura?: string
+  executor_nome_assinante?: string
+  executor_documento_assinante?: string
+  data_assinatura_executor?: string
+  executor_ip?: string
+  executor_user_agent?: string
+  executor_declaracao?: boolean
+  executor_hash?: string
+  emitido_por?: string
+  data_emissao?: string
+  created: string
+  updated: string
+  expand?: {
+    projeto?: ProjetoRecord
+    grupo?: GrupoProjetosRecord
+    contrato_servico_origem?: ContratoServicoRecord
+    executor?: ExecutorRecord
+    cotacao?: CotacaoRecord
+    emitido_por?: UserRecord
   }
 }
 
@@ -958,11 +1015,13 @@ export interface ContaRecord {
   bloqueada_por_fechamento?: boolean
   created: string
   updated: string
+  subcontrato?: string
   expand?: {
     projeto?: ProjetoRecord
     proposta?: PropostaRecord
     executor?: ExecutorRecord
     etapa?: ProjetoEtapaRecord
+    subcontrato?: SubcontratoRecord
   }
 }
 

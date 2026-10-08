@@ -21,6 +21,64 @@ export interface AssinarContratoClientePayload {
   documento_assinante: string
 }
 
+export interface ObterContratoComplementoResponse {
+  success: boolean
+  contrato: {
+    id: string
+    numero: string
+    objeto: string
+    valor_total: number
+    prazo_dias?: number
+    status: StatusContratoServico
+    token_assinatura_cliente?: string
+    campos_faltantes?: string[]
+    dados_completados_em?: string
+  }
+  tipo_cliente: 'pf' | 'pj'
+  dados_cliente: {
+    razao_social?: string
+    nome?: string
+    nome_fantasia?: string
+    cnpj?: string
+    cpf?: string
+    email?: string
+    telefone?: string
+    telefones?: any[]
+    cep?: string
+    logradouro?: string
+    numero?: string
+    complemento?: string
+    bairro?: string
+    municipio?: string
+    uf?: string
+    porte?: string
+  }
+  representante?: {
+    nome: string
+    documento: string
+  }
+}
+
+export interface ComplementarDadosPayload {
+  token_complemento_dados: string
+  razao_social?: string
+  nome?: string
+  nome_fantasia?: string
+  cnpj?: string
+  cpf?: string
+  email: string
+  telefone: string
+  cep: string
+  logradouro: string
+  numero: string
+  complemento?: string
+  bairro: string
+  municipio: string
+  uf: string
+  representante_nome?: string
+  representante_documento?: string
+}
+
 export const contratosServicoService = {
   async getByProposta(propostaId: string): Promise<ContratoServicoRecord | null> {
     try {
@@ -71,6 +129,28 @@ export const contratosServicoService = {
       console.warn('Erro ao buscar contrato por token:', err)
       return null
     }
+  },
+
+  /**
+   * Bloco 3: Busca dados do contrato e cadastro via token de complemento de dados
+   */
+  async getPorTokenComplemento(token: string): Promise<ObterContratoComplementoResponse> {
+    return await pb.send<ObterContratoComplementoResponse>(
+      `/backend/v1/contratos-servico/obter-por-token-complemento?token=${encodeURIComponent(token)}`,
+      {
+        method: 'GET',
+      },
+    )
+  },
+
+  /**
+   * Bloco 3: Salva o complemento de dados pelo cliente
+   */
+  async complementarDados(payload: ComplementarDadosPayload): Promise<any> {
+    return await pb.send('/backend/v1/contratos-servico/complementar-dados', {
+      method: 'POST',
+      body: payload,
+    })
   },
 
   async listAll(status?: StatusContratoServico): Promise<ContratoServicoRecord[]> {

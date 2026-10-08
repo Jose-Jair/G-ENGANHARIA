@@ -168,6 +168,7 @@ export function ContratoServicoPublicoPage() {
     )
   }
 
+  const isAguardandoDados = contrato.status === 'aguardando_dados_cliente'
   const jaAssinadoCliente = Boolean(contrato.data_assinatura_cliente)
   const assinadoAdmin = Boolean(contrato.data_assinatura_admin)
 
@@ -175,7 +176,31 @@ export function ContratoServicoPublicoPage() {
     <div className="min-h-screen bg-slate-100/80 py-4 sm:py-8 px-2 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
         {/* Banner de Status */}
-        {jaAssinadoCliente ? (
+        {isAguardandoDados ? (
+          <div className="bg-amber-50 border-2 border-amber-300 text-amber-900 p-4 rounded-lg shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start sm:items-center gap-3">
+              <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+              <div className="text-xs">
+                <div className="font-bold text-sm text-amber-950">
+                  Cadastro Pendente: Aguardando Complemento de Dados
+                </div>
+                <div className="text-amber-800 mt-0.5">
+                  Não é possível gerar o contrato definitivo nem assinar enquanto as informações
+                  cadastrais obrigatórias estiverem incompletas. Por favor, acesse o formulário de
+                  complementação.
+                </div>
+              </div>
+            </div>
+            {contrato.token_complemento_dados && (
+              <a
+                href={`/completar-cadastro/${contrato.token_complemento_dados}`}
+                className="inline-flex items-center justify-center px-4 py-2 bg-[#D95A2B] hover:bg-[#b8451b] text-white text-xs font-semibold rounded-md shadow-sm shrink-0"
+              >
+                Completar Cadastro Agora
+              </a>
+            )}
+          </div>
+        ) : jaAssinadoCliente ? (
           <div className="bg-emerald-600 text-white p-4 rounded-lg shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <CheckCircle2 className="w-6 h-6 text-emerald-100 shrink-0" />
@@ -202,8 +227,9 @@ export function ContratoServicoPublicoPage() {
             <div className="text-xs">
               <div className="font-bold text-sm">Aguardando Assinatura da Diretoria G+</div>
               <div>
-                O contrato está em análise formal e aguarda a assinatura preliminar do Administrador
-                para posterior liberação de sua assinatura.
+                O cadastro do cliente está completo. O contrato agora aguarda a assinatura
+                preliminar da Diretoria Técnica da G+ Engenharia para liberação da assinatura do
+                contratante.
               </div>
             </div>
           </div>
@@ -446,8 +472,33 @@ export function ContratoServicoPublicoPage() {
             </div>
           </div>
 
+          {/* PAINEL DE AVISO SE CADASTRO INCOMPLETO */}
+          {isAguardandoDados && (
+            <div className="p-4 sm:p-6 bg-amber-50/60 border-t border-amber-200 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                Assinatura Bloqueada — Cadastro Incompleto
+              </div>
+              <p className="text-xs text-amber-800 leading-relaxed">
+                Este contrato não pode ser assinado no momento porque alguns dados cadastrais
+                obrigatórios (endereço completo, documentos validados ou dados de representação)
+                estão pendentes de preenchimento pelo cliente.
+              </p>
+              {contrato.token_complemento_dados && (
+                <div>
+                  <a
+                    href={`/completar-cadastro/${contrato.token_complemento_dados}`}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#D95A2B] hover:bg-[#b8451b] text-white text-xs font-semibold rounded-md shadow-sm"
+                  >
+                    Acessar Formulário de Complemento de Dados
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* PAINEL DE ASSINATURA PARA O CLIENTE SE PENDENTE */}
-          {!jaAssinadoCliente && assinadoAdmin && (
+          {!isAguardandoDados && !jaAssinadoCliente && assinadoAdmin && (
             <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 space-y-4">
               <div className="space-y-2">
                 <span className="font-bold text-slate-900 text-xs block">

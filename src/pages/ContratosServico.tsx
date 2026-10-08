@@ -229,6 +229,7 @@ export function ContratosServicoPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os Status</SelectItem>
+              <SelectItem value="aguardando_dados_cliente">Aguardando Dados do Cliente</SelectItem>
               <SelectItem value="aguardando_assinatura_admin">
                 Aguardando Assinatura Admin
               </SelectItem>
@@ -332,17 +333,21 @@ export function ContratosServicoPage() {
                           <Badge
                             className={
                               c.status === 'assinado'
-                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                                : c.status === 'aguardando_assinatura_admin'
-                                  ? 'bg-amber-100 text-amber-800 border-amber-300'
-                                  : 'bg-blue-100 text-blue-800 border-blue-300'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold'
+                                : c.status === 'aguardando_dados_cliente'
+                                  ? 'bg-amber-100 text-amber-900 border-amber-400 font-semibold'
+                                  : c.status === 'aguardando_assinatura_admin'
+                                    ? 'bg-blue-100 text-blue-800 border-blue-300 font-semibold'
+                                    : 'bg-indigo-100 text-indigo-800 border-indigo-300 font-semibold'
                             }
                           >
                             {c.status === 'assinado'
                               ? 'Assinado e Vigente'
-                              : c.status === 'aguardando_assinatura_admin'
-                                ? 'Aguardando Admin'
-                                : 'Aguardando Cliente'}
+                              : c.status === 'aguardando_dados_cliente'
+                                ? 'Aguardando dados do cliente'
+                                : c.status === 'aguardando_assinatura_admin'
+                                  ? 'Aguardando Admin'
+                                  : 'Aguardando Cliente'}
                           </Badge>
                         </td>
 

@@ -24,6 +24,7 @@ import { ClientesPfPage } from './pages/ClientesPf'
 import { PropostasPage } from './pages/Propostas'
 import { PropostaPublicaPage } from './pages/PropostaPublica'
 import { ContratoServicoPublicoPage } from './pages/ContratoServicoPublico'
+import { ComplementoDadosClientePage } from './pages/ComplementoDadosCliente'
 import { ProjetosPage } from './pages/Projetos'
 import { ExecutoresPage } from './pages/Executores'
 import { CotacaoPublicaPage } from './pages/CotacaoPublica'
@@ -47,6 +48,9 @@ const App = () => (
 
           {/* Rota pública de aceite/recusa de proposta (Etapa 7) - sem login */}
           <Route path="/proposta/:token" element={<PropostaPublicaPage />} />
+
+          {/* Rota pública de complemento de dados cadastrais (Bloco 3) - sem login */}
+          <Route path="/completar-cadastro/:token" element={<ComplementoDadosClientePage />} />
 
           {/* Rota pública de assinatura eletrônica do Contrato de Serviços GMAIS */}
           <Route path="/contrato-servico/:token" element={<ContratoServicoPublicoPage />} />

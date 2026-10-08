@@ -628,6 +628,7 @@ export interface PropostaRecord {
 }
 
 export type StatusContratoServico =
+  | 'aguardando_dados_cliente'
   | 'aguardando_assinatura_admin'
   | 'aguardando_assinatura_cliente'
   | 'assinado'
@@ -655,6 +656,10 @@ export interface ContratoServicoRecord {
   clausulas_texto?: string
   parcelas_json?: ContratoServicoParcela[]
   status: StatusContratoServico
+  // Bloco 3: Complemento de dados
+  token_complemento_dados?: string
+  campos_faltantes_json?: string[]
+  dados_completados_em?: string
   // Assinatura Admin
   assinante_admin?: string
   data_assinatura_admin?: string

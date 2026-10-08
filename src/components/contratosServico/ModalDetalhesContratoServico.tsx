@@ -31,6 +31,8 @@ import {
 import { ContratoServicoRecord } from '@/types'
 import { DossieContratoServicoGmais } from './DossieContratoServicoGmais'
 import { ModalEnviarContratoWhatsApp } from './ModalEnviarContratoWhatsApp'
+import { ModalEnviarComplementoWhatsApp } from './ModalEnviarComplementoWhatsApp'
+import { AlertCircle } from 'lucide-react'
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
 import { contratosServicoService } from '@/services/contratosServico'
 import { useToast } from '@/hooks/use-toast'
@@ -60,6 +62,7 @@ export function ModalDetalhesContratoServico({
   const [uploadingPdf, setUploadingPdf] = useState(false)
   const [dossieOpen, setDossieOpen] = useState(false)
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false)
+  const [showComplementoWhatsAppModal, setShowComplementoWhatsAppModal] = useState(false)
 
   const loadContrato = async () => {
     if (!contratoId) return
@@ -166,7 +169,11 @@ export function ModalDetalhesContratoServico({
 
   if (!contrato) return null
 
+  const isAguardandoDados = contrato.status === 'aguardando_dados_cliente'
   const linkAssinaturaCliente = `${window.location.origin}/contrato-servico/${contrato.token_assinatura_cliente || ''}`
+  const linkComplementoDados = contrato.token_complemento_dados
+    ? `${window.location.origin}/completar-cadastro/${contrato.token_complemento_dados}`
+    : ''
 
   return (
     <Dialog
@@ -187,17 +194,21 @@ export function ModalDetalhesContratoServico({
                 <Badge
                   className={
                     contrato.status === 'assinado'
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                      : contrato.status === 'aguardando_assinatura_admin'
-                        ? 'bg-amber-100 text-amber-800 border-amber-300'
-                        : 'bg-blue-100 text-blue-800 border-blue-300'
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold'
+                      : isAguardandoDados
+                        ? 'bg-amber-100 text-amber-900 border-amber-400 font-semibold'
+                        : contrato.status === 'aguardando_assinatura_admin'
+                          ? 'bg-blue-100 text-blue-800 border-blue-300 font-semibold'
+                          : 'bg-indigo-100 text-indigo-800 border-indigo-300 font-semibold'
                   }
                 >
                   {contrato.status === 'assinado'
                     ? 'Assinado e Vigente'
-                    : contrato.status === 'aguardando_assinatura_admin'
-                      ? 'Aguardando Assinatura Admin'
-                      : 'Aguardando Assinatura Cliente'}
+                    : isAguardandoDados
+                      ? 'Aguardando dados do cliente'
+                      : contrato.status === 'aguardando_assinatura_admin'
+                        ? 'Aguardando Assinatura Admin'
+                        : 'Aguardando Assinatura Cliente'}
                 </Badge>
               </div>
               <DialogDescription className="text-xs mt-1 truncate">
@@ -217,7 +228,33 @@ export function ModalDetalhesContratoServico({
                 Imprimir / PDF Contrato
               </Button>
 
-              {contrato.token_assinatura_cliente && (
+              {isAguardandoDados && linkComplementoDados && (
+                <>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowComplementoWhatsAppModal(true)}
+                    className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-semibold shadow-xs"
+                    title="Enviar link de complemento de dados ao cliente via WhatsApp"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    WhatsApp Complemento
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    className="h-8 text-xs text-amber-800 border-amber-300 hover:bg-amber-50 gap-1 font-semibold"
+                  >
+                    <a href={linkComplementoDados} target="_blank" rel="noreferrer">
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Link Complemento
+                    </a>
+                  </Button>
+                </>
+              )}
+
+              {!isAguardandoDados && contrato.token_assinatura_cliente && (
                 <>
                   <Button
                     size="sm"
@@ -251,6 +288,51 @@ export function ModalDetalhesContratoServico({
         </DialogHeader>
 
         <div className="space-y-5 text-xs pt-2">
+          {/* Alerta de Complemento de Dados Pendente (Bloco 3) */}
+          {isAguardandoDados && (
+            <div className="p-3.5 bg-amber-50 border-2 border-amber-300 rounded-lg space-y-2">
+              <div className="flex items-center gap-2 font-bold text-amber-950 text-xs">
+                <AlertCircle className="w-4 h-4 text-amber-600" />
+                Aguardando Dados do Cliente para Geração Completa do Contrato
+              </div>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                O cliente formalizou o aceite da proposta, mas restam pendências cadastrais
+                obrigatórias (como endereço completo, documento validado ou representante legal). O
+                contrato está bloqueado para assinaturas até a complementação.
+              </p>
+              {linkComplementoDados && (
+                <div className="flex items-center gap-2 pt-1">
+                  <Input
+                    readOnly
+                    value={linkComplementoDados}
+                    className="h-7 text-[11px] font-mono bg-white border-amber-300"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs px-2 shrink-0 border-amber-300 text-amber-900 bg-amber-100/60"
+                    onClick={() => {
+                      navigator.clipboard.writeText(linkComplementoDados)
+                      toast({ title: 'Link de complemento copiado!' })
+                    }}
+                  >
+                    <Copy className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setShowComplementoWhatsAppModal(true)}
+                    className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white gap-1 shrink-0 font-semibold"
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                    WhatsApp
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Card das Partes e Valores */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-3.5 rounded-lg border">
             <div>
@@ -504,6 +586,20 @@ export function ModalDetalhesContratoServico({
           open={showWhatsAppModal}
           onOpenChange={(op) => {
             setShowWhatsAppModal(op)
+            restoreBodyPointerEvents()
+          }}
+          contrato={contrato}
+          onEnvioConcluido={() => {
+            if (onUpdated) onUpdated()
+          }}
+        />
+      )}
+
+      {showComplementoWhatsAppModal && contrato && (
+        <ModalEnviarComplementoWhatsApp
+          open={showComplementoWhatsAppModal}
+          onOpenChange={(op) => {
+            setShowComplementoWhatsAppModal(op)
             restoreBodyPointerEvents()
           }}
           contrato={contrato}

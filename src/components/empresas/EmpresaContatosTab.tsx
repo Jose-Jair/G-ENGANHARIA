@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { ContatoRecord } from '@/types'
 import { contatosService } from '@/services/contatos'
-import { formatPhoneBr, cleanPhoneForWa } from '@/lib/cnpj'
+import { formatPhoneBr, cleanPhoneForWa, isValidPhoneBr, isValidEmail } from '@/lib/cnpj'
 import { openWhatsAppWithFallback } from '@/lib/whatsapp'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   Edit,
   Trash2,
+  AlertCircle,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -58,6 +59,11 @@ export function EmpresaContatosTab({
   const [decisor, setDecisor] = useState(false)
   const [verificado, setVerificado] = useState(false)
 
+  // Validation states
+  const [emailInvalido, setEmailInvalido] = useState(false)
+  const [telefoneInvalido, setTelefoneInvalido] = useState(false)
+  const [whatsappInvalido, setWhatsappInvalido] = useState(false)
+
   // WhatsApp quick text dialog
   const [waModalOpen, setWaModalOpen] = useState(false)
   const [waTargetNumber, setWaTargetNumber] = useState('')
@@ -73,6 +79,9 @@ export function EmpresaContatosTab({
     setWhatsapp('')
     setDecisor(false)
     setVerificado(false)
+    setEmailInvalido(false)
+    setTelefoneInvalido(false)
+    setWhatsappInvalido(false)
     setModalOpen(true)
   }
 
@@ -81,11 +90,43 @@ export function EmpresaContatosTab({
     setNome(c.nome || '')
     setCargo(c.cargo || '')
     setEmail(c.email || '')
-    setTelefone(c.telefone || '')
-    setWhatsapp(c.whatsapp || '')
+    setTelefone(c.telefone ? formatPhoneBr(c.telefone, true) : '')
+    setWhatsapp(c.whatsapp ? formatPhoneBr(c.whatsapp, true) : '')
     setDecisor(!!c.decisor)
     setVerificado(!!c.verificado)
+    setEmailInvalido(false)
+    setTelefoneInvalido(false)
+    setWhatsappInvalido(false)
     setModalOpen(true)
+  }
+
+  const handleEmailChange = (val: string) => {
+    setEmail(val)
+    if (val.trim()) {
+      setEmailInvalido(!isValidEmail(val.trim()))
+    } else {
+      setEmailInvalido(false)
+    }
+  }
+
+  const handleTelefoneChange = (val: string) => {
+    const fmt = formatPhoneBr(val, true)
+    setTelefone(fmt)
+    if (fmt.trim()) {
+      setTelefoneInvalido(!isValidPhoneBr(fmt))
+    } else {
+      setTelefoneInvalido(false)
+    }
+  }
+
+  const handleWhatsappChange = (val: string) => {
+    const fmt = formatPhoneBr(val, true)
+    setWhatsapp(fmt)
+    if (fmt.trim()) {
+      setWhatsappInvalido(!isValidPhoneBr(fmt))
+    } else {
+      setWhatsappInvalido(false)
+    }
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -99,6 +140,36 @@ export function EmpresaContatosTab({
       return
     }
 
+    if (email.trim() && !isValidEmail(email.trim())) {
+      setEmailInvalido(true)
+      toast({
+        title: 'E-mail inválido',
+        description: 'Informe um endereço de e-mail válido.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (telefone.trim() && !isValidPhoneBr(telefone.trim())) {
+      setTelefoneInvalido(true)
+      toast({
+        title: 'Telefone inválido',
+        description: 'Informe um telefone brasileiro válido (+55).',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (whatsapp.trim() && !isValidPhoneBr(whatsapp.trim())) {
+      setWhatsappInvalido(true)
+      toast({
+        title: 'WhatsApp inválido',
+        description: 'Informe um número de WhatsApp brasileiro válido (+55).',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setLoading(true)
     try {
       const payload = {
@@ -106,8 +177,8 @@ export function EmpresaContatosTab({
         nome: nome.trim(),
         cargo: cargo.trim(),
         email: email.trim(),
-        telefone: telefone.trim(),
-        whatsapp: whatsapp.trim(),
+        telefone: telefone.trim() ? cleanPhoneForWa(telefone.trim()) : '',
+        whatsapp: whatsapp.trim() ? cleanPhoneForWa(whatsapp.trim()) : '',
         decisor,
         verificado,
       }
@@ -394,8 +465,15 @@ export function EmpresaContatosTab({
                 type="email"
                 placeholder="joao@empresa.com.br"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => handleEmailChange(e.target.value)}
+                className={emailInvalido ? 'border-rose-500 focus-visible:ring-rose-400' : ''}
               />
+              {emailInvalido && (
+                <p className="text-[11px] text-rose-600 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  E-mail inválido. Utilize o formato nome@dominio.com.
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -403,19 +481,33 @@ export function EmpresaContatosTab({
                 <Label htmlFor="telContato">Telefone</Label>
                 <Input
                   id="telContato"
-                  placeholder="(00) 0000-0000"
+                  placeholder="+55 (00) 0000-0000"
                   value={telefone}
-                  onChange={(e) => setTelefone(formatPhoneBr(e.target.value))}
+                  onChange={(e) => handleTelefoneChange(e.target.value)}
+                  className={telefoneInvalido ? 'border-rose-500 focus-visible:ring-rose-400' : ''}
                 />
+                {telefoneInvalido && (
+                  <p className="text-[11px] text-rose-600 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    Telefone inválido.
+                  </p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="waContato">WhatsApp (com DDD)</Label>
                 <Input
                   id="waContato"
-                  placeholder="(00) 00000-0000"
+                  placeholder="+55 (00) 00000-0000"
                   value={whatsapp}
-                  onChange={(e) => setWhatsapp(formatPhoneBr(e.target.value))}
+                  onChange={(e) => handleWhatsappChange(e.target.value)}
+                  className={whatsappInvalido ? 'border-rose-500 focus-visible:ring-rose-400' : ''}
                 />
+                {whatsappInvalido && (
+                  <p className="text-[11px] text-rose-600 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    WhatsApp inválido.
+                  </p>
+                )}
               </div>{' '}
             </div>
 
@@ -455,7 +547,7 @@ export function EmpresaContatosTab({
               </Button>
               <Button
                 type="submit"
-                disabled={loading}
+                disabled={loading || emailInvalido || telefoneInvalido || whatsappInvalido}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {loading ? 'Salvando...' : editingContato ? 'Atualizar' : 'Cadastrar'}

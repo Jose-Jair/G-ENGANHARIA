@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { CotacaoRecord } from '@/types'
 import { cotacoesService, RespostaCotacaoData } from '@/services/executores'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
+import { formatPhoneBr, isValidPhoneBr } from '@/lib/cnpj'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,6 +38,8 @@ export const CotacaoPublicaPage: React.FC = () => {
   const [precoOfertado, setPrecoOfertado] = useState('')
   const [prazoOfertado, setPrazoOfertado] = useState('')
   const [observacoes, setObservacoes] = useState('')
+  const [telefoneContato, setTelefoneContato] = useState('')
+  const [telefoneInvalido, setTelefoneInvalido] = useState(false)
 
   const carregarCotacao = async () => {
     if (!token) {
@@ -54,6 +57,9 @@ export const CotacaoPublicaPage: React.FC = () => {
         if (data.prazo_ofertado) setPrazoOfertado(data.prazo_ofertado)
         if (data.observacoes) setObservacoes(data.observacoes)
       }
+      if (data.expand?.executor?.telefone) {
+        setTelefoneContato(formatPhoneBr(data.expand.executor.telefone, true))
+      }
     } catch (err: any) {
       setErro(err.message || 'Cotação não encontrada ou link expirado.')
     } finally {
@@ -65,9 +71,29 @@ export const CotacaoPublicaPage: React.FC = () => {
     carregarCotacao()
   }, [token])
 
+  const handleTelefoneChange = (val: string) => {
+    const fmt = formatPhoneBr(val, true)
+    setTelefoneContato(fmt)
+    if (fmt.trim()) {
+      setTelefoneInvalido(!isValidPhoneBr(fmt))
+    } else {
+      setTelefoneInvalido(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!token) return
+
+    if (telefoneContato.trim() && !isValidPhoneBr(telefoneContato.trim())) {
+      setTelefoneInvalido(true)
+      toast({
+        title: 'Telefone inválido',
+        description: 'Informe um número de telefone com DDD válido (+55).',
+        variant: 'destructive',
+      })
+      return
+    }
 
     const precoNum = parseFloat(precoOfertado.replace(',', '.'))
     if (!precoNum || isNaN(precoNum) || precoNum <= 0) {
@@ -90,10 +116,18 @@ export const CotacaoPublicaPage: React.FC = () => {
 
     setSalvando(true)
     try {
+      let obsFinal = observacoes.trim()
+      if (telefoneContato.trim()) {
+        const linhaTel = `Contato/WhatsApp: ${telefoneContato.trim()}`
+        if (!obsFinal.includes(telefoneContato.trim())) {
+          obsFinal = obsFinal ? `${obsFinal}\n${linhaTel}` : linhaTel
+        }
+      }
+
       const payload: RespostaCotacaoData = {
         preco_ofertado: precoNum,
         prazo_ofertado: prazoOfertado.trim(),
-        observacoes: observacoes.trim() || undefined,
+        observacoes: obsFinal || undefined,
       }
 
       await cotacoesService.responderPorToken(token, payload)
@@ -285,6 +319,29 @@ export const CotacaoPublicaPage: React.FC = () => {
             </div>
 
             <div>
+              <Label htmlFor="telCotacao">Telefone / WhatsApp de Contato</Label>
+              <Input
+                id="telCotacao"
+                value={telefoneContato}
+                onChange={(e) => handleTelefoneChange(e.target.value)}
+                placeholder="+55 (11) 98765-4321"
+                className={`mt-1 text-sm font-mono ${
+                  telefoneInvalido ? 'border-rose-500 focus-visible:ring-rose-400' : ''
+                }`}
+              />
+              {telefoneInvalido ? (
+                <span className="text-[11px] text-rose-600 flex items-center gap-1 mt-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  Telefone inválido: utilize o formato nacional +55 (XX) XXXXX-XXXX.
+                </span>
+              ) : (
+                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  Canal direto para alinhamentos técnicos sobre a proposta.
+                </span>
+              )}
+            </div>
+
+            <div>
               <Label htmlFor="obs">Observações / Premissas da Proposta</Label>
               <Textarea
                 id="obs"
@@ -307,7 +364,7 @@ export const CotacaoPublicaPage: React.FC = () => {
             <div className="pt-2 flex justify-end">
               <Button
                 type="submit"
-                disabled={salvando}
+                disabled={salvando || telefoneInvalido}
                 className="bg-[#D95A2B] hover:bg-[#C44E22] text-white font-semibold text-xs px-6 py-2.5 h-auto shadow-sm"
               >
                 {salvando ? (

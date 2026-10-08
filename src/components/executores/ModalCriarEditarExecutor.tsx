@@ -20,8 +20,19 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { executoresService, CreateExecutorData } from '@/services/executores'
 import { TipoExecutor, ConselhoClasse, StatusExecutor, ExecutorRecord } from '@/types'
-import { isValidCpf, isValidCnpj, formatCpf, formatCnpj, cleanCpf, cleanCnpj } from '@/lib/cnpj'
-import { Loader2 } from 'lucide-react'
+import {
+  isValidCpf,
+  isValidCnpj,
+  formatCpf,
+  formatCnpj,
+  cleanCpf,
+  cleanCnpj,
+  formatPhoneBr,
+  isValidPhoneBr,
+  isValidEmail,
+  cleanPhoneForWa,
+} from '@/lib/cnpj'
+import { Loader2, AlertCircle } from 'lucide-react'
 
 interface ModalCriarEditarExecutorProps {
   open: boolean
@@ -45,6 +56,8 @@ export const ModalCriarEditarExecutor: React.FC<ModalCriarEditarExecutorProps> =
   const [cpfCnpj, setCpfCnpj] = useState('')
   const [email, setEmail] = useState('')
   const [telefone, setTelefone] = useState('')
+  const [emailInvalido, setEmailInvalido] = useState(false)
+  const [telefoneInvalido, setTelefoneInvalido] = useState(false)
   const [conselho, setConselho] = useState<ConselhoClasse>('CREA')
   const [numeroRegistro, setNumeroRegistro] = useState('')
   const [conselhoValidade, setConselhoValidade] = useState('')
@@ -63,7 +76,11 @@ export const ModalCriarEditarExecutor: React.FC<ModalCriarEditarExecutorProps> =
         setNome(executorParaEditar.nome)
         setCpfCnpj(executorParaEditar.cpf_cnpj || '')
         setEmail(executorParaEditar.email || '')
-        setTelefone(executorParaEditar.telefone || '')
+        setTelefone(
+          executorParaEditar.telefone ? formatPhoneBr(executorParaEditar.telefone, true) : '',
+        )
+        setEmailInvalido(false)
+        setTelefoneInvalido(false)
         setConselho(executorParaEditar.conselho || 'CREA')
         setNumeroRegistro(executorParaEditar.numero_registro || '')
         setConselhoValidade(
@@ -84,6 +101,8 @@ export const ModalCriarEditarExecutor: React.FC<ModalCriarEditarExecutorProps> =
         setCpfCnpj('')
         setEmail('')
         setTelefone('')
+        setEmailInvalido(false)
+        setTelefoneInvalido(false)
         setConselho('CREA')
         setNumeroRegistro('')
         setConselhoValidade('')
@@ -105,6 +124,25 @@ export const ModalCriarEditarExecutor: React.FC<ModalCriarEditarExecutorProps> =
     } else {
       const clean = cleanCnpj(val)
       setCpfCnpj(clean.length <= 14 ? formatCnpj(clean) : val)
+    }
+  }
+
+  const handleEmailChange = (val: string) => {
+    setEmail(val)
+    if (val.trim()) {
+      setEmailInvalido(!isValidEmail(val.trim()))
+    } else {
+      setEmailInvalido(false)
+    }
+  }
+
+  const handleTelefoneChange = (val: string) => {
+    const fmt = formatPhoneBr(val, true)
+    setTelefone(fmt)
+    if (fmt.trim()) {
+      setTelefoneInvalido(!isValidPhoneBr(fmt))
+    } else {
+      setTelefoneInvalido(false)
     }
   }
 
@@ -140,6 +178,28 @@ export const ModalCriarEditarExecutor: React.FC<ModalCriarEditarExecutorProps> =
       }
     }
 
+    // Validação de E-mail
+    if (email.trim() && !isValidEmail(email.trim())) {
+      setEmailInvalido(true)
+      toast({
+        title: 'E-mail Inválido',
+        description: 'Informe um endereço de e-mail válido.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Validação de Telefone
+    if (telefone.trim() && !isValidPhoneBr(telefone.trim())) {
+      setTelefoneInvalido(true)
+      toast({
+        title: 'Telefone Inválido',
+        description: 'Informe um número de telefone com DDD válido (+55).',
+        variant: 'destructive',
+      })
+      return
+    }
+
     if (status === 'suspenso' && !motivoSuspensao.trim()) {
       toast({
         title: 'Motivo obrigatório',
@@ -156,7 +216,7 @@ export const ModalCriarEditarExecutor: React.FC<ModalCriarEditarExecutorProps> =
         nome: nome.trim(),
         cpf_cnpj: cpfCnpj.trim() || undefined,
         email: email.trim() || undefined,
-        telefone: telefone.trim() || undefined,
+        telefone: telefone.trim() ? cleanPhoneForWa(telefone.trim()) : undefined,
         conselho,
         numero_registro: numeroRegistro.trim() || undefined,
         conselho_validade: conselhoValidade ? `${conselhoValidade} 23:59:59.000Z` : undefined,
@@ -264,10 +324,16 @@ export const ModalCriarEditarExecutor: React.FC<ModalCriarEditarExecutorProps> =
                 id="emailExec"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => handleEmailChange(e.target.value)}
                 placeholder="contato@executor.com.br"
-                className="mt-1"
+                className={`mt-1 ${emailInvalido ? 'border-rose-500 focus-visible:ring-rose-400' : ''}`}
               />
+              {emailInvalido && (
+                <p className="text-[11px] text-rose-600 flex items-center gap-1 mt-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  E-mail inválido.
+                </p>
+              )}
             </div>
 
             <div>
@@ -275,10 +341,16 @@ export const ModalCriarEditarExecutor: React.FC<ModalCriarEditarExecutorProps> =
               <Input
                 id="telExec"
                 value={telefone}
-                onChange={(e) => setTelefone(e.target.value)}
-                placeholder="(11) 98765-4321"
-                className="mt-1"
+                onChange={(e) => handleTelefoneChange(e.target.value)}
+                placeholder="+55 (11) 98765-4321"
+                className={`mt-1 ${telefoneInvalido ? 'border-rose-500 focus-visible:ring-rose-400' : ''}`}
               />
+              {telefoneInvalido && (
+                <p className="text-[11px] text-rose-600 flex items-center gap-1 mt-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  Telefone inválido (+55).
+                </p>
+              )}
             </div>
           </div>
 
@@ -431,7 +503,11 @@ export const ModalCriarEditarExecutor: React.FC<ModalCriarEditarExecutorProps> =
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={salvando} className="bg-blue-600 hover:bg-blue-700">
+            <Button
+              type="submit"
+              disabled={salvando || emailInvalido || telefoneInvalido}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
               {salvando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {isEditing ? 'Salvar Alterações' : 'Cadastrar Executor'}
             </Button>

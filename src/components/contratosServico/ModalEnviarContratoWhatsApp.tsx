@@ -19,16 +19,18 @@ import { auditService } from '@/services/audit'
 import { useToast } from '@/hooks/use-toast'
 import { restoreBodyPointerEvents } from '@/lib/utils'
 
-interface ModalEnviarContratoWhatsAppProps {
+export interface ModalEnviarContratoWhatsAppProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   contrato: ContratoServicoRecord | null
+  onEnvioConcluido?: () => void
 }
 
 export function ModalEnviarContratoWhatsApp({
   open,
   onOpenChange,
   contrato,
+  onEnvioConcluido,
 }: ModalEnviarContratoWhatsAppProps) {
   const { toast } = useToast()
   const [nomeDestinatario, setNomeDestinatario] = useState('')
@@ -53,7 +55,7 @@ export function ModalEnviarContratoWhatsApp({
     const buildMensagem = (nomeAlvo: string) => {
       return (
         `Olá, ${nomeAlvo || 'Cliente'}! Tudo bem?\n\n` +
-        `Segue o link oficial para assinatura digital do Contrato de Prestação de Serviços ${contrato.codigo} da G+ Engenharia:\n\n` +
+        `Segue o link oficial para assinatura digital do Contrato de Prestação de Serviços ${contrato.numero} da G+ Engenharia:\n\n` +
         `${linkAssinatura}\n\n` +
         `Por favor, acesse o link para conferir as cláusulas e registrar seu aceite formal com validade jurídica.\n\n` +
         `Qualquer dúvida estamos à inteira disposição!`
@@ -122,7 +124,7 @@ export function ModalEnviarContratoWhatsApp({
 
     const buildMsg = (nome: string) =>
       `Olá, ${nome}! Tudo bem?\n\n` +
-      `Segue o link oficial para assinatura digital do Contrato de Prestação de Serviços ${contrato.codigo} da G+ Engenharia:\n\n` +
+      `Segue o link oficial para assinatura digital do Contrato de Prestação de Serviços ${contrato.numero} da G+ Engenharia:\n\n` +
       `${linkAssinatura}\n\n` +
       `Por favor, acesse o link para conferir as cláusulas e registrar seu aceite formal com validade jurídica.\n\n` +
       `Qualquer dúvida estamos à inteira disposição!`
@@ -183,10 +185,10 @@ export function ModalEnviarContratoWhatsApp({
     try {
       await auditService.log({
         action: 'envio_whatsapp_contrato',
-        collection_name: 'contratos_servico',
-        record_id: contrato.id,
+        entity_type: 'contratos_servico',
+        entity_id: contrato.id,
         details: {
-          contrato_codigo: contrato.codigo,
+          contrato_numero: contrato.numero,
           destinatario_nome: nomeDestinatario.trim(),
           destinatario_telefone: telNormalizado,
         },
@@ -204,6 +206,9 @@ export function ModalEnviarContratoWhatsApp({
       description: `Conversa iniciada com +55 (${telNormalizado.slice(2, 4)}).`,
     })
 
+    if (onEnvioConcluido) {
+      onEnvioConcluido()
+    }
     onOpenChange(false)
     restoreBodyPointerEvents()
   }
@@ -236,7 +241,7 @@ export function ModalEnviarContratoWhatsApp({
                 Enviar Contrato via WhatsApp
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500 mt-0.5">
-                {contrato.codigo} — Link oficial para assinatura digital do cliente
+                {contrato.numero} — Link oficial para assinatura digital do cliente
               </DialogDescription>
             </div>
           </div>

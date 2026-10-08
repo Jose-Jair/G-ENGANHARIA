@@ -1,13 +1,13 @@
 import React, { useState } from 'react'
 import { TelefoneItem } from '@/types'
-import { formatPhoneBr, cleanPhoneForWa } from '@/lib/cnpj'
+import { formatPhoneBr, cleanPhoneForWa, isValidPhoneBr } from '@/lib/cnpj'
 import { openWhatsAppWithFallback } from '@/lib/whatsapp'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
-import { Phone, MessageSquare, Plus, X, PhoneCall } from 'lucide-react'
+import { Phone, MessageSquare, Plus, X, PhoneCall, AlertCircle } from 'lucide-react'
 
 export interface ListaTelefonesProps {
   telefones: TelefoneItem[]
@@ -27,22 +27,29 @@ export const ListaTelefones: React.FC<ListaTelefonesProps> = ({
   const [inputNumero, setInputNumero] = useState('')
   const [isWaAtivo, setIsWaAtivo] = useState(true)
   const [inputDesc, setInputDesc] = useState('')
+  const [numeroInvalido, setNumeroInvalido] = useState(false)
 
   const handleInputChange = (val: string) => {
-    // Aplica formatação automática em tempo real distinguindo 8 e 9 dígitos
-    setInputNumero(formatPhoneBr(val, false))
+    // Aplica formatação automática com DDI +55 em tempo real
+    const formatado = formatPhoneBr(val, true)
+    setInputNumero(formatado)
+    if (formatado) {
+      setNumeroInvalido(!isValidPhoneBr(formatado))
+    } else {
+      setNumeroInvalido(false)
+    }
   }
 
   const handleAdicionar = () => {
     if (readOnly || !onChange) return
-    const raw = inputNumero.replace(/\D/g, '')
-    // Mínimo DDD + 8 dígitos = 10 dígitos (ou com 55: 12 ou 13)
-    const rawSemDdi = raw.startsWith('55') && raw.length > 11 ? raw.slice(2) : raw
-    if (rawSemDdi.length < 10) {
+    if (!inputNumero.trim() || !isValidPhoneBr(inputNumero)) {
+      setNumeroInvalido(true)
       return
     }
 
-    const formatado = formatPhoneBr(rawSemDdi, false)
+    const raw = inputNumero.replace(/\D/g, '')
+    const rawSemDdi = raw.startsWith('55') && raw.length > 11 ? raw.slice(2) : raw
+    const formatado = formatPhoneBr(rawSemDdi, true)
 
     // Identificar tipo: celular (9 dígitos no número) vs fixo (8 dígitos no número)
     const ehCelular = rawSemDdi.length >= 11
@@ -59,6 +66,7 @@ export const ListaTelefones: React.FC<ListaTelefonesProps> = ({
     onChange([...telefones, novoItem])
     setInputNumero('')
     setInputDesc('')
+    setNumeroInvalido(false)
     setIsWaAtivo(true)
   }
 
@@ -113,8 +121,10 @@ export const ListaTelefones: React.FC<ListaTelefonesProps> = ({
                 value={inputNumero}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="(00) 00000-0000 ou (00) 0000-0000"
-                className="h-8 text-xs font-mono bg-white"
+                placeholder="+55 (00) 00000-0000"
+                className={`h-8 text-xs font-mono bg-white ${
+                  numeroInvalido ? 'border-rose-500 focus-visible:ring-rose-400' : ''
+                }`}
               />
             </div>
 
@@ -145,14 +155,22 @@ export const ListaTelefones: React.FC<ListaTelefonesProps> = ({
               type="button"
               size="sm"
               onClick={handleAdicionar}
+              disabled={numeroInvalido}
               className="h-8 text-xs bg-orange-600 hover:bg-orange-700 text-white gap-1 shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               Adicionar
             </Button>
           </div>
+          {numeroInvalido && (
+            <p className="text-[11px] text-rose-600 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              Telefone inválido: informe um DDD e número celular/fixo nacional válido (+55).
+            </p>
+          )}
           <span className="text-[10px] text-slate-400 block">
-            Pressione Enter ou clique em Adicionar após digitar o número com DDD.
+            Pressione Enter ou clique em Adicionar após digitar o número com DDD. Máscara: +55 (XX)
+            XXXXX-XXXX.
           </span>
         </div>
       )}

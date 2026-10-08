@@ -14,7 +14,15 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
 import { empresasService } from '@/services/empresas'
 import { clientesPfService } from '@/services/clientesPf'
-import { cleanCnpj, formatCnpj, cleanCpf, formatCpf, isValidCnpj, isValidCpf } from '@/lib/cnpj'
+import {
+  cleanCnpj,
+  formatCnpj,
+  cleanCpf,
+  formatCpf,
+  isValidCnpj,
+  isValidCpf,
+  isValidEmail,
+} from '@/lib/cnpj'
 import { TelefoneItem } from '@/types'
 import { ListaTelefones } from '@/components/comum/ListaTelefones'
 import { EnderecoComCep, EnderecoValue } from '@/components/comum/EnderecoComCep'
@@ -38,6 +46,8 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
   const [submitting, setSubmitting] = useState(false)
   const [cpfError, setCpfError] = useState<string | null>(null)
   const [cnpjError, setCnpjError] = useState<string | null>(null)
+  const [emailPjError, setEmailPjError] = useState<string | null>(null)
+  const [emailPfError, setEmailPfError] = useState<string | null>(null)
 
   // Formulário PJ
   const [empresaForm, setEmpresaForm] = useState({
@@ -109,6 +119,24 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
     }
   }
 
+  const handleEmailPjChange = (val: string) => {
+    setEmpresaForm((prev) => ({ ...prev, email: val }))
+    if (val.trim() && !isValidEmail(val.trim())) {
+      setEmailPjError('E-mail comercial inválido.')
+    } else {
+      setEmailPjError(null)
+    }
+  }
+
+  const handleEmailPfChange = (val: string) => {
+    setClientePfForm((prev) => ({ ...prev, email: val }))
+    if (val.trim() && !isValidEmail(val.trim())) {
+      setEmailPfError('E-mail inválido.')
+    } else {
+      setEmailPfError(null)
+    }
+  }
+
   // Abertura de cliente de e-mail padrão via mailto:
   const handleEnviarEmail = (destinatario: string) => {
     const cleanEmail = destinatario.trim()
@@ -136,6 +164,16 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
         variant: 'destructive',
         title: 'CNPJ inválido',
         description: 'Corrija os dígitos verificadores do CNPJ.',
+      })
+      return
+    }
+
+    if (empresaForm.email.trim() && !isValidEmail(empresaForm.email.trim())) {
+      setEmailPjError('E-mail comercial inválido.')
+      toast({
+        variant: 'destructive',
+        title: 'E-mail inválido',
+        description: 'Informe um e-mail comercial válido.',
       })
       return
     }
@@ -209,6 +247,15 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
         variant: 'destructive',
         title: 'CPF inválido',
         description: 'Corrija os dígitos verificadores do CPF.',
+      })
+      return
+    }
+    if (clientePfForm.email.trim() && !isValidEmail(clientePfForm.email.trim())) {
+      setEmailPfError('E-mail inválido.')
+      toast({
+        variant: 'destructive',
+        title: 'E-mail inválido',
+        description: 'Informe um endereço de e-mail válido.',
       })
       return
     }
@@ -358,16 +405,16 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
                   <Input
                     type="email"
                     value={empresaForm.email}
-                    onChange={(e) => setEmpresaForm({ ...empresaForm, email: e.target.value })}
+                    onChange={(e) => handleEmailPjChange(e.target.value)}
                     placeholder="contato@empresa.com.br"
-                    className="text-xs h-9 bg-white flex-1"
+                    className={`text-xs h-9 bg-white flex-1 ${emailPjError ? 'border-red-500' : ''}`}
                   />
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => handleEnviarEmail(empresaForm.email)}
-                    disabled={!empresaForm.email.trim()}
+                    disabled={!empresaForm.email.trim() || Boolean(emailPjError)}
                     className="h-9 px-2.5 text-xs text-blue-700 hover:bg-blue-50 border-blue-200 gap-1 shrink-0"
                     title="Abrir no cliente de e-mail padrão (mailto:)"
                   >
@@ -375,6 +422,12 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
                     <span className="hidden sm:inline">Enviar</span>
                   </Button>
                 </div>
+                {emailPjError && (
+                  <span className="text-[11px] text-red-600 flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {emailPjError}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -410,7 +463,7 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
               <Button
                 type="submit"
                 size="sm"
-                disabled={submitting || Boolean(cnpjError)}
+                disabled={submitting || Boolean(cnpjError) || Boolean(emailPjError)}
                 className="bg-orange-600 hover:bg-orange-700 text-white"
               >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
@@ -457,16 +510,16 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
                 <Input
                   type="email"
                   value={clientePfForm.email}
-                  onChange={(e) => setClientePfForm({ ...clientePfForm, email: e.target.value })}
+                  onChange={(e) => handleEmailPfChange(e.target.value)}
                   placeholder="cliente@email.com"
-                  className="text-xs h-9 bg-white flex-1"
+                  className={`text-xs h-9 bg-white flex-1 ${emailPfError ? 'border-red-500' : ''}`}
                 />
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => handleEnviarEmail(clientePfForm.email)}
-                  disabled={!clientePfForm.email.trim()}
+                  disabled={!clientePfForm.email.trim() || Boolean(emailPfError)}
                   className="h-9 px-2.5 text-xs text-blue-700 hover:bg-blue-50 border-blue-200 gap-1 shrink-0"
                   title="Abrir no cliente de e-mail padrão (mailto:)"
                 >
@@ -474,6 +527,12 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
                   <span className="hidden sm:inline">Enviar</span>
                 </Button>
               </div>
+              {emailPfError && (
+                <span className="text-[11px] text-red-600 flex items-center gap-1 mt-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {emailPfError}
+                </span>
+              )}
             </div>
 
             {/* Múltiplos Telefones (WhatsApp on/off) */}
@@ -528,7 +587,7 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
               <Button
                 type="submit"
                 size="sm"
-                disabled={submitting || Boolean(cpfError)}
+                disabled={submitting || Boolean(cpfError) || Boolean(emailPfError)}
                 className="bg-orange-600 hover:bg-orange-700 text-white"
               >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}

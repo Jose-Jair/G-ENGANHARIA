@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T00:32:14.959Z",
+  "generatedAt": "2026-10-08T00:55:28.446Z",
   "collections": [
     {
       "name": "users",
@@ -1598,9 +1598,32 @@
           "required": false,
           "system": false,
           "collectionRef": "contratos_servico"
+        },
+        {
+          "name": "grupo",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "grupos_projetos"
+        },
+        {
+          "name": "modo_execucao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["direta", "terceirizada_parcial", "terceirizada_integral"]
+        },
+        {
+          "name": "descricao_delegada",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
-      "indexes": ["CREATE INDEX idx_projetos_codigo ON projetos (codigo)"]
+      "indexes": [
+        "CREATE INDEX idx_projetos_codigo ON projetos (codigo)",
+        "CREATE INDEX `idx_projetos_grupo` ON `projetos` (grupo)"
+      ]
     },
     {
       "name": "executores",
@@ -3462,6 +3485,97 @@
         "CREATE INDEX idx_contratos_servico_proposta ON contratos_servico (proposta)",
         "CREATE INDEX idx_contratos_servico_status ON contratos_servico (status)",
         "CREATE INDEX `idx_contratos_servico_token_comp` ON `contratos_servico` (token_complemento_dados)"
+      ]
+    },
+    {
+      "name": "grupos_projetos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "codigo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "contrato_servico",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "contratos_servico"
+        },
+        {
+          "name": "proposta",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "propostas"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "cliente_pf",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "clientes_pf"
+        },
+        {
+          "name": "nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["em_contratacao", "ativo", "concluido", "cancelado"]
+        },
+        {
+          "name": "valor_total",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_grupos_projetos_codigo ON grupos_projetos (codigo)",
+        "CREATE INDEX idx_grupos_projetos_contrato ON grupos_projetos (contrato_servico)",
+        "CREATE INDEX idx_grupos_projetos_status ON grupos_projetos (status)"
       ]
     }
   ]

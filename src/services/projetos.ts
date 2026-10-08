@@ -16,6 +16,10 @@ export interface CreateProjetoData {
   disciplinas?: string
   proposta?: string
   contrato?: string
+  contrato_servico?: string
+  grupo?: string
+  modo_execucao?: import('@/types').ModoExecucaoProjeto
+  descricao_delegada?: string
   empresa?: string
   cliente_pf?: string
   valor_total?: number
@@ -50,8 +54,43 @@ export const projetosService = {
   async list(): Promise<ProjetoRecord[]> {
     return await pb.collection('projetos').getFullList<ProjetoRecord>({
       sort: '-created',
-      expand: 'empresa,cliente_pf,proposta,proposta.empresa,proposta.cliente_pf,contrato_servico',
+      expand:
+        'empresa,cliente_pf,proposta,proposta.empresa,proposta.cliente_pf,contrato_servico,grupo',
     })
+  },
+
+  async updateModoExecucao(
+    id: string,
+    modo_execucao: import('@/types').ModoExecucaoProjeto,
+    descricao_delegada?: string,
+  ): Promise<ProjetoRecord> {
+    const atual = await pb.collection('projetos').getOne<ProjetoRecord>(id)
+    const atualizado = await pb.collection('projetos').update<ProjetoRecord>(id, {
+      modo_execucao,
+      descricao_delegada: modo_execucao === 'terceirizada_parcial' ? descricao_delegada || '' : '',
+    })
+
+    try {
+      await pb.send('/backend/v1/auditoria/registrar', {
+        method: 'POST',
+        body: {
+          acao: 'ALTERACAO_MODO_EXECUCAO_PROJETO',
+          entidade: 'projetos',
+          registro_id: id,
+          detalhes: {
+            modo_anterior: atual.modo_execucao || 'direta',
+            novo_modo: modo_execucao,
+            descricao_delegada: descricao_delegada || null,
+            codigo: atualizado.codigo,
+            projeto_id: id,
+          },
+        },
+      })
+    } catch {
+      // continua
+    }
+
+    return atualizado
   },
 
   async listTodasEtapas(): Promise<ProjetoEtapaRecord[]> {

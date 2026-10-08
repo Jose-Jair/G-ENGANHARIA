@@ -717,6 +717,29 @@ export type StatusCotacao =
   | 'nao_escolhida'
   | 'recusada'
 
+export type ModoExecucaoProjeto = 'direta' | 'terceirizada_parcial' | 'terceirizada_integral'
+
+export interface GrupoProjetosRecord {
+  id: string
+  codigo: string
+  contrato_servico?: string
+  proposta?: string
+  empresa?: string
+  cliente_pf?: string
+  nome?: string
+  descricao?: string
+  status?: 'em_contratacao' | 'ativo' | 'concluido' | 'cancelado'
+  valor_total?: number
+  created: string
+  updated: string
+  expand?: {
+    contrato_servico?: ContratoServicoRecord
+    proposta?: PropostaRecord
+    empresa?: EmpresaRecord
+    cliente_pf?: ClientePfRecord
+  }
+}
+
 export interface ProjetoRecord {
   id: string
   codigo: string
@@ -726,6 +749,9 @@ export interface ProjetoRecord {
   proposta?: string
   contrato?: string
   contrato_servico?: string
+  grupo?: string
+  modo_execucao?: ModoExecucaoProjeto
+  descricao_delegada?: string
   empresa?: string
   cliente_pf?: string
   valor_total?: number
@@ -741,6 +767,7 @@ export interface ProjetoRecord {
     proposta?: PropostaRecord
     contrato?: ContratoRecord
     contrato_servico?: ContratoServicoRecord
+    grupo?: GrupoProjetosRecord
     empresa?: EmpresaRecord
     cliente_pf?: ClientePfRecord
   }

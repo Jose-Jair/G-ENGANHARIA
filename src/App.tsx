@@ -26,6 +26,7 @@ import { PropostaPublicaPage } from './pages/PropostaPublica'
 import { ContratoServicoPublicoPage } from './pages/ContratoServicoPublico'
 import { ComplementoDadosClientePage } from './pages/ComplementoDadosCliente'
 import { ProjetosPage } from './pages/Projetos'
+import { GrupoProjetosPage } from './pages/GrupoProjetos'
 import { ExecutoresPage } from './pages/Executores'
 import { CotacaoPublicaPage } from './pages/CotacaoPublica'
 import { FinanceiroPage } from './pages/Financeiro'
@@ -110,6 +111,15 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['admin', 'comercial', 'financeiro', 'gestor']}>
                   <ProjetosPage />
+                </ProtectedRoute>
+              }
+            />
+            {/* BLOCO 4: Gestão do Grupo de Projetos (Admin, Comercial, Financeiro, Gestor leem; Admin e Gestor operam) */}
+            <Route
+              path="/projetos/grupo/:id"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'comercial', 'financeiro', 'gestor']}>
+                  <GrupoProjetosPage />
                 </ProtectedRoute>
               }
             />

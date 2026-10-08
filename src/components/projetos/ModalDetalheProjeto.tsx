@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   ProjetoRecord,
   ProjetoEtapaRecord,
@@ -27,6 +28,7 @@ import {
   Loader2,
   Building2,
   UserCheck,
+  FolderKanban,
 } from 'lucide-react'
 
 import { ContratoServicoRecord } from '@/types'
@@ -55,6 +57,7 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
 }) => {
   const { user } = useAuth()
   const { toast } = useToast()
+  const navigate = useNavigate()
 
   const [carregando, setCarregando] = useState(true)
   const [projeto, setProjeto] = useState<ProjetoRecord | null>(null)
@@ -189,6 +192,21 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                           {projeto.expand.proposta.revisao || 'Rev.00'})
                         </span>
                       )}
+                      {projeto.grupo && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            onOpenChange(false)
+                            navigate(`/projetos/grupo/${projeto.grupo}`)
+                          }}
+                          className="h-6 px-2 text-[11px] bg-[#D95A2B]/20 text-orange-300 border-[#D95A2B]/50 hover:bg-[#D95A2B] hover:text-white"
+                          title="Navegar para a gestão do Grupo de Projetos"
+                        >
+                          <FolderKanban className="w-3 h-3 mr-1" />
+                          Ver Grupo
+                        </Button>
+                      )}
                       <Badge
                         variant="outline"
                         className={`text-[10px] uppercase font-bold ${
@@ -230,6 +248,22 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                           Prazo Final: {formatDateBr(projeto.prazo_final)}
                         </span>
                       ) : null}
+
+                      {projeto.modo_execucao && (
+                        <span className="flex items-center gap-1.5">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] bg-slate-800 text-slate-300 border-slate-700"
+                          >
+                            Modo:{' '}
+                            {projeto.modo_execucao === 'direta'
+                              ? 'Direta'
+                              : projeto.modo_execucao === 'terceirizada_parcial'
+                                ? 'Terc. Parcial'
+                                : 'Terc. Integral'}
+                          </Badge>
+                        </span>
+                      )}
                     </div>
                   </div>
 

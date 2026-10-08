@@ -31,7 +31,9 @@ import {
   User,
   Activity,
   FileSignature,
+  FolderKanban,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { exportService } from '@/services/exportService'
 import { formatCnpj, formatCpf } from '@/lib/cnpj'
 
@@ -55,6 +57,7 @@ interface ProjetoComEtapasCalculadas extends ProjetoRecord {
 export const ProjetosPage: React.FC = () => {
   const { user } = useAuth()
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
   const [projetos, setProjetos] = useState<ProjetoRecord[]>([])
@@ -618,6 +621,20 @@ export const ProjetosPage: React.FC = () => {
                           Origem: {prj.expand.proposta.numero}
                         </p>
                       )}
+                      {prj.grupo && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(`/projetos/grupo/${prj.grupo}`)
+                          }}
+                          className="mt-1 flex items-center gap-1 font-mono text-[10px] font-bold text-[#D95A2B] hover:underline"
+                          title="Abrir Grupo de Projetos consolidado"
+                        >
+                          <FolderKanban className="w-3 h-3 text-[#D95A2B]" />
+                          {prj.expand?.grupo?.codigo || 'Ver Grupo'}
+                        </button>
+                      )}
                     </div>
 
                     {/* Badge de Saúde com Ação */}
@@ -786,6 +803,19 @@ export const ProjetosPage: React.FC = () => {
                   )}
 
                   <div className="flex items-center gap-1.5">
+                    {prj.grupo && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate(`/projetos/grupo/${prj.grupo}`)}
+                        className="text-xs h-8 text-[#D95A2B] hover:bg-orange-50 border-orange-200"
+                        title="Ver Grupo de Projetos"
+                      >
+                        <FolderKanban className="w-3.5 h-3.5 mr-1" />
+                        Grupo
+                      </Button>
+                    )}
+
                     {canViewDossie && (
                       <Button
                         size="sm"

@@ -256,8 +256,27 @@ export default function AppLayout() {
             Navegação Principal
           </div>
 
-          {/* ETAPA 11: DASHBOARD EXECUTIVO & COMERCIAL (Admin e Comercial) */}
-          {user?.role && (user.role === 'admin' || user.role === 'comercial') ? (
+          {/* BLOCO 6: MENU PARA EXECUTOR EXTERNO */}
+          {user?.role === 'executor' ? (
+            <NavLink
+              to="/portal-executor"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <HardHat className="w-4 h-4 text-orange-300" />
+              <div className="flex items-center justify-between flex-1">
+                <span>Portal do Executor</span>
+                <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-400/30 px-1.5 py-0.2 rounded font-bold uppercase">
+                  Meu Acesso
+                </span>
+              </div>
+            </NavLink>
+          ) : user?.role && (user.role === 'admin' || user.role === 'comercial') ? (
             <NavLink
               to="/dashboard"
               className={({ isActive }) =>
@@ -290,6 +309,28 @@ export default function AppLayout() {
             >
               <Home className="w-4 h-4 text-orange-300" />
               <span>Página Inicial</span>
+            </NavLink>
+          )}
+
+          {/* Atalho ao Portal do Executor para Administradores e Gestores (Supervisão) */}
+          {(user?.role === 'admin' || user?.role === 'gestor') && (
+            <NavLink
+              to="/portal-executor"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <HardHat className="w-4 h-4 text-amber-400" />
+              <div className="flex items-center justify-between flex-1">
+                <span>Portal do Executor</span>
+                <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
+                  Visão
+                </span>
+              </div>
             </NavLink>
           )}
 

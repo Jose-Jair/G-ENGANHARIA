@@ -381,6 +381,22 @@ export const cotacoesService = {
     })
   },
 
+  // Resposta autenticada pelo executor logado no Portal do Executor
+  async responderCotacaoLogado(
+    cotacaoId: string,
+    resposta: RespostaCotacaoData,
+  ): Promise<{ success: boolean; cotacao_id: string }> {
+    return await pb.send('/backend/v1/portal-executor/responder-cotacao', {
+      method: 'POST',
+      body: {
+        cotacao_id: cotacaoId,
+        preco_ofertado: resposta.preco_ofertado,
+        prazo_ofertado: resposta.prazo_ofertado,
+        observacoes: resposta.observacoes,
+      },
+    })
+  },
+
   async delete(id: string): Promise<boolean> {
     return await pb.collection('cotacoes').delete(id)
   },

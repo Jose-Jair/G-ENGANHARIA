@@ -456,6 +456,53 @@ export function GrupoProjetosPage() {
                       </div>
                     )}
 
+                    {/* Rastreabilidade Bloco 6: Subcontratos vinculados ao projeto */}
+                    {subcontratosDoGrupo.filter((s) => s.projeto === prj.id).length > 0 && (
+                      <div className="p-2.5 bg-purple-50/70 border border-purple-200 rounded text-xs text-purple-900 space-y-1.5">
+                        <span className="text-[10px] uppercase font-bold text-purple-800 tracking-wider flex items-center gap-1">
+                          <FileSignature className="w-3.5 h-3.5 text-purple-700" />
+                          Rastreabilidade: Subcontratos Vinculados a este Projeto
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {subcontratosDoGrupo
+                            .filter((s) => s.projeto === prj.id)
+                            .map((s) => (
+                              <div
+                                key={s.id}
+                                className="bg-white px-2.5 py-1 rounded border border-purple-200 text-xs flex items-center gap-2"
+                              >
+                                <span className="font-mono font-bold text-purple-800">
+                                  {s.numero}
+                                </span>
+                                <span className="text-slate-600">
+                                  {s.expand?.executor?.nome || 'Executor'}
+                                </span>
+                                <Badge
+                                  className={
+                                    s.status === 'assinado'
+                                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]'
+                                      : 'bg-amber-100 text-amber-800 border-amber-300 text-[10px]'
+                                  }
+                                >
+                                  {s.status === 'assinado' ? 'Assinado' : 'Aguardando Assinatura'}
+                                </Badge>
+                                {s.token_assinatura && (
+                                  <a
+                                    href={`/subcontrato/${s.token_assinatura}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-purple-600 hover:text-purple-800 underline text-[11px] ml-1"
+                                    title="Abrir termo de subcontratação"
+                                  >
+                                    Ver Termo
+                                  </a>
+                                )}
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Andamento do Projeto e Métricas */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100 text-xs">
                       <div>

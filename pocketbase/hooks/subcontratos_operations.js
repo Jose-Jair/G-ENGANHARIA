@@ -844,3 +844,98 @@ routerAdd('GET', '/backend/v1/subcontratos/obter-por-token/{token}', (e) => {
     return e.json(500, { message: 'Erro interno ao buscar subcontrato: ' + err })
   }
 })
+
+// 6. Endpoint Autenticado para o Portal do Executor: Responder Cotação logado
+routerAdd(
+  'POST',
+  '/backend/v1/portal-executor/responder-cotacao',
+  (e) => {
+    try {
+      const reqInfo = e.requestInfo()
+      if (!reqInfo.auth) {
+        return e.json(401, { message: 'Autenticação necessária' })
+      }
+
+      const role = reqInfo.auth.getString('role')
+      const userEmail = reqInfo.auth.getString('email')
+
+      const body = reqInfo.body || {}
+      const cotacaoId = body.cotacao_id
+      const precoOfertado = parseFloat(body.preco_ofertado)
+      const prazoOfertado = (body.prazo_ofertado || '').trim()
+      const observacoes = (body.observacoes || '').trim()
+
+      if (!cotacaoId) {
+        return e.json(400, { message: 'ID da cotação não informado' })
+      }
+      if (isNaN(precoOfertado) || precoOfertado <= 0) {
+        return e.json(400, { message: 'Preço ofertado deve ser maior que zero' })
+      }
+      if (!prazoOfertado) {
+        return e.json(400, { message: 'Prazo ofertado é obrigatório' })
+      }
+
+      const cotacao = $app.findRecordById('cotacoes', cotacaoId)
+      if (!cotacao) {
+        return e.json(404, { message: 'Cotação não encontrada' })
+      }
+
+      // Se for perfil executor, verificar se a cotação pertence a ele
+      if (role === 'executor') {
+        const executorId = cotacao.getString('executor')
+        const execRec = $app.findRecordById('executores', executorId)
+        if (!execRec || execRec.getString('email') !== userEmail) {
+          return e.json(403, {
+            message: 'Você não tem permissão para responder esta cotação.',
+          })
+        }
+      } else if (role !== 'admin' && role !== 'gestor') {
+        return e.json(403, {
+          message: 'Perfil sem permissão para responder cotações.',
+        })
+      }
+
+      if (cotacao.getString('status') === 'escolhida' || cotacao.getBool('escolhida')) {
+        return e.json(400, {
+          message: 'Esta cotação já foi escolhida e não pode ser alterada.',
+        })
+      }
+
+      cotacao.set('preco_ofertado', precoOfertado)
+      cotacao.set('prazo_ofertado', prazoOfertado)
+      cotacao.set('observacoes', observacoes)
+      cotacao.set('status', 'respondida')
+      cotacao.set('data_resposta', new Date().toISOString())
+      $app.save(cotacao)
+
+      // Auditoria
+      try {
+        const auditCol = $app.findCollectionByNameOrId('audit_logs')
+        const aRec = new Record(auditCol)
+        aRec.set('user', reqInfo.auth.id)
+        aRec.set('user_email', userEmail)
+        aRec.set('acao', 'RESPOSTA_COTACAO_PORTAL')
+        aRec.set('entidade', 'cotacoes')
+        aRec.set('registro_id', cotacaoId)
+        aRec.set('detalhes', {
+          mensagem: 'Cotação respondida pelo executor no Portal do Executor',
+          preco_ofertado: precoOfertado,
+          prazo_ofertado: prazoOfertado,
+          observacoes: observacoes,
+        })
+        aRec.set('ip', reqInfo.remoteIP || '')
+        $app.save(aRec)
+      } catch (_) {}
+
+      return e.json(200, {
+        success: true,
+        message: 'Cotação respondida com sucesso!',
+        cotacao_id: cotacaoId,
+      })
+    } catch (err) {
+      console.log('Erro em responder-cotacao portal: ' + err)
+      return e.json(500, { message: 'Erro interno ao responder cotação: ' + err })
+    }
+  },
+  $apis.requireAuth(),
+)

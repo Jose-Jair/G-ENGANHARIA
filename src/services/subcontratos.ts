@@ -90,6 +90,15 @@ export const subcontratosService = {
     })
   },
 
+  // Consulta subcontratos do executor logado
+  async listMeusSubcontratos(executorEmail: string): Promise<SubcontratoRecord[]> {
+    return await pb.collection('subcontratos').getFullList<SubcontratoRecord>({
+      filter: `executor.email = '${executorEmail}'`,
+      sort: '-created',
+      expand: 'projeto,executor,cotacao,emitido_por,grupo,contrato_servico_origem',
+    })
+  },
+
   // Contratação do executor pelo gestor (chama endpoint REST seguro com auditoria e geração de contas)
   async contratarExecutor(payload: ContratarExecutorPayload): Promise<{
     success: boolean

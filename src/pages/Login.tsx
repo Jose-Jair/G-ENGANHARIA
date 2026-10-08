@@ -49,6 +49,7 @@ export default function LoginPage() {
   const getRedirectPath = (role: string) => {
     const from = (location.state as { from?: { pathname?: string } })?.from?.pathname
     if (from && from !== '/login') return from
+    if (role === 'executor') return '/portal-executor'
     return role === 'admin' ? '/dashboard' : '/'
   }
 

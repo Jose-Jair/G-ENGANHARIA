@@ -32,6 +32,7 @@ import { CotacaoPublicaPage } from './pages/CotacaoPublica'
 import { SubcontratoPublicoPage } from './pages/SubcontratoPublico'
 import { FinanceiroPage } from './pages/Financeiro'
 import { ManualUsoPage } from './pages/ManualUso'
+import { PortalExecutorPage } from './pages/PortalExecutor'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -72,6 +73,15 @@ const App = () => (
             }
           >
             <Route path="/" element={<IndexPage />} />
+            {/* BLOCO 6: Portal do Executor (Acesso Exclusivo para perfis Executor, com visualização para Admin/Gestor) */}
+            <Route
+              path="/portal-executor"
+              element={
+                <ProtectedRoute allowedRoles={['executor', 'admin', 'gestor']}>
+                  <PortalExecutorPage />
+                </ProtectedRoute>
+              }
+            />
             {/* ETAPA 11: Dashboard Executivo (Acesso Exclusivo do Admin) */}
             <Route
               path="dashboard"

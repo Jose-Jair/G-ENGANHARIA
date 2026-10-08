@@ -53,6 +53,11 @@ export function isValidCnpj(cnpj: string | undefined | null): boolean {
   return true
 }
 
+/**
+ * Formata um número de telefone brasileiro no formato padrão:
+ * - Sem DDI: (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
+ * - Com DDI (includeDdi: true): +55 (XX) XXXXX-XXXX ou +55 (XX) XXXX-XXXX
+ */
 export function formatPhoneBr(
   value: string | undefined | null,
   includeDdi: boolean = false,
@@ -60,13 +65,21 @@ export function formatPhoneBr(
   if (!value) return ''
   let clean = value.replace(/\D/g, '')
   if (!clean) return ''
-  // Se começar com 55 (DDI Brasil) e tiver mais de 11 dígitos, remove para formatar DDD + número
+
+  // Se começar com 55 (DDI Brasil) e tiver 12 ou 13 dígitos, remove os 2 primeiros dígitos de DDI para formatar
   if (clean.length > 11 && clean.startsWith('55')) {
     clean = clean.slice(2)
   }
 
+  // Limitar aos 11 dígitos (DDD + 9 dígitos) para não estourar a máscara
+  if (clean.length > 11) {
+    clean = clean.slice(0, 11)
+  }
+
   let formatted = clean
-  if (clean.length <= 2) {
+  if (clean.length === 0) {
+    formatted = ''
+  } else if (clean.length <= 2) {
     formatted = `(${clean}`
   } else if (clean.length <= 6) {
     formatted = `(${clean.slice(0, 2)}) ${clean.slice(2)}`
@@ -78,25 +91,108 @@ export function formatPhoneBr(
     formatted = `(${clean.slice(0, 2)}) ${clean.slice(2, 7)}-${clean.slice(7, 11)}`
   }
 
-  if (includeDdi) {
+  if (includeDdi && formatted) {
     return `+55 ${formatted}`
   }
   return formatted
 }
 
+/**
+ * Validação rigorosa de número de telefone brasileiro:
+ * - Deve conter DDD válido (11 a 99)
+ * - Deve ter 10 dígitos (fixo: 2-5 no primeiro dígito do número) ou 11 dígitos (celular: 9 no primeiro dígito do número)
+ * - Aceita tanto com DDI 55 quanto sem DDI
+ */
+export function isValidPhoneBr(value: string | undefined | null): boolean {
+  if (!value) return false
+  let clean = value.replace(/\D/g, '')
+  if (!clean) return false
+
+  // Se tiver 12 ou 13 dígitos e começar com 55, extrai os 10 ou 11 dígitos sem DDI
+  if (clean.startsWith('55') && (clean.length === 12 || clean.length === 13)) {
+    clean = clean.slice(2)
+  }
+
+  if (clean.length !== 10 && clean.length !== 11) {
+    return false
+  }
+
+  // DDDs válidos no Brasil (11 a 99 com exceções conhecidas de números inexistentes como 20, 23, etc.)
+  const ddd = parseInt(clean.slice(0, 2), 10)
+  const dddsValidos = new Set([
+    11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 24, 27, 28, 31, 32, 33, 34, 35, 37, 38, 41, 42, 43,
+    44, 45, 46, 47, 48, 49, 51, 53, 54, 55, 61, 62, 63, 64, 65, 66, 67, 68, 69, 71, 73, 74, 75, 77,
+    79, 81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 92, 93, 94, 95, 96, 97, 98, 99,
+  ])
+
+  if (!dddsValidos.has(ddd)) {
+    return false
+  }
+
+  // Rejeita sequências repetidas óbvias (ex: 11111111111, 0000000000)
+  if (/^(\d)\1+$/.test(clean)) {
+    return false
+  }
+
+  // Celular (11 dígitos): o nono dígito (primeiro após o DDD) deve ser 9
+  if (clean.length === 11) {
+    const primeiroDigito = clean.charAt(2)
+    if (primeiroDigito !== '9') return false
+  }
+
+  // Fixo (10 dígitos): primeiro dígito costuma ser 2, 3, 4 ou 5
+  if (clean.length === 10) {
+    const primeiroDigito = clean.charAt(2)
+    if (!['2', '3', '4', '5'].includes(primeiroDigito)) return false
+  }
+
+  return true
+}
+
+/**
+ * Normaliza o telefone para o padrão wa.me e banco de dados: apenas dígitos com DDI 55.
+ * Exemplo: "(11) 98765-4321" -> "5511987654321"
+ * Exemplo: "+55 (88) 99944-1685" -> "5588999441685"
+ */
 export function cleanPhoneForWa(value: string | undefined | null): string {
   if (!value) return ''
   let clean = value.replace(/\D/g, '')
   if (!clean) return ''
-  // Se já começa com 55 e possui 12 ou 13 dígitos (+55 DD 9XXXX-XXXX ou +55 DD XXXX-XXXX)
+
+  // Se já começa com 55 e possui 12 ou 13 dígitos
   if (clean.startsWith('55') && (clean.length === 12 || clean.length === 13)) {
     return clean
   }
   // Se não tem DDI 55, adiciona caso tenha 10 ou 11 dígitos
   if (clean.length === 10 || clean.length === 11) {
-    clean = '55' + clean
+    return '55' + clean
   }
   return clean
+}
+
+/**
+ * Validação rigorosa de e-mail (RFC 5322 simplificada, rejeita espaços, requer domínio e TLD válidos)
+ */
+export function isValidEmail(value: string | undefined | null): boolean {
+  if (!value) return false
+  const trimmed = value.trim()
+  if (!trimmed || trimmed.length > 254) return false
+
+  // Regex estrita de e-mail com TLD de pelo menos 2 caracteres
+  const emailRegex =
+    /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/
+  if (!emailRegex.test(trimmed)) return false
+
+  // Domínio deve conter pelo menos um ponto e TLD de no mínimo 2 letras
+  const parts = trimmed.split('@')
+  if (parts.length !== 2) return false
+  const domain = parts[1]
+  const domainParts = domain.split('.')
+  if (domainParts.length < 2) return false
+  const tld = domainParts[domainParts.length - 1]
+  if (tld.length < 2) return false
+
+  return true
 }
 
 /**

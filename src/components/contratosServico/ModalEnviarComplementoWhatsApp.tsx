@@ -16,7 +16,8 @@ import { useToast } from '@/hooks/use-toast'
 import { ContratoServicoRecord } from '@/types'
 import { contratosServicoService } from '@/services/contratosServico'
 import { parametrosService } from '@/services/parametros'
-import { cleanPhoneForWa, formatPhoneBr } from '@/lib/cnpj'
+import { cleanPhoneForWa, formatPhoneBr, isValidPhoneBr } from '@/lib/cnpj'
+import { AlertCircle } from 'lucide-react'
 
 export interface ModalEnviarComplementoWhatsAppProps {
   open: boolean
@@ -71,10 +72,23 @@ export function ModalEnviarComplementoWhatsApp({
       const wpp = telefones.find((t: any) => t.whatsapp)?.numero || telefones[0]?.numero
       tel = wpp || pf.telefone || ''
     }
-    setTelefone(tel)
+    setTelefone(tel ? formatPhoneBr(tel, true) : '')
+    setTelefoneError(null)
 
     carregarTextoPadrao(nome)
   }, [open, contrato])
+
+  const [telefoneError, setTelefoneError] = useState<string | null>(null)
+
+  const handleTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fmt = formatPhoneBr(e.target.value, true)
+    setTelefone(fmt)
+    if (fmt && !isValidPhoneBr(fmt)) {
+      setTelefoneError('Número inválido: informe DDD (2 dígitos) e número com 8 ou 9 dígitos.')
+    } else {
+      setTelefoneError(null)
+    }
+  }
 
   const carregarTextoPadrao = async (nomeAlvo: string) => {
     setLoadingTexto(true)
@@ -106,11 +120,21 @@ export function ModalEnviarComplementoWhatsApp({
   }
 
   const handleEnviar = async () => {
-    const rawPhone = cleanPhoneForWa(telefone)
-    if (!rawPhone || rawPhone.length < 10) {
+    if (!telefone.trim() || !isValidPhoneBr(telefone)) {
+      setTelefoneError('Número de WhatsApp inválido. Formato exigido: +55 (XX) XXXXX-XXXX.')
       toast({
         title: 'Telefone inválido',
-        description: 'Informe um número de telefone com DDD válido para envio via WhatsApp.',
+        description: 'Informe um número de WhatsApp com DDD válido e máscara +55.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const rawPhone = cleanPhoneForWa(telefone)
+    if (!rawPhone || rawPhone.length < 12) {
+      toast({
+        title: 'Telefone incompleto',
+        description: 'O número de telefone não pôde ser normalizado para o WhatsApp.',
         variant: 'destructive',
       })
       return
@@ -192,13 +216,21 @@ export function ModalEnviarComplementoWhatsApp({
             </div>
 
             <div className="space-y-1">
-              <Label className="text-[11px] text-slate-600">Telefone WhatsApp (com DDD):</Label>
+              <Label className="text-[11px] text-slate-600">Telefone WhatsApp (máscara +55):</Label>
               <Input
                 value={telefone}
-                onChange={(e) => setTelefone(formatPhoneBr(e.target.value))}
-                placeholder="(11) 99999-9999"
-                className="h-8 text-xs font-mono bg-white"
+                onChange={handleTelefoneChange}
+                placeholder="+55 (11) 98765-4321"
+                className={`h-8 text-xs font-mono bg-white ${
+                  telefoneError ? 'border-red-500 focus-visible:ring-red-400' : ''
+                }`}
               />
+              {telefoneError && (
+                <span className="text-[11px] text-red-600 flex items-center gap-1 mt-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {telefoneError}
+                </span>
+              )}
             </div>
           </div>
 

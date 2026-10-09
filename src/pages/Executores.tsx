@@ -49,7 +49,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ModalCriarEditarExecutor } from '@/components/executores/ModalCriarEditarExecutor'
 import { ModalSuspenderExecutor } from '@/components/executores/ModalSuspenderExecutor'
 import { ModalHistoricoAvaliacoes } from '@/components/executores/ModalHistoricoAvaliacoes'
+import { ModalHistoricoAvaliacoesExecutor } from '@/components/executores/ModalHistoricoAvaliacoesExecutor'
 import { ModalConvidarExecutor } from '@/components/executores/ModalConvidarExecutor'
+import { avaliacoesExecutorService } from '@/services/avaliacoesExecutor'
+import type { AvaliacaoExecutorRecord } from '@/services/avaliacoesExecutor'
 
 import { useSearchParams } from 'react-router-dom'
 
@@ -90,6 +93,11 @@ export const ExecutoresPage: React.FC = () => {
   const [modalConvidarOpen, setModalConvidarOpen] = useState(false)
   const [homologandoId, setHomologandoId] = useState<string | null>(null)
 
+  // Avaliações de execução (coleção nova avaliacoes_executor) para badge de atenção e histórico
+  const [avaliacoesExecucao, setAvaliacoesExecucao] = useState<AvaliacaoExecutorRecord[]>([])
+
+  const [modalHistoricoExecOpen, setModalHistoricoExecOpen] = useState(false)
+
   const canEdit = !!(user && (user.role === 'admin' || user.role === 'gestor'))
   const canConvidar = !!(user && (user.role === 'admin' || user.role === 'comercial'))
   const canHomologar = !!(user && user.role === 'admin')
@@ -122,6 +130,20 @@ export const ExecutoresPage: React.FC = () => {
 
   useEffect(() => {
     carregarDados()
+  }, [])
+
+  // Carrega as avaliações de execução (coleção nova) — quem não tem permissão de leitura simplesmente não as vê
+  useEffect(() => {
+    let ativo = true
+    avaliacoesExecutorService
+      .listAll()
+      .then((avs) => {
+        if (ativo) setAvaliacoesExecucao(avs)
+      })
+      .catch(() => {})
+    return () => {
+      ativo = false
+    }
   }, [])
 
   // Homologação de executor com rota dedicada e auditoria HOMOLOGAR_EXECUTOR
@@ -258,6 +280,17 @@ export const ExecutoresPage: React.FC = () => {
     (e) => e.capacidadeLivre > 0 && e.status !== 'suspenso',
   ).length
   const countBaixaNota = executores.filter((e) => e.isAbaixoNotaCorte).length
+
+  // Contagem de avaliações de execução (coleção nova) por executor
+  const countAvaliacoesExecucao = (executorId: string): number =>
+    avaliacoesExecucao.filter((a) => a.executor === executorId).length
+
+  // Badge de atenção: indica desvios consistentes de comportamento para o gestor.
+  // INDICATIVO APENAS — a suspensão continua sendo decisão manual do Admin.
+  const isExecutorEmAtencao = (ex: ExecutorComMetricas): boolean => {
+    const total = ex.total_avaliacoes || 0
+    return !!(ex.nota_geral && total >= 2 && ex.nota_geral < 3.0)
+  }
 
   return (
     <div className="space-y-6">
@@ -653,6 +686,21 @@ export const ExecutoresPage: React.FC = () => {
                             </span>
                           </div>
                         )}
+
+                        {isExecutorEmAtencao(ex) && (
+                          <div
+                            className="p-2 bg-rose-100/70 border border-rose-200 rounded text-[11px] text-rose-900 flex items-center gap-1.5"
+                            title="Indicativo de desvio consistente de comportamento — a suspensão continua sendo decisão manual do Admin"
+                          >
+                            <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                            <span>
+                              <strong>Executor em atenção:</strong> nota média{' '}
+                              {ex.nota_geral?.toFixed(2)} em {ex.total_avaliacoes} avaliação(ões) —
+                              abaixo de 3,0. Indicativo apenas: avalie antes de novos contratos
+                              (suspensão manual do Admin).
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Bloco de Desempenho com Seta de Tendência e Nota Geral */}
@@ -830,7 +878,21 @@ export const ExecutoresPage: React.FC = () => {
 
                     {/* Rodapé e Ações */}
                     <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-1">
-                      <div>
+                      <div className="flex items-center gap-2">
+                        {countAvaliacoesExecucao(ex.id) > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setExecutorHistorico(ex)
+                              setModalHistoricoExecOpen(true)
+                            }}
+                            className="text-[11px] text-[#D95A2B] hover:text-[#C44E22] flex items-center gap-1 font-medium"
+                            title="Ver histórico de avaliações de execução (por subcontrato)"
+                          >
+                            <Award className="w-3.5 h-3.5" />
+                            Avaliações de Execução ({countAvaliacoesExecucao(ex.id)})
+                          </button>
+                        )}
                         {ndaUrl && (
                           <a
                             href={ndaUrl}
@@ -843,7 +905,6 @@ export const ExecutoresPage: React.FC = () => {
                           </a>
                         )}
                       </div>
-
                       {canEdit && (
                         <div className="flex items-center gap-1">
                           {ex.status === 'homologacao' && canHomologar && (

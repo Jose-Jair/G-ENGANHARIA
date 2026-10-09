@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -11,8 +11,10 @@ import {
 } from '@/components/ui/table'
 import { MedicaoRecord, SubcontratoRecord } from '@/types'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
+import { AvaliacaoExecutorRecord, avaliacoesExecutorService } from '@/services/avaliacoesExecutor'
 import { ModalNovaMedicao } from './ModalNovaMedicao'
 import { ModalDetalhesMedicao } from './ModalDetalhesMedicao'
+import { ModalAvaliarExecutorSubcontrato } from './ModalAvaliarExecutorSubcontrato'
 import {
   Plus,
   FileCheck2,
@@ -23,6 +25,7 @@ import {
   Clock,
   DollarSign,
   TrendingUp,
+  Award,
 } from 'lucide-react'
 
 interface MedicoesTabProps {
@@ -34,7 +37,7 @@ interface MedicoesTabProps {
 }
 
 export function MedicoesTab({
-  projetoId: _projetoId,
+  projetoId,
   subcontratos,
   medicoes,
   canManage,
@@ -43,6 +46,11 @@ export function MedicoesTab({
   const [modalNovaOpen, setModalNovaOpen] = useState(false)
   const [modalDetalhesOpen, setModalDetalhesOpen] = useState(false)
   const [medicaoSelecionada, setMedicaoSelecionada] = useState<MedicaoRecord | null>(null)
+
+  // Avaliações de executor (coleção nova avaliacoes_executor) do projeto
+  const [avaliacoesExecutor, setAvaliacoesExecutor] = useState<AvaliacaoExecutorRecord[]>([])
+  const [modalAvaliarOpen, setModalAvaliarOpen] = useState(false)
+  const [subcontratoAvaliar, setSubcontratoAvaliar] = useState<SubcontratoRecord | null>(null)
 
   // Subcontratos assinados disponíveis
   const subcontratosAssinados = subcontratos.filter((s) => s.status === 'assinado')
@@ -57,6 +65,33 @@ export function MedicoesTab({
     .reduce((acc, m) => acc + (m.valor_liquido || 0), 0)
 
   const totalPendente = medicoes.filter((m) => m.status === 'apresentada').length
+
+  // Carrega as avaliações de executor já registradas para saber quais subcontratos já foram avaliados
+  useEffect(() => {
+    let ativo = true
+    avaliacoesExecutorService
+      .listByProjeto(projetoId)
+      .then((avs) => {
+        if (ativo) setAvaliacoesExecutor(avs)
+      })
+      .catch(() => {})
+    return () => {
+      ativo = false
+    }
+  }, [projetoId, medicoes])
+
+  // Avaliação do executor está habilitada quando: subcontrato assinado + TODAS as
+  // medições (exceto reprovadas) pagas + subcontrato ainda sem avaliação (índice único).
+  const podeAvaliarSubcontrato = (sub: SubcontratoRecord): boolean => {
+    if (sub.status !== 'assinado') return false
+    if (avaliacoesExecutor.some((a) => a.subcontrato === sub.id)) return false
+    const medicoesSub = medicoes.filter((m) => m.subcontrato === sub.id)
+    if (medicoesSub.length === 0) return false
+    return medicoesSub.filter((m) => m.status !== 'reprovada').every((m) => m.status === 'paga')
+  }
+
+  // Subcontratos elegíveis para avaliação (assinado + tudo pago + sem avaliação)
+  const subcontratosAvaliaveis = subcontratosAssinados.filter((s) => podeAvaliarSubcontrato(s))
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -149,17 +184,43 @@ export function MedicoesTab({
           </p>
         </div>
 
-        {canManage && (
-          <Button
-            size="sm"
-            onClick={() => setModalNovaOpen(true)}
-            disabled={subcontratosAssinados.length === 0}
-            className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs h-8 font-semibold shadow-xs shrink-0"
-          >
-            <Plus className="w-3.5 h-3.5 mr-1" />
-            Nova Medição
-          </Button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {canManage && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={subcontratosAvaliaveis.length === 0}
+              onClick={() => {
+                const sub = subcontratosAvaliaveis[0]
+                if (sub) {
+                  setSubcontratoAvaliar(sub)
+                  setModalAvaliarOpen(true)
+                }
+              }}
+              title={
+                subcontratosAvaliaveis.length === 0
+                  ? 'Disponível quando o subcontrato está assinado e todas as medições (exceto reprovadas) estão pagas'
+                  : 'Registrar avaliação final do executor deste subcontrato'
+              }
+              className="border-amber-300 text-amber-800 hover:bg-amber-50 text-xs h-8 font-semibold shadow-xs"
+            >
+              <Award className="w-3.5 h-3.5 mr-1" />
+              Avaliar Executor
+            </Button>
+          )}
+
+          {canManage && (
+            <Button
+              size="sm"
+              onClick={() => setModalNovaOpen(true)}
+              disabled={subcontratosAssinados.length === 0}
+              className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs h-8 font-semibold shadow-xs shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              Nova Medição
+            </Button>
+          )}
+        </div>
       </div>
 
       {subcontratosAssinados.length === 0 && (
@@ -295,6 +356,22 @@ export function MedicoesTab({
         medicao={medicaoSelecionada}
         canApprove={canManage}
         onSuccess={() => {
+          onRefresh()
+        }}
+      />
+
+      <ModalAvaliarExecutorSubcontrato
+        open={modalAvaliarOpen}
+        onOpenChange={setModalAvaliarOpen}
+        subcontrato={subcontratoAvaliar}
+        medicoes={
+          subcontratoAvaliar ? medicoes.filter((m) => m.subcontrato === subcontratoAvaliar.id) : []
+        }
+        onSuccess={() => {
+          avaliacoesExecutorService
+            .listByProjeto(projetoId)
+            .then((avs) => setAvaliacoesExecutor(avs))
+            .catch(() => {})
           onRefresh()
         }}
       />

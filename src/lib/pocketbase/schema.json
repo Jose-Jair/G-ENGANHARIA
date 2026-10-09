@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T21:21:50.230Z",
+  "generatedAt": "2026-10-09T22:15:07.571Z",
   "collections": [
     {
       "name": "users",
@@ -3994,6 +3994,114 @@
         "CREATE INDEX idx_medicoes_projeto ON medicoes (projeto)",
         "CREATE INDEX idx_medicoes_executor ON medicoes (executor)",
         "CREATE INDEX idx_medicoes_status ON medicoes (status)"
+      ]
+    },
+    {
+      "name": "avaliacoes_executor",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial')",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "numero",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "subcontrato",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "subcontratos"
+        },
+        {
+          "name": "projeto",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "projetos"
+        },
+        {
+          "name": "executor",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "executores"
+        },
+        {
+          "name": "avaliado_por",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "data_avaliacao",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "nota_prazo",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "nota_qualidade",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "nota_comunicacao",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "nota_ponderada",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "comentarios",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "anexos",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_avaliacoes_executor_subcontrato ON avaliacoes_executor (subcontrato)",
+        "CREATE INDEX idx_avaliacoes_executor_executor ON avaliacoes_executor (executor)",
+        "CREATE INDEX idx_avaliacoes_executor_projeto ON avaliacoes_executor (projeto)"
       ]
     }
   ]

@@ -41,6 +41,8 @@ import { ModalDetalheProjeto } from '@/components/projetos/ModalDetalheProjeto'
 import { ModalCriarProjeto } from '@/components/projetos/ModalCriarProjeto'
 import { ModalSaudeProjeto } from '@/components/projetos/ModalSaudeProjeto'
 import { ModalDossieProjeto } from '@/components/projetos/ModalDossieProjeto'
+import { CardAlertaStandbyProjeto } from '@/components/projetos/CardAlertaStandbyProjeto'
+import { ModalDefinirModoExecucao } from '@/components/projetos/ModalDefinirModoExecucao'
 
 import { useSearchParams } from 'react-router-dom'
 
@@ -85,6 +87,9 @@ export const ProjetosPage: React.FC = () => {
 
   const [modalDossieCardOpen, setModalDossieCardOpen] = useState(false)
   const [projetoDossieCardId, setProjetoDossieCardId] = useState<string | null>(null)
+
+  const [modalDefinirModoOpen, setModalDefinirModoOpen] = useState(false)
+  const [projetoDefinirModo, setProjetoDefinirModo] = useState<ProjetoRecord | null>(null)
 
   const canCreate = !!(user && (user.role === 'admin' || user.role === 'gestor'))
   const canViewDossie = !!(
@@ -239,6 +244,11 @@ export const ProjetosPage: React.FC = () => {
     filtroExecutor,
     filtroPeriodo,
   ])
+
+  // Projetos em Standby (aguardando_definicao)
+  const projetosEmStandby = useMemo(() => {
+    return projetos.filter((p) => p.status === 'aguardando_definicao')
+  }, [projetos])
 
   // Contadores e métricas de portfólio por saúde
   const metricasPortfolio = useMemo(() => {
@@ -467,6 +477,23 @@ export const ProjetosPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Banner de Projetos em Standby (Grupo D) */}
+      {projetosEmStandby.length > 0 && (
+        <div className="space-y-3">
+          {projetosEmStandby.map((prj) => (
+            <CardAlertaStandbyProjeto
+              key={`standby-banner-${prj.id}`}
+              projeto={prj}
+              userRole={user?.role}
+              onDefinirModo={() => {
+                setProjetoDefinirModo(prj)
+                setModalDefinirModoOpen(true)
+              }}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Barra de Filtros Completos: Saúde, Disciplina, Executor, Período e Busca */}
       <div className="p-4 bg-white border border-slate-200 rounded-lg shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row items-center justify-between gap-3">
@@ -545,10 +572,13 @@ export const ProjetosPage: React.FC = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos os Status</SelectItem>
+                <SelectItem value="aguardando_definicao">
+                  ⏳ Em Standby (Aguardando Definição)
+                </SelectItem>
                 <SelectItem value="contratacao">📝 Em Contratação (Assinatura Pendente)</SelectItem>
                 <SelectItem value="em_andamento">🚀 Em Andamento</SelectItem>
                 <SelectItem value="concluido">✅ Concluído</SelectItem>
-                <SelectItem value="cancelado">❌ Cancelado</SelectItem>
+                <SelectItem value="cancelado">❌ Cancelado</SelectItem>{' '}
               </SelectContent>
             </Select>
           </div>
@@ -616,6 +646,11 @@ export const ProjetosPage: React.FC = () => {
                       <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                         {prj.codigo}
                       </span>
+                      {prj.status === 'aguardando_definicao' && (
+                        <Badge className="ml-1.5 bg-[#D95A2B] text-white text-[9px] font-bold">
+                          STANDBY
+                        </Badge>
+                      )}{' '}
                       {prj.expand?.proposta && (
                         <p className="text-[10px] font-mono text-slate-400 mt-1">
                           Origem: {prj.expand.proposta.numero}
@@ -670,10 +705,23 @@ export const ProjetosPage: React.FC = () => {
                     </button>
                   </div>
 
+                  {prj.status === 'aguardando_definicao' && (
+                    <div className="mt-2.5">
+                      <CardAlertaStandbyProjeto
+                        projeto={prj}
+                        userRole={user?.role}
+                        compacto
+                        onDefinirModo={() => {
+                          setProjetoDefinirModo(prj)
+                          setModalDefinirModoOpen(true)
+                        }}
+                      />
+                    </div>
+                  )}
+
                   <h3 className="font-bold text-sm text-slate-900 mt-3 line-clamp-2">
                     {prj.nome || `Projeto ${prj.codigo}`}
                   </h3>
-
                   {prj.justificativa_saude && (
                     <p className="text-[11px] text-slate-500 italic mt-1 line-clamp-1">
                       "{prj.justificativa_saude}"
@@ -781,7 +829,15 @@ export const ProjetosPage: React.FC = () => {
 
                 {/* Botão para Abrir Detalhe com as Abas */}
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  {prj.status === 'contratacao' ? (
+                  {prj.status === 'aguardando_definicao' ? (
+                    <Badge
+                      className="text-[10px] uppercase font-bold bg-orange-100 text-orange-900 border-orange-300 hover:bg-orange-100 flex items-center gap-1"
+                      title="Projeto aguardando definição de execução (direta ou cotação)"
+                    >
+                      <Clock className="w-3 h-3 text-[#D95A2B]" />
+                      Aguardando Definição
+                    </Badge>
+                  ) : prj.status === 'contratacao' ? (
                     <Badge
                       className="text-[10px] uppercase font-bold bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-100 flex items-center gap-1"
                       title="Projeto aguardando assinatura bilateral do contrato de serviços"
@@ -801,7 +857,6 @@ export const ProjetosPage: React.FC = () => {
                       {prj.status === 'concluido' ? 'Concluído' : prj.status || 'Em Andamento'}
                     </Badge>
                   )}
-
                   <div className="flex items-center gap-1.5">
                     {prj.grupo && (
                       <Button
@@ -887,6 +942,14 @@ export const ProjetosPage: React.FC = () => {
         open={modalDossieCardOpen}
         onOpenChange={setModalDossieCardOpen}
         projetoId={projetoDossieCardId}
+      />
+
+      {/* Modal Definir Modo de Execução (Grupo D) */}
+      <ModalDefinirModoExecucao
+        open={modalDefinirModoOpen}
+        onOpenChange={setModalDefinirModoOpen}
+        projeto={projetoDefinirModo}
+        onSuccess={carregarProjetos}
       />
     </div>
   )

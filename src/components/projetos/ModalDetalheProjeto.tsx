@@ -52,6 +52,8 @@ import { ModalCotacoesProjeto } from './ModalCotacoesProjeto'
 import { MessageSquareQuote } from 'lucide-react'
 import { ModalAvaliacaoExecutor } from './ModalAvaliacaoExecutor'
 import { ModalDossieProjeto } from './ModalDossieProjeto'
+import { CardAlertaStandbyProjeto } from './CardAlertaStandbyProjeto'
+import { ModalDefinirModoExecucao } from './ModalDefinirModoExecucao'
 
 interface ModalDetalheProjetoProps {
   open: boolean
@@ -85,6 +87,7 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
   const [modalCotacoesOpen, setModalCotacoesOpen] = useState(false)
   const [modalCotacoesProjetoOpen, setModalCotacoesProjetoOpen] = useState(false)
   const [modalDossieOpen, setModalDossieOpen] = useState(false)
+  const [modalDefinirModoOpen, setModalDefinirModoOpen] = useState(false)
   const [etapaCotacaoSelecionada, setEtapaCotacaoSelecionada] = useState<ProjetoEtapaRecord | null>(
     null,
   )
@@ -312,19 +315,23 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                       <Badge
                         variant="outline"
                         className={`text-[10px] uppercase font-bold ${
-                          projeto.status === 'contratacao'
-                            ? 'bg-amber-950 text-amber-300 border-amber-700'
-                            : projeto.status === 'concluido'
-                              ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
-                              : 'bg-blue-950 text-blue-400 border-blue-800'
+                          projeto.status === 'aguardando_definicao'
+                            ? 'bg-orange-950 text-orange-300 border-orange-700'
+                            : projeto.status === 'contratacao'
+                              ? 'bg-amber-950 text-amber-300 border-amber-700'
+                              : projeto.status === 'concluido'
+                                ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
+                                : 'bg-blue-950 text-blue-400 border-blue-800'
                         }`}
                       >
-                        {projeto.status === 'contratacao'
-                          ? 'Em Contratação'
-                          : projeto.status === 'concluido'
-                            ? 'Concluído'
-                            : projeto.status || 'Em Andamento'}
-                      </Badge>
+                        {projeto.status === 'aguardando_definicao'
+                          ? 'Aguardando Definição'
+                          : projeto.status === 'contratacao'
+                            ? 'Em Contratação'
+                            : projeto.status === 'concluido'
+                              ? 'Concluído'
+                              : projeto.status || 'Em Andamento'}
+                      </Badge>{' '}
                     </div>
 
                     <h2 className="text-xl font-bold text-white mt-1">
@@ -402,6 +409,19 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                     )}
 
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap justify-end">
+                      {/* Botão Definir Modo se em Standby */}
+                      {projeto.status === 'aguardando_definicao' && canEdit && (
+                        <Button
+                          size="sm"
+                          onClick={() => setModalDefinirModoOpen(true)}
+                          className="text-[11px] bg-[#D95A2B] hover:bg-[#C44E22] text-white h-6 px-2.5 shadow-xs font-semibold animate-pulse"
+                          title="Definir modo de execução (Execução direta ou Cotação)"
+                        >
+                          <FolderKanban className="w-3 h-3 mr-1" />
+                          Definir Execução
+                        </Button>
+                      )}
+
                       {/* Botão Cotações do Projeto (Bloco 5) */}
                       <Button
                         size="sm"
@@ -440,6 +460,17 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Card de Alerta Standby (Grupo D) em destaque */}
+              {projeto.status === 'aguardando_definicao' && (
+                <div className="p-4 bg-orange-100/60 border-b border-orange-200">
+                  <CardAlertaStandbyProjeto
+                    projeto={projeto}
+                    userRole={user?.role}
+                    onDefinirModo={() => setModalDefinirModoOpen(true)}
+                  />
+                </div>
+              )}
 
               {/* Painel Consolidado de Performance do Projeto (Objetivo 2) */}
               <div className="p-4 bg-slate-100 border-b border-slate-200">
@@ -718,6 +749,19 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
         onOpenChange={setModalDossieOpen}
         projetoId={projetoId}
       />
+
+      {/* Modal Definir Modo de Execução (Grupo D) */}
+      {projeto && (
+        <ModalDefinirModoExecucao
+          open={modalDefinirModoOpen}
+          onOpenChange={setModalDefinirModoOpen}
+          projeto={projeto}
+          onSuccess={() => {
+            carregarDadosCompletos()
+            onUpdate()
+          }}
+        />
+      )}
     </>
   )
 }

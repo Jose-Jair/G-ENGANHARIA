@@ -41,8 +41,6 @@ import { useToast } from '@/hooks/use-toast'
 import { conversaoProjetoPacoteService } from '@/services/conversaoProjetoPacote'
 import { propostasService } from '@/services/propostas'
 import { restoreBodyPointerEvents } from '@/lib/utils'
-import { ModalConversaoProjetoPacote } from './ModalConversaoProjetoPacote'
-
 import { ModalEnviarPropostaCliente } from './ModalEnviarPropostaCliente'
 import { DossiePropostaGmais } from './DossiePropostaGmais'
 import { ModalDetalhesContratoServico } from '@/components/contratosServico/ModalDetalhesContratoServico'
@@ -67,7 +65,6 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
   open,
   onOpenChange,
   proposta,
-  currentUserId,
   currentUserEmail,
   onCriarRevisao,
   onMudarStatus,
@@ -88,7 +85,6 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
   const [contratoVinculado, setContratoVinculado] = useState<ContratoServicoRecord | null>(null)
   const [projetosGerados, setProjetosGerados] = useState<ProjetoRecord[]>([])
   const [percentualConvertido, setPercentualConvertido] = useState<number>(0)
-
   useEffect(() => {
     if (open && proposta?.id) {
       conversaoProjetoPacoteService.listProjetosDaProposta(proposta.id).then((prjs) => {
@@ -243,12 +239,13 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
   return (
     <>
       <Dialog
-        open={open && !showConversaoModal}
+        open={open}
         onOpenChange={(op) => {
           if (!op) restoreBodyPointerEvents()
           onOpenChange(op)
         }}
       >
+        {' '}
         <DialogContent
           className="w-[96vw] max-w-4xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6"
           onCloseAutoFocus={() => restoreBodyPointerEvents()}
@@ -358,25 +355,9 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                     Aprovação Interna
                   </Button>
                 )}
-
-                {/* Botão de gerenciamento do Projeto-Pacote para Comercial/Admin apenas se contrato assinado existir */}
-                {canEdit &&
-                  proposta.status === 'aceita' &&
-                  (proposta.contrato_servico || projetosGerados.length > 0) && (
-                    <Button
-                      size="sm"
-                      onClick={() => setShowConversaoModal(true)}
-                      className="h-8 text-xs bg-orange-600 hover:bg-orange-700 text-white gap-1.5 font-medium shadow-sm"
-                      title="Gerenciar Projeto-Pacote vinculado ao Contrato Assinado"
-                    >
-                      <Briefcase className="w-3.5 h-3.5" />
-                      Gerenciar Projeto-Pacote
-                    </Button>
-                  )}
               </div>
             </div>
           </DialogHeader>
-
           <Tabs value={activeTab} onValueChange={setActiveTab} className="pt-2 w-full">
             <div className="overflow-x-auto pb-1">
               <TabsList className="bg-slate-100 p-1 w-full sm:w-auto flex justify-start">
@@ -520,18 +501,6 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                         {percentualConvertido}%
                       </span>
                     </div>
-
-                    {canEdit &&
-                      proposta.status === 'aceita' &&
-                      (proposta.contrato_servico || projetosGerados.length > 0) && (
-                        <Button
-                          size="sm"
-                          onClick={() => setShowConversaoModal(true)}
-                          className="h-7 text-xs bg-orange-600 hover:bg-orange-700 text-white"
-                        >
-                          Gerenciar Etapas
-                        </Button>
-                      )}
                   </div>
                 </div>
               )}
@@ -1071,28 +1040,6 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
             if (onMudarStatus) {
               onMudarStatus(proposta, 'enviada')
             }
-          }}
-        />
-      )}
-
-      {/* MODAL DE CONVERSÃO EM PROJETO-PACOTE DESATIVADO - Criação exclusiva na assinatura bilateral do contrato */}
-      {false && (
-        <ModalConversaoProjetoPacote
-          open={false}
-          onOpenChange={() => {}}
-          proposta={proposta}
-          currentUserId={currentUserId}
-          onConversaoSucesso={() => {
-            if (!proposta?.id) return
-            conversaoProjetoPacoteService.listProjetosDaProposta(proposta.id).then((prjs) => {
-              setProjetosGerados(prjs)
-            })
-            propostasService.listItens(proposta.id).then((itens) => {
-              if (itens.length > 0) {
-                const conv = itens.filter((i) => i.status_conversao === 'convertido').length
-                setPercentualConvertido(Math.round((conv / itens.length) * 100))
-              }
-            })
           }}
         />
       )}

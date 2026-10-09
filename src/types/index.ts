@@ -725,13 +725,11 @@ export type ModoExecucaoProjeto =
 
 export type StatusProjeto =
   | 'aguardando_definicao'
+  | 'contratacao'
   | 'em_andamento'
   | 'concluido'
   | 'cancelado'
   | 'pausado'
-  | 'contratacao'
-  | 'Em Contratação'
-  | string
 
 export interface SugestaoExecutorArea {
   id: string

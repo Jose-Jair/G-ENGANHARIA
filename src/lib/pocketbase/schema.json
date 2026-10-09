@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T22:45:32.858Z",
+  "generatedAt": "2026-10-09T23:00:22.051Z",
   "collections": [
     {
       "name": "users",
@@ -715,9 +715,26 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "status_revisao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["rascunho_pendente", "revisado", "ativo"]
+        },
+        {
+          "name": "sugestao_origem",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "sugestoes_funil"
         }
       ],
-      "indexes": ["CREATE INDEX idx_contratos_empresa ON contratos (empresa)"]
+      "indexes": [
+        "CREATE INDEX idx_contratos_empresa ON contratos (empresa)",
+        "CREATE INDEX `idx_contratos_sugestao_origem` ON `contratos` (sugestao_origem)"
+      ]
     },
     {
       "name": "toques",

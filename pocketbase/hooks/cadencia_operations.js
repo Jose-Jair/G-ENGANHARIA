@@ -67,7 +67,7 @@ routerAdd(
             empresa_id: empresaId,
             destinatario: destinatarioEmail,
           })
-          aRec.set('ip', reqInfo.remoteIP || '')
+          aRec.set('ip', (reqInfo.headers && reqInfo.headers['x-forwarded-for']) || '')
           $app.save(aRec)
         } catch (_) {}
 
@@ -100,7 +100,7 @@ routerAdd(
             empresa_id: empresaId,
             destinatario: destinatarioEmail,
           })
-          aRec.set('ip', reqInfo.remoteIP || '')
+          aRec.set('ip', (reqInfo.headers && reqInfo.headers['x-forwarded-for']) || '')
           $app.save(aRec)
         } catch (_) {}
 
@@ -265,7 +265,7 @@ routerAdd(
           status_envio: emailEnviadoComSucesso ? 'sucesso' : 'falha',
           mailer_info: mailerErrorMsg,
         })
-        aRec.set('ip', reqInfo.remoteIP || '')
+        aRec.set('ip', (reqInfo.headers && reqInfo.headers['x-forwarded-for']) || '')
         $app.save(aRec)
       } catch (aErr) {
         console.log('Erro ao salvar auditoria de envio de email: ' + aErr)
@@ -365,7 +365,7 @@ routerAdd(
           desvio: desvio,
           observacao: observacao,
         })
-        aRec.set('ip', reqInfo.remoteIP || '')
+        aRec.set('ip', (reqInfo.headers && reqInfo.headers['x-forwarded-for']) || '')
         $app.save(aRec)
       } catch (_) {}
 
@@ -467,36 +467,156 @@ routerAdd(
             toque_numero: numToque,
             canal: canal,
           })
-          aRec.set('ip', reqInfo.remoteIP || '')
+          aRec.set('ip', (reqInfo.headers && reqInfo.headers['x-forwarded-for']) || '')
           $app.save(aRec)
         } catch (_) {}
 
         feedbackMensagem = 'Toque registrado como falha de contato. Pendência cadastral gerada.'
       } else {
-        // Fluxo normal: atualizar a próxima ação da empresa para o próximo toque (numToque + 1)
-        const proxToqueList = $app.findRecordsByFilter(
-          'toques',
-          "empresa = '" +
-            empresaId +
-            "' && numero_toque = " +
-            (numToque + 1) +
-            " && status = 'agendado'",
-          'numero_toque',
-          1,
-          0,
-        )
+        // Fluxo normal (sem_resposta ou sem desvio finalizador):
+        // Encadeamento automático do próximo toque (numToque + 1 até 5)
+        const proximoNumero = numToque + 1
 
-        if (proxToqueList.length > 0) {
-          const prox = proxToqueList[0]
-          const dataPrev = prox.getString('data_prevista') || ''
-          const canalProx = prox.getString('canal') === 'whatsapp' ? 'WhatsApp' : 'E-mail'
-          empresa.set('proxima_acao_data', dataPrev)
-          empresa.set('proxima_acao_desc', 'Toque ' + (numToque + 1) + ': ' + canalProx)
+        if (proximoNumero <= 5) {
+          // 1. Verificar se já existe o toque proximoNumero
+          const toquesExistentes = $app.findRecordsByFilter(
+            'toques',
+            "empresa = '" + empresaId + "' && numero_toque = " + proximoNumero,
+            'numero_toque',
+            1,
+            0,
+          )
+
+          let proximoToqueRecord = null
+
+          // Calcular intervalo a partir de parâmetros do sistema
+          // Parâmetros do sistema:
+          // toque2_dias (default 2), toque3_dias (default 7), toque4_dias_inicio (default 10), toque5_dias (default 30)
+          let diasIntervaloAposInicio = 2
+          if (proximoNumero === 2) {
+            try {
+              const p = $app.findFirstRecordByData('parametros', 'chave', 'toque2_dias')
+              if (p) diasIntervaloAposInicio = parseInt(p.getString('valor'), 10) || 2
+            } catch (_) {}
+          } else if (proximoNumero === 3) {
+            try {
+              const p = $app.findFirstRecordByData('parametros', 'chave', 'toque3_dias')
+              if (p) diasIntervaloAposInicio = parseInt(p.getString('valor'), 10) || 7
+            } catch (_) {}
+          } else if (proximoNumero === 4) {
+            try {
+              const p = $app.findFirstRecordByData('parametros', 'chave', 'toque4_dias_inicio')
+              if (p) diasIntervaloAposInicio = parseInt(p.getString('valor'), 10) || 10
+            } catch (_) {}
+          } else if (proximoNumero === 5) {
+            try {
+              const p = $app.findFirstRecordByData('parametros', 'chave', 'toque5_dias')
+              if (p) diasIntervaloAposInicio = parseInt(p.getString('valor'), 10) || 30
+            } catch (_) {}
+          }
+
+          // Intervalo entre toques sequenciais caso calculado a partir da data de confirmação do toque anterior:
+          // Se calculado da data realizada do toque anterior:
+          // Toque 1 -> Toque 2: +2 dias
+          // Toque 2 -> Toque 3: +5 dias (7 - 2)
+          // Toque 3 -> Toque 4: +3 dias (10 - 7)
+          // Toque 4 -> Toque 5: +20 dias (30 - 10)
+          let deltaDias = 2
+          if (proximoNumero === 2) deltaDias = diasIntervaloAposInicio || 2
+          else if (proximoNumero === 3) deltaDias = Math.max(1, diasIntervaloAposInicio - 2)
+          else if (proximoNumero === 4) deltaDias = Math.max(1, diasIntervaloAposInicio - 7)
+          else if (proximoNumero === 5) deltaDias = Math.max(1, diasIntervaloAposInicio - 10)
+
+          const baseDt = new Date(dataRealizada.substring(0, 10) + 'T12:00:00Z')
+          baseDt.setDate(baseDt.getDate() + deltaDias)
+          const dataPrevistaCalculada = baseDt.toISOString().substring(0, 10) + ' 12:00:00.000Z'
+
+          const canalPadrao = proximoNumero === 2 || proximoNumero === 4 ? 'whatsapp' : 'email'
+          const obsPadrao =
+            proximoNumero === 2
+              ? 'Toque 2 de retomada via WhatsApp.'
+              : proximoNumero === 3
+                ? 'Toque 3 de solução técnica elaborada e viabilidade.'
+                : proximoNumero === 4
+                  ? 'Toque 4 de retomada via WhatsApp.'
+                  : 'Toque 5 de oferta de projeto piloto preliminar sem risco.'
+
+          if (toquesExistentes.length > 0) {
+            proximoToqueRecord = toquesExistentes[0]
+            // Se estava agendado sem data ou com data antiga, garante preenchimento
+            if (!proximoToqueRecord.getString('data_prevista')) {
+              proximoToqueRecord.set('data_prevista', dataPrevistaCalculada)
+            }
+            if (proximoToqueRecord.getString('status') === 'cancelado') {
+              proximoToqueRecord.set('status', 'agendado')
+            }
+            $app.save(proximoToqueRecord)
+          } else {
+            // Criar o próximo toque automaticamente no banco de dados (idempotente)
+            const toquesCol = $app.findCollectionByNameOrId('toques')
+            proximoToqueRecord = new Record(toquesCol)
+            proximoToqueRecord.set('empresa', empresaId)
+            proximoToqueRecord.set('numero_toque', proximoNumero)
+            proximoToqueRecord.set('canal', canalPadrao)
+            proximoToqueRecord.set('data_prevista', dataPrevistaCalculada)
+            proximoToqueRecord.set('status', 'agendado')
+            proximoToqueRecord.set('observacao', obsPadrao)
+            $app.save(proximoToqueRecord)
+          }
+
+          const dataFinalAcao =
+            proximoToqueRecord.getString('data_prevista') || dataPrevistaCalculada
+          const canalNome =
+            (proximoToqueRecord.getString('canal') || canalPadrao) === 'whatsapp'
+              ? 'WhatsApp'
+              : 'E-mail'
+
+          // Atualizar a empresa com a data e descrição da próxima ação preenchidas automaticamente
+          empresa.set('proxima_acao_data', dataFinalAcao)
+          empresa.set('proxima_acao_desc', 'Toque ' + proximoNumero + ': ' + canalNome)
           $app.save(empresa)
+
+          // Auditoria de encadeamento automático do próximo toque
+          try {
+            const auditCol = $app.findCollectionByNameOrId('audit_logs')
+            const aRec = new Record(auditCol)
+            aRec.set('user', reqInfo.auth.id)
+            aRec.set('user_email', reqInfo.auth.getString('email'))
+            aRec.set('acao', 'ENCADEAMENTO_TOQUE_AUTOMATICO')
+            aRec.set('entidade', 'toques')
+            aRec.set('registro_id', proximoToqueRecord.id)
+            aRec.set('detalhes', {
+              mensagem:
+                'Toque ' +
+                proximoNumero +
+                ' agendado automaticamente após confirmação do Toque ' +
+                numToque,
+              toque_anterior: numToque,
+              proximo_toque: proximoNumero,
+              empresa_id: empresaId,
+              empresa_nome: empresa.getString('razao_social'),
+              data_prevista: dataFinalAcao,
+              canal: canalNome,
+            })
+            aRec.set('ip', (reqInfo.headers && reqInfo.headers['x-forwarded-for']) || '')
+            $app.save(aRec)
+          } catch (_) {}
+
+          feedbackMensagem =
+            'Toque ' +
+            numToque +
+            ' confirmado! Próximo Toque ' +
+            proximoNumero +
+            ' (' +
+            canalNome +
+            ') agendado automaticamente para ' +
+            dataFinalAcao.substring(0, 10) +
+            '.'
         } else {
-          // Cadência finalizada sem resposta nos 5 toques
+          // Cadência de 5 toques finalizada sem resposta
           empresa.set('proxima_acao_desc', 'Cadência de 5 toques concluída.')
           $app.save(empresa)
+          feedbackMensagem = 'Toque 5 confirmado! Sequência de 5 toques concluída.'
         }
       }
 

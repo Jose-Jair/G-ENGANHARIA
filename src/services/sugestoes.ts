@@ -1,5 +1,11 @@
 import pb from '@/lib/pocketbase/client'
-import { SugestaoFunilRecord, SugestaoFonte, SugestaoStatus, EmpresaRecord } from '@/types'
+import {
+  SugestaoFunilRecord,
+  SugestaoFonte,
+  SugestaoStatus,
+  EmpresaRecord,
+  ContratoRecord,
+} from '@/types'
 import { CreateEmpresaData } from './empresas'
 import { cleanCnpj } from '@/lib/cnpj'
 
@@ -67,7 +73,11 @@ export const sugestoesService = {
     sugestaoId: string,
     usuarioId: string,
     empresaCustomData?: Partial<CreateEmpresaData>,
-  ): Promise<{ empresa: EmpresaRecord; sugestao: SugestaoFunilRecord }> {
+  ): Promise<{
+    empresa: EmpresaRecord
+    sugestao: SugestaoFunilRecord
+    contrato?: ContratoRecord | null
+  }> {
     const sugestao = await pb.collection('sugestoes_funil').getOne<SugestaoFunilRecord>(sugestaoId)
 
     // Criar empresa
@@ -94,22 +104,59 @@ export const sugestoesService = {
 
     const empresa = await pb.collection('empresas').create<EmpresaRecord>(novaEmpresaData)
 
-    // Se tiver dados de contrato da sugestão, criar o contrato correspondente
-    if (sugestao.orgao_contrato || sugestao.numero_contrato) {
+    // ITEM 3: Sempre criar um rascunho de primeiro contrato pré-preenchido com dados capturados pela sugestão
+    let contratoCriado: any = null
+    try {
+      const orgaoFinal =
+        sugestao.orgao_contrato ||
+        'Órgão Demandante (Sugestão ' + sugestao.fonte.toUpperCase() + ')'
+      const numeroFinal = sugestao.numero_contrato || `SUG-${Date.now().toString().slice(-6)}`
+      const objetoFinal =
+        sugestao.objeto_contrato ||
+        'Contrato originado de sugestão de prospecção (' + sugestao.fonte.toUpperCase() + ')'
+      const valorEstimadoFinal = Number(sugestao.valor_estimado) || 0
+
+      contratoCriado = await pb.collection('contratos').create({
+        empresa: empresa.id,
+        orgao: orgaoFinal,
+        numero: numeroFinal,
+        objeto: objetoFinal,
+        valor: valorEstimadoFinal,
+        saldo: valorEstimadoFinal,
+        situacao: 'Em Execução',
+        fonte: sugestao.fonte === 'pncp' ? 'PNCP' : 'Planilha Externa',
+        status_revisao: 'rascunho_pendente',
+        sugestao_origem: sugestao.id,
+      })
+
+      // Auditoria da criação do rascunho de contrato derivado da sugestão
       try {
-        await pb.collection('contratos').create({
-          empresa: empresa.id,
-          orgao: sugestao.orgao_contrato || 'Órgão Público',
-          numero: sugestao.numero_contrato || `CONT-${Date.now().toString().slice(-6)}`,
-          objeto: sugestao.objeto_contrato || 'Objeto do contrato de engenharia',
-          valor: sugestao.valor_estimado || 0,
-          saldo: sugestao.valor_estimado || 0,
-          situacao: 'Em Execução',
-          fonte: sugestao.fonte === 'pncp' ? 'PNCP' : 'Planilha Externa',
+        await pb.collection('audit_logs').create({
+          user: usuarioId,
+          user_email: pb.authStore.record?.email || '',
+          acao: 'CONTRATO_RASCUNHO_INCORPORADO',
+          entidade: 'contratos',
+          registro_id: contratoCriado.id,
+          detalhes: {
+            mensagem:
+              'Rascunho de contrato criado automaticamente a partir de sugestão incorporada (' +
+              sugestao.fonte.toUpperCase() +
+              ')',
+            empresa_id: empresa.id,
+            empresa_nome: empresa.razao_social,
+            sugestao_id: sugestao.id,
+            sugestao_fonte: sugestao.fonte,
+            orgao: orgaoFinal,
+            numero: numeroFinal,
+            valor: valorEstimadoFinal,
+            status_revisao: 'rascunho_pendente',
+          },
         })
-      } catch (err) {
-        console.warn('Erro ao criar contrato vinculado da sugestao:', err)
+      } catch (aErr) {
+        console.warn('Erro ao auditar criação de rascunho de contrato:', aErr)
       }
+    } catch (err) {
+      console.warn('Erro ao criar rascunho de contrato vinculado da sugestao:', err)
     }
 
     // Atualizar sugestão
@@ -122,7 +169,7 @@ export const sugestoesService = {
         data_decisao: new Date().toISOString(),
       })
 
-    return { empresa, sugestao: sugestaoAtualizada }
+    return { empresa, sugestao: sugestaoAtualizada, contrato: contratoCriado }
   },
 
   /**

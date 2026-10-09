@@ -112,10 +112,10 @@ export default function FunilSugestoesPage() {
   const handleIncorporar = async (sug: SugestaoFunilRecord) => {
     if (!user) return
     try {
-      await sugestoesService.incorporarAoFunil(sug.id, user.id)
+      const res = await sugestoesService.incorporarAoFunil(sug.id, user.id)
       toast({
         title: 'Empresa incorporada ao Funil!',
-        description: `"${sug.nome_fantasia || sug.razao_social}" agora está na etapa "Identificada".`,
+        description: `"${sug.nome_fantasia || sug.razao_social}" adicionada em "Identificada" com rascunho de primeiro contrato pré-preenchido.`,
       })
       loadSugestoes()
     } catch (err: unknown) {

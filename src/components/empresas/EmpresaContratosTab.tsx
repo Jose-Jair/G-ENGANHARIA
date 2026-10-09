@@ -20,6 +20,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { useNavigate } from 'react-router-dom'
 import {
   Plus,
   FileText,
@@ -29,6 +30,8 @@ import {
   Trash2,
   Calendar,
   Layers,
+  Sparkles,
+  Check,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -40,18 +43,21 @@ interface EmpresaContratosTabProps {
   onContratosChange: () => void
   autoOpenNovoContrato?: boolean
   onNovoContratoModalClose?: () => void
+  onOpenDetalhesSugestao?: (sugestaoId: string) => void
 }
 
 export function EmpresaContratosTab({
   empresaId,
   contratos,
-  diasAlerta,
+  diasAlerta: _diasAlerta,
   readOnly,
   onContratosChange,
   autoOpenNovoContrato = false,
   onNovoContratoModalClose,
+  onOpenDetalhesSugestao,
 }: EmpresaContratosTabProps) {
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [modalOpen, setModalOpen] = useState(false)
   const [editingContrato, setEditingContrato] = useState<ContratoRecord | null>(null)
   const [loading, setLoading] = useState(false)
@@ -274,6 +280,11 @@ export function EmpresaContratosTab({
       situacao: situacao.trim() || 'Em Execução',
       link_edital: linkEdital.trim(),
       fonte: fonte.trim(),
+      // Se era rascunho de sugestão e foi conferido/salvo, marca como revisado
+      status_revisao:
+        editingContrato?.status_revisao === 'rascunho_pendente'
+          ? 'revisado'
+          : editingContrato?.status_revisao || 'ativo',
     }
 
     // Apenas na criação de novo contrato verificamos duplicidade preliminarmente
@@ -443,10 +454,42 @@ export function EmpresaContratosTab({
                       {c.fonte && (
                         <span className="text-[11px] text-slate-400">Fonte: {c.fonte}</span>
                       )}
+                      {/* Badge visual de Rascunho derivado de Sugestão */}
+                      {c.status_revisao === 'rascunho_pendente' && (
+                        <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] uppercase font-bold gap-1 shadow-2xs">
+                          <Sparkles className="w-3 h-3 text-amber-600" />
+                          Rascunho de Sugestão
+                        </Badge>
+                      )}
+                      {c.status_revisao === 'revisado' && (
+                        <Badge className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[10px] uppercase font-bold gap-1">
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          Revisado
+                        </Badge>
+                      )}
                       {highlightedContratoId === c.id && (
                         <Badge className="bg-amber-600 text-white text-[10px] uppercase font-bold animate-pulse">
                           Contrato em Destaque
                         </Badge>
+                      )}
+                      {/* Link para a sugestão de origem */}
+                      {c.sugestao_origem && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (onOpenDetalhesSugestao) {
+                              onOpenDetalhesSugestao(c.sugestao_origem!)
+                            } else {
+                              navigate('/funil-sugestoes')
+                            }
+                          }}
+                          className="h-5 px-1.5 text-[10px] font-semibold text-blue-700 bg-blue-50/80 hover:bg-blue-100 border border-blue-200 gap-1 rounded"
+                          title="Ver sugestão original de prospecção no funil"
+                        >
+                          <ExternalLink className="w-2.5 h-2.5" />
+                          Ver Sugestão de Origem
+                        </Button>
                       )}
                     </div>
 
@@ -508,13 +551,38 @@ export function EmpresaContratosTab({
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingContrato ? 'Editar Contrato Público' : 'Lançar Novo Contrato'}
+              {editingContrato?.status_revisao === 'rascunho_pendente'
+                ? 'Conferência de Contrato (Rascunho de Sugestão)'
+                : editingContrato
+                  ? 'Editar Contrato Público'
+                  : 'Lançar Novo Contrato'}
             </DialogTitle>
             <DialogDescription>
-              Informe o órgão contratante, o valor contratado e o objeto do contrato para
-              classificação na Curva ABC.
+              {editingContrato?.status_revisao === 'rascunho_pendente'
+                ? 'Os dados abaixo foram pré-preenchidos a partir da sugestão incorporada. Confira e ajuste os campos necessários.'
+                : 'Informe o órgão contratante, o valor contratado e o objeto do contrato para classificação na Curva ABC.'}
             </DialogDescription>
           </DialogHeader>
+          {editingContrato?.status_revisao === 'rascunho_pendente' && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between text-xs text-amber-900 font-medium">
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                Rascunho derivado de sugestão de prospecção. Ao salvar, o status passará a revisado.
+              </span>
+              {editingContrato.sugestao_origem && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/funil-sugestoes')}
+                  className="h-6 text-[10px] text-blue-700 border-blue-200 bg-white hover:bg-blue-50 shrink-0"
+                >
+                  <ExternalLink className="w-3 h-3 mr-1" />
+                  Ver Sugestão
+                </Button>
+              )}
+            </div>
+          )}
 
           <form onSubmit={handleSave} className="space-y-4 py-2">
             <div className="space-y-4">

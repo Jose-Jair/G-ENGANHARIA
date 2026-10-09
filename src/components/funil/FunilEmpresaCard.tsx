@@ -19,7 +19,7 @@ interface FunilEmpresaCardProps {
   empresa: EmpresaRecord
   totalContratosAtivos: number
   hasReativacaoPendente?: boolean
-  onEditProximaAcao: (empresa: EmpresaRecord) => void
+  onEditProximaAcao?: (empresa: EmpresaRecord) => void
   onOpenTimeline: (empresa: EmpresaRecord) => void
   onOpenDetalhes: (empresa: EmpresaRecord) => void
   onElaborarProposta?: (empresa: EmpresaRecord) => void
@@ -129,17 +129,17 @@ export const FunilEmpresaCard: React.FC<FunilEmpresaCardProps> = ({
         </span>
       </div>
 
-      {/* Próxima Ação Real da Cadência ou Comercial */}
+      {/* Próxima Ação Real da Cadência ou Comercial (apenas visualização enxuta no card) */}
       <div
-        onClick={() => onEditProximaAcao(empresa)}
+        onClick={() => onOpenDetalhes(empresa)}
         className={`mt-2 p-1.5 rounded border text-[11px] transition-colors cursor-pointer ${
           empresa.proxima_acao_desc?.includes('PENDÊNCIA')
             ? 'bg-rose-50/80 hover:bg-rose-100/80 border-rose-300 text-rose-950'
             : empresa.etapa_funil === 'em_cadencia'
               ? 'bg-blue-50/60 hover:bg-blue-100/60 border-blue-200 text-blue-950'
-              : 'bg-slate-50 hover:bg-blue-50/70 border-slate-200/80 hover:border-blue-200 text-slate-700'
+              : 'bg-slate-50 hover:bg-slate-100/80 border-slate-200/80 text-slate-700'
         }`}
-        title="Próxima ação real calculada pela cadência"
+        title="Clique para abrir a ficha cadastral da empresa"
       >
         <div className="flex items-center justify-between text-[10px] font-medium mb-0.5">
           <span
@@ -164,9 +164,7 @@ export const FunilEmpresaCard: React.FC<FunilEmpresaCardProps> = ({
         </div>
         <p className="text-[10px] line-clamp-2 font-medium">
           {empresa.proxima_acao_desc || (
-            <span className="text-slate-400 italic font-normal">
-              + Definir próxima intervenção...
-            </span>
+            <span className="text-slate-400 italic font-normal">Nenhuma ação agendada</span>
           )}
         </p>
       </div>

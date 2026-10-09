@@ -242,6 +242,8 @@ export interface ContatoRecord {
   updated: string
 }
 
+export type StatusRevisaoContrato = 'rascunho_pendente' | 'revisado' | 'ativo'
+
 export interface ContratoRecord {
   id: string
   empresa: string
@@ -256,10 +258,13 @@ export interface ContratoRecord {
   situacao?: string
   link_edital?: string
   fonte?: string
+  status_revisao?: StatusRevisaoContrato
+  sugestao_origem?: string
   created: string
   updated: string
   expand?: {
     empresa?: EmpresaRecord
+    sugestao_origem?: SugestaoFunilRecord
   }
 }
 

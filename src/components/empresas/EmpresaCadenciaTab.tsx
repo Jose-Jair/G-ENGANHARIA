@@ -11,9 +11,8 @@ import {
 import { formatDateBr, formatCurrencyBr } from '@/lib/formatters'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useNavigate } from 'react-router-dom'
 import {
-  Mail,
-  MessageSquare,
   CheckCircle2,
   Clock,
   AlertTriangle,
@@ -21,10 +20,8 @@ import {
   Ban,
   RotateCw,
   Sparkles,
+  ExternalLink,
 } from 'lucide-react'
-import { ConfirmarToqueModal } from '@/components/cadencia/ConfirmarToqueModal'
-import { EnviarEmailModal } from '@/components/cadencia/EnviarEmailModal'
-import { CancelarToqueModal } from '@/components/cadencia/CancelarToqueModal'
 import { toquesService } from '@/services/toques'
 import { useToast } from '@/hooks/use-toast'
 
@@ -43,24 +40,16 @@ interface EmpresaCadenciaTabProps {
 export const EmpresaCadenciaTab: React.FC<EmpresaCadenciaTabProps> = ({
   empresa,
   toques,
-  contatos,
-  contratos,
-  modelos,
-  motivosInativacao,
-  motivosCancelamento,
+  contatos: _contatos,
+  contratos: _contratos,
+  modelos: _modelos,
+  motivosInativacao: _motivosInativacao,
+  motivosCancelamento: _motivosCancelamento,
   readOnly,
   onToquesChange,
 }) => {
   const { toast } = useToast()
-
-  const [toqueConfirmar, setToqueConfirmar] = useState<ToqueComCalculo | null>(null)
-  const [modalConfirmarOpen, setModalConfirmarOpen] = useState(false)
-
-  const [toqueEmail, setToqueEmail] = useState<ToqueComCalculo | null>(null)
-  const [modalEmailOpen, setModalEmailOpen] = useState(false)
-
-  const [toqueCancelar, setToqueCancelar] = useState<ToqueComCalculo | null>(null)
-  const [modalCancelarOpen, setModalCancelarOpen] = useState(false)
+  const navigate = useNavigate()
 
   const [iniciandoCadencia, setIniciandoCadencia] = useState(false)
 
@@ -91,49 +80,6 @@ export const EmpresaCadenciaTab: React.FC<EmpresaCadenciaTabProps> = ({
     } finally {
       setIniciandoCadencia(false)
     }
-  }
-
-  const handleOpenWhatsApp = (toque: ToqueComCalculo) => {
-    const decisor = contatos.find((c) => c.decisor && (c.whatsapp || c.telefone))
-    const comTel = contatos.find((c) => c.whatsapp || c.telefone)
-    const tel =
-      decisor?.whatsapp ||
-      decisor?.telefone ||
-      comTel?.whatsapp ||
-      comTel?.telefone ||
-      empresa.telefone ||
-      ''
-
-    if (!tel) {
-      toast({
-        title: 'Sem número de WhatsApp',
-        description: 'Cadastre o WhatsApp do contato decisor antes de iniciar o envio.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    const contratoPrincipal = contratos[0]
-    const numToque = toque.numero_toque
-    const modeloAtual =
-      modelos.find((m) => m.nome.includes(`Toque ${numToque}`) || m.tipo === 'solucao_elaborada') ||
-      null
-
-    const url = toquesService.montarWhatsAppUrl({
-      telefone: tel,
-      modelo: modeloAtual,
-      nomeContato: decisor?.nome || comTel?.nome || empresa.nome_fantasia || 'Prezado(a)',
-      nomeEmpresa: empresa.nome_fantasia || empresa.razao_social,
-      orgao: contratoPrincipal?.orgao || 'órgão contratante',
-      valorContrato: formatCurrencyBr(contratoPrincipal?.valor || 0),
-    })
-
-    window.open(url, '_blank')
-
-    setTimeout(() => {
-      setToqueConfirmar(toque)
-      setModalConfirmarOpen(true)
-    }, 500)
   }
 
   // Ordenar toques de 1 a 5
@@ -287,61 +233,18 @@ export const EmpresaCadenciaTab: React.FC<EmpresaCadenciaTabProps> = ({
                   </div>
                 </div>
 
-                {/* Ações do Toque */}
-                {!readOnly && !isConcluido && !isCancelado && (
+                {/* Visualização de histórico: Toques pendentes exibem atalho para executar na Central */}
+                {!isConcluido && !isCancelado && (
                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    {/* Botão de Envio */}
-                    {toque.isLiberadoParaExecucao && (
-                      <>
-                        {isEmail ? (
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              setToqueEmail(toque)
-                              setModalEmailOpen(true)
-                            }}
-                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-7 px-2.5"
-                          >
-                            <Mail className="w-3 h-3 mr-1" />
-                            Enviar
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            onClick={() => handleOpenWhatsApp(toque)}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-7 px-2.5"
-                          >
-                            <MessageSquare className="w-3 h-3 mr-1" />
-                            WhatsApp
-                          </Button>
-                        )}
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setToqueConfirmar(toque)
-                            setModalConfirmarOpen(true)
-                          }}
-                          className="text-xs h-7 px-2.5 border-slate-300 hover:bg-emerald-50 hover:text-emerald-700"
-                        >
-                          <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" />
-                          Confirmar
-                        </Button>
-                      </>
-                    )}
-
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      onClick={() => {
-                        setToqueCancelar(toque)
-                        setModalCancelarOpen(true)
-                      }}
-                      className="text-xs h-7 px-2 text-rose-600 hover:bg-rose-50"
-                      title="Cancelar toque"
+                      onClick={() => navigate('/acoes-do-dia')}
+                      className="text-xs h-7 px-2.5 text-blue-700 border-blue-200 hover:bg-blue-50 gap-1 font-medium"
+                      title="Executar ou confirmar toque na Central de Ações do Dia"
                     >
-                      <Ban className="w-3 h-3" />
+                      <ExternalLink className="w-3 h-3" />
+                      Executar na Central
                     </Button>
                   </div>
                 )}
@@ -349,46 +252,6 @@ export const EmpresaCadenciaTab: React.FC<EmpresaCadenciaTabProps> = ({
             )
           })}
         </div>
-      )}
-
-      {/* Modais */}
-      {toqueConfirmar && (
-        <ConfirmarToqueModal
-          open={modalConfirmarOpen}
-          onOpenChange={setModalConfirmarOpen}
-          toque={toqueConfirmar}
-          empresaNome={empresa.nome_fantasia || empresa.razao_social}
-          motivosInativacao={motivosInativacao}
-          onSuccess={onToquesChange}
-        />
-      )}
-
-      {toqueEmail && (
-        <EnviarEmailModal
-          open={modalEmailOpen}
-          onOpenChange={setModalEmailOpen}
-          toque={toqueEmail}
-          empresa={empresa}
-          contatos={contatos}
-          contratos={contratos}
-          modelos={modelos}
-          onSuccess={() => {
-            onToquesChange()
-            setToqueConfirmar(toqueEmail)
-            setModalConfirmarOpen(true)
-          }}
-        />
-      )}
-
-      {toqueCancelar && (
-        <CancelarToqueModal
-          open={modalCancelarOpen}
-          onOpenChange={setModalCancelarOpen}
-          toque={toqueCancelar}
-          empresaNome={empresa.nome_fantasia || empresa.razao_social}
-          motivosCancelamento={motivosCancelamento}
-          onSuccess={onToquesChange}
-        />
       )}
     </div>
   )

@@ -48,9 +48,11 @@ import {
   ArrowRight,
   FolderKanban,
   Check,
+  Plus,
 } from 'lucide-react'
 import { CronogramaGantt } from '@/components/projetos/CronogramaGantt'
 import { ModalDetalheEtapa } from '@/components/projetos/ModalDetalheEtapa'
+import { ModalNovaMedicao } from '@/components/projetos/ModalNovaMedicao'
 
 export const PortalExecutorPage: React.FC = () => {
   const { user } = useAuth()
@@ -74,6 +76,12 @@ export const PortalExecutorPage: React.FC = () => {
   const [modalSubcontratoOpen, setModalSubcontratoOpen] = useState(false)
   const [subcontratoSelecionado, setSubcontratoSelecionado] = useState<SubcontratoRecord | null>(
     null,
+  )
+
+  // Modal para apresentar medição progressiva (Executor)
+  const [modalNovaMedicaoOpen, setModalNovaMedicaoOpen] = useState(false)
+  const [subcontratoParaMedicaoId, setSubcontratoParaMedicaoId] = useState<string | undefined>(
+    undefined,
   )
 
   // Visualização de Cronograma (Gantt) somente leitura no Portal do Executor
@@ -573,6 +581,20 @@ export const PortalExecutorPage: React.FC = () => {
                               <FileText className="w-3.5 h-3.5 mr-1" />
                               Ver Cláusulas e Detalhes
                             </Button>
+
+                            {isAssinado && (
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setSubcontratoParaMedicaoId(sub.id)
+                                  setModalNovaMedicaoOpen(true)
+                                }}
+                                className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs h-8 font-semibold shadow-xs"
+                              >
+                                <Plus className="w-3.5 h-3.5 mr-1" />
+                                Apresentar Medição
+                              </Button>
+                            )}
 
                             {!isAssinado && sub.token_assinatura && (
                               <Button
@@ -1087,6 +1109,17 @@ export const PortalExecutorPage: React.FC = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Modal para Apresentar Medição Progressiva (Executor) */}
+      <ModalNovaMedicao
+        open={modalNovaMedicaoOpen}
+        onOpenChange={setModalNovaMedicaoOpen}
+        subcontratos={subcontratos.filter((s) => s.status === 'assinado')}
+        subcontratoPreSelecionadoId={subcontratoParaMedicaoId}
+        onSuccess={() => {
+          carregarDadosPortal()
+        }}
+      />
     </div>
   )
 }

@@ -49,11 +49,15 @@ import { ContratoTab } from './ContratoTab'
 import { ModalSaudeProjeto } from './ModalSaudeProjeto'
 import { ModalCotacoesEtapa } from './ModalCotacoesEtapa'
 import { ModalCotacoesProjeto } from './ModalCotacoesProjeto'
-import { MessageSquareQuote } from 'lucide-react'
+import { MessageSquareQuote, TrendingUp } from 'lucide-react'
 import { ModalAvaliacaoExecutor } from './ModalAvaliacaoExecutor'
 import { ModalDossieProjeto } from './ModalDossieProjeto'
 import { CardAlertaStandbyProjeto } from './CardAlertaStandbyProjeto'
 import { ModalDefinirModoExecucao } from './ModalDefinirModoExecucao'
+import { MedicoesTab } from './MedicoesTab'
+import { subcontratosService } from '@/services/subcontratos'
+import { medicoesService } from '@/services/medicoes'
+import { SubcontratoRecord, MedicaoRecord } from '@/types'
 
 interface ModalDetalheProjetoProps {
   open: boolean
@@ -81,6 +85,8 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
   const [documentos, setDocumentos] = useState<DocumentoComAlerta[]>([])
   const [riscos, setRiscos] = useState<RiscoRecord[]>([])
   const [executores, setExecutores] = useState<ExecutorRecord[]>([])
+  const [subcontratos, setSubcontratos] = useState<SubcontratoRecord[]>([])
+  const [medicoes, setMedicoes] = useState<MedicaoRecord[]>([])
 
   // Modais secundários
   const [modalSaudeOpen, setModalSaudeOpen] = useState(false)
@@ -104,12 +110,16 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
     if (!projetoId) return
     setCarregando(true)
     try {
-      const [completo, execs] = await Promise.all([
+      const [completo, execs, subs, meds] = await Promise.all([
         projetosService.getProjetoCompleto(projetoId),
         executoresService.list(),
+        subcontratosService.listByProjeto(projetoId).catch(() => []),
+        medicoesService.listByProjeto(projetoId).catch(() => []),
       ])
 
       setProjeto(completo.projeto)
+      setSubcontratos(subs)
+      setMedicoes(meds)
       setContratoServico((completo as any).contratoServico || null)
       if (completo.projeto?.status === 'contratacao') {
         setActiveTab('contrato')
@@ -622,6 +632,16 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                         </span>
                       )}
                     </TabsTrigger>
+
+                    <TabsTrigger value="medicoes" className="text-xs flex items-center gap-1.5">
+                      <TrendingUp className="w-3.5 h-3.5 text-[#D95A2B]" />
+                      Aba Medições ({medicoes.length})
+                      {medicoes.filter((m) => m.status === 'apresentada').length > 0 && (
+                        <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+                          {medicoes.filter((m) => m.status === 'apresentada').length}
+                        </span>
+                      )}
+                    </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="contrato">
@@ -683,6 +703,16 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                       projetoId={projeto.id}
                       riscos={riscos}
                       canEdit={canEdit}
+                      onRefresh={carregarDadosCompletos}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="medicoes">
+                    <MedicoesTab
+                      projetoId={projeto.id}
+                      subcontratos={subcontratos}
+                      medicoes={medicoes}
+                      canManage={canEdit}
                       onRefresh={carregarDadosCompletos}
                     />
                   </TabsContent>

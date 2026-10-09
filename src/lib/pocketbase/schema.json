@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T19:54:31.157Z",
+  "generatedAt": "2026-10-09T20:41:32.890Z",
   "collections": [
     {
       "name": "users",
@@ -3859,6 +3859,141 @@
         "CREATE INDEX idx_subcontratos_executor ON subcontratos (executor)",
         "CREATE INDEX idx_subcontratos_status ON subcontratos (status)",
         "CREATE INDEX idx_subcontratos_token ON subcontratos (token_assinatura)"
+      ]
+    },
+    {
+      "name": "medicoes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && executor.email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && executor.email = @request.auth.email))",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && executor.email = @request.auth.email))",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "numero",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "subcontrato",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "subcontratos"
+        },
+        {
+          "name": "projeto",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "projetos"
+        },
+        {
+          "name": "executor",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "executores"
+        },
+        {
+          "name": "numero_medicao",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "periodo_inicio",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "periodo_fim",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "percentual_executado",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor_bruto",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "retencao_impostos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_liquido",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["apresentada", "aprovada", "reprovada", "faturada", "paga"]
+        },
+        {
+          "name": "aprovada_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "data_aprovacao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes_gestor",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "anexos",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_medicoes_numero ON medicoes (numero)",
+        "CREATE INDEX idx_medicoes_subcontrato ON medicoes (subcontrato)",
+        "CREATE INDEX idx_medicoes_projeto ON medicoes (projeto)",
+        "CREATE INDEX idx_medicoes_executor ON medicoes (executor)",
+        "CREATE INDEX idx_medicoes_status ON medicoes (status)"
       ]
     }
   ]

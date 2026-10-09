@@ -1,0 +1,566 @@
+// Hook para operações de Medições Progressivas
+// Rotas:
+// 1. POST /backend/v1/medicoes/criar (Admin/Gestor ou Executor no próprio subcontrato)
+// 2. POST /backend/v1/medicoes/{id}/aprovar (Admin/Gestor)
+// 3. POST /backend/v1/medicoes/{id}/reprovar (Admin/Gestor)
+
+// 1. Criar Medição
+routerAdd(
+  'POST',
+  '/backend/v1/medicoes/criar',
+  (e) => {
+    try {
+      const reqInfo = e.requestInfo()
+      if (!reqInfo.auth) {
+        return e.json(401, { message: 'Autenticação necessária' })
+      }
+
+      const role = reqInfo.auth.getString('role')
+      const userEmail = reqInfo.auth.getString('email')
+      const userId = reqInfo.auth.id
+
+      if (role !== 'admin' && role !== 'gestor' && role !== 'executor') {
+        return e.json(403, {
+          message: 'Apenas Admin, Gestor de Projetos ou Executor podem apresentar medições.',
+        })
+      }
+
+      const body = reqInfo.body || {}
+      const subcontratoId = body.subcontrato
+      const periodoInicio = body.periodo_inicio
+      const periodoFim = body.periodo_fim
+      const percentualExecutado = parseFloat(body.percentual_executado)
+      const valorBruto = parseFloat(body.valor_bruto)
+      const retencaoImpostos = parseFloat(body.retencao_impostos || 0) || 0
+      const anexos = body.anexos || []
+
+      if (!subcontratoId) {
+        return e.json(400, { message: 'Subcontrato é obrigatório para registrar a medição.' })
+      }
+      if (!periodoInicio || !periodoFim) {
+        return e.json(400, { message: 'Período inicial e final da medição são obrigatórios.' })
+      }
+      if (isNaN(valorBruto) || valorBruto <= 0) {
+        return e.json(400, { message: 'Valor bruto da medição deve ser maior que zero.' })
+      }
+      if (isNaN(percentualExecutado) || percentualExecutado <= 0) {
+        return e.json(400, { message: 'Percentual executado deve ser maior que zero.' })
+      }
+      if (retencaoImpostos < 0 || retencaoImpostos > valorBruto) {
+        return e.json(400, {
+          message:
+            'Retenção de impostos inválida (não pode ser negativa nem exceder o valor bruto).',
+        })
+      }
+
+      // Buscar subcontrato
+      let sub
+      try {
+        sub = $app.findRecordById('subcontratos', subcontratoId)
+      } catch (_) {
+        return e.json(404, { message: 'Subcontrato não encontrado.' })
+      }
+
+      const subStatus = sub.getString('status')
+      if (subStatus !== 'assinado') {
+        return e.json(400, {
+          message: 'Apenas subcontratos no status "assinado" podem receber medições progressivas.',
+        })
+      }
+
+      // Validação de executor
+      const executorId = sub.getString('executor')
+      let execRec = null
+      try {
+        execRec = $app.findRecordById('executores', executorId)
+      } catch (_) {}
+
+      if (role === 'executor') {
+        if (!execRec || execRec.getString('email') !== userEmail) {
+          return e.json(403, {
+            message: 'Você só pode apresentar medições vinculadas aos seus próprios subcontratos.',
+          })
+        }
+      }
+
+      const valorTotalSub = sub.getFloat('valor_total') || 0
+      const projetoId = sub.getString('projeto')
+
+      // Buscar medições anteriores deste subcontrato (status apresentada, aprovada, faturada, paga)
+      // Exclui apenas as reprovadas
+      const medicoesExistentes = $app.findRecordsByFilter(
+        'medicoes',
+        "subcontrato = '" + subcontratoId + "' && status != 'reprovada'",
+        'numero_medicao',
+        200,
+        0,
+      )
+
+      let totalMedidoAnterior = 0
+      let maxNumMedicao = 0
+      for (let i = 0; i < medicoesExistentes.length; i++) {
+        totalMedidoAnterior += medicoesExistentes[i].getFloat('valor_bruto') || 0
+        const n = medicoesExistentes[i].getInt('numero_medicao') || 0
+        if (n > maxNumMedicao) {
+          maxNumMedicao = n
+        }
+      }
+
+      // Se houver medições reprovadas também, precisamos verificar o maior número de medição
+      try {
+        const todasMedicoesSub = $app.findRecordsByFilter(
+          'medicoes',
+          "subcontrato = '" + subcontratoId + "'",
+          '-numero_medicao',
+          1,
+          0,
+        )
+        if (todasMedicoesSub.length > 0) {
+          const ultN = todasMedicoesSub[0].getInt('numero_medicao') || 0
+          if (ultN > maxNumMedicao) {
+            maxNumMedicao = ultN
+          }
+        }
+      } catch (_) {}
+
+      const proximoNumeroMedicao = maxNumMedicao + 1
+
+      // Validação de saldo no servidor
+      // valor_bruto acumulado não pode exceder valor_total do subcontrato
+      const saldoDisponivel = Math.round((valorTotalSub - totalMedidoAnterior) * 100) / 100
+      const novoTotal = Math.round((totalMedidoAnterior + valorBruto) * 100) / 100
+
+      if (novoTotal > valorTotalSub + 0.01) {
+        return e.json(400, {
+          message:
+            'BLOQUEIO: A soma das medições (R$ ' +
+            novoTotal.toFixed(2) +
+            ') excede o valor total do subcontrato (R$ ' +
+            valorTotalSub.toFixed(2) +
+            '). Saldo disponível para medição: R$ ' +
+            (saldoDisponivel > 0 ? saldoDisponivel.toFixed(2) : '0,00') +
+            '.',
+        })
+      }
+
+      // Gerar numeração global sequencial sem lacunas: MED-AAAA-NNNN
+      const anoAtual = new Date().getFullYear()
+      const prefixoMED = 'MED-' + anoAtual + '-'
+      const medicoesDoAno = $app.findRecordsByFilter(
+        'medicoes',
+        "numero ~ '" + prefixoMED + "'",
+        '-numero',
+        1,
+        0,
+      )
+
+      let proximoSeq = 1
+      if (medicoesDoAno.length > 0) {
+        const ultNum = medicoesDoAno[0].getString('numero')
+        const partes = ultNum.split('-')
+        const ultSeq = parseInt(partes[2], 10)
+        if (!isNaN(ultSeq)) {
+          proximoSeq = ultSeq + 1
+        }
+      }
+      const numeroGlobal = prefixoMED + ('0000' + proximoSeq).slice(-4)
+
+      const valorLiquido = Math.round((valorBruto - retencaoImpostos) * 100) / 100
+
+      const medicoesCol = $app.findCollectionByNameOrId('medicoes')
+      const novaMedicao = new Record(medicoesCol)
+      novaMedicao.set('numero', numeroGlobal)
+      novaMedicao.set('subcontrato', subcontratoId)
+      novaMedicao.set('projeto', projetoId)
+      novaMedicao.set('executor', executorId)
+      novaMedicao.set('numero_medicao', proximoNumeroMedicao)
+      novaMedicao.set('periodo_inicio', periodoInicio)
+      novaMedicao.set('periodo_fim', periodoFim)
+      novaMedicao.set('percentual_executado', percentualExecutado)
+      novaMedicao.set('valor_bruto', valorBruto)
+      novaMedicao.set('retencao_impostos', retencaoImpostos)
+      novaMedicao.set('valor_liquido', valorLiquido)
+      novaMedicao.set('status', 'apresentada')
+      if (Array.isArray(anexos) && anexos.length > 0) {
+        novaMedicao.set('anexos', anexos)
+      }
+
+      $app.save(novaMedicao)
+
+      const clientIp =
+        (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+        '127.0.0.1'
+
+      // Auditoria MEDICAO_CRIADA
+      try {
+        const auditCol = $app.findCollectionByNameOrId('audit_logs')
+        const aRec = new Record(auditCol)
+        aRec.set('user', userId)
+        aRec.set('user_email', userEmail)
+        aRec.set('acao', 'MEDICAO_CRIADA')
+        aRec.set('entidade', 'medicoes')
+        aRec.set('registro_id', novaMedicao.id)
+        aRec.set('detalhes', {
+          mensagem:
+            'Medição ' +
+            numeroGlobal +
+            ' (Medição ' +
+            ('00' + proximoNumeroMedicao).slice(-2) +
+            ') apresentada para o subcontrato ' +
+            sub.getString('numero'),
+          numero: numeroGlobal,
+          numero_medicao: proximoNumeroMedicao,
+          subcontrato_id: subcontratoId,
+          subcontrato_numero: sub.getString('numero'),
+          projeto_id: projetoId,
+          executor_id: executorId,
+          valor_bruto: valorBruto,
+          retencao_impostos: retencaoImpostos,
+          valor_liquido: valorLiquido,
+          percentual_executado: percentualExecutado,
+          periodo_inicio: periodoInicio,
+          periodo_fim: periodoFim,
+          apresentado_por_role: role,
+        })
+        aRec.set('ip', clientIp)
+        $app.save(aRec)
+      } catch (errAudit) {
+        console.log('Erro ao auditar MEDICAO_CRIADA: ' + errAudit)
+      }
+
+      return e.json(200, {
+        success: true,
+        message: 'Medição ' + numeroGlobal + ' apresentada com sucesso!',
+        medicao: {
+          id: novaMedicao.id,
+          numero: numeroGlobal,
+          numero_medicao: proximoNumeroMedicao,
+          status: 'apresentada',
+          valor_bruto: valorBruto,
+          retencao_impostos: retencaoImpostos,
+          valor_liquido: valorLiquido,
+        },
+      })
+    } catch (err) {
+      console.log('Erro interno em /medicoes/criar: ' + err)
+      return e.json(500, { message: 'Erro interno ao criar medição: ' + err })
+    }
+  },
+  $apis.requireAuth(),
+)
+
+// 2. Aprovar Medição (apenas Admin/Gestor)
+// Gera automaticamente conta a pagar na coleção 'contas' com medicao_aprovada_origem = id da medição
+routerAdd(
+  'POST',
+  '/backend/v1/medicoes/{id}/aprovar',
+  (e) => {
+    try {
+      const reqInfo = e.requestInfo()
+      if (!reqInfo.auth) {
+        return e.json(401, { message: 'Autenticação necessária' })
+      }
+
+      const role = reqInfo.auth.getString('role')
+      const userEmail = reqInfo.auth.getString('email')
+      const userId = reqInfo.auth.id
+
+      if (role !== 'admin' && role !== 'gestor') {
+        return e.json(403, {
+          message:
+            'Permissão negada: apenas Administradores ou Gestores de Projetos podem aprovar medições.',
+        })
+      }
+
+      const medicaoId = e.request.pathValue('id')
+      if (!medicaoId) {
+        return e.json(400, { message: 'ID da medição não informado.' })
+      }
+
+      let medicao
+      try {
+        medicao = $app.findRecordById('medicoes', medicaoId)
+      } catch (_) {
+        return e.json(404, { message: 'Medição não encontrada.' })
+      }
+
+      const statusAtual = medicao.getString('status')
+      const medicaoNumero = medicao.getString('numero')
+      const subcontratoId = medicao.getString('subcontrato')
+      const projetoId = medicao.getString('projeto')
+      const executorId = medicao.getString('executor')
+      const valorBruto = medicao.getFloat('valor_bruto') || 0
+      const retencao = medicao.getFloat('retencao_impostos') || 0
+      const valorLiquido = medicao.getFloat('valor_liquido') || valorBruto - retencao
+      const numeroMedicaoSeq = medicao.getInt('numero_medicao') || 1
+
+      // Idempotência: se já aprovada/faturada/paga, não duplicar a conta a pagar
+      const contasExistentes = $app.findRecordsByFilter(
+        'contas',
+        "medicao_aprovada_origem = '" + medicaoId + "'",
+        '-created',
+        1,
+        0,
+      )
+
+      if (statusAtual === 'aprovada' || statusAtual === 'faturada' || statusAtual === 'paga') {
+        const cExistente = contasExistentes.length > 0 ? contasExistentes[0] : null
+        return e.json(200, {
+          success: true,
+          message: 'Esta medição já se encontra aprovada.',
+          medicao_id: medicaoId,
+          conta_pagar_id: cExistente ? cExistente.id : null,
+          conta_descricao: cExistente ? cExistente.getString('descricao') : null,
+        })
+      }
+
+      if (statusAtual === 'reprovada') {
+        return e.json(400, {
+          message:
+            'Medição reprovada não pode ser aprovada diretamente. O executor deve reapresentar uma nova medição.',
+        })
+      }
+
+      const nowIso = new Date().toISOString()
+      medicao.set('status', 'aprovada')
+      medicao.set('aprovada_por', userId)
+      medicao.set('data_aprovacao', nowIso)
+      $app.save(medicao)
+
+      let contaCriada = null
+      if (contasExistentes.length > 0) {
+        contaCriada = contasExistentes[0]
+      } else {
+        // Obter número do subcontrato e código do projeto para descrição rica
+        let subNumero = ''
+        try {
+          const subRec = $app.findRecordById('subcontratos', subcontratoId)
+          if (subRec) subNumero = subRec.getString('numero')
+        } catch (_) {}
+
+        let prjCodigo = ''
+        try {
+          const prjRec = $app.findRecordById('projetos', projetoId)
+          if (prjRec) prjCodigo = prjRec.getString('codigo')
+        } catch (_) {}
+
+        let execNome = ''
+        try {
+          const exRec = $app.findRecordById('executores', executorId)
+          if (exRec) execNome = exRec.getString('nome')
+        } catch (_) {}
+
+        const contasCol = $app.findCollectionByNameOrId('contas')
+        const novaConta = new Record(contasCol)
+        novaConta.set('tipo', 'pagar')
+        novaConta.set('status', 'rascunho')
+        novaConta.set(
+          'descricao',
+          'Medição ' +
+            medicaoNumero +
+            ' (Medição ' +
+            ('00' + numeroMedicaoSeq).slice(-2) +
+            ') — Subcontrato ' +
+            (subNumero || subcontratoId) +
+            (prjCodigo ? ' • ' + prjCodigo : '') +
+            (execNome ? ' • ' + execNome : ''),
+        )
+        novaConta.set('valor', valorBruto)
+        novaConta.set('retencao_impostos', retencao)
+        novaConta.set('valor_liquido', valorLiquido)
+        novaConta.set('subcontrato', subcontratoId)
+        novaConta.set('projeto', projetoId)
+        novaConta.set('executor', executorId)
+        novaConta.set('medicao_aprovada_origem', medicaoId)
+        novaConta.set(
+          'forma_pagamento',
+          'Transferência Bancária / PIX conforme Termo de Subcontratação',
+        )
+        novaConta.set('bloqueada_por_fechamento', false)
+
+        // Vencimento em D+15 dias por padrão
+        const dataVenc = new Date()
+        dataVenc.setDate(dataVenc.getDate() + 15)
+        novaConta.set('vencimento', dataVenc.toISOString().substring(0, 10) + ' 12:00:00.000Z')
+
+        $app.save(novaConta)
+        contaCriada = novaConta
+
+        const clientIp =
+          (reqInfo.headers &&
+            (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+          '127.0.0.1'
+
+        // Auditoria CONTA_PAGAR_GERADA_MEDICAO
+        try {
+          const auditCol = $app.findCollectionByNameOrId('audit_logs')
+          const aConta = new Record(auditCol)
+          aConta.set('user', userId)
+          aConta.set('user_email', userEmail)
+          aConta.set('acao', 'CONTA_PAGAR_GERADA_MEDICAO')
+          aConta.set('entidade', 'contas')
+          aConta.set('registro_id', novaConta.id)
+          aConta.set('detalhes', {
+            mensagem:
+              'Conta a pagar rascunho gerada automaticamente a partir da aprovação da Medição ' +
+              medicaoNumero,
+            medicao_id: medicaoId,
+            medicao_numero: medicaoNumero,
+            subcontrato_id: subcontratoId,
+            projeto_id: projetoId,
+            executor_id: executorId,
+            valor_bruto: valorBruto,
+            retencao_impostos: retencao,
+            valor_liquido: valorLiquido,
+          })
+          aConta.set('ip', clientIp)
+          $app.save(aConta)
+        } catch (errAuditConta) {
+          console.log('Erro ao auditar CONTA_PAGAR_GERADA_MEDICAO: ' + errAuditConta)
+        }
+      }
+
+      const clientIp =
+        (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+        '127.0.0.1'
+
+      // Auditoria MEDICAO_APROVADA
+      try {
+        const auditCol = $app.findCollectionByNameOrId('audit_logs')
+        const aRec = new Record(auditCol)
+        aRec.set('user', userId)
+        aRec.set('user_email', userEmail)
+        aRec.set('acao', 'MEDICAO_APROVADA')
+        aRec.set('entidade', 'medicoes')
+        aRec.set('registro_id', medicaoId)
+        aRec.set('detalhes', {
+          mensagem: 'Medição ' + medicaoNumero + ' aprovada pelo ' + role + ' ' + userEmail,
+          medicao_numero: medicaoNumero,
+          aprovador_id: userId,
+          aprovador_email: userEmail,
+          data_aprovacao: nowIso,
+          conta_pagar_id: contaCriada ? contaCriada.id : null,
+          valor_liquido: valorLiquido,
+        })
+        aRec.set('ip', clientIp)
+        $app.save(aRec)
+      } catch (errAudit) {
+        console.log('Erro ao auditar MEDICAO_APROVADA: ' + errAudit)
+      }
+
+      return e.json(200, {
+        success: true,
+        message:
+          'Medição aprovada com sucesso! Conta a pagar gerada automaticamente no Financeiro.',
+        medicao_id: medicaoId,
+        conta_pagar_id: contaCriada ? contaCriada.id : null,
+      })
+    } catch (err) {
+      console.log('Erro interno em /medicoes/aprovar: ' + err)
+      return e.json(500, { message: 'Erro interno ao aprovar medição: ' + err })
+    }
+  },
+  $apis.requireAuth(),
+)
+
+// 3. Reprovar Medição (apenas Admin/Gestor)
+// Exige observacoes_gestor preenchida
+routerAdd(
+  'POST',
+  '/backend/v1/medicoes/{id}/reprovar',
+  (e) => {
+    try {
+      const reqInfo = e.requestInfo()
+      if (!reqInfo.auth) {
+        return e.json(401, { message: 'Autenticação necessária' })
+      }
+
+      const role = reqInfo.auth.getString('role')
+      const userEmail = reqInfo.auth.getString('email')
+      const userId = reqInfo.auth.id
+
+      if (role !== 'admin' && role !== 'gestor') {
+        return e.json(403, {
+          message:
+            'Permissão negada: apenas Administradores ou Gestores de Projetos podem reprovar medições.',
+        })
+      }
+
+      const medicaoId = e.request.pathValue('id')
+      if (!medicaoId) {
+        return e.json(400, { message: 'ID da medição não informado.' })
+      }
+
+      const body = reqInfo.body || {}
+      const observacoes = (body.observacoes_gestor || body.observacoes || '').trim()
+
+      if (!observacoes) {
+        return e.json(400, {
+          message:
+            'Para reprovar uma medição, é obrigatório preencher a justificativa/observações para o executor.',
+        })
+      }
+
+      let medicao
+      try {
+        medicao = $app.findRecordById('medicoes', medicaoId)
+      } catch (_) {
+        return e.json(404, { message: 'Medição não encontrada.' })
+      }
+
+      const statusAtual = medicao.getString('status')
+      if (statusAtual === 'aprovada' || statusAtual === 'faturada' || statusAtual === 'paga') {
+        return e.json(400, {
+          message: 'Esta medição já foi aprovada/faturada e não pode ser reprovada diretamente.',
+        })
+      }
+
+      medicao.set('status', 'reprovada')
+      medicao.set('observacoes_gestor', observacoes)
+      $app.save(medicao)
+
+      const medicaoNumero = medicao.getString('numero')
+      const clientIp =
+        (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+        '127.0.0.1'
+
+      // Auditoria MEDICAO_REPROVADA
+      try {
+        const auditCol = $app.findCollectionByNameOrId('audit_logs')
+        const aRec = new Record(auditCol)
+        aRec.set('user', userId)
+        aRec.set('user_email', userEmail)
+        aRec.set('acao', 'MEDICAO_REPROVADA')
+        aRec.set('entidade', 'medicoes')
+        aRec.set('registro_id', medicaoId)
+        aRec.set('detalhes', {
+          mensagem:
+            'Medição ' +
+            medicaoNumero +
+            ' reprovada por ' +
+            userEmail +
+            '. Justificativa: ' +
+            observacoes,
+          medicao_numero: medicaoNumero,
+          observacoes_gestor: observacoes,
+          reprovado_por_id: userId,
+          reprovado_por_email: userEmail,
+        })
+        aRec.set('ip', clientIp)
+        $app.save(aRec)
+      } catch (errAudit) {
+        console.log('Erro ao auditar MEDICAO_REPROVADA: ' + errAudit)
+      }
+
+      return e.json(200, {
+        success: true,
+        message: 'Medição reprovada com sucesso. O executor poderá reapresentar os ajustes.',
+        medicao_id: medicaoId,
+      })
+    } catch (err) {
+      console.log('Erro interno em /medicoes/reprovar: ' + err)
+      return e.json(500, { message: 'Erro interno ao reprovar medição: ' + err })
+    }
+  },
+  $apis.requireAuth(),
+)

@@ -1068,6 +1068,36 @@ export interface ContaRecord {
   }
 }
 
+export type StatusMedicao = 'apresentada' | 'aprovada' | 'reprovada' | 'faturada' | 'paga'
+
+export interface MedicaoRecord {
+  id: string
+  numero: string // MED-AAAA-NNNN
+  subcontrato: string
+  projeto: string
+  executor: string
+  numero_medicao: number
+  periodo_inicio: string
+  periodo_fim: string
+  percentual_executado: number
+  valor_bruto: number
+  retencao_impostos?: number
+  valor_liquido: number
+  status: StatusMedicao
+  aprovada_por?: string
+  data_aprovacao?: string
+  observacoes_gestor?: string
+  anexos?: string[]
+  created: string
+  updated: string
+  expand?: {
+    subcontrato?: SubcontratoRecord
+    projeto?: ProjetoRecord
+    executor?: ExecutorRecord
+    aprovada_por?: UserRecord
+  }
+}
+
 export interface PesosScoreDemandaParceiro {
   peso_contratos_valor: number // ex: 35%
   peso_taxa_conversao: number // ex: 35%

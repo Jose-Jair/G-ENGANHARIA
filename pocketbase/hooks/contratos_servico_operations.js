@@ -68,6 +68,13 @@ routerAdd('POST', '/backend/v1/propostas/solicitar-alteracoes', (e) => {
     proposta.set('historico_devolutivas', historicoAtualizado)
     $app.save(proposta)
 
+    const resolvedReqIp =
+      (e.request &&
+        typeof e.request.getHeader === 'function' &&
+        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+      '127.0.0.1'
+
     try {
       const auditCol = $app.findCollectionByNameOrId('audit_logs')
       const aRec = new Record(auditCol)
@@ -81,10 +88,10 @@ routerAdd('POST', '/backend/v1/propostas/solicitar-alteracoes', (e) => {
           '. Retornada para "Em negociação".',
         proposta_numero: proposta.getString('numero'),
         texto_solicitacao: texto,
-        ip: reqInfo.remoteIP || '',
+        ip: resolvedReqIp,
         user_agent: (reqInfo.headers && reqInfo.headers['user-agent']) || '',
       })
-      aRec.set('ip', reqInfo.remoteIP || '')
+      aRec.set('ip', resolvedReqIp)
       $app.save(aRec)
     } catch (errAudit) {
       console.log('Erro ao auditar solicitação de alteração: ' + errAudit)
@@ -162,7 +169,11 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
     }
 
     const clientIp =
-      reqInfo.remoteIP || (reqInfo.headers && reqInfo.headers['x-forwarded-for']) || '127.0.0.1'
+      (e.request &&
+        typeof e.request.getHeader === 'function' &&
+        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+      '127.0.0.1'
     const clientUserAgent = (reqInfo.headers && reqInfo.headers['user-agent']) || 'Navegador Web'
     const nowIso = new Date().toISOString()
 
@@ -503,6 +514,11 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
 
         try {
           proposta.set('contrato_servico', novoContrato.id)
+          if (cadastroCompleto) {
+            proposta.set('dados_complementares_preenchidos', true)
+          } else if (tokenComplementoDados) {
+            proposta.set('dados_complementares_preenchidos', false)
+          }
           $app.save(proposta)
         } catch (_) {}
 
@@ -963,7 +979,11 @@ routerAdd('POST', '/backend/v1/contratos-servico/complementar-dados', (e) => {
     const isPj = Boolean(empresaId)
 
     const clientIp =
-      reqInfo.remoteIP || (reqInfo.headers && reqInfo.headers['x-forwarded-for']) || '127.0.0.1'
+      (e.request &&
+        typeof e.request.getHeader === 'function' &&
+        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+      '127.0.0.1'
     const nowIso = new Date().toISOString()
 
     const fnClean = (val) => (val || '').toString().replace(/\D/g, '')
@@ -2078,7 +2098,11 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
     }
 
     const clientIp =
-      reqInfo.remoteIP || (reqInfo.headers && reqInfo.headers['x-forwarded-for']) || '127.0.0.1'
+      (e.request &&
+        typeof e.request.getHeader === 'function' &&
+        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+      '127.0.0.1'
     const clientUserAgent = (reqInfo.headers && reqInfo.headers['user-agent']) || 'Navegador Web'
     const nowIso = new Date().toISOString()
 
@@ -3012,7 +3036,12 @@ routerAdd(
         })
       }
 
-      const clientIp = reqInfo.remoteIP || '127.0.0.1'
+      const clientIp =
+        (e.request &&
+          typeof e.request.getHeader === 'function' &&
+          (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+        (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+        '127.0.0.1'
       const clientUserAgent = (reqInfo.headers && reqInfo.headers['user-agent']) || 'Navegador Web'
       const nowIso = new Date().toISOString()
 

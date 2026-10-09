@@ -48,9 +48,14 @@ for (let i = 0; i < businessCollections.length; i++) {
       let ip = ''
 
       try {
+        if (e.request && typeof e.request.getHeader === 'function') {
+          ip = e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip') || ''
+        }
         const reqInfo = e.requestInfo()
         if (reqInfo) {
-          ip = reqInfo.remoteIP || ''
+          if (!ip && reqInfo.headers) {
+            ip = reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'] || ''
+          }
           if (reqInfo.auth) {
             userId = reqInfo.auth.id
             userEmail = reqInfo.auth.getString('email') || ''
@@ -106,9 +111,14 @@ for (let i = 0; i < businessCollections.length; i++) {
       let ip = ''
 
       try {
+        if (e.request && typeof e.request.getHeader === 'function') {
+          ip = e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip') || ''
+        }
         const reqInfo = e.requestInfo()
         if (reqInfo) {
-          ip = reqInfo.remoteIP || ''
+          if (!ip && reqInfo.headers) {
+            ip = reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'] || ''
+          }
           if (reqInfo.auth) {
             userId = reqInfo.auth.id
             userEmail = reqInfo.auth.getString('email') || ''
@@ -136,6 +146,11 @@ for (let i = 0; i < businessCollections.length; i++) {
             depois[fieldName] = newVal
           }
         }
+      }
+
+      // Se não houve alteração real nos dados rastreados (diff vazio), não gerar ruído no log
+      if (Object.keys(antes).length === 0 && Object.keys(depois).length === 0) {
+        return
       }
 
       const detalhesEdicao = { antes: antes, depois: depois }
@@ -171,9 +186,14 @@ for (let i = 0; i < businessCollections.length; i++) {
       let ip = ''
 
       try {
+        if (e.request && typeof e.request.getHeader === 'function') {
+          ip = e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip') || ''
+        }
         const reqInfo = e.requestInfo()
         if (reqInfo) {
-          ip = reqInfo.remoteIP || ''
+          if (!ip && reqInfo.headers) {
+            ip = reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'] || ''
+          }
           if (reqInfo.auth) {
             userId = reqInfo.auth.id
             userEmail = reqInfo.auth.getString('email') || ''

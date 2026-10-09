@@ -1,8 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { ProjetoRecord, ProjetoEtapaRecord, SaudeProjeto, ExecutorRecord } from '@/types'
-import { projetosService } from '@/services/projetos'
+import {
+  ProjetoRecord,
+  ProjetoEtapaRecord,
+  SaudeProjeto,
+  ExecutorRecord,
+  EmpresaRecord,
+} from '@/types'
+import { projetosService, ProjetoFiltrosServidor } from '@/services/projetos'
 import { executoresService } from '@/services/executores'
+import { empresasService } from '@/services/empresas'
 import { formatDateBr, formatCurrencyBr } from '@/lib/formatters'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,6 +40,9 @@ import {
   FileSignature,
   FolderKanban,
   RefreshCw,
+  X,
+  ArrowUpDown,
+  Filter,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { exportService } from '@/services/exportService'
@@ -66,6 +76,7 @@ export const ProjetosPage: React.FC = () => {
   const [projetos, setProjetos] = useState<ProjetoRecord[]>([])
   const [todasEtapas, setTodasEtapas] = useState<ProjetoEtapaRecord[]>([])
   const [executores, setExecutores] = useState<ExecutorRecord[]>([])
+  const [empresas, setEmpresas] = useState<EmpresaRecord[]>([])
   const [carregando, setCarregando] = useState(true)
 
   // Paginação no servidor (20 projetos por página com carregamento incremental)
@@ -74,15 +85,21 @@ export const ProjetosPage: React.FC = () => {
   const [totalItens, setTotalItens] = useState(0)
   const [carregandoMais, setCarregandoMais] = useState(false)
 
-  // Filtros
+  // Filtros no servidor
+  const [buscaInput, setBuscaInput] = useState(() => searchParams.get('busca') || '')
   const [busca, setBusca] = useState(() => searchParams.get('busca') || '')
   const [filtroSaude, setFiltroSaude] = useState<string>(() => searchParams.get('saude') || 'todos')
+  const [filtroEmpresa, setFiltroEmpresa] = useState<string>('todas')
   const [filtroDisciplina, setFiltroDisciplina] = useState<string>('todas')
-  const [filtroExecutor, setFiltroExecutor] = useState<string>('todos')
-  const [filtroPeriodo, setFiltroPeriodo] = useState<string>('todos')
+  const [filtroDataInicio, setFiltroDataInicio] = useState<string>('')
+  const [filtroDataFim, setFiltroDataFim] = useState<string>('')
   const [filtroStatus, setFiltroStatus] = useState<string>(
     () => searchParams.get('status') || 'todos',
   )
+
+  // Ordenação no servidor
+  // Opções: prazo_asc, prazo_desc, valor_desc, valor_asc, criacao_desc, criacao_asc
+  const [ordenacao, setOrdenacao] = useState<string>('criacao_desc')
 
   // Modais
   const [modalCriarOpen, setModalCriarOpen] = useState(false)
@@ -103,6 +120,114 @@ export const ProjetosPage: React.FC = () => {
     user && ['admin', 'gestor', 'financeiro', 'comercial'].includes(user.role)
   )
 
+  // Debounce na busca textual (350ms) para não sobrecarregar o servidor
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setBusca(buscaInput)
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [buscaInput])
+
+  // Mapear opção de ordenação da UI para a string do PocketBase
+  const sortPocketBase = useMemo(() => {
+    switch (ordenacao) {
+      case 'prazo_asc':
+        return 'prazo_final,created'
+      case 'prazo_desc':
+        return '-prazo_final,-created'
+      case 'valor_desc':
+        return '-valor_total,-created'
+      case 'valor_asc':
+        return 'valor_total,created'
+      case 'criacao_asc':
+        return 'created'
+      case 'criacao_desc':
+      default:
+        return '-created'
+    }
+  }, [ordenacao])
+
+  // Montar objeto de filtros para o serviço
+  const filtrosAtuaisServidor = useMemo<ProjetoFiltrosServidor>(() => {
+    return {
+      busca: busca.trim() || undefined,
+      status: filtroStatus,
+      saude: filtroSaude,
+      empresaId: filtroEmpresa,
+      disciplina: filtroDisciplina,
+      dataInicial: filtroDataInicio || undefined,
+      dataFinal: filtroDataFim || undefined,
+    }
+  }, [
+    busca,
+    filtroStatus,
+    filtroSaude,
+    filtroEmpresa,
+    filtroDisciplina,
+    filtroDataInicio,
+    filtroDataFim,
+  ])
+
+  // Contagem de filtros ativos
+  const totalFiltrosAtivos = useMemo(() => {
+    let count = 0
+    if (busca.trim()) count++
+    if (filtroStatus !== 'todos') count++
+    if (filtroSaude !== 'todos') count++
+    if (filtroEmpresa !== 'todas') count++
+    if (filtroDisciplina !== 'todas') count++
+    if (filtroDataInicio) count++
+    if (filtroDataFim) count++
+    return count
+  }, [
+    busca,
+    filtroStatus,
+    filtroSaude,
+    filtroEmpresa,
+    filtroDisciplina,
+    filtroDataInicio,
+    filtroDataFim,
+  ])
+
+  const limparTodosFiltros = () => {
+    setBuscaInput('')
+    setBusca('')
+    setFiltroStatus('todos')
+    setFiltroSaude('todos')
+    setFiltroEmpresa('todas')
+    setFiltroDisciplina('todas')
+    setFiltroDataInicio('')
+    setFiltroDataFim('')
+  }
+
+  // Carrega opções auxiliares (executores e empresas parceiras) apenas uma vez
+  useEffect(() => {
+    let cancel = false
+    const carregarAuxiliares = async () => {
+      try {
+        const [listaExec, listaEmpresas, listaEtapas] = await Promise.all([
+          executoresService.list().catch(() => []),
+          empresasService.list({ incluirPreCadastros: false }).catch(() => []),
+          projetosService.listTodasEtapas
+            ? projetosService.listTodasEtapas().catch(() => [])
+            : Promise.resolve([]),
+        ])
+        if (!cancel) {
+          setExecutores(listaExec)
+          setEmpresas(listaEmpresas)
+          setTodasEtapas(listaEtapas)
+        }
+      } catch {
+        // silencioso
+      }
+    }
+    carregarAuxiliares()
+    return () => {
+      cancel = true
+    }
+  }, [])
+
+  // Função central de carregamento de projetos paginados no servidor
   const carregarProjetos = async (pagina = 1, append = false) => {
     if (append) {
       setCarregandoMais(true)
@@ -110,18 +235,17 @@ export const ProjetosPage: React.FC = () => {
       setCarregando(true)
     }
     try {
-      const [pagedResult, listaEtapas, listaExec] = await Promise.all([
-        projetosService.getList({ page: pagina, perPage: 20 }),
-        projetosService.listTodasEtapas ? projetosService.listTodasEtapas() : Promise.resolve([]),
-        executoresService.list(),
-      ])
+      const pagedResult = await projetosService.getList({
+        page: pagina,
+        perPage: 20,
+        sort: sortPocketBase,
+        filtros: filtrosAtuaisServidor,
+      })
 
       setProjetos((prev) => (append ? [...prev, ...pagedResult.items] : pagedResult.items))
       setPaginaAtual(pagedResult.page)
       setTotalPaginas(pagedResult.totalPages)
       setTotalItens(pagedResult.totalItems)
-      setTodasEtapas(listaEtapas)
-      setExecutores(listaExec)
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar projetos',
@@ -134,9 +258,11 @@ export const ProjetosPage: React.FC = () => {
     }
   }
 
+  // Recarregar da página 1 sempre que filtros ou ordenação mudarem
   useEffect(() => {
     carregarProjetos(1, false)
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtrosAtuaisServidor, sortPocketBase])
 
   const handleCarregarMais = () => {
     if (paginaAtual < totalPaginas && !carregandoMais) {
@@ -198,81 +324,15 @@ export const ProjetosPage: React.FC = () => {
     })
   }, [projetos, todasEtapas])
 
-  // Filtragem e Ordenação por Criticidade (🔴 primeiro, depois por dias de atraso decrescente)
-  const projetosFiltrados = useMemo(() => {
-    const hoje = new Date()
-    hoje.setHours(0, 0, 0, 0)
+  // Lista a exibir: projetos já chegam filtrados e ordenados pelo servidor
+  const projetosExibidos = projetosComMetricas
 
-    return projetosComMetricas
-      .filter((prj) => {
-        const pj = prj.expand?.empresa || prj.expand?.proposta?.expand?.empresa
-        const pf = prj.expand?.cliente_pf || prj.expand?.proposta?.expand?.cliente_pf
-        const nomeCliente = (pj?.nome_fantasia || pj?.razao_social || pf?.nome || '').toLowerCase()
-        const codigo = (prj.codigo || '').toLowerCase()
-        const nomePrj = (prj.nome || '').toLowerCase()
-        const matchBusca =
-          !busca ||
-          codigo.includes(busca.toLowerCase()) ||
-          nomePrj.includes(busca.toLowerCase()) ||
-          nomeCliente.includes(busca.toLowerCase())
-
-        const matchSaude = filtroSaude === 'todos' || prj.saude === filtroSaude
-        const matchStatus = filtroStatus === 'todos' || prj.status === filtroStatus
-
-        const matchDisciplina =
-          filtroDisciplina === 'todas' ||
-          prj.disciplinasList.some((d) => d.toLowerCase().includes(filtroDisciplina.toLowerCase()))
-
-        const matchExecutor =
-          filtroExecutor === 'todos' || prj.executoresIds.includes(filtroExecutor)
-
-        let matchPeriodo = true
-        if (filtroPeriodo === 'mes_atual') {
-          if (prj.prazo_final) {
-            const d = new Date(prj.prazo_final)
-            matchPeriodo =
-              d.getMonth() === hoje.getMonth() && d.getFullYear() === hoje.getFullYear()
-          } else {
-            matchPeriodo = false
-          }
-        } else if (filtroPeriodo === 'atrasados') {
-          matchPeriodo = prj.diasAtrasoMax > 0
-        }
-
-        return (
-          matchBusca &&
-          matchSaude &&
-          matchStatus &&
-          matchDisciplina &&
-          matchExecutor &&
-          matchPeriodo
-        )
-      })
-      .sort((a, b) => {
-        // Ordenação por criticidade: 🔴 Vermelho (peso 3), 🟡 Amarelo (peso 2), 🟢 Verde (peso 1)
-        const pesoSaude = (s?: string) => (s === 'vermelho' ? 3 : s === 'amarelo' ? 2 : 1)
-        const diffSaude = pesoSaude(b.saude) - pesoSaude(a.saude)
-        if (diffSaude !== 0) return diffSaude
-
-        // Se empatar na saúde, desempata pelo maior número de dias de atraso
-        return b.diasAtrasoMax - a.diasAtrasoMax
-      })
-  }, [
-    projetosComMetricas,
-    busca,
-    filtroSaude,
-    filtroStatus,
-    filtroDisciplina,
-    filtroExecutor,
-    filtroPeriodo,
-  ])
-
-  // Projetos em Standby (aguardando_definicao)
+  // Projetos em Standby (aguardando_definicao) carregados na página atual
   const projetosEmStandby = useMemo(() => {
     return projetos.filter((p) => p.status === 'aguardando_definicao')
   }, [projetos])
 
-  // Contadores e métricas de portfólio por saúde
+  // Contadores e métricas dos registros carregados
   const metricasPortfolio = useMemo(() => {
     const calcMedia = (lista: ProjetoComEtapasCalculadas[]) => {
       if (lista.length === 0) return { percConcluido: 0, diasAtraso: 0, total: 0 }
@@ -319,7 +379,7 @@ export const ProjetosPage: React.FC = () => {
           <Button
             variant="outline"
             onClick={async () => {
-              if (projetosFiltrados.length === 0) {
+              if (projetosExibidos.length === 0) {
                 toast({
                   title: 'Sem projetos para exportar',
                   description: 'A lista atual não possui projetos com os filtros aplicados.',
@@ -335,6 +395,8 @@ export const ProjetosPage: React.FC = () => {
                   filtros: {
                     saude: filtroSaude,
                     status: filtroStatus,
+                    empresaId: filtroEmpresa !== 'todas' ? filtroEmpresa : undefined,
+                    disciplina: filtroDisciplina !== 'todas' ? filtroDisciplina : undefined,
                     busca: busca || undefined,
                   },
                   columns: [
@@ -376,11 +438,11 @@ export const ProjetosPage: React.FC = () => {
                       accessor: (p) => p.disciplinas || '',
                     },
                   ],
-                  data: projetosFiltrados,
+                  data: projetosExibidos,
                 })
                 toast({
                   title: 'Projetos Exportados',
-                  description: `${projetosFiltrados.length} projeto(s) exportado(s) com sucesso. Auditoria registrada.`,
+                  description: `${projetosExibidos.length} projeto(s) exportado(s) com sucesso. Auditoria registrada.`,
                 })
               } catch (err: any) {
                 toast({
@@ -412,14 +474,16 @@ export const ProjetosPage: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="p-4 bg-white border border-slate-200 rounded-lg shadow-xs">
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-            Total de Projetos
+            Total na Base
           </span>
           <div className="flex items-center justify-between mt-1">
-            <span className="text-2xl font-black text-slate-900">{projetosComMetricas.length}</span>
+            <span className="text-2xl font-black text-slate-900">{totalItens}</span>
             <Briefcase className="w-5 h-5 text-slate-400" />
           </div>
           <div className="text-[11px] text-slate-400 mt-2">
-            Ordenação ativa por criticidade (🔴 primeiro)
+            {projetos.length < totalItens
+              ? `Carregados: ${projetos.length} de ${totalItens}`
+              : `Todos os ${totalItens} registros exibidos`}
           </div>
         </div>
 
@@ -516,94 +580,262 @@ export const ProjetosPage: React.FC = () => {
         </div>
       )}
 
-      {/* Barra de Filtros Completos: Saúde, Disciplina, Executor, Período e Busca */}
+      {/* Barra de Filtros no Servidor e Ordenação */}
       <div className="p-4 bg-white border border-slate-200 rounded-lg shadow-xs space-y-3">
+        {/* Linha 1: Busca Livre + Ordenação */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-3">
           <div className="relative flex-1 w-full">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <Input
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar por código (PRJ-...), nome do projeto ou cliente..."
-              className="pl-9 text-xs"
+              value={buscaInput}
+              onChange={(e) => setBuscaInput(e.target.value)}
+              placeholder="Buscar por código (PRJ-...), título/nome do projeto ou cliente na base inteira..."
+              className="pl-9 pr-8 text-xs"
             />
+            {buscaInput && (
+              <button
+                type="button"
+                onClick={() => {
+                  setBuscaInput('')
+                  setBusca('')
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded"
+                title="Limpar busca"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full md:w-auto">
-            {/* Filtro Saúde */}
-            <Select value={filtroSaude} onValueChange={setFiltroSaude}>
-              <SelectTrigger className="text-xs h-9">
-                <SelectValue placeholder="Saúde" />
+          {/* Ordenação no Servidor */}
+          <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+            <span className="text-xs font-medium text-slate-500 flex items-center gap-1 shrink-0">
+              <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+              Ordenar por:
+            </span>
+            <Select value={ordenacao} onValueChange={setOrdenacao}>
+              <SelectTrigger className="text-xs h-9 w-full md:w-[220px]">
+                <SelectValue placeholder="Ordenar por..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todos">Todas Saúdes</SelectItem>
-                <SelectItem value="vermelho">🔴 Vermelho</SelectItem>
-                <SelectItem value="amarelo">🟡 Amarelo</SelectItem>
-                <SelectItem value="verde">🟢 Verde</SelectItem>
+                <SelectItem value="criacao_desc">Mais Recentes (Criação ↓)</SelectItem>
+                <SelectItem value="criacao_asc">Mais Antigos (Criação ↑)</SelectItem>
+                <SelectItem value="prazo_asc">Prazo Mais Próximo (Prazo ↑)</SelectItem>
+                <SelectItem value="prazo_desc">Prazo Mais Distante (Prazo ↓)</SelectItem>
+                <SelectItem value="valor_desc">Maior Valor (R$ ↓)</SelectItem>
+                <SelectItem value="valor_asc">Menor Valor (R$ ↑)</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+        </div>
 
-            {/* Filtro Disciplina */}
-            <Select value={filtroDisciplina} onValueChange={setFiltroDisciplina}>
-              <SelectTrigger className="text-xs h-9">
-                <SelectValue placeholder="Disciplina" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas Disciplinas</SelectItem>
-                <SelectItem value="Estrutura">Estrutura</SelectItem>
-                <SelectItem value="Instalações">Instalações</SelectItem>
-                <SelectItem value="Arquitetura">Arquitetura</SelectItem>
-                <SelectItem value="Elétrica">Elétrica</SelectItem>
-                <SelectItem value="Hidrossanitário">Hidrossanitário</SelectItem>
-                <SelectItem value="Climatização">Climatização</SelectItem>
-                <SelectItem value="Prevenção contra Incêndio">PPCI</SelectItem>
-              </SelectContent>
-            </Select>
+        {/* Linha 2: Filtros Estruturados (Status, Saúde, Empresa, Disciplina e Período) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          {/* Filtro Status */}
+          <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+            <SelectTrigger className="text-xs h-9">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos Status</SelectItem>
+              <SelectItem value="aguardando_definicao">⏳ Em Standby</SelectItem>
+              <SelectItem value="contratacao">📝 Em Contratação</SelectItem>
+              <SelectItem value="em_andamento">🚀 Em Andamento</SelectItem>
+              <SelectItem value="concluido">✅ Concluído</SelectItem>
+              <SelectItem value="pausado">⏸️ Pausado</SelectItem>
+              <SelectItem value="cancelado">❌ Cancelado</SelectItem>
+            </SelectContent>
+          </Select>
 
-            {/* Filtro Executor */}
-            <Select value={filtroExecutor} onValueChange={setFiltroExecutor}>
-              <SelectTrigger className="text-xs h-9">
-                <SelectValue placeholder="Executor" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos Executores</SelectItem>
-                {executores.map((ex) => (
-                  <SelectItem key={ex.id} value={ex.id}>
-                    {ex.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Filtro Saúde */}
+          <Select value={filtroSaude} onValueChange={setFiltroSaude}>
+            <SelectTrigger className="text-xs h-9">
+              <SelectValue placeholder="Saúde" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas Saúdes</SelectItem>
+              <SelectItem value="verde">🟢 Verde (No prazo)</SelectItem>
+              <SelectItem value="amarelo">🟡 Amarelo (Atenção)</SelectItem>
+              <SelectItem value="vermelho">🔴 Vermelho (Crítico)</SelectItem>
+            </SelectContent>
+          </Select>
 
-            {/* Filtro Período de Entrega */}
-            <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
-              <SelectTrigger className="text-xs h-9">
-                <SelectValue placeholder="Período" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todo Período</SelectItem>
-                <SelectItem value="mes_atual">Entrega este Mês</SelectItem>
-                <SelectItem value="atrasados">Atrasados Hoje</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Filtro Status (incluindo Em Contratação) */}
-            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-              <SelectTrigger className="text-xs h-9 col-span-2 sm:col-span-4">
-                <SelectValue placeholder="Status do Projeto" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os Status</SelectItem>
-                <SelectItem value="aguardando_definicao">
-                  ⏳ Em Standby (Aguardando Definição)
+          {/* Filtro Empresa / Parceiro Demandante */}
+          <Select value={filtroEmpresa} onValueChange={setFiltroEmpresa}>
+            <SelectTrigger className="text-xs h-9">
+              <SelectValue placeholder="Empresa/Parceiro" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todos Parceiros</SelectItem>
+              {empresas.map((emp) => (
+                <SelectItem key={emp.id} value={emp.id}>
+                  {emp.nome_fantasia || emp.razao_social}
                 </SelectItem>
-                <SelectItem value="contratacao">📝 Em Contratação (Assinatura Pendente)</SelectItem>
-                <SelectItem value="em_andamento">🚀 Em Andamento</SelectItem>
-                <SelectItem value="concluido">✅ Concluído</SelectItem>
-                <SelectItem value="cancelado">❌ Cancelado</SelectItem>{' '}
-              </SelectContent>
-            </Select>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Filtro Disciplina */}
+          <Select value={filtroDisciplina} onValueChange={setFiltroDisciplina}>
+            <SelectTrigger className="text-xs h-9">
+              <SelectValue placeholder="Disciplina" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas Disciplinas</SelectItem>
+              <SelectItem value="Estrutura">Estrutura</SelectItem>
+              <SelectItem value="Instalações">Instalações</SelectItem>
+              <SelectItem value="Arquitetura">Arquitetura</SelectItem>
+              <SelectItem value="Elétrica">Elétrica</SelectItem>
+              <SelectItem value="Hidrossanitário">Hidrossanitário</SelectItem>
+              <SelectItem value="Climatização">Climatização</SelectItem>
+              <SelectItem value="Prevenção contra Incêndio">PPCI</SelectItem>
+              <SelectItem value="BIM">BIM / Gestão</SelectItem>
+              <SelectItem value="Geral">Geral</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Período de Prazo: Data Inicial */}
+          <div className="relative">
+            <Input
+              type="date"
+              value={filtroDataInicio}
+              onChange={(e) => setFiltroDataInicio(e.target.value)}
+              className="text-xs h-9 px-2 text-slate-700"
+              title="Prazo final a partir de..."
+            />
+            <span className="absolute -top-2 left-2 bg-white px-1 text-[10px] text-slate-400 font-medium">
+              Prazo de
+            </span>
           </div>
+
+          {/* Período de Prazo: Data Final */}
+          <div className="relative">
+            <Input
+              type="date"
+              value={filtroDataFim}
+              onChange={(e) => setFiltroDataFim(e.target.value)}
+              className="text-xs h-9 px-2 text-slate-700"
+              title="Prazo final até..."
+            />
+            <span className="absolute -top-2 left-2 bg-white px-1 text-[10px] text-slate-400 font-medium">
+              Prazo até
+            </span>
+          </div>
+        </div>
+
+        {/* Linha 3: Barra de Chips de Filtros Ativos e Botão de Limpar */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge
+              variant={totalFiltrosAtivos > 0 ? 'default' : 'secondary'}
+              className={`text-xs h-6 px-2.5 font-medium flex items-center gap-1.5 ${
+                totalFiltrosAtivos > 0
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <Filter className="w-3 h-3" />
+              Filtros ativos ({totalFiltrosAtivos})
+            </Badge>
+
+            {busca.trim() && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-blue-50 text-blue-700 border border-blue-200">
+                Texto: "{busca}"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBuscaInput('')
+                    setBusca('')
+                  }}
+                  className="hover:text-blue-900"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {filtroStatus !== 'todos' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-slate-100 text-slate-700 border border-slate-200">
+                Status: {filtroStatus}
+                <button
+                  type="button"
+                  onClick={() => setFiltroStatus('todos')}
+                  className="hover:text-slate-900"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {filtroSaude !== 'todos' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-slate-100 text-slate-700 border border-slate-200">
+                Saúde: {filtroSaude}
+                <button
+                  type="button"
+                  onClick={() => setFiltroSaude('todos')}
+                  className="hover:text-slate-900"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {filtroEmpresa !== 'todas' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-slate-100 text-slate-700 border border-slate-200">
+                Empresa:{' '}
+                {empresas.find((e) => e.id === filtroEmpresa)?.nome_fantasia || 'Selecionada'}
+                <button
+                  type="button"
+                  onClick={() => setFiltroEmpresa('todas')}
+                  className="hover:text-slate-900"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {filtroDisciplina !== 'todas' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-slate-100 text-slate-700 border border-slate-200">
+                Disciplina: {filtroDisciplina}
+                <button
+                  type="button"
+                  onClick={() => setFiltroDisciplina('todas')}
+                  className="hover:text-slate-900"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {(filtroDataInicio || filtroDataFim) && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-slate-100 text-slate-700 border border-slate-200">
+                Prazo: {filtroDataInicio ? formatDateBr(filtroDataInicio) : '...'} até{' '}
+                {filtroDataFim ? formatDateBr(filtroDataFim) : '...'}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFiltroDataInicio('')
+                    setFiltroDataFim('')
+                  }}
+                  className="hover:text-slate-900"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+          </div>
+
+          {totalFiltrosAtivos > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={limparTodosFiltros}
+              className="text-xs h-7 px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+            >
+              <X className="w-3.5 h-3.5 mr-1" />
+              Limpar todos os filtros
+            </Button>
+          )}
         </div>
       </div>
 
@@ -611,46 +843,53 @@ export const ProjetosPage: React.FC = () => {
       {carregando ? (
         <div className="py-20 text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600 mb-2" />
-          <p className="text-xs text-slate-400">Carregando projetos de engenharia...</p>
+          <p className="text-xs text-slate-400">Consultando projetos no servidor...</p>
         </div>
-      ) : projetosFiltrados.length === 0 ? (
+      ) : projetosExibidos.length === 0 ? (
         <div className="text-center py-16 bg-white border border-slate-200 rounded-xl max-w-md mx-auto space-y-3 shadow-xs">
           <div className="w-12 h-12 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center mx-auto">
             <Briefcase className="w-6 h-6" />
           </div>
           <div>
             <p className="font-bold text-slate-800 text-sm">
-              {busca ||
-              filtroSaude !== 'todos' ||
-              filtroDisciplina !== 'todas' ||
-              filtroExecutor !== 'todos'
+              {totalFiltrosAtivos > 0
                 ? 'Nenhum projeto encontrado para estes filtros'
                 : 'Inicie seu primeiro Projeto de Engenharia'}
             </p>
             <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-              {busca ||
-              filtroSaude !== 'todos' ||
-              filtroDisciplina !== 'todas' ||
-              filtroExecutor !== 'todos'
-                ? 'Ajuste os filtros de saúde, disciplina ou executor para exibir os projetos.'
+              {totalFiltrosAtivos > 0
+                ? 'Ajuste ou limpe os filtros para pesquisar na base inteira do servidor.'
                 : 'Projetos são gerados automaticamente após o aceite formal de uma proposta ou criados diretamente aqui, com gestão de etapas por disciplina, cotações, documentos e riscos.'}
             </p>
           </div>
-          {canCreate && (
+          {totalFiltrosAtivos > 0 ? (
             <div className="pt-2">
               <Button
                 size="sm"
-                onClick={() => setModalCriarOpen(true)}
-                className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs font-semibold"
+                variant="outline"
+                onClick={limparTodosFiltros}
+                className="text-xs text-slate-700"
               >
-                <Plus className="w-4 h-4 mr-1.5" /> Criar Projeto Direto
+                Limpar todos os filtros
               </Button>
             </div>
+          ) : (
+            canCreate && (
+              <div className="pt-2">
+                <Button
+                  size="sm"
+                  onClick={() => setModalCriarOpen(true)}
+                  className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs font-semibold"
+                >
+                  <Plus className="w-4 h-4 mr-1.5" /> Criar Projeto Direto
+                </Button>
+              </div>
+            )
           )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projetosFiltrados.map((prj) => {
+          {projetosExibidos.map((prj) => {
             const pj = prj.expand?.empresa || prj.expand?.proposta?.expand?.empresa
             const pf = prj.expand?.cliente_pf || prj.expand?.proposta?.expand?.cliente_pf
             const nomeCliente =
@@ -931,10 +1170,13 @@ export const ProjetosPage: React.FC = () => {
       {/* Controles de Paginação / Carregamento Incremental */}
       {!carregando && totalItens > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200">
-          <div className="text-xs text-slate-500">
-            Exibindo <strong>{projetos.length}</strong> de <strong>{totalItens}</strong> projetos no
-            total
-            {totalPaginas > 1 && ` (Página ${paginaAtual} de ${totalPaginas})`}
+          <div className="text-xs text-slate-600 font-medium">
+            Mostrando <strong>{projetos.length}</strong> de <strong>{totalItens}</strong> projetos
+            {totalPaginas > 1 && (
+              <span className="text-slate-400 ml-1 font-normal">
+                (Página {paginaAtual} de {totalPaginas})
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -944,15 +1186,15 @@ export const ProjetosPage: React.FC = () => {
                 size="sm"
                 onClick={handleCarregarMais}
                 disabled={carregandoMais}
-                className="text-xs h-8"
+                className="text-xs h-8 font-medium shadow-xs"
               >
                 {carregandoMais ? (
                   <>
-                    <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin text-blue-600" />
                     Carregando mais...
                   </>
                 ) : (
-                  <>Carregar mais 20 projetos ({totalItens - projetos.length} restantes)</>
+                  <>Carregar mais ({totalItens - projetos.length} restantes)</>
                 )}
               </Button>
             )}
@@ -960,10 +1202,10 @@ export const ProjetosPage: React.FC = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => carregarProjetos(1, false)}
+              onClick={() => carregarProjetos(paginaAtual, false)}
               disabled={carregando}
               className="text-xs h-8 text-slate-600 hover:text-slate-900"
-              title="Recarregar projetos"
+              title="Atualizar lista"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${carregando ? 'animate-spin' : ''}`} />
             </Button>

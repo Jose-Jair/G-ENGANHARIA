@@ -50,11 +50,22 @@ export interface SugestaoSaudeProjeto {
     valorTotalContratado: number
   }
 }
+export interface ProjetoFiltrosServidor {
+  busca?: string
+  status?: string
+  saude?: string
+  empresaId?: string
+  disciplina?: string
+  dataInicial?: string
+  dataFinal?: string
+}
+
 export interface ListProjetosOptions {
   page?: number
   perPage?: number
   filter?: string
   sort?: string
+  filtros?: ProjetoFiltrosServidor
 }
 
 export interface ListProjetosResult {
@@ -63,6 +74,80 @@ export interface ListProjetosResult {
   perPage: number
   totalItems: number
   totalPages: number
+}
+
+/**
+ * Escapa valores para filtros de texto no PocketBase
+ */
+function escapeFilterVal(v: string): string {
+  return v.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+}
+
+/**
+ * Constrói string de filtro para a coleção 'projetos' do PocketBase
+ */
+export function buildProjetosFilter(filtros?: ProjetoFiltrosServidor): string {
+  if (!filtros) return ''
+  const parts: string[] = []
+
+  // 1. Busca livre (código, nome/título, ou busca em texto)
+  if (filtros.busca && filtros.busca.trim()) {
+    const q = escapeFilterVal(filtros.busca.trim())
+    // Filtro nativo no projeto: codigo, nome, descricao, disciplinas
+    // e via relações expandidas de empresa / cliente_pf / proposta
+    const buscaConditions: string[] = [
+      `codigo ~ '${q}'`,
+      `nome ~ '${q}'`,
+      `descricao ~ '${q}'`,
+      `disciplinas ~ '${q}'`,
+      `empresa.razao_social ~ '${q}'`,
+      `empresa.nome_fantasia ~ '${q}'`,
+      `cliente_pf.nome ~ '${q}'`,
+      `proposta.numero ~ '${q}'`,
+      `proposta.empresa.razao_social ~ '${q}'`,
+      `proposta.empresa.nome_fantasia ~ '${q}'`,
+      `proposta.cliente_pf.nome ~ '${q}'`,
+    ]
+    parts.push(`(${buscaConditions.join(' || ')})`)
+  }
+
+  // 2. Status
+  if (filtros.status && filtros.status !== 'todos') {
+    const st = escapeFilterVal(filtros.status)
+    parts.push(`status = '${st}'`)
+  }
+
+  // 3. Saúde (verde, amarelo, vermelho)
+  if (filtros.saude && filtros.saude !== 'todos') {
+    const s = escapeFilterVal(filtros.saude)
+    parts.push(`saude = '${s}'`)
+  }
+
+  // 4. Empresa / Parceiro Demandante
+  if (filtros.empresaId && filtros.empresaId !== 'todas') {
+    const empId = escapeFilterVal(filtros.empresaId)
+    // Pode estar vinculado diretamente ou via proposta
+    parts.push(`(empresa = '${empId}' || proposta.empresa = '${empId}')`)
+  }
+
+  // 5. Disciplina
+  if (filtros.disciplina && filtros.disciplina !== 'todas') {
+    const disc = escapeFilterVal(filtros.disciplina)
+    parts.push(`disciplinas ~ '${disc}'`)
+  }
+
+  // 6. Período de prazo (data inicial e final sobre prazo_final)
+  if (filtros.dataInicial && filtros.dataInicial.trim()) {
+    const dIni = escapeFilterVal(filtros.dataInicial.trim())
+    parts.push(`prazo_final >= '${dIni} 00:00:00.000Z'`)
+  }
+
+  if (filtros.dataFinal && filtros.dataFinal.trim()) {
+    const dFim = escapeFilterVal(filtros.dataFinal.trim())
+    parts.push(`prazo_final <= '${dFim} 23:59:59.999Z'`)
+  }
+
+  return parts.join(' && ')
 }
 
 export const projetosService = {
@@ -78,11 +163,17 @@ export const projetosService = {
     const page = options?.page || 1
     const perPage = options?.perPage || 20
     const sort = options?.sort || '-created'
-    const filter = options?.filter || ''
+
+    // Combina filtro manual se fornecido ou derivado de filtros estruturados
+    const filterFromFiltros = buildProjetosFilter(options?.filtros)
+    let filter = options?.filter || ''
+    if (filterFromFiltros) {
+      filter = filter ? `(${filter}) && (${filterFromFiltros})` : filterFromFiltros
+    }
 
     const res = await pb.collection('projetos').getList<ProjetoRecord>(page, perPage, {
       sort,
-      filter,
+      filter: filter || undefined,
       expand:
         'empresa,cliente_pf,proposta,proposta.empresa,proposta.cliente_pf,contrato_servico,grupo',
     })

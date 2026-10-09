@@ -66,6 +66,7 @@ export default function AppLayout() {
   const [badgeParceirosSemDemandaCount, setBadgeParceirosSemDemandaCount] = useState<number>(0)
   const [badgeDocumentosVencendoCount, setBadgeDocumentosVencendoCount] = useState<number>(0)
   const [badgeFinanceiroAlertasCount, setBadgeFinanceiroAlertasCount] = useState<number>(0)
+  const [badgeFinanceiroAtrasadosCount, setBadgeFinanceiroAtrasadosCount] = useState<number>(0)
   const [badgeContratosPendentesCount, setBadgeContratosPendentesCount] = useState<number>(0)
   const [badgeSolicitacoesAlteracaoCount, setBadgeSolicitacoesAlteracaoCount] = useState<number>(0)
   const [badgeMedicoesApresentadasCount, setBadgeMedicoesApresentadasCount] = useState<number>(0)
@@ -222,6 +223,15 @@ export default function AppLayout() {
           const todasContas = await financeiroService.listAll()
           const alertasFin = financeiroService.calcularAlertasVencimento(todasContas)
           setBadgeFinanceiroAlertasCount(alertasFin.totalAlertas)
+        } catch {
+          /* intentionally ignored */
+        }
+
+        // Regra da Visão Gerencial: contagem de contas VENCIDAS (receber + pagar) calculada no servidor
+        try {
+          const { financeiroService: finSvc } = await import('@/services/financeiro')
+          const cnt = await finSvc.getCountAtraso()
+          setBadgeFinanceiroAtrasadosCount(cnt.total || 0)
         } catch {
           /* intentionally ignored */
         }
@@ -842,7 +852,7 @@ export default function AppLayout() {
                                 : '/acoes-do-dia'
                 }
                 className="relative p-2 text-slate-600 hover:text-[#D95A2B] hover:bg-slate-100 rounded-full transition-colors"
-                title={`Notificações: ${badgeMedicoesApresentadasCount} medições aguardando aprovação, ${badgeAcoesCount} ações cadência, ${badgeSolicitacoesAlteracaoCount} solicitações de alteração em propostas, ${badgeContratosPendentesCount} contratos pendentes de assinatura, ${badgeCampanhasPendentesCount} campanhas pendentes, ${badgeParceirosSemDemandaCount} parceiros sem demanda (+180d), ${badgeDocumentosVencendoCount} documentos com alerta, ${badgeFinanceiroAlertasCount} alertas financeiros (D-7/D-1/Atraso)`}
+                title={`Notificações: ${badgeMedicoesApresentadasCount} medições aguardando aprovação, ${badgeAcoesCount} ações cadência, ${badgeSolicitacoesAlteracaoCount} solicitações de alteração em propostas, ${badgeContratosPendentesCount} contratos pendentes de assinatura, ${badgeCampanhasPendentesCount} campanhas pendentes, ${badgeParceirosSemDemandaCount} parceiros sem demanda (+180d), ${badgeDocumentosVencendoCount} documentos com alerta, ${badgeFinanceiroAtrasadosCount} conta(s) vencida(s) no Financeiro`}
               >
                 <Bell className="w-5 h-5" />
                 {(badgeAcoesCount > 0 ||
@@ -852,7 +862,7 @@ export default function AppLayout() {
                   (isAdmin && badgeCampanhasPendentesCount > 0) ||
                   badgeParceirosSemDemandaCount > 0 ||
                   badgeDocumentosVencendoCount > 0 ||
-                  badgeFinanceiroAlertasCount > 0) && (
+                  badgeFinanceiroAtrasadosCount > 0) && (
                   <span
                     className={`absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full text-[10px] font-bold text-white shadow-xs ${
                       badgeCriticosCount > 0 ||
@@ -860,7 +870,7 @@ export default function AppLayout() {
                       badgeMedicoesApresentadasCount > 0 ||
                       badgeParceirosSemDemandaCount > 0 ||
                       badgeDocumentosVencendoCount > 0 ||
-                      badgeFinanceiroAlertasCount > 0
+                      badgeFinanceiroAtrasadosCount > 0
                         ? 'bg-rose-600 animate-pulse'
                         : isAdmin && badgeCampanhasPendentesCount > 0
                           ? 'bg-amber-600'
@@ -874,7 +884,7 @@ export default function AppLayout() {
                       (isAdmin ? badgeCampanhasPendentesCount : 0) +
                       badgeParceirosSemDemandaCount +
                       badgeDocumentosVencendoCount +
-                      badgeFinanceiroAlertasCount}
+                      badgeFinanceiroAtrasadosCount}
                   </span>
                 )}
               </NavLink>

@@ -452,6 +452,17 @@ export const financeiroService = {
   },
 
   /**
+   * Contagem leve de contas vencidas não liquidadas (endpoint dedicado do servidor) — badge do sininho
+   */
+  async getCountAtraso(): Promise<{ receber: number; pagar: number; total: number }> {
+    const res = await pb.send<{ receber: number; pagar: number; total: number }>(
+      '/backend/v1/financeiro/count-atraso',
+      { method: 'GET' },
+    )
+    return res
+  },
+
+  /**
    * Contagem de atrasos históricos de um parceiro/empresa (para exibir na ficha do parceiro)
    */
   contarAtrasosHistoricosParceiro(empresaId: string, contas: ContaRecord[]): number {
@@ -478,5 +489,31 @@ export const financeiroService = {
       }
     }
     return count
+  },
+
+  /**
+   * Obtém os dados consolidados da Visão Gerencial do Financeiro calculados no servidor
+   * Endpoint dedicado: GET /backend/v1/financeiro/visao-gerencial?horizonte=3|6|12
+   */
+  async getVisaoGerencial(
+    horizonte: 3 | 6 | 12 = 12,
+  ): Promise<import('@/types').VisaoGerencialDados> {
+    const res = await pb.send<import('@/types').VisaoGerencialDados>(
+      `/backend/v1/financeiro/visao-gerencial?horizonte=${horizonte}`,
+      { method: 'GET' },
+    )
+    return res
+  },
+
+  /**
+   * Contagem de contas atrasadas (para atualizar badge do sininho em tempo real)
+   */
+  async getCountContasAtrasadas(): Promise<number> {
+    try {
+      const res = await this.getVisaoGerencial(3)
+      return res.bloco3_alertas_atraso.totalAtrasadosCount || 0
+    } catch {
+      return 0
+    }
   },
 }

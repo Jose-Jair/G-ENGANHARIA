@@ -1131,3 +1131,121 @@ export interface IndicadoresParceiro {
   percentualReceitaAcumulada: number // fatia acumulada no Pareto (0 a 100%)
   ranking: number
 }
+
+// ==========================================
+// VISÃO GERENCIAL DO FINANCEIRO (ETAPA DE EVOLUÇÃO)
+// ==========================================
+
+export interface VisaoGerencialFluxoMes {
+  mesChave: string // '2026-10'
+  rotulo: string // 'Out/2026'
+  ano: number
+  mes: number
+  isPassado: boolean
+  isAtual: boolean
+  isFuturo: boolean
+  entradasRealizadas: number
+  entradasPrevistas: number
+  totalEntradas: number
+  saidasRealizadas: number
+  saidasPrevistas: number
+  totalSaidas: number
+  saldoMes: number
+  saldoAcumulado: number
+  alertaNegativo: boolean
+}
+
+export interface VisaoGerencialFluxoCaixa {
+  horizonte: 3 | 6 | 12
+  meses: VisaoGerencialFluxoMes[]
+  totais: {
+    totalEntradas: number
+    totalSaidas: number
+    saldoFinal: number
+    mesesComAlertaNegativo: number
+  }
+}
+
+export interface VisaoGerencialProjetoMargem {
+  id: string
+  codigo: string
+  nome?: string
+  status?: string
+  clienteNome: string
+  propostaNumero?: string | null
+  previsto: {
+    preco: number
+    custo: number
+    margemPerc: number
+    margemValor: number
+  }
+  real: {
+    receitaRealizada: number
+    receitaAprovadaPrevista: number
+    receitaTotal: number
+    custoPago: number
+    custoComprometido: number
+    custoTotal: number
+    margemValor: number
+    margemPerc: number
+  }
+  desvio: {
+    pontosPercentuais: number
+    erosaoPp: number
+    semaforo: 'verde' | 'amarelo' | 'vermelho'
+    descricao: string
+  }
+}
+
+export interface VisaoGerencialMargemConsolidado {
+  totalProjetos: number
+  margemMediaPrevistaPerc: number
+  margemMediaRealPerc: number
+  desvioMedioPp: number
+  projetosVerde: number
+  projetosAmarelo: number
+  projetosVermelho: number
+}
+
+export interface VisaoGerencialContaAtrasada {
+  id: string
+  tipo: 'receber' | 'pagar'
+  descricao: string
+  valor: number
+  valorLiquido: number
+  vencimento: string
+  status: string
+  diasAtraso: number
+  projetoId?: string | null
+  projetoCodigo?: string | null
+  projetoNome?: string | null
+  clienteNome?: string | null
+  nf?: string | null
+  executorId?: string | null
+}
+
+export interface VisaoGerencialAlertasAtraso {
+  totalAtrasadosCount: number
+  receber: {
+    totalCount: number
+    totalValor: number
+    contas: VisaoGerencialContaAtrasada[]
+  }
+  pagar: {
+    totalCount: number
+    totalValor: number
+    contas: VisaoGerencialContaAtrasada[]
+  }
+}
+
+export interface VisaoGerencialDados {
+  success: boolean
+  data_referencia: string
+  horizonte_meses: number
+  bloco1_fluxo_caixa: VisaoGerencialFluxoCaixa
+  bloco2_margem_projetos: {
+    consolidado: VisaoGerencialMargemConsolidado
+    projetos: VisaoGerencialProjetoMargem[]
+  }
+  bloco3_alertas_atraso: VisaoGerencialAlertasAtraso
+}

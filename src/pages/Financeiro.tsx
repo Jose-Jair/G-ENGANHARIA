@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { ContaRecord, StatusConta, ProjetoRecord, ExecutorRecord, DocumentoRecord } from '@/types'
+import {
+  ContaRecord,
+  StatusConta,
+  ProjetoRecord,
+  ExecutorRecord,
+  DocumentoRecord,
+  VisaoGerencialDados,
+} from '@/types'
 import { financeiroService, ResumoFinanceiro, MesFluxoCaixa } from '@/services/financeiro'
 import { projetosService } from '@/services/projetos'
 import { executoresService } from '@/services/executores'
@@ -41,11 +48,13 @@ import {
   Briefcase,
   Layers,
   Download,
+  PieChart,
 } from 'lucide-react'
 import { exportService } from '@/services/exportService'
 import { ModalNovaConta } from '@/components/financeiro/ModalNovaConta'
 import { ModalDetalhesConta } from '@/components/financeiro/ModalDetalhesConta'
 import { ModalRelatoriosFinanceiros } from '@/components/financeiro/ModalRelatoriosFinanceiros'
+import { TabGerencialFinanceiro } from '@/components/financeiro/TabGerencialFinanceiro'
 
 import { useSearchParams } from 'react-router-dom'
 
@@ -60,11 +69,14 @@ export function FinanceiroPage() {
   const [executores, setExecutores] = useState<ExecutorRecord[]>([])
   const [medicoesAprovadas, setMedicoesAprovadas] = useState<DocumentoRecord[]>([])
 
-  const [activeTab, setActiveTab] = useState<'receber' | 'pagar' | 'fluxo_caixa'>(() => {
-    const tab = searchParams.get('tab')
-    if (tab === 'pagar' || tab === 'fluxo_caixa' || tab === 'receber') return tab
-    return 'receber'
-  })
+  const [activeTab, setActiveTab] = useState<'receber' | 'pagar' | 'fluxo_caixa' | 'gerencial'>(
+    () => {
+      const tab = searchParams.get('tab')
+      if (tab === 'pagar' || tab === 'fluxo_caixa' || tab === 'receber' || tab === 'gerencial')
+        return tab
+      return 'receber'
+    },
+  )
   const [termoBusca, setTermoBusca] = useState(() => searchParams.get('busca') || '')
   const [filtroStatus, setFiltroStatus] = useState<string>(
     () => searchParams.get('status') || 'todos',
@@ -75,6 +87,14 @@ export function FinanceiroPage() {
   const [modalDetalhesOpen, setModalDetalhesOpen] = useState(false)
   const [modalRelatoriosOpen, setModalRelatoriosOpen] = useState(false)
   const [contaSelecionada, setContaSelecionada] = useState<ContaRecord | null>(null)
+  const [contaGerencialSelecionadaId, setContaGerencialSelecionadaId] = useState<string | null>(
+    null,
+  )
+
+  // Visão Gerencial (Bloco 1/2/3) — dados calculados no servidor
+  const [gerencialDados, setGerencialDados] = useState<VisaoGerencialDados | null>(null)
+  const [gerencialHorizonte, setGerencialHorizonte] = useState<3 | 6 | 12>(12)
+  const [gerencialLoading, setGerencialLoading] = useState(false)
 
   const canManage = user?.role === 'admin' || user?.role === 'financeiro'
 
@@ -106,6 +126,51 @@ export function FinanceiroPage() {
   useEffect(() => {
     carregarDados()
   }, [])
+
+  // Carregar dados da Visão Gerencial (endpoint dedicado no servidor)
+  const carregarGerencial = async (horizonte: 3 | 6 | 12) => {
+    setGerencialLoading(true)
+    try {
+      const res = await financeiroService.getVisaoGerencial(horizonte)
+      setGerencialDados(res)
+    } catch (err: any) {
+      console.error('Erro ao carregar visão gerencial:', err)
+      toast({
+        title: 'Erro ao carregar visão gerencial',
+        description: err.message || 'Verifique suas permissões de acesso.',
+        variant: 'destructive',
+      })
+    } finally {
+      setGerencialLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'gerencial') {
+      carregarGerencial(gerencialHorizonte)
+    }
+  }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab === 'gerencial') {
+      carregarGerencial(gerencialHorizonte)
+    }
+  }, [gerencialHorizonte])
+
+  // Abrir conta vinda do painel de atraso da visão gerencial
+  const handleAbrirContaGerencial = (contaId: string) => {
+    const conta = contas.find((c) => c.id === contaId)
+    if (conta) {
+      setContaSelecionada(conta)
+      setModalDetalhesOpen(true)
+    } else {
+      toast({
+        title: 'Conta não encontrada',
+        description: 'Recarregue a página para atualizar a lista de contas.',
+        variant: 'destructive',
+      })
+    }
+  }
 
   // Cálculos de Resumo e Projeções
   const resumo = financeiroService.calcularResumoFinanceiro(contas)
@@ -484,10 +549,14 @@ export function FinanceiroPage() {
               <BarChart3 className="w-3.5 h-3.5 text-blue-600" />
               Fluxo de Caixa (12 Meses)
             </TabsTrigger>
+            <TabsTrigger value="gerencial" className="text-xs font-semibold gap-2">
+              <PieChart className="w-3.5 h-3.5 text-[#D95A2B]" />
+              Gerencial
+            </TabsTrigger>
           </TabsList>
 
           {/* Filtros rápidos de busca e status nas abas de contas */}
-          {activeTab !== 'fluxo_caixa' && (
+          {activeTab !== 'fluxo_caixa' && activeTab !== 'gerencial' && (
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
@@ -1008,6 +1077,17 @@ export function FinanceiroPage() {
               </table>
             </div>
           </div>
+        </TabsContent>
+
+        {/* ABA 4: VISÃO GERENCIAL (Blocos 1, 2 e 3 — dados calculados no servidor) */}
+        <TabsContent value="gerencial" className="space-y-4">
+          <TabGerencialFinanceiro
+            dados={gerencialDados}
+            loading={gerencialLoading}
+            horizonte={gerencialHorizonte}
+            onHorizonteChange={(h) => setGerencialHorizonte(h)}
+            onAbrirConta={handleAbrirContaGerencial}
+          />
         </TabsContent>
       </Tabs>
 

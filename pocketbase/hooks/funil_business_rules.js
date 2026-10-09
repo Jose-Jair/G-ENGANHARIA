@@ -156,10 +156,13 @@ onRecordAfterUpdateSuccess((e) => {
         try {
           const auditCol = $app.findCollectionByNameOrId('audit_logs')
           const aRec = new Record(auditCol)
+          aRec.set('user', null)
+          aRec.set('user_email', 'SISTEMA')
           aRec.set('acao', 'INICIO_CADENCIA')
           aRec.set('entidade', 'toques')
           aRec.set('registro_id', empresaId)
           aRec.set('detalhes', {
+            origem: 'SISTEMA / GATILHO AUTOMÁTICO',
             mensagem:
               'Cadência padrão de 5 toques gerada automaticamente na entrada da etapa Em cadência.',
             empresa_id: empresaId,
@@ -171,6 +174,8 @@ onRecordAfterUpdateSuccess((e) => {
     }
   } catch (err) {
     console.log('Erro ao processar início de cadência da empresa: ' + err)
+  } finally {
+    e.next()
   }
 }, 'empresas')
 
@@ -203,5 +208,7 @@ onRecordAfterCreateSuccess((e) => {
     }
   } catch (err) {
     console.log('Erro ao processar sugestao de reativacao por novo contrato: ' + err)
+  } finally {
+    e.next()
   }
 }, 'contratos')

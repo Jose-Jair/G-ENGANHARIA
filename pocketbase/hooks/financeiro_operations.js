@@ -132,46 +132,53 @@ onRecordValidate((e) => {
 
 // Registro de auditoria financeira rica em ações críticas (aprovação, envio de cobrança, baixa e cancelamento)
 onRecordAfterUpdateSuccess((e) => {
-  const rec = e.record
-  if (rec.collection().name !== 'contas') {
-    return
-  }
-
-  const original = rec.original()
-  const oldStatus = original ? original.getString('status') : ''
-  const newStatus = rec.getString('status')
-
-  if (oldStatus !== newStatus) {
-    try {
-      const auditCol = $app.findCollectionByNameOrId('audit_logs')
-      const aRec = new Record(auditCol)
-
-      let acao = 'STATUS_CONTA_' + newStatus.toUpperCase()
-      if (newStatus === 'aprovada') acao = 'APROVACAO_CONTA'
-      if (newStatus === 'enviada') acao = 'ENVIO_REMESSA_COBRANCA'
-      if (newStatus === 'paga') acao = 'BAIXA_LIQUIDACAO_CONTA'
-      if (newStatus === 'cancelada') acao = 'CANCELAMENTO_CONTA'
-
-      aRec.set('acao', acao)
-      aRec.set('entidade', 'contas')
-      aRec.set('registro_id', rec.id)
-      aRec.set('detalhes', {
-        tipo: rec.getString('tipo'),
-        descricao: rec.getString('descricao'),
-        valor: rec.getFloat('valor'),
-        status_anterior: oldStatus,
-        status_novo: newStatus,
-        data_pagamento: rec.getString('data_pagamento'),
-        forma_pagamento: rec.getString('forma_pagamento'),
-        motivo_cancelamento: rec.getString('motivo_cancelamento'),
-        executor_id: rec.getString('executor'),
-        projeto_id: rec.getString('projeto'),
-        comprovante: rec.getString('anexo_comprovante'),
-      })
-
-      $app.save(aRec)
-    } catch (err) {
-      console.log('Erro ao auditar transição financeira: ' + err)
+  try {
+    const rec = e.record
+    if (rec.collection().name !== 'contas') {
+      return
     }
+
+    const original = rec.original()
+    const oldStatus = original ? original.getString('status') : ''
+    const newStatus = rec.getString('status')
+
+    if (oldStatus !== newStatus) {
+      try {
+        const auditCol = $app.findCollectionByNameOrId('audit_logs')
+        const aRec = new Record(auditCol)
+
+        let acao = 'STATUS_CONTA_' + newStatus.toUpperCase()
+        if (newStatus === 'aprovada') acao = 'APROVACAO_CONTA'
+        if (newStatus === 'enviada') acao = 'ENVIO_REMESSA_COBRANCA'
+        if (newStatus === 'paga') acao = 'BAIXA_LIQUIDACAO_CONTA'
+        if (newStatus === 'cancelada') acao = 'CANCELAMENTO_CONTA'
+
+        aRec.set('user', null)
+        aRec.set('user_email', 'SISTEMA')
+        aRec.set('acao', acao)
+        aRec.set('entidade', 'contas')
+        aRec.set('registro_id', rec.id)
+        aRec.set('detalhes', {
+          origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+          tipo: rec.getString('tipo'),
+          descricao: rec.getString('descricao'),
+          valor: rec.getFloat('valor'),
+          status_anterior: oldStatus,
+          status_novo: newStatus,
+          data_pagamento: rec.getString('data_pagamento'),
+          forma_pagamento: rec.getString('forma_pagamento'),
+          motivo_cancelamento: rec.getString('motivo_cancelamento'),
+          executor_id: rec.getString('executor'),
+          projeto_id: rec.getString('projeto'),
+          comprovante: rec.getString('anexo_comprovante'),
+        })
+
+        $app.save(aRec)
+      } catch (err) {
+        console.log('Erro ao auditar transição financeira: ' + err)
+      }
+    }
+  } finally {
+    e.next()
   }
 })

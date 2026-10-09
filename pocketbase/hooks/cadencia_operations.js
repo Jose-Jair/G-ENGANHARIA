@@ -165,12 +165,19 @@ routerAdd(
 
       // 4. PREPARAR LINK DE DESCADASTRO OBRIGATÓRIO
       // URL base da aplicação
-      let hostHeader = reqInfo.headers['x-forwarded-host'] || reqInfo.headers['host'] || ''
-      let protoHeader = reqInfo.headers['x-forwarded-proto'] || 'https'
+      let baseUrl =
+        $os.getenv('SITE_URL') ||
+        $os.getenv('PB_INSTANCE_URL') ||
+        ($app.settings().meta && $app.settings().meta.appUrl)
+      if (!baseUrl) {
+        let hostHeader = reqInfo.headers['x-forwarded-host'] || reqInfo.headers['host'] || ''
+        let protoHeader = reqInfo.headers['x-forwarded-proto'] || 'https'
+        baseUrl = hostHeader
+          ? protoHeader + '://' + hostHeader
+          : 'https://gestao-de-projetos-de-engenharia-be59d.shrd00.internal.goskip.dev'
+      }
       let linkDescadastro =
-        protoHeader +
-        '://' +
-        hostHeader +
+        baseUrl +
         '/nao-contatar?acao=descadastro&empresa=' +
         empresaId +
         '&email=' +

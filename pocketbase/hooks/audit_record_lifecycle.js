@@ -73,20 +73,26 @@ for (let i = 0; i < businessCollections.length; i++) {
         }
       }
 
+      const detalhesCriacao = { depois: recData }
+      if (!userId) {
+        userEmail = 'SISTEMA'
+        detalhesCriacao.origem = 'SISTEMA / GATILHO AUTOMÁTICO'
+      }
+
       record.set('user', userId)
       record.set('user_email', userEmail)
       record.set('acao', 'CRIACAO')
       record.set('entidade', collectionName)
       record.set('registro_id', e.record.id)
-      record.set('detalhes', { depois: recData })
+      record.set('detalhes', detalhesCriacao)
       record.set('ip', ip)
 
       $app.save(record)
     } catch (err) {
       console.log('Erro ao registrar auditoria de criacao: ' + err)
+    } finally {
+      e.next()
     }
-
-    e.next()
   }, targetCol)
 
   onRecordUpdate((e) => {
@@ -132,20 +138,26 @@ for (let i = 0; i < businessCollections.length; i++) {
         }
       }
 
+      const detalhesEdicao = { antes: antes, depois: depois }
+      if (!userId) {
+        userEmail = 'SISTEMA'
+        detalhesEdicao.origem = 'SISTEMA / GATILHO AUTOMÁTICO'
+      }
+
       record.set('user', userId)
       record.set('user_email', userEmail)
       record.set('acao', 'EDICAO')
       record.set('entidade', collectionName)
       record.set('registro_id', e.record.id)
-      record.set('detalhes', { antes: antes, depois: depois })
+      record.set('detalhes', detalhesEdicao)
       record.set('ip', ip)
 
       $app.save(record)
     } catch (err) {
       console.log('Erro ao registrar auditoria de atualizacao: ' + err)
+    } finally {
+      e.next()
     }
-
-    e.next()
   }, targetCol)
 
   onRecordDelete((e) => {
@@ -178,19 +190,25 @@ for (let i = 0; i < businessCollections.length; i++) {
         }
       }
 
+      const detalhesExclusao = { antes: antes }
+      if (!userId) {
+        userEmail = 'SISTEMA'
+        detalhesExclusao.origem = 'SISTEMA / GATILHO AUTOMÁTICO'
+      }
+
       record.set('user', userId)
       record.set('user_email', userEmail)
       record.set('acao', 'EXCLUSAO')
       record.set('entidade', collectionName)
       record.set('registro_id', e.record.id)
-      record.set('detalhes', { antes: antes })
+      record.set('detalhes', detalhesExclusao)
       record.set('ip', ip)
 
       $app.save(record)
     } catch (err) {
       console.log('Erro ao registrar auditoria de exclusao: ' + err)
+    } finally {
+      e.next()
     }
-
-    e.next()
   }, targetCol)
 }

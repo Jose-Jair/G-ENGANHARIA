@@ -43,7 +43,10 @@ routerAdd(
       const cotacoesCriadas = []
 
       const appUrl =
-        ($app.settings().meta && $app.settings().meta.appUrl) || 'http://localhost:5173'
+        $os.getenv('SITE_URL') ||
+        $os.getenv('PB_INSTANCE_URL') ||
+        ($app.settings().meta && $app.settings().meta.appUrl) ||
+        'https://gestao-de-projetos-de-engenharia-be59d.shrd00.internal.goskip.dev'
       const senderAddress =
         ($app.settings().meta && $app.settings().meta.senderAddress) || 'nao-responder@skip.dev'
       const senderName =
@@ -419,12 +422,11 @@ routerAdd(
       const novoSub = new Record(subcontratosCol)
       novoSub.set('numero', numeroSub)
       novoSub.set('projeto', projetoId)
-      if (projeto.getString('grupo')) {
-        novoSub.set('grupo', projeto.getString('grupo'))
-      }
-      if (contratoServicoId) {
-        novoSub.set('contrato_servico_origem', contratoServicoId)
-      }
+      novoSub.set('grupo', projeto.getString('grupo') || '')
+      novoSub.set(
+        'contrato_servico_origem',
+        projeto.getString('contrato_servico') || contratoServicoId || '',
+      )
       novoSub.set('executor', executorId)
       novoSub.set('cotacao', cotacaoId)
       novoSub.set('modo_execucao', modoExecucao)
@@ -510,13 +512,15 @@ routerAdd(
           novaConta.set('descricao', desc)
           novaConta.set('valor', valorParc)
           novaConta.set('valor_liquido', valorParc)
+          novaConta.set('retencao_impostos', 0)
           novaConta.set('vencimento', venc)
-          novaConta.set('status', 'prevista')
+          novaConta.set('status', 'rascunho')
           novaConta.set('forma_pagamento', 'Transferência Bancária (PIX)')
           novaConta.set('bloqueada_por_fechamento', false)
           $app.save(novaConta)
         } catch (cErr) {
-          console.log('Erro ao criar conta a pagar do subcontrato: ' + cErr)
+          console.log('ERRO ao criar conta a pagar do subcontrato ' + numeroSub + ': ' + cErr)
+          throw cErr
         }
       }
 
@@ -557,7 +561,10 @@ routerAdd(
 
       // 8. Envio de e-mail ao executor informando da contratação
       const appUrl =
-        ($app.settings().meta && $app.settings().meta.appUrl) || 'http://localhost:5173'
+        $os.getenv('SITE_URL') ||
+        $os.getenv('PB_INSTANCE_URL') ||
+        ($app.settings().meta && $app.settings().meta.appUrl) ||
+        'https://gestao-de-projetos-de-engenharia-be59d.shrd00.internal.goskip.dev'
       const linkSubcontrato = appUrl + '/subcontrato/' + tokenAssinatura
       const execEmail = executor.getString('email')
 

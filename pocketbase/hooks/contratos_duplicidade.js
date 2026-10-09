@@ -235,7 +235,7 @@ onRecordCreate((e) => {
       } catch (_) {}
 
       record.set('user', userId)
-      record.set('user_email', userEmail)
+      record.set('user_email', userEmail || 'SISTEMA')
       record.set('acao', 'CRIACAO_CONTRATO_DUPLICADO_CONFIRMADO')
       record.set('entidade', 'contratos')
       record.set('registro_id', e.record.id)
@@ -252,7 +252,7 @@ onRecordCreate((e) => {
     }
   } catch (err) {
     console.log('Erro ao registrar auditoria de criacao de contrato duplicado confirmado: ' + err)
+  } finally {
+    e.next()
   }
-
-  e.next()
 }, 'contratos')

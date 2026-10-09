@@ -1,8 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { CotacaoRecord, ProjetoRecord, ExecutorRecord, ParcelaSubcontratoItem } from '@/types'
+import {
+  CotacaoRecord,
+  ProjetoRecord,
+  ExecutorRecord,
+  ParcelaSubcontratoItem,
+  SugestaoExecutorArea,
+} from '@/types'
+import { useAuth } from '@/contexts/AuthContext'
 import { cotacoesService, RespostaCotacaoExternaData } from '@/services/executores'
-import { subcontratosService, ContratarExecutorPayload } from '@/services/subcontratos'
+import { projetosService } from '@/services/projetos'
+import { parametrosService } from '@/services/parametros'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
+import { formatPhoneBr } from '@/lib/cnpj'
 import { useToast } from '@/hooks/use-toast'
 import {
   Dialog,
@@ -78,6 +87,19 @@ export const ModalCotacoesProjeto: React.FC<ModalCotacoesProjetoProps> = ({
   const [criterioRecomendacao, setCriterioRecomendacao] =
     useState<CriterioRecomendacao>('menor_preco')
 
+  // Controle de Permissões de Acesso por Perfil
+  const { user } = useAuth()
+  const isOperador = !!(user && (user.role === 'admin' || user.role === 'gestor'))
+  const isLeitor = !!(user && (user.role === 'comercial' || user.role === 'financeiro'))
+  const podeOperar = canEdit && isOperador
+
+  // Executores Sugeridos por Inteligência de Área/Aderência
+  const [sugestoes, setSugestoes] = useState<SugestaoExecutorArea[]>([])
+  const [carregandoSugestoes, setCarregandoSugestoes] = useState(false)
+  const [erroSugestoes, setErroSugestoes] = useState<string | null>(null)
+  const [modoSelecaoManual, setModoSelecaoManual] = useState(false)
+  const [textoPadraoWhatsApp, setTextoPadraoWhatsApp] = useState<string>('')
+
   // Modal de Convidar Executores (Múltipla Seleção)
   const [modalNovoConviteOpen, setModalNovoConviteOpen] = useState(false)
   const [selecionadosIds, setSelecionadosIds] = useState<string[]>([])
@@ -124,9 +146,57 @@ export const ModalCotacoesProjeto: React.FC<ModalCotacoesProjetoProps> = ({
     }
   }
 
+  // Carregar sugestões inteligentes do backend e texto padrão do WhatsApp
+  const carregarSugestoesEParametros = async () => {
+    if (!projeto) return
+    setCarregandoSugestoes(true)
+    setErroSugestoes(null)
+    try {
+      // 1. Obter sugestões de executores pelo serviço já existente
+      const resp = await projetosService.obterSugestoesExecutores(projeto.id)
+      const listaSugestoes = resp?.sugestoes || []
+      setSugestoes(listaSugestoes)
+
+      // Se há sugestões com compatibilidade > 0, pré-selecionar as de maior aderência
+      const maxCompat = Math.max(0, ...listaSugestoes.map((s) => s.compatibilidade || 0))
+      if (maxCompat > 0) {
+        const topAderencia = listaSugestoes
+          .filter((s) => (s.compatibilidade || 0) === maxCompat)
+          .map((s) => s.id)
+        setSelecionadosIds(topAderencia)
+      } else if (listaSugestoes.length > 0) {
+        // Se todas têm compatibilidade 0 (sem termos específicos), seleciona o top 3 por nota
+        setSelecionadosIds(listaSugestoes.slice(0, 3).map((s) => s.id))
+      } else {
+        setSelecionadosIds([])
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar sugestões de executores:', err)
+      setErroSugestoes(err?.message || 'Falha ao buscar sugestões inteligentes')
+      setModoSelecaoManual(true)
+    } finally {
+      setCarregandoSugestoes(false)
+    }
+
+    // 2. Carregar texto padrão do WhatsApp da coleção parametros
+    try {
+      const txt = await parametrosService.get(
+        'texto_padrao_whatsapp_cotacao_executor',
+        'Olá, {executor_nome}! A G+ Engenharia solicita cotação para o projeto {projeto_codigo} ({projeto_nome}). Prazo limite de resposta: {data_limite}. Acesse o link exclusivo para visualizar o escopo detalhado e enviar sua proposta: {link_cotacao}',
+      )
+      setTextoPadraoWhatsApp(txt)
+    } catch (err) {
+      console.error('Erro ao carregar parâmetro de WhatsApp:', err)
+      setTextoPadraoWhatsApp(
+        'Olá, {executor_nome}! A G+ Engenharia solicita cotação para o projeto {projeto_codigo} ({projeto_nome}). Acesse o link exclusivo para visualizar o escopo e enviar seus valores: {link_cotacao}',
+      )
+    }
+  }
+
   useEffect(() => {
     if (open && projeto) {
       carregarCotacoes()
+      carregarSugestoesEParametros()
       setEscopoConvite(projeto.descricao || projeto.nome || '')
       setDescricaoDelegada(projeto.descricao_delegada || '')
       setModoContratacao(
@@ -374,13 +444,59 @@ export const ModalCotacoesProjeto: React.FC<ModalCotacoesProjetoProps> = ({
     })
   }
 
-  // Enviar convite via WhatsApp direto
+  // Enviar convite via WhatsApp direto para cotação existente
   const handleEnviarWhatsApp = (c: CotacaoRecord) => {
     const ex = c.expand?.executor
     if (!ex) return
     const tel = ex.telefone || ''
     const link = `${window.location.origin}/cotacao/${c.token}`
-    const texto = `Olá, ${ex.nome}! A G+ Engenharia solicita cotação para o projeto ${projeto?.codigo} (${projeto?.nome}). Acesse o link exclusivo para visualizar o escopo e enviar seus valores: ${link}`
+    let texto =
+      textoPadraoWhatsApp ||
+      'Olá, {executor_nome}! A G+ Engenharia solicita cotação para o projeto {projeto_codigo} ({projeto_nome}). Prazo limite de resposta: {data_limite}. Acesse o link exclusivo para visualizar o escopo detalhado e enviar sua proposta: {link_cotacao}'
+
+    texto = texto
+      .replace(/\{executor_nome\}/g, ex.nome || '')
+      .replace(/\{projeto_codigo\}/g, projeto?.codigo || '')
+      .replace(/\{projeto_nome\}/g, projeto?.nome || '')
+      .replace(/\{data_limite\}/g, c.data_limite ? formatDateBr(c.data_limite) : 'a combinar')
+      .replace(/\{link_cotacao\}/g, link)
+      .replace(/\{link\}/g, link)
+
+    openWhatsAppWithFallback({ phone: tel, text: texto })
+  }
+
+  // Enviar convite via WhatsApp individual diretamente para executor sugerido ou selecionado
+  const handleEnviarWhatsAppExecutor = (executor: {
+    nome: string
+    telefone?: string
+    telefone_normalizado?: string
+  }) => {
+    const tel = executor.telefone_normalizado || executor.telefone || ''
+    if (!tel) {
+      toast({
+        title: 'Telefone não cadastrado',
+        description: `O executor ${executor.nome} não possui telefone/WhatsApp informado.`,
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const linkBase = `${window.location.origin}/projetos`
+    let texto =
+      textoPadraoWhatsApp ||
+      'Olá, {executor_nome}! A G+ Engenharia solicita cotação para o projeto {projeto_codigo} ({projeto_nome}). Prazo limite de resposta: {data_limite}. Acesse o link exclusivo para visualizar o escopo detalhado e enviar sua proposta: {link_cotacao}'
+
+    texto = texto
+      .replace(/\{executor_nome\}/g, executor.nome || '')
+      .replace(/\{projeto_codigo\}/g, projeto?.codigo || '')
+      .replace(/\{projeto_nome\}/g, projeto?.nome || '')
+      .replace(
+        /\{data_limite\}/g,
+        dataLimiteConvite ? formatDateBr(dataLimiteConvite) : 'a combinar',
+      )
+      .replace(/\{link_cotacao\}/g, linkBase)
+      .replace(/\{link\}/g, linkBase)
+
     openWhatsAppWithFallback({ phone: tel, text: texto })
   }
 

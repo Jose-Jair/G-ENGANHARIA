@@ -42,6 +42,7 @@ import { conversaoProjetoPacoteService } from '@/services/conversaoProjetoPacote
 import { propostasService } from '@/services/propostas'
 import { restoreBodyPointerEvents } from '@/lib/utils'
 import { ModalConversaoProjetoPacote } from './ModalConversaoProjetoPacote'
+
 import { ModalEnviarPropostaCliente } from './ModalEnviarPropostaCliente'
 import { DossiePropostaGmais } from './DossiePropostaGmais'
 import { ModalDetalhesContratoServico } from '@/components/contratosServico/ModalDetalhesContratoServico'
@@ -77,7 +78,7 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
   const [activeTab, setActiveTab] = useState('documento')
-  const [showConversaoModal, setShowConversaoModal] = useState(false)
+
   const [showEnviarModal, setShowEnviarModal] = useState(false)
   const [showDossieModal, setShowDossieModal] = useState(false)
   const [showContratoModal, setShowContratoModal] = useState(false)
@@ -1074,14 +1075,11 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
         />
       )}
 
-      {/* MODAL DE CONVERSÃO EM PROJETO-PACOTE */}
-      {showConversaoModal && (
+      {/* MODAL DE CONVERSÃO EM PROJETO-PACOTE DESATIVADO - Criação exclusiva na assinatura bilateral do contrato */}
+      {false && (
         <ModalConversaoProjetoPacote
-          open={showConversaoModal}
-          onOpenChange={(op) => {
-            setShowConversaoModal(op)
-            restoreBodyPointerEvents()
-          }}
+          open={false}
+          onOpenChange={() => {}}
           proposta={proposta}
           currentUserId={currentUserId}
           onConversaoSucesso={() => {

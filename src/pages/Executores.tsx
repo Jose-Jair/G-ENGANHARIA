@@ -1318,6 +1318,12 @@ export const ExecutoresPage: React.FC = () => {
         onOpenChange={setModalConvidarOpen}
         onSuccess={carregarDados}
       />
+
+      <ModalHistoricoAvaliacoesExecutor
+        open={modalHistoricoExecOpen}
+        onOpenChange={setModalHistoricoExecOpen}
+        executor={executorHistorico}
+      />
     </div>
   )
 }

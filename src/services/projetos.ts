@@ -451,6 +451,36 @@ export const projetosService = {
     )
   },
 
+  // Contagens totais globais no servidor para a faixa de indicadores de resumo
+  async getContagensResumo(): Promise<{
+    total: number
+    verde: number
+    amarelo: number
+    vermelho: number
+    standby: number
+  }> {
+    try {
+      const [totalRes, verdeRes, amareloRes, vermelhoRes, standbyRes] = await Promise.all([
+        pb.collection('projetos').getList(1, 1, { requestKey: null }),
+        pb.collection('projetos').getList(1, 1, { filter: "saude = 'verde'", requestKey: null }),
+        pb.collection('projetos').getList(1, 1, { filter: "saude = 'amarelo'", requestKey: null }),
+        pb.collection('projetos').getList(1, 1, { filter: "saude = 'vermelho'", requestKey: null }),
+        pb
+          .collection('projetos')
+          .getList(1, 1, { filter: "status = 'aguardando_definicao'", requestKey: null }),
+      ])
+      return {
+        total: totalRes.totalItems,
+        verde: verdeRes.totalItems,
+        amarelo: amareloRes.totalItems,
+        vermelho: vermelhoRes.totalItems,
+        standby: standbyRes.totalItems,
+      }
+    } catch {
+      return { total: 0, verde: 0, amarelo: 0, vermelho: 0, standby: 0 }
+    }
+  },
+
   // Sugestão automática de Saúde do Projeto (🟢 Verde, 🟡 Amarelo, 🔴 Vermelho)
   // Baseada em: etapas atrasadas, riscos Alto/Alto abertos, documentos vencidos/vencendo, desvio de prazo e financeiro
   calcularSugestaoSaude(

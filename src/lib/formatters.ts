@@ -33,6 +33,59 @@ export function formatDateTimeBr(dateString?: string | Date | null): string {
   }
 }
 
+/**
+ * Retorna contagem relativa de prazo em relação a hoje:
+ * Ex: "em 12 dias", "hoje", "amanhã", "atrasado há 3 dias", "ontem"
+ */
+export function formatPrazoRelativo(
+  dateString?: string | Date | null,
+  dataBase: Date = new Date(),
+): { texto: string; dias: number; atrasado: boolean; hoje: boolean } {
+  if (!dateString) {
+    return { texto: 'Sem prazo', dias: 0, atrasado: false, hoje: false }
+  }
+
+  try {
+    const dataAlvo =
+      typeof dateString === 'string'
+        ? parseISO(dateString)
+        : dateString instanceof Date
+          ? dateString
+          : new Date(dateString)
+
+    if (isNaN(dataAlvo.getTime())) {
+      return { texto: 'Sem prazo', dias: 0, atrasado: false, hoje: false }
+    }
+
+    const dRef = new Date(dataBase)
+    dRef.setHours(0, 0, 0, 0)
+    const dAlvo = new Date(dataAlvo)
+    dAlvo.setHours(0, 0, 0, 0)
+
+    const diffMs = dAlvo.getTime() - dRef.getTime()
+    const diffDias = Math.round(diffMs / (1000 * 60 * 60 * 24))
+
+    if (diffDias === 0) {
+      return { texto: 'vence hoje', dias: 0, atrasado: false, hoje: true }
+    } else if (diffDias === 1) {
+      return { texto: 'amanhã', dias: 1, atrasado: false, hoje: false }
+    } else if (diffDias > 1) {
+      return { texto: `em ${diffDias} dias`, dias: diffDias, atrasado: false, hoje: false }
+    } else if (diffDias === -1) {
+      return { texto: 'atrasado há 1 dia', dias: -1, atrasado: true, hoje: false }
+    } else {
+      return {
+        texto: `atrasado há ${Math.abs(diffDias)} dias`,
+        dias: diffDias,
+        atrasado: true,
+        hoje: false,
+      }
+    }
+  } catch {
+    return { texto: 'Sem prazo', dias: 0, atrasado: false, hoje: false }
+  }
+}
+
 export function formatCurrencyBr(value?: number | null): string {
   if (value === undefined || value === null || isNaN(value)) return 'R$ 0,00'
   return new Intl.NumberFormat('pt-BR', {

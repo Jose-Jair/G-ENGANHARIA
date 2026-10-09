@@ -82,4 +82,19 @@ describe('Filtros no Servidor — Módulo de Projetos (buildProjetosFilter)', ()
     expect(res).toContain("nome ~ 'Hospital'")
     expect(res.split(' && ').length).toBe(5)
   })
+
+  it('permite alternar filtros de saúde individualmente mantendo compatibilidade', () => {
+    expect(buildProjetosFilter({ saude: 'verde' })).toBe("saude = 'verde'")
+    expect(buildProjetosFilter({ saude: 'amarelo' })).toBe("saude = 'amarelo'")
+    expect(buildProjetosFilter({ saude: 'vermelho' })).toBe("saude = 'vermelho'")
+    // Limpar filtro de saúde voltando a 'todos'
+    expect(buildProjetosFilter({ saude: 'todos' })).toBe('')
+  })
+
+  it('permite alternar filtro de standby via status aguardando_definicao', () => {
+    expect(buildProjetosFilter({ status: 'aguardando_definicao' })).toBe(
+      "status = 'aguardando_definicao'",
+    )
+    expect(buildProjetosFilter({ status: 'todos' })).toBe('')
+  })
 })

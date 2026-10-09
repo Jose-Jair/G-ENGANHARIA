@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T23:45:36.357Z",
+  "generatedAt": "2026-10-09T00:02:35.681Z",
   "collections": [
     {
       "name": "users",
@@ -3304,8 +3304,8 @@
       "name": "contratos_servico",
       "type": "base",
       "apiRules": {
-        "list": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')) || (token_assinatura_cliente != '' && @request.query.token = token_assinatura_cliente) || (token_complemento_dados != '' && @request.query.token = token_complemento_dados)",
-        "view": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')) || (token_assinatura_cliente != '' && (@request.query.token = token_assinatura_cliente || token_assinatura_cliente = @request.headers.x_token_assinatura)) || (token_complemento_dados != '' && (@request.query.token = token_complemento_dados || token_complemento_dados = @request.headers.x_token_complemento))",
+        "list": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')) || (token_assinatura_cliente != '' && (@request.query.token = token_assinatura_cliente || token_assinatura_cliente = @request.headers.x_token_assinatura || token_assinatura_cliente = @request.headers.x_token_assinatura_cliente)) || (token_complemento_dados != '' && (@request.query.token = token_complemento_dados || token_complemento_dados = @request.headers.x_token_complemento))",
+        "view": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')) || (token_assinatura_cliente != '' && (@request.query.token = token_assinatura_cliente || token_assinatura_cliente = @request.headers.x_token_assinatura || token_assinatura_cliente = @request.headers.x_token_assinatura_cliente)) || (token_complemento_dados != '' && (@request.query.token = token_complemento_dados || token_complemento_dados = @request.headers.x_token_complemento))",
         "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
         "update": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || @request.auth.role = 'gestor')) || (token_assinatura_cliente != '' && token_assinatura_cliente = @request.body.token_assinatura_cliente)",
         "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
@@ -3522,7 +3522,8 @@
         "CREATE UNIQUE INDEX idx_contratos_servico_numero ON contratos_servico (numero)",
         "CREATE INDEX idx_contratos_servico_proposta ON contratos_servico (proposta)",
         "CREATE INDEX idx_contratos_servico_status ON contratos_servico (status)",
-        "CREATE INDEX `idx_contratos_servico_token_comp` ON `contratos_servico` (token_complemento_dados)"
+        "CREATE INDEX `idx_contratos_servico_token_comp` ON `contratos_servico` (token_complemento_dados)",
+        "CREATE INDEX `idx_contratos_servico_token_cli` ON `contratos_servico` (token_assinatura_cliente)"
       ]
     },
     {

@@ -118,15 +118,40 @@ export const contratosServicoService = {
   },
 
   async getByToken(token: string): Promise<ContratoServicoRecord | null> {
+    if (!token) return null
     try {
+      // 1. Tenta buscar via endpoint público dedicado do backend (garante bypass seguro de RLS para clientes anônimos)
+      const res = await pb.send<ContratoServicoRecord>(
+        `/backend/v1/contratos-servico/obter-por-token/${encodeURIComponent(token)}`,
+        {
+          method: 'GET',
+        },
+      )
+      if (res && res.id) {
+        return res
+      }
+    } catch (errEndpoint) {
+      console.warn(
+        'Endpoint público de contrato retornou erro ou não disponível, tentando fallback direto:',
+        errEndpoint,
+      )
+    }
+
+    try {
+      // 2. Fallback direto via SDK do PocketBase com headers de token
       const records = await pb.collection('contratos_servico').getFullList<ContratoServicoRecord>({
         filter: `token_assinatura_cliente = "${token}"`,
         expand: 'proposta,empresa,cliente_pf,assinante_admin',
         requestKey: null,
-      })
+        token: token,
+        headers: {
+          'x-token-assinatura': token,
+          'x-token-assinatura-cliente': token,
+        },
+      } as any)
       return records[0] || null
     } catch (err) {
-      console.warn('Erro ao buscar contrato por token:', err)
+      console.warn('Erro ao buscar contrato por token (fallback):', err)
       return null
     }
   },

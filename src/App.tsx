@@ -57,6 +57,7 @@ const App = () => (
 
           {/* Rota pública de assinatura eletrônica do Contrato de Serviços GMAIS */}
           <Route path="/contrato-servico/:token" element={<ContratoServicoPublicoPage />} />
+          <Route path="/contrato/:token" element={<ContratoServicoPublicoPage />} />
 
           {/* Rota pública de resposta de cotação do executor (Etapa 8) - sem login */}
           <Route path="/cotacao/:token" element={<CotacaoPublicaPage />} />

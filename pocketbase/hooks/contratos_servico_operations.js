@@ -755,6 +755,166 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
   }
 })
 
+// Endpoint Público: Obter Contrato de Serviço por Token de Assinatura (sem login)
+routerAdd('GET', '/backend/v1/contratos-servico/obter-por-token/{token}', (e) => {
+  try {
+    const token = e.request.pathValue('token')
+    if (!token) {
+      return e.json(400, { message: 'Token de assinatura não informado' })
+    }
+
+    const records = $app.findRecordsByFilter(
+      'contratos_servico',
+      "token_assinatura_cliente = '" + token + "'",
+      '-created',
+      1,
+      0,
+    )
+
+    if (records.length === 0) {
+      return e.json(404, { message: 'Contrato não encontrado ou link expirado' })
+    }
+
+    const contrato = records[0]
+    const empresaId = contrato.getString('empresa')
+    const clientePfId = contrato.getString('cliente_pf')
+    const propostaId = contrato.getString('proposta')
+    const assinanteAdminId = contrato.getString('assinante_admin')
+    const projetoId = contrato.getString('projeto')
+
+    let empresaExpand = null
+    let clientePfExpand = null
+    let propostaExpand = null
+    let assinanteAdminExpand = null
+
+    if (empresaId) {
+      try {
+        const emp = $app.findRecordById('empresas', empresaId)
+        if (emp) {
+          empresaExpand = {
+            id: emp.id,
+            razao_social: emp.getString('razao_social'),
+            nome_fantasia: emp.getString('nome_fantasia'),
+            cnpj: emp.getString('cnpj'),
+            email: emp.getString('email'),
+            telefone: emp.getString('telefone'),
+            telefones: emp.get('telefones') || [],
+            cep: emp.getString('cep'),
+            logradouro: emp.getString('logradouro'),
+            numero: emp.getString('numero'),
+            complemento: emp.getString('complemento'),
+            bairro: emp.getString('bairro'),
+            municipio: emp.getString('municipio'),
+            uf: emp.getString('uf'),
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (clientePfId) {
+      try {
+        const pf = $app.findRecordById('clientes_pf', clientePfId)
+        if (pf) {
+          clientePfExpand = {
+            id: pf.id,
+            nome: pf.getString('nome'),
+            cpf: pf.getString('cpf'),
+            email: pf.getString('email'),
+            telefone: pf.getString('telefone'),
+            telefones: pf.get('telefones') || [],
+            cep: pf.getString('cep'),
+            logradouro: pf.getString('logradouro'),
+            numero: pf.getString('numero'),
+            complemento: pf.getString('complemento'),
+            bairro: pf.getString('bairro'),
+            municipio: pf.getString('municipio'),
+            uf: pf.getString('uf'),
+            endereco: pf.getString('endereco'),
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (propostaId) {
+      try {
+        const prop = $app.findRecordById('propostas', propostaId)
+        if (prop) {
+          propostaExpand = {
+            id: prop.id,
+            numero: prop.getString('numero'),
+            objeto: prop.getString('objeto'),
+            preco: prop.getFloat('preco'),
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (assinanteAdminId) {
+      try {
+        const adm = $app.findRecordById('users', assinanteAdminId)
+        if (adm) {
+          assinanteAdminExpand = {
+            id: adm.id,
+            name: adm.getString('name'),
+            email: adm.getString('email'),
+          }
+        }
+      } catch (_) {}
+    }
+
+    let camposFaltantes = []
+    try {
+      const cf = contrato.get('campos_faltantes_json')
+      if (Array.isArray(cf)) camposFaltantes = cf
+    } catch (_) {}
+
+    return e.json(200, {
+      id: contrato.id,
+      numero: contrato.getString('numero'),
+      proposta: propostaId,
+      empresa: empresaId || undefined,
+      cliente_pf: clientePfId || undefined,
+      projeto: projetoId || undefined,
+      objeto: contrato.getString('objeto'),
+      valor_total: contrato.getFloat('valor_total'),
+      prazo_dias: contrato.getInt('prazo_dias'),
+      nota_prazo: contrato.getString('nota_prazo'),
+      clausulas_texto: contrato.getString('clausulas_texto'),
+      parcelas_json: contrato.get('parcelas_json'),
+      status: contrato.getString('status'),
+      token_complemento_dados: contrato.getString('token_complemento_dados'),
+      campos_faltantes_json: camposFaltantes,
+      dados_completados_em: contrato.getString('dados_completados_em'),
+      assinante_admin: assinanteAdminId || undefined,
+      data_assinatura_admin: contrato.getString('data_assinatura_admin'),
+      admin_ip: contrato.getString('admin_ip'),
+      admin_user_agent: contrato.getString('admin_user_agent'),
+      admin_declaracao: contrato.getBool('admin_declaracao'),
+      admin_hash: contrato.getString('admin_hash'),
+      token_assinatura_cliente: contrato.getString('token_assinatura_cliente'),
+      cliente_nome_assinante: contrato.getString('cliente_nome_assinante'),
+      cliente_documento_assinante: contrato.getString('cliente_documento_assinante'),
+      data_assinatura_cliente: contrato.getString('data_assinatura_cliente'),
+      cliente_ip: contrato.getString('cliente_ip'),
+      cliente_user_agent: contrato.getString('cliente_user_agent'),
+      cliente_declaracao: contrato.getBool('cliente_declaracao'),
+      cliente_hash: contrato.getString('cliente_hash'),
+      arquivo_pdf_assinado: contrato.getString('arquivo_pdf_assinado'),
+      created: contrato.getString('created'),
+      updated: contrato.getString('updated'),
+      expand: {
+        proposta: propostaExpand,
+        empresa: empresaExpand,
+        cliente_pf: clientePfExpand,
+        assinante_admin: assinanteAdminExpand,
+      },
+    })
+  } catch (err) {
+    console.log('Erro ao obter contrato por token de assinatura: ' + err)
+    return e.json(500, { message: 'Erro interno: ' + err })
+  }
+})
+
 // Endpoint para Obter Dados do Contrato e Cliente via Token de Complemento (Público, sem login)
 routerAdd('GET', '/backend/v1/contratos-servico/obter-por-token-complemento', (e) => {
   try {

@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { MessageSquare, Copy, ExternalLink, AlertCircle, Building2, User } from 'lucide-react'
+import { MessageSquare, Copy, ExternalLink, AlertCircle, Building2, User, Send } from 'lucide-react'
 import { ContratoServicoRecord, ContatoRecord } from '@/types'
 import { formatPhoneBr, cleanPhoneForWa, isValidPhoneBr } from '@/lib/cnpj'
 import { contatosService } from '@/services/contatos'
@@ -228,26 +228,27 @@ export function ModalEnviarContratoWhatsApp({
       }}
     >
       <DialogContent
-        className="w-[96vw] max-w-lg max-h-[92vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6"
+        className="w-[96vw] max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6"
         onCloseAutoFocus={() => restoreBodyPointerEvents()}
       >
         <DialogHeader className="border-b pb-3">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700">
-              <MessageSquare className="w-5 h-5 text-emerald-600" />
+            <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 shrink-0">
+              <Send className="w-5 h-5 text-emerald-600" />
             </div>
-            <div>
-              <DialogTitle className="text-base sm:text-lg font-bold text-slate-900">
+            <div className="min-w-0">
+              <DialogTitle className="text-base sm:text-lg font-bold text-slate-900 truncate">
                 Enviar Contrato via WhatsApp
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500 mt-0.5">
-                {contrato.numero} — Link oficial para assinatura digital do cliente
+              <DialogDescription className="text-xs text-slate-500 mt-0.5 truncate">
+                {contrato.numero} • Assinatura Eletrônica do Cliente
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <div className="space-y-4 pt-2 text-xs">
+          {' '}
           {/* Card com identificação do cliente e seleção de contatos se PJ */}
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between">
@@ -319,7 +320,6 @@ export function ModalEnviarContratoWhatsApp({
               </div>
             )}
           </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-[11px] text-slate-600">Nome do Contato:</Label>
@@ -351,7 +351,6 @@ export function ModalEnviarContratoWhatsApp({
               )}
             </div>
           </div>
-
           <div>
             <Label className="text-xs font-semibold text-slate-700">Mensagem:</Label>
             <Textarea
@@ -361,7 +360,6 @@ export function ModalEnviarContratoWhatsApp({
               className="text-xs font-sans leading-relaxed mt-1"
             />
           </div>
-
           <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 flex items-center justify-between gap-2">
             <div className="truncate text-[11px] text-emerald-950">
               <strong className="block text-[10px] uppercase text-emerald-700">
@@ -385,10 +383,10 @@ export function ModalEnviarContratoWhatsApp({
           </div>
         </div>
 
-        <DialogFooter className="mt-4 gap-2 border-t pt-3">
+        <DialogFooter className="mt-4 gap-2 border-t pt-3 flex-col-reverse sm:flex-row sm:justify-end">
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={() => {
               restoreBodyPointerEvents()
@@ -401,7 +399,7 @@ export function ModalEnviarContratoWhatsApp({
             type="button"
             size="sm"
             onClick={handleEnviarWhatsApp}
-            className="text-xs gap-1.5 font-semibold text-white bg-emerald-600 hover:bg-emerald-700"
+            className="text-xs gap-1.5 font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm"
           >
             <MessageSquare className="w-3.5 h-3.5" />
             Abrir WhatsApp e Auditar

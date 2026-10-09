@@ -185,17 +185,17 @@ export function ModalEnviarComplementoWhatsApp({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[96vw] max-w-lg p-5">
+      <DialogContent className="w-[96vw] max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
         <DialogHeader className="border-b pb-3">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-full bg-amber-100 text-amber-700">
+            <div className="p-2 rounded-full bg-amber-100 text-amber-700 shrink-0">
               <MessageSquare className="w-5 h-5 text-amber-600" />
             </div>
-            <div>
-              <DialogTitle className="text-base font-bold text-slate-900">
+            <div className="min-w-0">
+              <DialogTitle className="text-base font-bold text-slate-900 truncate">
                 Enviar Link de Complemento de Cadastro via WhatsApp
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500">
+              <DialogDescription className="text-xs text-slate-500 truncate">
                 Contrato <strong className="text-slate-800">{contrato.numero}</strong> • Solicitação
                 de dados cadastrais ao cliente
               </DialogDescription>
@@ -203,7 +203,7 @@ export function ModalEnviarComplementoWhatsApp({
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 py-2 text-xs">
+        <div className="space-y-4 pt-2 text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-[11px] text-slate-600">Nome do Contato:</Label>
@@ -270,7 +270,7 @@ export function ModalEnviarComplementoWhatsApp({
           </div>
         </div>
 
-        <DialogFooter className="pt-2 border-t flex flex-col sm:flex-row gap-2">
+        <DialogFooter className="mt-4 gap-2 border-t pt-3 flex flex-col-reverse sm:flex-row sm:justify-end">
           <Button
             type="button"
             variant="outline"
@@ -285,7 +285,7 @@ export function ModalEnviarComplementoWhatsApp({
             size="sm"
             onClick={handleEnviar}
             disabled={enviando || loadingTexto}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-semibold"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-semibold shadow-sm"
           >
             {enviando ? (
               <>

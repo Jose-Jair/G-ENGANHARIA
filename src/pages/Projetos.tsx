@@ -32,6 +32,7 @@ import {
   Activity,
   FileSignature,
   FolderKanban,
+  RefreshCw,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { exportService } from '@/services/exportService'
@@ -67,6 +68,12 @@ export const ProjetosPage: React.FC = () => {
   const [executores, setExecutores] = useState<ExecutorRecord[]>([])
   const [carregando, setCarregando] = useState(true)
 
+  // Paginação no servidor (20 projetos por página com carregamento incremental)
+  const [paginaAtual, setPaginaAtual] = useState(1)
+  const [totalPaginas, setTotalPaginas] = useState(1)
+  const [totalItens, setTotalItens] = useState(0)
+  const [carregandoMais, setCarregandoMais] = useState(false)
+
   // Filtros
   const [busca, setBusca] = useState(() => searchParams.get('busca') || '')
   const [filtroSaude, setFiltroSaude] = useState<string>(() => searchParams.get('saude') || 'todos')
@@ -96,15 +103,23 @@ export const ProjetosPage: React.FC = () => {
     user && ['admin', 'gestor', 'financeiro', 'comercial'].includes(user.role)
   )
 
-  const carregarProjetos = async () => {
-    setCarregando(true)
+  const carregarProjetos = async (pagina = 1, append = false) => {
+    if (append) {
+      setCarregandoMais(true)
+    } else {
+      setCarregando(true)
+    }
     try {
-      const [listaPrj, listaEtapas, listaExec] = await Promise.all([
-        projetosService.list(),
+      const [pagedResult, listaEtapas, listaExec] = await Promise.all([
+        projetosService.getList({ page: pagina, perPage: 20 }),
         projetosService.listTodasEtapas ? projetosService.listTodasEtapas() : Promise.resolve([]),
         executoresService.list(),
       ])
-      setProjetos(listaPrj)
+
+      setProjetos((prev) => (append ? [...prev, ...pagedResult.items] : pagedResult.items))
+      setPaginaAtual(pagedResult.page)
+      setTotalPaginas(pagedResult.totalPages)
+      setTotalItens(pagedResult.totalItems)
       setTodasEtapas(listaEtapas)
       setExecutores(listaExec)
     } catch (err: any) {
@@ -115,12 +130,19 @@ export const ProjetosPage: React.FC = () => {
       })
     } finally {
       setCarregando(false)
+      setCarregandoMais(false)
     }
   }
 
   useEffect(() => {
-    carregarProjetos()
+    carregarProjetos(1, false)
   }, [])
+
+  const handleCarregarMais = () => {
+    if (paginaAtual < totalPaginas && !carregandoMais) {
+      carregarProjetos(paginaAtual + 1, true)
+    }
+  }
 
   // Mapa de etapas por projeto e cálculo de métricas de portfólio
   const projetosComMetricas = useMemo<ProjetoComEtapasCalculadas[]>(() => {
@@ -903,6 +925,49 @@ export const ProjetosPage: React.FC = () => {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Controles de Paginação / Carregamento Incremental */}
+      {!carregando && totalItens > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200">
+          <div className="text-xs text-slate-500">
+            Exibindo <strong>{projetos.length}</strong> de <strong>{totalItens}</strong> projetos no
+            total
+            {totalPaginas > 1 && ` (Página ${paginaAtual} de ${totalPaginas})`}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {paginaAtual < totalPaginas && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCarregarMais}
+                disabled={carregandoMais}
+                className="text-xs h-8"
+              >
+                {carregandoMais ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    Carregando mais...
+                  </>
+                ) : (
+                  <>Carregar mais 20 projetos ({totalItens - projetos.length} restantes)</>
+                )}
+              </Button>
+            )}
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => carregarProjetos(1, false)}
+              disabled={carregando}
+              className="text-xs h-8 text-slate-600 hover:text-slate-900"
+              title="Recarregar projetos"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${carregando ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
       )}
 

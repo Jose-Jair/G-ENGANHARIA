@@ -873,7 +873,14 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
         requer_nota: requerNota,
         preco: totais.precoTotal,
         requer_aprovacao_admin: alcadaInfo.requerAdmin,
-        itens_json: itens,
+        // Garante que apenas itens válidos com catálogo/serviço ou descrição específica constem em itens_json
+        itens_json: itens.filter((i) => {
+          const desc = (i.descricao || '').trim()
+          return (
+            Boolean(i.servico || (i as any).catalogo_servico) ||
+            (desc.length > 0 && !desc.startsWith('Item de Escopo '))
+          )
+        }),
       }
 
       if (enviarParaAprovacao) {

@@ -50,6 +50,21 @@ export interface SugestaoSaudeProjeto {
     valorTotalContratado: number
   }
 }
+export interface ListProjetosOptions {
+  page?: number
+  perPage?: number
+  filter?: string
+  sort?: string
+}
+
+export interface ListProjetosResult {
+  items: ProjetoRecord[]
+  page: number
+  perPage: number
+  totalItems: number
+  totalPages: number
+}
+
 export const projetosService = {
   async list(): Promise<ProjetoRecord[]> {
     return await pb.collection('projetos').getFullList<ProjetoRecord>({
@@ -57,6 +72,28 @@ export const projetosService = {
       expand:
         'empresa,cliente_pf,proposta,proposta.empresa,proposta.cliente_pf,contrato_servico,grupo',
     })
+  },
+
+  async getList(options?: ListProjetosOptions): Promise<ListProjetosResult> {
+    const page = options?.page || 1
+    const perPage = options?.perPage || 20
+    const sort = options?.sort || '-created'
+    const filter = options?.filter || ''
+
+    const res = await pb.collection('projetos').getList<ProjetoRecord>(page, perPage, {
+      sort,
+      filter,
+      expand:
+        'empresa,cliente_pf,proposta,proposta.empresa,proposta.cliente_pf,contrato_servico,grupo',
+    })
+
+    return {
+      items: res.items,
+      page: res.page,
+      perPage: res.perPage,
+      totalItems: res.totalItems,
+      totalPages: res.totalPages,
+    }
   },
 
   async updateModoExecucao(

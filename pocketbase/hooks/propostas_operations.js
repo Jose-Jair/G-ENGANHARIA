@@ -514,53 +514,106 @@ onRecordAfterUpdateSuccess((e) => {
       console.log('Erro ao criar grupo de projetos: ' + errGrupo)
     }
 
-    // 2. OBTER ITENS DE ESCOPO DA PROPOSTA (proposta_itens com fallback para itens_json)
+    // Trava de idempotência atômica: se já existirem projetos ativos vinculados a este contrato, não recriar
+    const projetosJaCriados = $app.findRecordsByFilter(
+      'projetos',
+      "contrato_servico = '" + contratoId + "'",
+      'codigo',
+      100,
+      0,
+    )
+    if (projetosJaCriados.length > 0) {
+      for (let pIdx = 0; pIdx < projetosJaCriados.length; pIdx++) {
+        const prjExistente = projetosJaCriados[pIdx]
+        let prjModificado = false
+        if (grupoCriado && prjExistente.getString('grupo') !== grupoCriado.id) {
+          prjExistente.set('grupo', grupoCriado.id)
+          prjModificado = true
+        }
+        if (clientePfId && prjExistente.getString('cliente_pf') !== clientePfId) {
+          prjExistente.set('cliente_pf', clientePfId)
+          prjModificado = true
+        }
+        if (empresaId && prjExistente.getString('empresa') !== empresaId) {
+          prjExistente.set('empresa', empresaId)
+          prjModificado = true
+        }
+        const st = prjExistente.getString('status')
+        if (st === 'contratacao' || st === 'Em Contratação' || !st) {
+          prjExistente.set('status', 'aguardando_definicao')
+          prjExistente.set('modo_execucao', null)
+          prjModificado = true
+        }
+        if (prjModificado) {
+          $app.save(prjExistente)
+        }
+      }
+      return
+    }
+
+    // 2. OBTER ITENS DE ESCOPO DA PROPOSTA (Apenas itens reais do catálogo ou com serviço/descrição válida)
     let itensEscopo = []
     if (propostaId) {
       try {
         const itensDb = $app.findRecordsByFilter(
           'proposta_itens',
           "proposta = '" + propostaId + "'",
-          'created',
+          'ordem,created',
           200,
           0,
         )
         if (itensDb.length > 0) {
-          itensEscopo = itensDb.map((it) => ({
-            id: it.id,
-            record: it,
-            descricao: it.getString('descricao'),
-            disciplina: it.getString('disciplina') || 'Geral',
-            area: it.getString('area'),
-            valor: it.getFloat('preco_total') || 0,
-            custo: it.getFloat('custo_total') || 0,
-            subservicos: it.get('subservicos') || [],
-          }))
+          itensEscopo = itensDb
+            .filter((it) => {
+              const desc = (it.getString('descricao') || '').trim()
+              const serv = it.getString('servico') || ''
+              return (serv !== '' || desc.length > 0) && !desc.startsWith('Item de Escopo ')
+            })
+            .map((it) => ({
+              id: it.id,
+              record: it,
+              descricao: it.getString('descricao'),
+              disciplina: it.getString('disciplina') || 'Geral',
+              area: it.getString('area'),
+              valor: it.getFloat('preco_total') || 0,
+              custo: it.getFloat('custo_total') || 0,
+              subservicos: it.get('subservicos') || [],
+            }))
         }
       } catch (_) {}
 
       if (itensEscopo.length === 0 && propostaRec) {
         try {
-          const itensJson = propostaRec.get('itens_json')
+          const rawJsonStr = propostaRec.getString('itens_json')
           let parsedItens = []
-          if (Array.isArray(itensJson)) {
-            parsedItens = itensJson
-          } else if (typeof itensJson === 'string' && itensJson.trim()) {
-            parsedItens = JSON.parse(itensJson)
+          if (rawJsonStr && rawJsonStr.trim()) {
+            const parsed = JSON.parse(rawJsonStr)
+            if (Array.isArray(parsed)) {
+              parsedItens = parsed
+            }
           }
           if (parsedItens.length > 0) {
-            itensEscopo = parsedItens.map((it, idx) => ({
-              id: null,
-              record: null,
-              descricao: it.descricao || 'Item de Escopo ' + (idx + 1),
-              disciplina: it.disciplina || 'Geral',
-              area: it.area || '',
-              valor: Number(it.preco_total) || 0,
-              custo: Number(it.custo_total) || 0,
-              subservicos: it.subservicos || [],
-            }))
+            itensEscopo = parsedItens
+              .filter((it) => {
+                const desc = typeof it.descricao === 'string' ? it.descricao.trim() : ''
+                const temServico = Boolean(it.servico || it.catalogo_servico)
+                const descValida = desc.length > 0 && !desc.startsWith('Item de Escopo ')
+                return temServico || descValida
+              })
+              .map((it) => ({
+                id: null,
+                record: null,
+                descricao: (it.descricao || '').trim() || objetoContrato,
+                disciplina: it.disciplina || 'Geral',
+                area: it.area || '',
+                valor: Number(it.preco_total) || 0,
+                custo: Number(it.custo_total) || 0,
+                subservicos: Array.isArray(it.subservicos) ? it.subservicos : [],
+              }))
           }
-        } catch (_) {}
+        } catch (errJson) {
+          console.log('Erro ao analisar itens_json canônico: ' + errJson)
+        }
       }
     }
 

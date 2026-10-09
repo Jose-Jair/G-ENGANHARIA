@@ -163,8 +163,8 @@ export const ModalCotacoesEtapa: React.FC<ModalCotacoesEtapaProps> = ({
     }
   }
 
-  // Filtrar executores aptos (não suspensos)
-  const executoresDisponiveis = executores.filter((ex) => ex.status !== 'suspenso')
+  // Filtrar executores aptos (somente ativos)
+  const executoresDisponiveis = executores.filter((ex) => ex.status === 'ativo')
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

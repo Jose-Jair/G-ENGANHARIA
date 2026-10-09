@@ -30,6 +30,7 @@ import { GrupoProjetosPage } from './pages/GrupoProjetos'
 import { ExecutoresPage } from './pages/Executores'
 import { CotacaoPublicaPage } from './pages/CotacaoPublica'
 import { SubcontratoPublicoPage } from './pages/SubcontratoPublico'
+import { CadastroExecutorPublicoPage } from './pages/CadastroExecutorPublico'
 import { FinanceiroPage } from './pages/Financeiro'
 import { ManualUsoPage } from './pages/ManualUso'
 import { PortalExecutorPage } from './pages/PortalExecutor'
@@ -64,6 +65,9 @@ const App = () => (
 
           {/* Rota pública de assinatura eletrônica do Termo de Subcontratação (Bloco 5) - sem login */}
           <Route path="/subcontrato/:token" element={<SubcontratoPublicoPage />} />
+
+          {/* Rota pública de cadastro/credenciamento de executor por convite com token - sem login */}
+          <Route path="/cadastro-executor" element={<CadastroExecutorPublicoPage />} />
 
           {/* Authenticated routes wrapped with AppLayout */}
           <Route

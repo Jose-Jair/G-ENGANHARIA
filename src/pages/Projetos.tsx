@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   ProjetoRecord,
@@ -327,10 +327,38 @@ export const ProjetosPage: React.FC = () => {
   // Lista a exibir: projetos já chegam filtrados e ordenados pelo servidor
   const projetosExibidos = projetosComMetricas
 
-  // Projetos em Standby (aguardando_definicao) carregados na página atual
+  // Projetos em Standby (aguardando_definicao)
+  // Além dos projetos já carregados na página/filtros atuais, buscar explicitamente os em standby da base
+  const [standbyDedicados, setStandbyDedicados] = useState<ProjetoRecord[]>([])
+
+  const carregarProjetosStandby = useCallback(async () => {
+    try {
+      const resp = await projetosService.getList({
+        page: 1,
+        perPage: 50,
+        sort: '-created',
+        filtros: { status: 'aguardando_definicao' },
+      })
+      setStandbyDedicados(resp.items)
+    } catch {
+      // silencioso
+    }
+  }, [])
+
+  useEffect(() => {
+    carregarProjetosStandby()
+  }, [carregarProjetosStandby])
+
   const projetosEmStandby = useMemo(() => {
-    return projetos.filter((p) => p.status === 'aguardando_definicao')
-  }, [projetos])
+    const mapa = new Map<string, ProjetoRecord>()
+    standbyDedicados.forEach((p) => mapa.set(p.id, p))
+    projetos.forEach((p) => {
+      if (p.status === 'aguardando_definicao') {
+        mapa.set(p.id, p)
+      }
+    })
+    return Array.from(mapa.values())
+  }, [standbyDedicados, projetos])
 
   // Contadores e métricas dos registros carregados
   const metricasPortfolio = useMemo(() => {
@@ -1256,7 +1284,10 @@ export const ProjetosPage: React.FC = () => {
         open={modalDefinirModoOpen}
         onOpenChange={setModalDefinirModoOpen}
         projeto={projetoDefinirModo}
-        onSuccess={carregarProjetos}
+        onSuccess={() => {
+          carregarProjetos(1, false)
+          carregarProjetosStandby()
+        }}
       />
     </div>
   )

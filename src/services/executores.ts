@@ -10,6 +10,61 @@ import {
   PesosAvaliacaoExecutor,
 } from '@/types'
 
+export interface ConvidarExecutorData {
+  nome: string
+  email: string
+}
+
+export interface ConvidarExecutorResponse {
+  sucesso: boolean
+  executor_id: string
+  nome: string
+  email: string
+  token_cadastro: string
+  token_cadastro_expira: string
+  link_cadastro: string
+}
+
+export interface ObterExecutorTokenResponse {
+  valido: boolean
+  expirado?: boolean
+  error?: string
+  executor?: {
+    id: string
+    nome: string
+    email: string
+    tipo: TipoExecutor
+    cpf_cnpj?: string
+    telefone?: string
+    conselho?: ConselhoClasse
+    conselho_classe?: ConselhoClasse
+    numero_registro?: string
+    numero_registro_conselho?: string
+    conselho_validade?: string
+    validade_registro_conselho?: string
+    disciplinas?: string
+    regiao?: string
+    capacidade_simultanea?: number
+    dados_bancarios?: string
+    status: StatusExecutor
+  }
+}
+
+export interface SubmeterCadastroTokenData {
+  token: string
+  nome?: string
+  tipo: TipoExecutor
+  cpf_cnpj: string
+  telefone?: string
+  conselho_classe?: string
+  numero_registro?: string
+  validade_registro?: string
+  disciplinas: string
+  regiao?: string
+  capacidade_simultanea?: number
+  dados_bancarios?: any
+}
+
 export interface CreateExecutorData {
   tipo: TipoExecutor
   nome: string
@@ -17,13 +72,17 @@ export interface CreateExecutorData {
   email?: string
   telefone?: string
   conselho?: ConselhoClasse
+  conselho_classe?: ConselhoClasse
   numero_registro?: string
+  numero_registro_conselho?: string
   conselho_validade?: string
+  validade_registro_conselho?: string
   disciplinas?: string
   regiao?: string
   capacidade_simultanea?: number
   dados_bancarios?: string
   nda_contrato?: File | string
+  documento_termo?: File | string
   status?: StatusExecutor
   motivo_suspensao?: string
 }
@@ -127,6 +186,48 @@ export const executoresService = {
     return await pb.collection('executores').update<ExecutorRecord>(id, {
       status,
       motivo_suspensao: status === 'suspenso' ? motivo || 'Suspenso pelo gestor' : '',
+    })
+  },
+
+  // Recrutamento e Homologação
+  async convidar(data: ConvidarExecutorData): Promise<ConvidarExecutorResponse> {
+    return await pb.send('/backend/v1/executores/convidar', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' },
+    })
+  },
+
+  async obterPorTokenCadastro(token: string): Promise<ObterExecutorTokenResponse> {
+    return await pb.send(
+      `/backend/v1/executores/obter-por-token-cadastro/${encodeURIComponent(token)}`,
+      {
+        method: 'GET',
+      },
+    )
+  },
+
+  async submeterCadastroToken(
+    data: SubmeterCadastroTokenData,
+  ): Promise<{ sucesso: boolean; mensagem: string; executor_id: string; status: string }> {
+    return await pb.send('/backend/v1/executores/submeter-cadastro-token', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' },
+    })
+  },
+
+  async homologar(id: string): Promise<{
+    sucesso: boolean
+    executor_id: string
+    nome: string
+    status: string
+    mensagem: string
+  }> {
+    return await pb.send(`/backend/v1/executores/${id}/homologar`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+      headers: { 'Content-Type': 'application/json' },
     })
   },
 

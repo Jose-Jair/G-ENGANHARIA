@@ -208,9 +208,9 @@ export const ModalCotacoesProjeto: React.FC<ModalCotacoesProjetoProps> = ({
     }
   }, [open, projeto])
 
-  // Filtrar executores homologados ativos
+  // Filtrar executores homologados ativos (apenas status 'ativo')
   const executoresDisponiveis = useMemo(() => {
-    return executores.filter((ex) => ex.status !== 'suspenso')
+    return executores.filter((ex) => ex.status === 'ativo')
   }, [executores])
 
   // Identificar melhor cotação respondida com base no critério selecionado

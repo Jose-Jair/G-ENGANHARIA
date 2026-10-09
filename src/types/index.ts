@@ -818,13 +818,19 @@ export interface ExecutorRecord {
   email?: string
   telefone?: string
   conselho?: ConselhoClasse
+  conselho_classe?: ConselhoClasse
   numero_registro?: string
+  numero_registro_conselho?: string
   conselho_validade?: string
+  validade_registro_conselho?: string
   disciplinas?: string
   regiao?: string
   capacidade_simultanea?: number
   dados_bancarios?: string
   nda_contrato?: string
+  documento_termo?: string
+  token_cadastro?: string
+  token_cadastro_expira?: string
   status: StatusExecutor
   motivo_suspensao?: string
   nota_geral?: number

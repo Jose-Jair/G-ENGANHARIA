@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T18:48:52.169Z",
+  "generatedAt": "2026-10-09T19:54:31.157Z",
   "collections": [
     {
       "name": "users",
@@ -1762,11 +1762,49 @@
           "type": "number",
           "required": false,
           "system": false
+        },
+        {
+          "name": "token_cadastro",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "token_cadastro_expira",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conselho_classe",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["CREA", "CAU", "CFT", "OUTRO"]
+        },
+        {
+          "name": "numero_registro_conselho",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validade_registro_conselho",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "documento_termo",
+          "type": "file",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
         "CREATE INDEX idx_executores_cpf_cnpj ON executores (cpf_cnpj)",
-        "CREATE INDEX idx_executores_status ON executores (status)"
+        "CREATE INDEX idx_executores_status ON executores (status)",
+        "CREATE INDEX `idx_executores_token_cadastro` ON `executores` (token_cadastro)"
       ]
     },
     {

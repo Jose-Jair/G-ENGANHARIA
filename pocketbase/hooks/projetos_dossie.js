@@ -20,7 +20,7 @@ routerAdd(
         )
       }
 
-      const projetoId = e.requestInfo().pathParams.id
+      const projetoId = e.request.pathValue('id')
       if (!projetoId) {
         throw new BadRequestError('ID do projeto não informado.')
       }

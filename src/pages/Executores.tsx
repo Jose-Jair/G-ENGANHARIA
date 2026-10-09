@@ -49,6 +49,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ModalCriarEditarExecutor } from '@/components/executores/ModalCriarEditarExecutor'
 import { ModalSuspenderExecutor } from '@/components/executores/ModalSuspenderExecutor'
 import { ModalHistoricoAvaliacoes } from '@/components/executores/ModalHistoricoAvaliacoes'
+import { ModalConvidarExecutor } from '@/components/executores/ModalConvidarExecutor'
 
 import { useSearchParams } from 'react-router-dom'
 
@@ -86,7 +87,12 @@ export const ExecutoresPage: React.FC = () => {
   const [modalHistoricoOpen, setModalHistoricoOpen] = useState(false)
   const [executorHistorico, setExecutorHistorico] = useState<ExecutorRecord | null>(null)
 
+  const [modalConvidarOpen, setModalConvidarOpen] = useState(false)
+  const [homologandoId, setHomologandoId] = useState<string | null>(null)
+
   const canEdit = !!(user && (user.role === 'admin' || user.role === 'gestor'))
+  const canConvidar = !!(user && (user.role === 'admin' || user.role === 'comercial'))
+  const canHomologar = !!(user && user.role === 'admin')
 
   const carregarDados = async () => {
     setCarregando(true)
@@ -118,9 +124,34 @@ export const ExecutoresPage: React.FC = () => {
     carregarDados()
   }, [])
 
-  // Alteração direta de homologação -> ativo
+  // Homologação de executor com rota dedicada e auditoria HOMOLOGAR_EXECUTOR
+  const handleHomologar = async (executor: ExecutorRecord) => {
+    setHomologandoId(executor.id)
+    try {
+      await executoresService.homologar(executor.id)
+      toast({
+        title: 'Executor homologado!',
+        description: `${executor.nome} foi ativado e está disponível para cotações e subcontratos.`,
+      })
+      carregarDados()
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao homologar',
+        description: err.message || 'Falha ao homologar executor.',
+        variant: 'destructive',
+      })
+    } finally {
+      setHomologandoId(null)
+    }
+  }
+
+  // Alteração direta de homologação -> ativo (ou reativação)
   const handleAtivar = async (executor: ExecutorRecord) => {
     try {
+      if (executor.status === 'homologacao' && user?.role === 'admin') {
+        await handleHomologar(executor)
+        return
+      }
       await executoresService.alterarStatus(executor.id, 'ativo')
       toast({ title: 'Executor ativado com sucesso!' })
       carregarDados()
@@ -319,13 +350,24 @@ export const ExecutoresPage: React.FC = () => {
             Exportar CSV
           </Button>
 
+          {canConvidar && (
+            <Button
+              variant="outline"
+              onClick={() => setModalConvidarOpen(true)}
+              className="border-[#D95A2B] text-[#D95A2B] hover:bg-orange-50 text-xs shadow-xs"
+            >
+              <Sparkles className="w-4 h-4 mr-1.5" />
+              Convidar Executor
+            </Button>
+          )}
+
           {canEdit && (
             <Button
               onClick={() => {
                 setExecutorEditar(null)
                 setModalCriarEditarOpen(true)
               }}
-              className="bg-blue-600 hover:bg-blue-700 text-xs shadow-xs"
+              className="bg-blue-600 hover:bg-blue-700 text-xs shadow-xs text-white"
             >
               <Plus className="w-4 h-4 mr-1.5" />
               Novo Executor
@@ -804,14 +846,22 @@ export const ExecutoresPage: React.FC = () => {
 
                       {canEdit && (
                         <div className="flex items-center gap-1">
-                          {ex.status === 'homologacao' && (
+                          {ex.status === 'homologacao' && canHomologar && (
                             <Button
                               size="sm"
-                              variant="outline"
-                              onClick={() => handleAtivar(ex)}
-                              className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50 px-2"
+                              disabled={homologandoId === ex.id}
+                              onClick={() => handleHomologar(ex)}
+                              className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-2.5 shadow-2xs"
                             >
-                              Aprovar
+                              {homologandoId === ex.id ? (
+                                <>
+                                  <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Homologando
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="w-3 h-3 mr-1" /> Homologar
+                                </>
+                              )}
                             </Button>
                           )}
 
@@ -1200,6 +1250,12 @@ export const ExecutoresPage: React.FC = () => {
         open={modalHistoricoOpen}
         onOpenChange={setModalHistoricoOpen}
         executor={executorHistorico}
+      />
+
+      <ModalConvidarExecutor
+        open={modalConvidarOpen}
+        onOpenChange={setModalConvidarOpen}
+        onSuccess={carregarDados}
       />
     </div>
   )

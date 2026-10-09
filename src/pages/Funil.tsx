@@ -24,6 +24,7 @@ import { InativarEmpresaModal } from '@/components/funil/InativarEmpresaModal'
 import { ProximaAcaoModal } from '@/components/funil/ProximaAcaoModal'
 import { FunilEmpresaTimeline } from '@/components/funil/FunilEmpresaTimeline'
 import { EmpresaDetailModal } from '@/components/empresas/EmpresaDetailModal'
+import { FunilSaudeTab } from '@/components/funil/FunilSaudeTab'
 import {
   Kanban,
   Filter,
@@ -38,7 +39,9 @@ import {
   Layers,
   ArrowRight,
   Download,
+  Activity,
 } from 'lucide-react'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { exportService } from '@/services/exportService'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -108,6 +111,17 @@ export default function FunilPage() {
   const [contratos, setContratos] = useState<ContratoRecord[]>([])
   const [users, setUsers] = useState<UserRecord[]>([])
   const [reativacoesPendentes, setReativacoesPendentes] = useState<ReativacaoSugeridaRecord[]>([])
+
+  // Aba ativa: 'kanban' ou 'saude' (Saúde exclusiva para Admin e Comercial)
+  const canAccessSaude = isAdmin || isComercial
+  const [activeTab, setActiveTab] = useState<'kanban' | 'saude'>(() => {
+    const saved = sessionStorage.getItem('funil_active_tab')
+    return saved === 'saude' && (isAdmin || isComercial) ? 'saude' : 'kanban'
+  })
+
+  useEffect(() => {
+    sessionStorage.setItem('funil_active_tab', activeTab)
+  }, [activeTab])
 
   // Filtros combináveis persistidos na sessionStorage
   const [filtroEtapa, setFiltroEtapa] = useState<string>(
@@ -630,6 +644,37 @@ export default function FunilPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          {canAccessSaude && (
+            <div className="bg-slate-100 p-1 rounded-lg flex items-center gap-1 border border-slate-200">
+              <Button
+                variant={activeTab === 'kanban' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setActiveTab('kanban')}
+                className={`text-xs h-7 px-3 font-medium ${
+                  activeTab === 'kanban'
+                    ? 'bg-white text-slate-900 shadow-xs hover:bg-white'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Kanban className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+                Pipeline Kanban
+              </Button>
+              <Button
+                variant={activeTab === 'saude' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setActiveTab('saude')}
+                className={`text-xs h-7 px-3 font-medium ${
+                  activeTab === 'saude'
+                    ? 'bg-[#D95A2B] text-white shadow-xs hover:bg-[#D95A2B]'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Activity className="w-3.5 h-3.5 mr-1.5" />
+                Saúde do Funil
+              </Button>
+            </div>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -933,137 +978,156 @@ export default function FunilPage() {
           </div>
         </div>
       </div>
-      {/* KANBAN BOARD: 9 COLUNAS COM DRAG & DROP E ORDENAÇÃO A -> B -> C */}
-      <div className="relative">
-        {loading ? (
-          <div className="p-16 text-center text-slate-500">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3" />
-            Carregando funil e calculando scores...
-          </div>
-        ) : (
-          <div className="flex gap-3 overflow-x-auto pb-4 pt-1 items-start min-h-[600px] scrollbar-thin">
-            {KANBAN_COLUMNS.map((col) => {
-              const empresasDaColuna = colunasComEmpresas.get(col.id) || []
-              const totalColuna = empresasDaColuna.reduce(
-                (acc, emp) => acc + (contratosPorEmpresa.get(emp.id)?.total || 0),
-                0,
-              )
-              const isOver = dragOverColumn === col.id
+      {/* CONTEÚDO PRINCIPAL: PIPELINE KANBAN OU PAINEL DE SAÚDE */}
+      {activeTab === 'saude' && canAccessSaude ? (
+        <FunilSaudeTab
+          users={users}
+          onOpenDetalhesEmpresa={(empId) => {
+            const emp = empresas.find((item) => item.id === empId)
+            if (emp) {
+              setEmpresaDetalhe(emp)
+            }
+          }}
+          onNavigateToKanban={() => setActiveTab('kanban')}
+        />
+      ) : (
+        /* KANBAN BOARD: 9 COLUNAS COM DRAG & DROP E ORDENAÇÃO A -> B -> C */
+        <div className="relative">
+          {loading ? (
+            <div className="p-16 text-center text-slate-500">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3" />
+              Carregando funil e calculando scores...
+            </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-4 pt-1 items-start min-h-[600px] scrollbar-thin">
+              {KANBAN_COLUMNS.map((col) => {
+                const empresasDaColuna = colunasComEmpresas.get(col.id) || []
+                const totalColuna = empresasDaColuna.reduce(
+                  (acc, emp) => acc + (contratosPorEmpresa.get(emp.id)?.total || 0),
+                  0,
+                )
+                const isOver = dragOverColumn === col.id
 
-              return (
-                <div
-                  key={col.id}
-                  onDragOver={(e) => handleDragOver(e, col.id)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, col.id)}
-                  className={`w-72 shrink-0 flex flex-col rounded-xl border bg-slate-100/60 transition-colors ${
-                    isOver ? 'ring-2 ring-blue-500 bg-blue-50/50' : 'border-slate-200'
-                  }`}
-                >
-                  {/* Cabeçalho da Coluna */}
-                  <div className={`p-3 rounded-t-xl border-b ${col.border} ${col.color}`}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-xs uppercase tracking-wide truncate">
-                        {col.title}
-                      </span>
-                      <Badge variant="outline" className="text-[10px] font-mono font-bold bg-white">
-                        {empresasDaColuna.length}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className="text-slate-500">Total ativo:</span>
-                      <span className="font-mono font-bold text-slate-800">
-                        {formatCurrencyBr(totalColuna)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Corpo da Coluna: Cards de Empresas */}
-                  <div className="p-2 space-y-2 flex-1 min-h-[420px] max-h-[calc(100vh-320px)] overflow-y-auto">
-                    {empresasDaColuna.length === 0 ? (
-                      <div className="h-32 border border-dashed border-slate-300/80 rounded-lg flex flex-col items-center justify-center text-center p-3 text-slate-400 text-xs">
-                        <span>Arraste uma empresa para cá</span>
+                return (
+                  <div
+                    key={col.id}
+                    onDragOver={(e) => handleDragOver(e, col.id)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, col.id)}
+                    className={`w-72 shrink-0 flex flex-col rounded-xl border bg-slate-100/60 transition-colors ${
+                      isOver ? 'ring-2 ring-blue-500 bg-blue-50/50' : 'border-slate-200'
+                    }`}
+                  >
+                    {/* Cabeçalho da Coluna */}
+                    <div className={`p-3 rounded-t-xl border-b ${col.border} ${col.color}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-xs uppercase tracking-wide truncate">
+                          {col.title}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-mono font-bold bg-white"
+                        >
+                          {empresasDaColuna.length}
+                        </Badge>
                       </div>
-                    ) : (
-                      empresasDaColuna.map((emp) => {
-                        const totalAtivo = contratosPorEmpresa.get(emp.id)?.total || 0
-                        const hasReat = reativacoesPendentes.some((r) => r.empresa === emp.id)
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-slate-500">Total ativo:</span>
+                        <span className="font-mono font-bold text-slate-800">
+                          {formatCurrencyBr(totalColuna)}
+                        </span>
+                      </div>
+                    </div>
 
-                        return (
-                          <div key={emp.id} className="relative">
-                            <FunilEmpresaCard
-                              empresa={emp}
-                              totalContratosAtivos={totalAtivo}
-                              hasReativacaoPendente={hasReat}
-                              onEditProximaAcao={(e) => setEmpresaProximaAcao(e)}
-                              onOpenTimeline={(e) => setEmpresaTimeline(e)}
-                              onOpenDetalhes={(e) => setEmpresaDetalhe(e)}
-                              onElaborarProposta={(e) => {
-                                navigate(`/propostas?nova=true&empresaId=${e.id}`)
-                              }}
-                              onDragStart={handleDragStart}
-                              canDrag={true}
-                            />{' '}
-                            {/* Ação especial na coluna Inativa: Restaurar etapa anterior */}
-                            {col.id === 'inativa' && emp.etapa_anterior && (
-                              <button
-                                onClick={() => handleRestaurarEmpresa(emp)}
-                                className="mt-1 w-full text-center text-[10px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 py-1 rounded border border-blue-200 transition-colors"
-                              >
-                                Restaurar para "{emp.etapa_anterior}"
-                              </button>
-                            )}
-                            {/* Ação especial na coluna Nutrição Mensal: Reativar retorno ao funil para Em Conversa */}
-                            {col.id === 'nutricao_mensal' && (
-                              <button
-                                onClick={async () => {
-                                  if (
-                                    confirm(
-                                      `Mover ${
-                                        emp.nome_fantasia || emp.razao_social
-                                      } de volta ao funil ativo na etapa "Em conversa"?`,
-                                    )
-                                  ) {
-                                    try {
-                                      await empresasService.update(emp.id, {
-                                        etapa_funil: 'em_conversa',
-                                        etapa_anterior: 'nutricao_mensal',
-                                        proxima_acao_data: new Date().toISOString(),
-                                        proxima_acao_desc:
-                                          'Retorno manual de Nutrição Mensal para Em conversa',
-                                      })
-                                      toast({
-                                        title: 'Empresa reativada!',
-                                        description:
-                                          'A empresa retornou para a etapa Em conversa no funil.',
-                                      })
-                                      loadData()
-                                    } catch (err: unknown) {
-                                      toast({
-                                        title: 'Erro ao mover',
-                                        description:
-                                          err instanceof Error ? err.message : 'Falha na alteração',
-                                        variant: 'destructive',
-                                      })
-                                    }
-                                  }
+                    {/* Corpo da Coluna: Cards de Empresas */}
+                    <div className="p-2 space-y-2 flex-1 min-h-[420px] max-h-[calc(100vh-320px)] overflow-y-auto">
+                      {empresasDaColuna.length === 0 ? (
+                        <div className="h-32 border border-dashed border-slate-300/80 rounded-lg flex flex-col items-center justify-center text-center p-3 text-slate-400 text-xs">
+                          <span>Arraste uma empresa para cá</span>
+                        </div>
+                      ) : (
+                        empresasDaColuna.map((emp) => {
+                          const totalAtivo = contratosPorEmpresa.get(emp.id)?.total || 0
+                          const hasReat = reativacoesPendentes.some((r) => r.empresa === emp.id)
+
+                          return (
+                            <div key={emp.id} className="relative">
+                              <FunilEmpresaCard
+                                empresa={emp}
+                                totalContratosAtivos={totalAtivo}
+                                hasReativacaoPendente={hasReat}
+                                onEditProximaAcao={(e) => setEmpresaProximaAcao(e)}
+                                onOpenTimeline={(e) => setEmpresaTimeline(e)}
+                                onOpenDetalhes={(e) => setEmpresaDetalhe(e)}
+                                onElaborarProposta={(e) => {
+                                  navigate(`/propostas?nova=true&empresaId=${e.id}`)
                                 }}
-                                className="mt-1 w-full text-center text-[10px] font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 py-1 rounded border border-teal-200 transition-colors"
-                              >
-                                Retornar para "Em conversa"
-                              </button>
-                            )}
-                          </div>
-                        )
-                      })
-                    )}
+                                onDragStart={handleDragStart}
+                                canDrag={true}
+                              />{' '}
+                              {/* Ação especial na coluna Inativa: Restaurar etapa anterior */}
+                              {col.id === 'inativa' && emp.etapa_anterior && (
+                                <button
+                                  onClick={() => handleRestaurarEmpresa(emp)}
+                                  className="mt-1 w-full text-center text-[10px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 py-1 rounded border border-blue-200 transition-colors"
+                                >
+                                  Restaurar para "{emp.etapa_anterior}"
+                                </button>
+                              )}
+                              {/* Ação especial na coluna Nutrição Mensal: Reativar retorno ao funil para Em Conversa */}
+                              {col.id === 'nutricao_mensal' && (
+                                <button
+                                  onClick={async () => {
+                                    if (
+                                      confirm(
+                                        `Mover ${
+                                          emp.nome_fantasia || emp.razao_social
+                                        } de volta ao funil ativo na etapa "Em conversa"?`,
+                                      )
+                                    ) {
+                                      try {
+                                        await empresasService.update(emp.id, {
+                                          etapa_funil: 'em_conversa',
+                                          etapa_anterior: 'nutricao_mensal',
+                                          proxima_acao_data: new Date().toISOString(),
+                                          proxima_acao_desc:
+                                            'Retorno manual de Nutrição Mensal para Em conversa',
+                                        })
+                                        toast({
+                                          title: 'Empresa reativada!',
+                                          description:
+                                            'A empresa retornou para a etapa Em conversa no funil.',
+                                        })
+                                        loadData()
+                                      } catch (err: unknown) {
+                                        toast({
+                                          title: 'Erro ao mover',
+                                          description:
+                                            err instanceof Error
+                                              ? err.message
+                                              : 'Falha na alteração',
+                                          variant: 'destructive',
+                                        })
+                                      }
+                                    }
+                                  }}
+                                  className="mt-1 w-full text-center text-[10px] font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 py-1 rounded border border-teal-200 transition-colors"
+                                >
+                                  Retornar para "Em conversa"
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
       {/* Modal de Inativação Obrigatória (Admin only) */}
       <InativarEmpresaModal
         open={!!empresaInativar}

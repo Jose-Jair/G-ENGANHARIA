@@ -349,127 +349,12 @@ onRecordAfterUpdateSuccess((e) => {
           } catch (_) {}
         }
 
-        // 1.2 CRIAR PROJETO IMEDIATAMENTE EM STATUS "contratacao" (SEM ETAPAS, SEM CONTAS)
-        // Trava de idempotência: verificar se projeto para esta proposta já existe
-        const projetosExistentes = $app.findRecordsByFilter(
-          'projetos',
-          "proposta = '" + propostaId + "'",
-          '-created',
-          1,
-          0,
-        )
-
-        let projetoCriado = null
-        if (projetosExistentes.length > 0) {
-          projetoCriado = projetosExistentes[0]
-          // Garantir amarração mútua com o contrato se ainda faltar
-          let salvarPrj = false
-          if (!projetoCriado.getString('contrato_servico') && contratoCriado) {
-            projetoCriado.set('contrato_servico', contratoCriado.id)
-            salvarPrj = true
-          }
-          if (salvarPrj) {
-            $app.save(projetoCriado)
-          }
-          if (contratoCriado && !contratoCriado.getString('projeto')) {
-            contratoCriado.set('projeto', projetoCriado.id)
-            $app.save(contratoCriado)
-          }
-        } else {
-          const projetosCol = $app.findCollectionByNameOrId('projetos')
-          const anoAtual = new Date().getFullYear()
-          const prefixo = 'PRJ-' + anoAtual + '-'
-
-          const projetosDoAno = $app.findRecordsByFilter(
-            'projetos',
-            "codigo ~ '" + prefixo + "'",
-            '-codigo',
-            1,
-            0,
-          )
-
-          let proximoSeq = 1
-          if (projetosDoAno.length > 0) {
-            const ultimoCodigo = projetosDoAno[0].getString('codigo')
-            const partes = ultimoCodigo.split('-')
-            const ultimoSeq = parseInt(partes[2], 10)
-            if (!isNaN(ultimoSeq)) {
-              proximoSeq = ultimoSeq + 1
-            }
-          }
-
-          const seqStr = ('0000' + proximoSeq).slice(-4)
-          const novoCodigo = prefixo + seqStr
-
-          let nomeCliente = 'Cliente'
-          if (empresaId) {
-            try {
-              const emp = $app.findRecordById('empresas', empresaId)
-              if (emp) nomeCliente = emp.getString('razao_social')
-            } catch (_) {}
-          } else if (clientePfId) {
-            try {
-              const pf = $app.findRecordById('clientes_pf', clientePfId)
-              if (pf) nomeCliente = pf.getString('nome')
-            } catch (_) {}
-          }
-
-          const contratoNumero = contratoCriado ? contratoCriado.getString('numero') : ''
-
-          const novoProjeto = new Record(projetosCol)
-          novoProjeto.set('codigo', novoCodigo)
-          novoProjeto.set(
-            'nome',
-            'Projeto: ' + (contratoNumero || propostaNumero) + ' — ' + nomeCliente,
-          )
-          novoProjeto.set('descricao', objeto)
-          novoProjeto.set('proposta', propostaId)
-          if (contratoCriado) {
-            novoProjeto.set('contrato_servico', contratoCriado.id)
-          }
-          if (empresaId) novoProjeto.set('empresa', empresaId)
-          if (clientePfId) novoProjeto.set('cliente_pf', clientePfId)
-          novoProjeto.set('valor_total', preco)
-          novoProjeto.set('subcontratacao_autorizada', true)
-          novoProjeto.set('saude', 'verde')
-          novoProjeto.set('status', 'contratacao') // Novo status: Em Contratação (pendente de assinaturas)
-
-          $app.save(novoProjeto)
-          projetoCriado = novoProjeto
-
-          // Atualizar o contrato com o vínculo do projeto
-          if (contratoCriado) {
-            try {
-              contratoCriado.set('projeto', novoProjeto.id)
-              $app.save(contratoCriado)
-            } catch (_) {}
-          }
-
-          // Auditoria de criação do projeto em contratação
-          try {
-            const auditCol = $app.findCollectionByNameOrId('audit_logs')
-            const aRec = new Record(auditCol)
-            aRec.set('acao', 'CRIACAO_PROJETO_CONTRATACAO')
-            aRec.set('entidade', 'projetos')
-            aRec.set('registro_id', novoProjeto.id)
-            aRec.set('detalhes', {
-              mensagem:
-                'Projeto criado em status "Contratação" pelo aceite da Proposta ' +
-                propostaNumero +
-                ' (aguardando assinatura bilateral do Contrato ' +
-                contratoNumero +
-                ')',
-              codigo: novoCodigo,
-              status: 'contratacao',
-              contrato_id: contratoCriado ? contratoCriado.id : null,
-              contrato_numero: contratoNumero,
-              proposta_id: propostaId,
-              proposta_numero: propostaNumero,
-              valor: preco,
-            })
-            $app.save(aRec)
-          } catch (_) {}
-        }
+        // NOTA DO FLUXO (GRUPO D):
+        // No aceite da proposta, NÃO são gerados projetos nem grupos de projeto.
+        // O aceite gera unicamente o Contrato de Serviços (CTR).
+        // A geração de 1 Grupo de Projetos (GPR) + 1 Projeto (PRJ) por item de escopo
+        // ocorre exclusivamente após a ASSINATURA BILATERAL do contrato de serviço,
+        // nascendo com status "aguardando_definicao" ("Aguardando definição de execução").
       } catch (errAceite) {
         console.log('Erro ao processar aceite da proposta: ' + errAceite)
       }
@@ -747,17 +632,6 @@ onRecordAfterUpdateSuccess((e) => {
             prjParaItem.set('contrato_servico', contratoId)
             prjAlterado = true
           }
-          if (
-            prjParaItem.getString('status') === 'contratacao' ||
-            prjParaItem.getString('status') === 'Em Contratação'
-          ) {
-            prjParaItem.set('status', 'em_andamento')
-            prjAlterado = true
-          }
-          if (!prjParaItem.getString('modo_execucao')) {
-            prjParaItem.set('modo_execucao', 'direta')
-            prjAlterado = true
-          }
           // Ajustar nome e valor se for multi-projeto
           if (itensEscopo.length > 1) {
             prjParaItem.set(
@@ -777,7 +651,14 @@ onRecordAfterUpdateSuccess((e) => {
             prjAlterado = true
           } else {
             prjParaItem.set('valor_total', item.valor || valorTotalContrato)
-            prjParaItem.set('status', 'em_andamento')
+            prjAlterado = true
+          }
+
+          // Se estiver nascendo do contrato assinado (contratacao ou sem status ativo), nasce em aguardando_definicao
+          const statusAtual = prjParaItem.getString('status')
+          if (statusAtual === 'contratacao' || statusAtual === 'Em Contratação' || !statusAtual) {
+            prjParaItem.set('status', 'aguardando_definicao')
+            prjParaItem.set('modo_execucao', null)
             prjAlterado = true
           }
 
@@ -814,8 +695,8 @@ onRecordAfterUpdateSuccess((e) => {
           novoPrj.set('valor_total', item.valor)
           novoPrj.set('subcontratacao_autorizada', true)
           novoPrj.set('saude', 'verde')
-          novoPrj.set('status', 'em_andamento')
-          novoPrj.set('modo_execucao', 'direta')
+          novoPrj.set('status', 'aguardando_definicao')
+          novoPrj.set('modo_execucao', null)
           novoPrj.set('disciplinas', item.disciplina)
 
           $app.save(novoPrj)

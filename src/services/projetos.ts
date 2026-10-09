@@ -441,4 +441,45 @@ export const projetosService = {
       },
     }
   },
+
+  /**
+   * Define o modo de execução do projeto (Admin ou Gestor)
+   * Modo: 'direta' | 'cotacao'
+   */
+  async definirModoExecucao(
+    projetoId: string,
+    modo: 'direta' | 'cotacao',
+  ): Promise<{
+    sucesso: boolean
+    projeto_id: string
+    codigo: string
+    modo_execucao: string
+    status: string
+  }> {
+    return await pb.send<{
+      sucesso: boolean
+      projeto_id: string
+      codigo: string
+      modo_execucao: string
+      status: string
+    }>(`/backend/v1/projetos/${encodeURIComponent(projetoId)}/definir-modo-execucao`, {
+      method: 'POST',
+      body: { modo_execucao: modo },
+    })
+  },
+
+  /**
+   * Obtém sugestões inteligentes de executores por área do projeto/etapas
+   * Ordenados por compatibilidade de área e nota_geral (desempate), com telefone DDI 55
+   */
+  async obterSugestoesExecutores(
+    projetoId: string,
+  ): Promise<import('../types').SugestoesExecutoresResponse> {
+    return await pb.send<import('../types').SugestoesExecutoresResponse>(
+      `/backend/v1/projetos/${encodeURIComponent(projetoId)}/sugestoes-executores`,
+      {
+        method: 'GET',
+      },
+    )
+  },
 }

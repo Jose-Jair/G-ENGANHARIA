@@ -717,7 +717,46 @@ export type StatusCotacao =
   | 'nao_escolhida'
   | 'recusada'
 
-export type ModoExecucaoProjeto = 'direta' | 'terceirizada_parcial' | 'terceirizada_integral'
+export type ModoExecucaoProjeto =
+  | 'direta'
+  | 'cotacao'
+  | 'terceirizada_parcial'
+  | 'terceirizada_integral'
+
+export type StatusProjeto =
+  | 'aguardando_definicao'
+  | 'em_andamento'
+  | 'concluido'
+  | 'cancelado'
+  | 'pausado'
+  | 'contratacao'
+  | 'Em Contratação'
+  | string
+
+export interface SugestaoExecutorArea {
+  id: string
+  nome: string
+  tipo: TipoExecutor
+  cpf_cnpj?: string
+  email?: string
+  telefone?: string
+  telefone_normalizado: string
+  disciplinas?: string
+  regiao?: string
+  nota_geral: number
+  total_avaliacoes: number
+  status: StatusExecutor
+  compatibilidade: number
+  termos_compativeis: string[]
+}
+
+export interface SugestoesExecutoresResponse {
+  projeto_id: string
+  projeto_codigo: string
+  disciplinas_projeto?: string
+  total_encontrados: number
+  sugestoes: SugestaoExecutorArea[]
+}
 
 export interface GrupoProjetosRecord {
   id: string
@@ -750,7 +789,7 @@ export interface ProjetoRecord {
   contrato?: string
   contrato_servico?: string
   grupo?: string
-  modo_execucao?: ModoExecucaoProjeto
+  modo_execucao?: ModoExecucaoProjeto | null
   descricao_delegada?: string
   empresa?: string
   cliente_pf?: string
@@ -760,7 +799,7 @@ export interface ProjetoRecord {
   anexo_autorizacao?: string
   saude?: SaudeProjeto
   justificativa_saude?: string
-  status?: string
+  status?: StatusProjeto
   created: string
   updated: string
   expand?: {

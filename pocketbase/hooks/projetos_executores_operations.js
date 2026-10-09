@@ -407,3 +407,282 @@ onRecordAfterUpdateSuccess((e) => {
     }
   }
 })
+
+// =========================================================================
+// 5. ENDPOINT DEFINIR MODO DE EXECUÇÃO DO PROJETO (Admin / Gestor)
+// POST /backend/v1/projetos/{id}/definir-modo-execucao
+// Body: { modo_execucao: 'direta' | 'cotacao' }
+// =========================================================================
+routerAdd(
+  'POST',
+  '/backend/v1/projetos/{id}/definir-modo-execucao',
+  (c) => {
+    const authRecord = c.get('authRecord')
+    if (!authRecord) {
+      return c.json(401, { error: 'Autenticação obrigatória' })
+    }
+
+    const role = authRecord.getString('role')
+    if (role !== 'admin' && role !== 'gestor') {
+      return c.json(403, {
+        error: 'Apenas administradores e gestores de projeto podem definir o modo de execução.',
+      })
+    }
+
+    const projetoId = c.pathParam('id')
+    if (!projetoId) {
+      return c.json(400, { error: 'ID do projeto não fornecido' })
+    }
+
+    let body = {}
+    try {
+      body = c.bindBody() || {}
+    } catch (_) {
+      try {
+        const raw = readerToString(c.request().body)
+        if (raw) body = JSON.parse(raw)
+      } catch (_) {}
+    }
+
+    const modo = (body.modo_execucao || body.modo || '').trim()
+    if (modo !== 'direta' && modo !== 'cotacao') {
+      return c.json(400, {
+        error: "Modo de execução inválido. Valores aceitos: 'direta' ou 'cotacao'.",
+      })
+    }
+
+    let projeto
+    try {
+      projeto = $app.findRecordById('projetos', projetoId)
+    } catch (_) {
+      return c.json(404, { error: 'Projeto não encontrado' })
+    }
+
+    const statusAnterior = projeto.getString('status')
+    const modoAnterior = projeto.getString('modo_execucao')
+
+    // Definir modo e atualizar status para 'em_andamento'
+    projeto.set('modo_execucao', modo)
+    if (statusAnterior === 'aguardando_definicao' || !statusAnterior) {
+      projeto.set('status', 'em_andamento')
+    }
+
+    $app.save(projeto)
+
+    // Auditoria
+    try {
+      const auditCol = $app.findCollectionByNameOrId('audit_logs')
+      const aRec = new Record(auditCol)
+      aRec.set('acao', 'DEFINIR_MODO_EXECUCAO')
+      aRec.set('entidade', 'projetos')
+      aRec.set('registro_id', projeto.id)
+      aRec.set('usuario', authRecord.id)
+      aRec.set('detalhes', {
+        projeto_id: projeto.id,
+        codigo: projeto.getString('codigo'),
+        nome: projeto.getString('nome'),
+        modo_execucao: modo,
+        modo_anterior: modoAnterior,
+        status_anterior: statusAnterior,
+        status_novo: projeto.getString('status'),
+        usuario_id: authRecord.id,
+        usuario_email: authRecord.getString('email'),
+        usuario_nome: authRecord.getString('nome'),
+        usuario_role: role,
+        mensagem:
+          'Modo de execução do projeto ' +
+          projeto.getString('codigo') +
+          " definido como '" +
+          modo +
+          "' por " +
+          authRecord.getString('nome') +
+          ' (' +
+          role +
+          ')',
+      })
+      $app.save(aRec)
+    } catch (eAudit) {
+      console.log('Erro ao auditar definicao de modo de execucao: ' + eAudit)
+    }
+
+    return c.json(200, {
+      sucesso: true,
+      projeto_id: projeto.id,
+      codigo: projeto.getString('codigo'),
+      modo_execucao: modo,
+      status: projeto.getString('status'),
+    })
+  },
+  $apis.requireRecordAuth(),
+)
+
+// =========================================================================
+// 6. ENDPOINT SUGESTÕES INTELIGENTES DE EXECUTORES POR ÁREA DO PROJETO
+// GET /backend/v1/projetos/{id}/sugestoes-executores
+// Filtra executores homologados/ativos com disciplina compatível
+// Ordenados por nota_geral desc (desempate), retornando DDI 55 normalizado
+// =========================================================================
+routerAdd(
+  'GET',
+  '/backend/v1/projetos/{id}/sugestoes-executores',
+  (c) => {
+    const authRecord = c.get('authRecord')
+    if (!authRecord) {
+      return c.json(401, { error: 'Autenticação obrigatória' })
+    }
+
+    const projetoId = c.pathParam('id')
+    if (!projetoId) {
+      return c.json(400, { error: 'ID do projeto não fornecido' })
+    }
+
+    let projeto
+    try {
+      projeto = $app.findRecordById('projetos', projetoId)
+    } catch (_) {
+      return c.json(404, { error: 'Projeto não encontrado' })
+    }
+
+    // Coletar disciplinas/áreas do projeto e de suas etapas
+    const termosAreas = []
+    function addTermos(str) {
+      if (!str) return
+      const partes = str
+        .toLowerCase()
+        .replace(/[;,/\\|\n\r]/g, ' ')
+        .split(/\s+/)
+      for (let i = 0; i < partes.length; i++) {
+        const p = partes[i].trim()
+        if (
+          p.length >= 3 &&
+          ![
+            'com',
+            'para',
+            'dos',
+            'das',
+            'que',
+            'uma',
+            'por',
+            'sem',
+            'projeto',
+            'projetos',
+          ].includes(p)
+        ) {
+          termosAreas.push(p)
+        }
+      }
+    }
+
+    const prjDisciplinas = projeto.getString('disciplinas')
+    const prjNome = projeto.getString('nome')
+    const prjDescricao = projeto.getString('descricao')
+    addTermos(prjDisciplinas)
+    addTermos(prjNome)
+
+    // Buscar etapas do projeto
+    try {
+      const etapas = $app.findRecordsByFilter(
+        'projeto_etapas',
+        "projeto = '" + projetoId + "'",
+        'created',
+        50,
+        0,
+      )
+      for (let i = 0; i < etapas.length; i++) {
+        addTermos(etapas[i].getString('nome'))
+        addTermos(etapas[i].getString('disciplina'))
+        const areaRelId = etapas[i].getString('area')
+        if (areaRelId) {
+          try {
+            const areaRec = $app.findRecordById('areas_atuacao', areaRelId)
+            if (areaRec) {
+              addTermos(areaRec.getString('nome'))
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+
+    // Buscar executores ativos
+    const executores = $app.findRecordsByFilter(
+      'executores',
+      "status = 'ativo'",
+      '-nota_geral',
+      200,
+      0,
+    )
+
+    function normalizarTelefoneDDI55(tel) {
+      if (!tel) return ''
+      let digits = tel.replace(/\D/g, '')
+      if (!digits) return ''
+      if (digits.startsWith('0')) digits = digits.replace(/^0+/, '')
+      if (!digits.startsWith('55')) {
+        digits = '55' + digits
+      }
+      return digits
+    }
+
+    const sugestoes = []
+    for (let i = 0; i < executores.length; i++) {
+      const ex = executores[i]
+      const discEx = (ex.getString('disciplinas') || '').toLowerCase()
+      const regiaoEx = (ex.getString('regiao') || '').toLowerCase()
+
+      // Calcular aderência por correspondência de termos
+      let matchCount = 0
+      const matchedTerms = []
+      if (termosAreas.length > 0) {
+        for (let t = 0; t < termosAreas.length; t++) {
+          const termo = termosAreas[t]
+          if (discEx.indexOf(termo) !== -1) {
+            matchCount++
+            if (!matchedTerms.includes(termo)) matchedTerms.push(termo)
+          }
+        }
+      }
+
+      // Se não há restrição de área no projeto, todos entram. Se há termos, filtrar os compatíveis ou listar com score
+      const notaGeral = ex.getFloat('nota_geral') || 0
+      const telOriginal = ex.getString('telefone')
+      const telNormalizado = normalizarTelefoneDDI55(telOriginal)
+
+      sugestoes.push({
+        id: ex.id,
+        nome: ex.getString('nome'),
+        tipo: ex.getString('tipo'),
+        cpf_cnpj: ex.getString('cpf_cnpj'),
+        email: ex.getString('email'),
+        telefone: telOriginal,
+        telefone_normalizado: telNormalizado,
+        disciplinas: ex.getString('disciplinas'),
+        regiao: ex.getString('regiao'),
+        nota_geral: notaGeral,
+        total_avaliacoes: ex.getInt('total_avaliacoes') || 0,
+        status: ex.getString('status'),
+        compatibilidade: matchCount,
+        termos_compativeis: matchedTerms,
+      })
+    }
+
+    // Ordenar: primeiro compatibilidade de áreas desc (se houver correspondência), depois nota_geral desc como desempate
+    sugestoes.sort((a, b) => {
+      if (
+        b.compatibilidade !== a.compatibilidade &&
+        (b.compatibilidade > 0 || a.compatibilidade > 0)
+      ) {
+        return b.compatibilidade - a.compatibilidade
+      }
+      return b.nota_geral - a.nota_geral
+    })
+
+    return c.json(200, {
+      projeto_id: projeto.id,
+      projeto_codigo: projeto.getString('codigo'),
+      disciplinas_projeto: prjDisciplinas,
+      total_encontrados: sugestoes.length,
+      sugestoes: sugestoes,
+    })
+  },
+  $apis.requireRecordAuth(),
+)

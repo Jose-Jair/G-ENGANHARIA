@@ -532,106 +532,10 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
         } catch (_) {}
       }
 
-      // Projeto em status "Em Contratação"
-      const projetosExistentes = $app.findRecordsByFilter(
-        'projetos',
-        "proposta = '" + propostaId + "'",
-        '-created',
-        1,
-        0,
-      )
-
-      if (projetosExistentes.length > 0) {
-        projetoCriado = projetosExistentes[0]
-        let prjModificado = false
-        if (!projetoCriado.getString('contrato_servico') && contratoCriado) {
-          projetoCriado.set('contrato_servico', contratoCriado.id)
-          prjModificado = true
-        }
-        if (prjModificado) $app.save(projetoCriado)
-
-        if (contratoCriado && !contratoCriado.getString('projeto')) {
-          contratoCriado.set('projeto', projetoCriado.id)
-          $app.save(contratoCriado)
-        }
-      } else {
-        const anoAtual = new Date().getFullYear()
-        const prefixoPRJ = 'PRJ-' + anoAtual + '-'
-        const projetosDoAno = $app.findRecordsByFilter(
-          'projetos',
-          "codigo ~ '" + prefixoPRJ + "'",
-          '-codigo',
-          1,
-          0,
-        )
-
-        let proximoSeqPrj = 1
-        if (projetosDoAno.length > 0) {
-          const ultimoCodigo = projetosDoAno[0].getString('codigo')
-          const partes = ultimoCodigo.split('-')
-          const ultimoSeq = parseInt(partes[2], 10)
-          if (!isNaN(ultimoSeq)) {
-            proximoSeqPrj = ultimoSeq + 1
-          }
-        }
-        const codigoPRJ = prefixoPRJ + ('0000' + proximoSeqPrj).slice(-4)
-        const contratoNumero = contratoCriado ? contratoCriado.getString('numero') : ''
-        const projetosCol = $app.findCollectionByNameOrId('projetos')
-        const novoProjeto = new Record(projetosCol)
-        novoProjeto.set('codigo', codigoPRJ)
-        novoProjeto.set(
-          'nome',
-          'Projeto: ' +
-            (contratoNumero || propostaNumero) +
-            ' — ' +
-            (nomeClienteDestinatario || 'Cliente'),
-        )
-        novoProjeto.set('descricao', objeto)
-        novoProjeto.set('proposta', propostaId)
-        if (contratoCriado) {
-          novoProjeto.set('contrato_servico', contratoCriado.id)
-        }
-        if (empresaId) novoProjeto.set('empresa', empresaId)
-        if (clientePfId) novoProjeto.set('cliente_pf', clientePfId)
-        novoProjeto.set('valor_total', preco)
-        novoProjeto.set('subcontratacao_autorizada', true)
-        novoProjeto.set('saude', 'verde')
-        novoProjeto.set('status', 'Em Contratação')
-
-        $app.save(novoProjeto)
-        projetoCriado = novoProjeto
-
-        if (contratoCriado) {
-          try {
-            contratoCriado.set('projeto', novoProjeto.id)
-            $app.save(contratoCriado)
-          } catch (_) {}
-        }
-
-        try {
-          const auditCol = $app.findCollectionByNameOrId('audit_logs')
-          const aRec = new Record(auditCol)
-          aRec.set('acao', 'CRIACAO_PROJETO_CONTRATACAO')
-          aRec.set('entidade', 'projetos')
-          aRec.set('registro_id', novoProjeto.id)
-          aRec.set('detalhes', {
-            mensagem:
-              'Projeto criado em status "Em Contratação" pelo aceite digital da Proposta ' +
-              propostaNumero,
-            codigo: codigoPRJ,
-            status: 'Em Contratação',
-            contrato_id: contratoCriado ? contratoCriado.id : null,
-            contrato_numero: contratoNumero,
-            proposta_id: propostaId,
-            valor: preco,
-            ip: clientIp,
-          })
-          aRec.set('ip', clientIp)
-          $app.save(aRec)
-        } catch (_) {}
-      }
+      // O aceite digital da proposta cria SOMENTE o Contrato de Serviços (Grupo B/D).
+      // A geração de Grupo GPR e Projetos PRJ ocorre exclusivamente na ASSINATURA BILATERAL do contrato.
     } catch (errCadeia) {
-      console.log('Erro na cadeia de criação de contrato/projeto: ' + errCadeia)
+      console.log('Erro na cadeia de criação de contrato de serviço no aceite: ' + errCadeia)
     }
 
     // =========================================================================

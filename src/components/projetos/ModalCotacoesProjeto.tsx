@@ -8,6 +8,7 @@ import {
 } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { cotacoesService, RespostaCotacaoExternaData } from '@/services/executores'
+import { subcontratosService, ContratarExecutorPayload } from '@/services/subcontratos'
 import { projetosService } from '@/services/projetos'
 import { parametrosService } from '@/services/parametros'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'

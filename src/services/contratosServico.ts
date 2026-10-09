@@ -171,7 +171,15 @@ export const contratosServicoService = {
   /**
    * Bloco 3: Salva o complemento de dados pelo cliente
    */
-  async complementarDados(payload: ComplementarDadosPayload): Promise<any> {
+  async complementarDados(payload: ComplementarDadosPayload): Promise<{
+    success: boolean
+    message: string
+    contrato_numero: string
+    status: string
+    token_assinatura_cliente?: string
+    token_complemento_dados?: string
+    contrato?: any
+  }> {
     return await pb.send('/backend/v1/contratos-servico/complementar-dados', {
       method: 'POST',
       body: payload,

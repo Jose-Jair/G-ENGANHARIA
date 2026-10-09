@@ -29,6 +29,7 @@ import { DossieContratoServicoGmais } from '@/components/contratosServico/Dossie
 import { ModalEnviarContratoWhatsApp } from '@/components/contratosServico/ModalEnviarContratoWhatsApp'
 import { ModalEnviarComplementoWhatsApp } from '@/components/contratosServico/ModalEnviarComplementoWhatsApp'
 import { useToast } from '@/hooks/use-toast'
+import { useTempoRealContratos } from '@/hooks/useTempoRealContratos'
 
 interface ContratoTabProps {
   projeto: ProjetoRecord
@@ -46,6 +47,17 @@ export function ContratoTab({
   onRefresh,
 }: ContratoTabProps) {
   const { toast } = useToast()
+
+  // Escuta SSE em tempo real para o contrato do projeto (com pré-cadastros e fallback polling)
+  useTempoRealContratos({
+    contratoId: contrato?.id,
+    propostaId: projeto.proposta || (contrato?.proposta as string) || undefined,
+    onRecarregar: () => {
+      onRefresh()
+    },
+    ativo: !!contrato?.id,
+    escutarPreCadastros: true,
+  })
   const [assinandoAdmin, setAssinandoAdmin] = useState(false)
   const [salvandoClausulas, setSalvandoClausulas] = useState(false)
   const [clausulasTexto, setClausulasTexto] = useState('')

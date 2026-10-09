@@ -13,8 +13,16 @@ import {
   ShieldCheck,
   Send,
   ExternalLink,
+  Eye,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
@@ -43,6 +51,7 @@ export function ComplementoDadosClientePage() {
   const [error, setError] = useState<string | null>(null)
   const [sucesso, setSucesso] = useState(false)
   const [dadosContrato, setDadosContrato] = useState<ObterContratoComplementoResponse | null>(null)
+  const [showMinutaModal, setShowMinutaModal] = useState(false)
 
   // Formulário: campos compartilhados e específicos
   const [tipoCliente, setTipoCliente] = useState<'pf' | 'pj'>('pj')
@@ -238,7 +247,23 @@ export function ComplementoDadosClientePage() {
         uf: endereco.uf.trim().toUpperCase(),
       }
 
-      await contratosServicoService.complementarDados(payload)
+      const res = await contratosServicoService.complementarDados(payload)
+      if (res?.token_assinatura_cliente || res?.contrato) {
+        setDadosContrato((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            contrato: {
+              ...prev.contrato,
+              token_assinatura_cliente:
+                res.token_assinatura_cliente ||
+                res.contrato?.token_assinatura_cliente ||
+                prev.contrato.token_assinatura_cliente,
+              status: res.status || res.contrato?.status || 'aguardando_assinatura_admin',
+            },
+          }
+        })
+      }
       setSucesso(true)
     } catch (err: any) {
       console.error('Erro ao enviar dados cadastrais:', err)
@@ -301,16 +326,28 @@ export function ComplementoDadosClientePage() {
             </div>
           </div>
           {cInfo && (
-            <div className="text-right">
-              <Badge
-                variant="outline"
-                className="font-mono text-xs text-orange-700 bg-orange-50 border-orange-200"
-              >
-                {cInfo.numero}
-              </Badge>
-              <div className="text-[11px] text-slate-500 mt-1">
-                Valor Contratado: <strong>{formatCurrencyBr(cInfo.valor_total)}</strong>
+            <div className="flex flex-col sm:items-end gap-2">
+              <div className="text-right">
+                <Badge
+                  variant="outline"
+                  className="font-mono text-xs text-orange-700 bg-orange-50 border-orange-200"
+                >
+                  {cInfo.numero}
+                </Badge>
+                <div className="text-[11px] text-slate-500 mt-1">
+                  Valor Contratado: <strong>{formatCurrencyBr(cInfo.valor_total)}</strong>
+                </div>
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMinutaModal(true)}
+                className="text-xs gap-1.5 border-orange-300 text-[#D95A2B] hover:bg-orange-50"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                Visualizar Minuta do Contrato
+              </Button>
             </div>
           )}
         </div>
@@ -340,16 +377,40 @@ export function ComplementoDadosClientePage() {
                 <li>Após a assinatura bilateral, o projeto de engenharia será iniciado!</li>
               </ol>
             </div>
-            {cInfo?.token_assinatura_cliente && (
-              <div className="pt-2">
-                <Link to={`/contrato-servico/${cInfo.token_assinatura_cliente}`}>
-                  <Button className="bg-[#D95A2B] hover:bg-[#b8451b] text-white text-xs gap-1.5 shadow-sm">
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMinutaModal(true)}
+                className="text-xs gap-1.5"
+              >
+                <Eye className="w-4 h-4" />
+                Visualizar Minuta Completa
+              </Button>
+              {(() => {
+                const tokenAssinatura =
+                  dadosContrato?.contrato?.token_assinatura_cliente ||
+                  cInfo?.token_assinatura_cliente
+                return tokenAssinatura ? (
+                  <Link to={`/contrato-servico/${tokenAssinatura}`}>
+                    <Button className="bg-[#D95A2B] hover:bg-[#b8451b] text-white text-xs gap-1.5 shadow-sm">
+                      <ExternalLink className="w-4 h-4" />
+                      Visualizar Contrato Gerado
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button
+                    disabled
+                    variant="outline"
+                    className="text-xs gap-1.5 opacity-60 text-slate-500 cursor-not-allowed"
+                  >
                     <ExternalLink className="w-4 h-4" />
-                    Visualizar Contrato Gerado
+                    Contrato em processamento pela Diretoria G+
                   </Button>
-                </Link>
-              </div>
-            )}
+                )
+              })()}
+            </div>
           </div>
         ) : (
           /* FORMULÁRIO DE COMPLEMENTO */
@@ -628,27 +689,142 @@ export function ComplementoDadosClientePage() {
                   formalização deste contrato.
                 </div>
 
-                <Button
-                  type="submit"
-                  disabled={saving}
-                  className="w-full sm:w-auto bg-[#D95A2B] hover:bg-[#b8451b] text-white font-semibold text-xs px-6 h-10 shadow-sm gap-2"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Gravando Informações...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4" />
-                      Salvar Cadastro e Liberar Contrato
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowMinutaModal(true)}
+                    className="text-xs gap-1.5 border-slate-300"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Ver Minuta
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={saving}
+                    className="bg-[#D95A2B] hover:bg-[#b8451b] text-white font-semibold text-xs px-6 h-10 shadow-sm gap-2"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Gravando Informações...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Salvar Cadastro e Liberar Contrato
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </form>
           </div>
         )}
+
+        {/* MODAL PARA VISUALIZAÇÃO DA MINUTA DO CONTRATO */}
+        <Dialog open={showMinutaModal} onOpenChange={setShowMinutaModal}>
+          <DialogContent className="max-w-4xl max-h-[88vh] flex flex-col p-6 overflow-hidden">
+            <DialogHeader className="pb-3 border-b border-slate-200">
+              <div className="flex items-center justify-between pr-6">
+                <div>
+                  <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-[#D95A2B]" />
+                    Minuta do Contrato de Prestação de Serviços Técnicos
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-slate-500 mt-0.5">
+                    Contrato nº {cInfo?.numero} • Valor: {formatCurrencyBr(cInfo?.valor_total || 0)}
+                  </DialogDescription>
+                </div>
+                {token && (
+                  <a
+                    href={`/contrato-servico/${token}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[#D95A2B] hover:underline flex items-center gap-1 shrink-0"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Abrir em nova aba
+                  </a>
+                )}
+              </div>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto space-y-4 py-3 pr-2 text-xs text-slate-700 leading-relaxed">
+              <div className="p-4 bg-orange-50/60 rounded-lg border border-orange-200/80 text-xs text-orange-950 space-y-1">
+                <p className="font-semibold">Informação de Minuta Pré-Assinatura</p>
+                <p className="text-[11px] text-slate-600">
+                  Esta é a minuta contratual correspondente aos serviços acordados na proposta
+                  comercial. Os dados cadastrais fornecidos neste formulário serão inseridos no
+                  cabeçalho e na qualificação das partes para assinatura digital.
+                </p>
+              </div>
+
+              <div className="space-y-2 border border-slate-200 rounded-lg p-4 bg-white">
+                <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wide">
+                  1. Objeto Contratual
+                </h4>
+                <p className="whitespace-pre-line text-slate-600">
+                  {cInfo?.objeto || 'Prestação de serviços técnicos de engenharia consultiva.'}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="border border-slate-200 rounded-lg p-3 bg-white">
+                  <span className="text-[11px] text-slate-500 block">Valor Total do Contrato</span>
+                  <span className="font-bold text-slate-900 text-sm">
+                    {formatCurrencyBr(cInfo?.valor_total || 0)}
+                  </span>
+                </div>
+                <div className="border border-slate-200 rounded-lg p-3 bg-white">
+                  <span className="text-[11px] text-slate-500 block">
+                    Prazo de Execução Estimado
+                  </span>
+                  <span className="font-bold text-slate-900 text-sm">
+                    {cInfo?.prazo_dias
+                      ? `${cInfo.prazo_dias} dias corridos`
+                      : 'Conforme cronograma da proposta'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2 border border-slate-200 rounded-lg p-4 bg-slate-50/50">
+                <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wide">
+                  2. Visualização Completa da Página Pública do Contrato
+                </h4>
+                <p className="text-[11px] text-slate-600">
+                  Para conferir a íntegra das cláusulas contratuais, condições de pagamento e
+                  disposições gerais em layout oficial de impressão/assinatura:
+                </p>
+                <div className="pt-2">
+                  <a href={`/contrato-servico/${token}`} target="_blank" rel="noopener noreferrer">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs gap-1.5 border-orange-300 text-[#D95A2B] hover:bg-orange-50 bg-white"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Visualizar Página Pública da Minuta (/contrato-servico)
+                    </Button>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-200 flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMinutaModal(false)}
+                className="text-xs"
+              >
+                Fechar Minuta
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

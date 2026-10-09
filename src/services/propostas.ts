@@ -141,57 +141,11 @@ export const propostasService = {
 
     // Sincronizar itens na tabela proposta_itens (sanitizado contra erro 400 no PocketBase)
     if (data.itens_json && Array.isArray(data.itens_json)) {
-      for (const item of data.itens_json) {
+      for (let i = 0; i < data.itens_json.length; i++) {
+        const item = data.itens_json[i]
         try {
-          const payloadItem: Record<string, any> = {
-            proposta: created.id,
-            descricao: item.descricao,
-            disciplina: item.disciplina || '',
-            unidade: item.unidade || 'un',
-            subservicos: item.subservicos || [],
-            status_conversao: item.status_conversao || 'nao_convertido',
-            quantidade: Number(item.quantidade) || 1,
-            custo_unitario: Number(item.custo_unitario) || 0,
-            custo_total: Number(item.custo_total) || 0,
-            bdi_percentual: Number(item.bdi_percentual) || 0,
-            preco_total: Number(item.preco_total) || 0,
-          }
-
-          // Relações opcionais: incluir APENAS se ID for válido (não vazio e não '__nenhum__')
-          if (
-            item.servico &&
-            item.servico !== '__nenhum__' &&
-            typeof item.servico === 'string' &&
-            item.servico.trim().length > 0
-          ) {
-            payloadItem.servico = item.servico.trim()
-          }
-          if (
-            item.area &&
-            item.area !== '__nenhum__' &&
-            typeof item.area === 'string' &&
-            item.area.trim().length > 0
-          ) {
-            payloadItem.area = item.area.trim()
-          }
-          if (
-            item.projeto_gerado &&
-            item.projeto_gerado !== '__nenhum__' &&
-            typeof item.projeto_gerado === 'string' &&
-            item.projeto_gerado.trim().length > 0
-          ) {
-            payloadItem.projeto_gerado = item.projeto_gerado.trim()
-          }
-          if (
-            item.etapa_gerada &&
-            item.etapa_gerada !== '__nenhum__' &&
-            typeof item.etapa_gerada === 'string' &&
-            item.etapa_gerada.trim().length > 0
-          ) {
-            payloadItem.etapa_gerada = item.etapa_gerada.trim()
-          }
-
-          await pb.collection('proposta_itens').create(payloadItem)
+          const payloadItem = propostasService.sanitizarItemPayload(item, created.id, i + 1)
+          await propostasService.createItem(payloadItem)
         } catch (itemErr) {
           console.warn('Erro ao salvar item na tabela proposta_itens:', itemErr)
         }
@@ -219,56 +173,10 @@ export const propostasService = {
           for (const old of existingItens) {
             await pb.collection('proposta_itens').delete(old.id)
           }
-          for (const item of data.itens_json) {
-            const payloadItem: Record<string, any> = {
-              proposta: id,
-              descricao: item.descricao,
-              disciplina: item.disciplina || '',
-              unidade: item.unidade || 'un',
-              subservicos: item.subservicos || [],
-              status_conversao: item.status_conversao || 'nao_convertido',
-              quantidade: Number(item.quantidade) || 1,
-              custo_unitario: Number(item.custo_unitario) || 0,
-              custo_total: Number(item.custo_total) || 0,
-              bdi_percentual: Number(item.bdi_percentual) || 0,
-              preco_total: Number(item.preco_total) || 0,
-            }
-
-            // Relações opcionais: incluir APENAS se ID for válido (não vazio e não '__nenhum__')
-            if (
-              item.servico &&
-              item.servico !== '__nenhum__' &&
-              typeof item.servico === 'string' &&
-              item.servico.trim().length > 0
-            ) {
-              payloadItem.servico = item.servico.trim()
-            }
-            if (
-              item.area &&
-              item.area !== '__nenhum__' &&
-              typeof item.area === 'string' &&
-              item.area.trim().length > 0
-            ) {
-              payloadItem.area = item.area.trim()
-            }
-            if (
-              item.projeto_gerado &&
-              item.projeto_gerado !== '__nenhum__' &&
-              typeof item.projeto_gerado === 'string' &&
-              item.projeto_gerado.trim().length > 0
-            ) {
-              payloadItem.projeto_gerado = item.projeto_gerado.trim()
-            }
-            if (
-              item.etapa_gerada &&
-              item.etapa_gerada !== '__nenhum__' &&
-              typeof item.etapa_gerada === 'string' &&
-              item.etapa_gerada.trim().length > 0
-            ) {
-              payloadItem.etapa_gerada = item.etapa_gerada.trim()
-            }
-
-            await pb.collection('proposta_itens').create(payloadItem)
+          for (let i = 0; i < data.itens_json.length; i++) {
+            const item = data.itens_json[i]
+            const payloadItem = propostasService.sanitizarItemPayload(item, id, i + 1)
+            await propostasService.createItem(payloadItem)
           }
         }
       } catch (err) {
@@ -811,6 +719,97 @@ export const propostasService = {
     return resultados
   },
 
+  /**
+   * Sanitiza o payload de um proposta_item antes do envio ao PocketBase:
+   * - Exclui qualquer campo de relação cujo valor seja "", "__nenhum__", null ou undefined
+   * - Converte estritamente para Number com 2 casas decimais (ou inteiro para ordem)
+   */
+  sanitizarItemPayload(
+    rawItem: any,
+    propostaId: string,
+    ordemPadrao?: number,
+  ): Record<string, any> {
+    const round2 = (num: any) => Math.round((Number(num) || 0) * 100) / 100
+
+    const quantidade = round2(rawItem.quantidade !== undefined ? rawItem.quantidade : 1) || 1
+    const custoUnitario = round2(rawItem.custo_unitario)
+    const custoTotal = round2(rawItem.custo_total || quantidade * custoUnitario)
+    const bdiPercentual = round2(rawItem.bdi_percentual)
+    const precoTotal = round2(
+      rawItem.preco_total !== undefined
+        ? rawItem.preco_total
+        : custoTotal * (1 + bdiPercentual / 100),
+    )
+    const ordem = Math.round(Number(rawItem.ordem !== undefined ? rawItem.ordem : ordemPadrao || 1))
+
+    const clean: Record<string, any> = {
+      proposta: propostaId,
+      descricao: (rawItem.descricao || 'Item de Proposta').trim(),
+      disciplina: (rawItem.disciplina || '').trim(),
+      unidade: (rawItem.unidade || 'un').trim(),
+      subservicos: Array.isArray(rawItem.subservicos) ? rawItem.subservicos : [],
+      status_conversao: rawItem.status_conversao || 'nao_convertido',
+      quantidade,
+      custo_unitario: custoUnitario,
+      custo_total: custoTotal,
+      bdi_percentual: bdiPercentual,
+      preco_total: precoTotal,
+      ordem,
+    }
+
+    // Helper para checar relações válidas (id não vazio, não null/undefined, não "__nenhum__")
+    const isValidRelation = (val: any): boolean => {
+      if (!val) return false
+      if (typeof val !== 'string') return false
+      const trimmed = val.trim()
+      return (
+        trimmed.length > 0 &&
+        trimmed !== '__nenhum__' &&
+        trimmed !== 'undefined' &&
+        trimmed !== 'null'
+      )
+    }
+
+    // Campos de relação opcionais:
+    // area (ou area_atuacao), servico (ou catalogo_servico), subservico, entregavel_padrao, projeto_gerado, etapa_gerada
+    const areaId = rawItem.area || rawItem.area_atuacao
+    if (isValidRelation(areaId)) {
+      clean.area = areaId.trim()
+    }
+
+    const servicoId = rawItem.servico || rawItem.catalogo_servico
+    if (isValidRelation(servicoId)) {
+      clean.servico = servicoId.trim()
+    }
+
+    const subservicoId = rawItem.subservico
+    if (isValidRelation(subservicoId)) {
+      clean.subservico = subservicoId.trim()
+    }
+
+    const entregavelPadraoId = rawItem.entregavel_padrao
+    if (isValidRelation(entregavelPadraoId)) {
+      clean.entregavel_padrao = entregavelPadraoId.trim()
+    }
+
+    const projetoGeradoId = rawItem.projeto_gerado
+    if (isValidRelation(projetoGeradoId)) {
+      clean.projeto_gerado = projetoGeradoId.trim()
+    }
+
+    const etapaGeradaId = rawItem.etapa_gerada
+    if (isValidRelation(etapaGeradaId)) {
+      clean.etapa_gerada = etapaGeradaId.trim()
+    }
+
+    return clean
+  },
+
+  async createItem(itemData: Record<string, any>): Promise<any> {
+    const payload = this.sanitizarItemPayload(itemData, itemData.proposta, itemData.ordem)
+    return pb.collection('proposta_itens').create(payload)
+  },
+
   async listItens(propostaId: string): Promise<PropostaItemRecord[]> {
     return pb.collection('proposta_itens').getFullList<PropostaItemRecord>({
       filter: `proposta = '${propostaId}'`,
@@ -818,7 +817,60 @@ export const propostasService = {
     })
   },
 
-  async updateItem(itemId: string, data: Partial<PropostaItemRecord>): Promise<PropostaItemRecord> {
-    return pb.collection('proposta_itens').update<PropostaItemRecord>(itemId, data)
+  async updateItem(
+    itemId: string,
+    data: Partial<PropostaItemRecord> | Record<string, any>,
+  ): Promise<PropostaItemRecord> {
+    const round2 = (num: any) => Math.round((Number(num) || 0) * 100) / 100
+    const clean: Record<string, any> = {}
+
+    for (const key of Object.keys(data)) {
+      const val = (data as any)[key]
+      if (
+        [
+          'area',
+          'area_atuacao',
+          'servico',
+          'catalogo_servico',
+          'subservico',
+          'entregavel_padrao',
+          'projeto_gerado',
+          'etapa_gerada',
+        ].includes(key)
+      ) {
+        if (
+          typeof val === 'string' &&
+          val.trim().length > 0 &&
+          val !== '__nenhum__' &&
+          val !== 'null' &&
+          val !== 'undefined'
+        ) {
+          clean[key] = val.trim()
+        } else if (val === null || val === '' || val === '__nenhum__') {
+          clean[key] = null
+        }
+      } else if (
+        [
+          'quantidade',
+          'custo_unitario',
+          'custo_total',
+          'bdi_percentual',
+          'preco_total',
+          'preco_venda_unitario',
+        ].includes(key)
+      ) {
+        if (val !== undefined && val !== null) {
+          clean[key] = round2(val)
+        }
+      } else if (key === 'ordem') {
+        if (val !== undefined && val !== null) {
+          clean[key] = Math.round(Number(val) || 1)
+        }
+      } else if (val !== undefined) {
+        clean[key] = val
+      }
+    }
+
+    return pb.collection('proposta_itens').update<PropostaItemRecord>(itemId, clean)
   },
 }

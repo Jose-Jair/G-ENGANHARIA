@@ -51,6 +51,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { exportService } from '@/services/exportService'
+import { useTempoRealContratos } from '@/hooks/useTempoRealContratos'
 
 export default function AcoesDoDiaPage() {
   const { user, isAdmin } = useAuth()
@@ -167,6 +168,14 @@ export default function AcoesDoDiaPage() {
   useEffect(() => {
     carregarDados()
   }, [])
+
+  // Atualização em tempo real via SSE (contratos, propostas, pré-cadastros) com fallback polling de 30s
+  useTempoRealContratos({
+    onRecarregar: () => {
+      carregarDados()
+    },
+    escutarPreCadastros: true,
+  })
 
   // Agrupar toques por empresa para rodar a lógica sequencial (calcularStatusToques)
   const toquesCalculados = useMemo(() => {

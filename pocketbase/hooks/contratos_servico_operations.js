@@ -755,17 +755,21 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
   }
 })
 
-// Endpoint Público: Obter Contrato de Serviço por Token de Assinatura (sem login)
+// Endpoint Público: Obter Contrato de Serviço por Token de Assinatura (ou Complemento) em QUALQUER status (sem login)
 routerAdd('GET', '/backend/v1/contratos-servico/obter-por-token/{token}', (e) => {
   try {
     const token = e.request.pathValue('token')
     if (!token) {
-      return e.json(400, { message: 'Token de assinatura não informado' })
+      return e.json(400, { message: 'Token não informado' })
     }
 
+    // ALTERAÇÃO 2: Aceitar o contrato em QUALQUER status (aguardando_dados_cliente, aguardando_assinatura_admin,
+    // aguardando_assinatura_cliente, assinado) desde que o token da URL corresponda exatamente
+    // ao campo token_assinatura_cliente (ou token_complemento_dados) do registro.
+    // Retornar a minuta completa expandida (contratante PJ/PF, proposta, cláusulas) sem exigir sessão.
     const records = $app.findRecordsByFilter(
       'contratos_servico',
-      "token_assinatura_cliente = '" + token + "'",
+      "token_assinatura_cliente = '" + token + "' || token_complemento_dados = '" + token + "'",
       '-created',
       1,
       0,
@@ -1233,7 +1237,15 @@ routerAdd('POST', '/backend/v1/contratos-servico/complementar-dados', (e) => {
       contrato.set('cliente_documento_assinante', docPrincipal)
     }
 
-    // Atualizar Contrato: transição para 'aguardando_assinatura_admin'
+    // Atualizar Contrato: assegurar token de assinatura do cliente (gerar se inexistente) e transição para 'aguardando_assinatura_admin'
+    let tokenAssinaturaCliente = (contrato.getString('token_assinatura_cliente') || '').trim()
+    let tokenFoiGeradoAgora = false
+    if (!tokenAssinaturaCliente) {
+      tokenAssinaturaCliente = $security.randomString(32)
+      contrato.set('token_assinatura_cliente', tokenAssinaturaCliente)
+      tokenFoiGeradoAgora = true
+    }
+
     contrato.set('status', 'aguardando_assinatura_admin')
     contrato.set('campos_faltantes_json', [])
     contrato.set('dados_completados_em', nowIso)
@@ -1249,7 +1261,7 @@ routerAdd('POST', '/backend/v1/contratos-servico/complementar-dados', (e) => {
       }
     } catch (_) {}
 
-    // Auditoria com detalhes
+    // Auditoria com detalhes do complemento de dados e emissão/atualização de token
     try {
       const auditCol = $app.findCollectionByNameOrId('audit_logs')
       const aRec = new Record(auditCol)
@@ -1260,13 +1272,19 @@ routerAdd('POST', '/backend/v1/contratos-servico/complementar-dados', (e) => {
         mensagem:
           'Cliente completou cadastro com sucesso pelo link público. Contrato ' +
           contrato.getString('numero') +
-          ' liberado para assinatura da Diretoria G+.',
+          ' liberado para assinatura da Diretoria G+.' +
+          (tokenFoiGeradoAgora
+            ? ' Novo token de assinatura do cliente emitido.'
+            : ' Token de assinatura do cliente confirmado.'),
         contrato_numero: contrato.getString('numero'),
         tipo_cliente: isPj ? 'PJ' : 'PF',
         cliente_nome: nomeOuRazao,
         documento: docPrincipal,
         ip: clientIp,
         novo_status: 'aguardando_assinatura_admin',
+        token_assinatura_cliente_emitido: tokenFoiGeradoAgora,
+        token_assinatura_cliente_presente: Boolean(tokenAssinaturaCliente),
+        data_conclusao: nowIso,
       })
       aRec.set('ip', clientIp)
       $app.save(aRec)
@@ -1278,8 +1296,21 @@ routerAdd('POST', '/backend/v1/contratos-servico/complementar-dados', (e) => {
       success: true,
       message:
         'Cadastro complementado com sucesso! O contrato agora está pronto e aguardando a assinatura da Diretoria G+.',
+      contrato_id: contrato.id,
       contrato_numero: contrato.getString('numero'),
       status: 'aguardando_assinatura_admin',
+      token_assinatura_cliente: tokenAssinaturaCliente,
+      token_complemento_dados: contrato.getString('token_complemento_dados'),
+      contrato: {
+        id: contrato.id,
+        numero: contrato.getString('numero'),
+        status: 'aguardando_assinatura_admin',
+        token_assinatura_cliente: tokenAssinaturaCliente,
+        token_complemento_dados: contrato.getString('token_complemento_dados'),
+        valor_total: contrato.getFloat('valor_total'),
+        objeto: contrato.getString('objeto'),
+        dados_completados_em: nowIso,
+      },
     })
   } catch (err) {
     console.log('Erro ao salvar complemento de dados: ' + err)

@@ -187,20 +187,34 @@ export const ModalItemPropostaCascata: React.FC<ModalItemPropostaCascataProps> =
         .filter((s) => selectedSubservicoIds.includes(s.id))
         .map((s) => s.nome)
 
+      const round2 = (num: number) => Math.round((Number(num) || 0) * 100) / 100
+      const qtdClean = round2(quantidade > 0 ? quantidade : 1)
+      const custoUnitClean = round2(custoUnitario)
+      const custoTotClean = round2(custoTotal || qtdClean * custoUnitClean)
+      const precoTotClean = round2(precoTotalItem)
+      const bdiClean = round2(origem === 'catalogo' ? 0 : bdiPercent)
+
       const item: PropostaItemRecord = {
-        area: selectedAreaId,
+        area:
+          selectedAreaId && selectedAreaId !== '__nenhum__' && selectedAreaId.trim().length > 0
+            ? selectedAreaId.trim()
+            : undefined,
         servico:
-          selectedServicoId && selectedServicoId !== '__nenhum__' ? selectedServicoId : undefined,
+          selectedServicoId &&
+          selectedServicoId !== '__nenhum__' &&
+          selectedServicoId.trim().length > 0
+            ? selectedServicoId.trim()
+            : undefined,
         origem: origem,
         descricao: descricao.trim(),
         disciplina: disciplina.trim() || undefined,
         unidade: unidade.trim() || 'un',
-        quantidade: quantidade > 0 ? quantidade : 1,
-        custo_unitario: custoUnitario,
-        custo_total: custoTotal,
-        preco_venda_unitario: origem === 'catalogo' ? precoVendaUnitario : undefined,
-        bdi_percentual: origem === 'catalogo' ? 0 : bdiPercent,
-        preco_total: precoTotalItem,
+        quantidade: qtdClean,
+        custo_unitario: custoUnitClean,
+        custo_total: custoTotClean,
+        preco_venda_unitario: origem === 'catalogo' ? round2(precoVendaUnitario) : undefined,
+        bdi_percentual: bdiClean,
+        preco_total: precoTotClean,
         subservicos: nomesSubservicos,
         status_conversao: 'nao_convertido',
       }

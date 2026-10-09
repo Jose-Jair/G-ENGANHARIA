@@ -80,20 +80,59 @@ routerAdd(
         } catch (_) {}
       }
 
-      // Contrato de Origem
+      // Contrato de Origem (contrato_servico ou contrato de parceiro)
       let contratoInfo = null
+      const contratoServicoId = projeto.getString('contrato_servico')
       const contratoId = projeto.getString('contrato')
-      if (contratoId) {
+
+      if (contratoServicoId) {
         try {
-          const ct = $app.findRecordById('contratos', contratoId)
-          contratoInfo = {
-            id: ct.id,
-            numero: ct.getString('numero'),
-            orgao: ct.getString('orgao'),
-            objeto: ct.getString('objeto'),
-            valor: ct.getFloat('valor') || 0,
-            vigencia_inicio: ct.getString('vigencia_inicio'),
-            vigencia_fim: ct.getString('vigencia_fim'),
+          const ct = $app.findRecordById('contratos_servico', contratoServicoId)
+          if (ct) {
+            contratoInfo = {
+              id: ct.id,
+              numero: ct.getString('numero'),
+              objeto: ct.getString('objeto'),
+              valor: ct.getFloat('valor_total') || 0,
+              prazo_dias: ct.getInt('prazo_dias') || 0,
+              status: ct.getString('status'),
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (!contratoInfo && contratoId) {
+        try {
+          // Busca em contratos_servico primeiro, caso o id seja de contrato_servico
+          let ct = null
+          try {
+            ct = $app.findRecordById('contratos_servico', contratoId)
+            if (ct) {
+              contratoInfo = {
+                id: ct.id,
+                numero: ct.getString('numero'),
+                objeto: ct.getString('objeto'),
+                valor: ct.getFloat('valor_total') || 0,
+                status: ct.getString('status'),
+              }
+            }
+          } catch (_) {}
+
+          if (!contratoInfo) {
+            try {
+              const ctP = $app.findRecordById('contratos', contratoId)
+              if (ctP) {
+                contratoInfo = {
+                  id: ctP.id,
+                  numero: ctP.getString('numero'),
+                  orgao: ctP.getString('orgao'),
+                  objeto: ctP.getString('objeto'),
+                  valor: ctP.getFloat('valor') || 0,
+                  vigencia_inicio: ctP.getString('vigencia_inicio'),
+                  vigencia_fim: ctP.getString('vigencia_fim'),
+                }
+              }
+            } catch (_) {}
           }
         } catch (_) {}
       }
@@ -282,22 +321,47 @@ routerAdd(
       const percentualConclusao =
         etapasTotais > 0 ? Math.round((etapasConcluidas / etapasTotais) * 100) : 0
 
-      // Registrar auditoria da geração do dossiê
+      // Registrar auditoria da geração do dossiê (suporta campos em pt-br ou en)
       try {
         const auditCol = $app.findCollectionByNameOrId('audit_logs')
         const auditRecord = new Record(auditCol)
-        auditRecord.set('user', auth.id)
-        auditRecord.set('user_email', auth.getString('email') || '')
-        auditRecord.set('acao', 'GERACAO_DOSSIE')
-        auditRecord.set('entidade', 'projetos')
-        auditRecord.set('registro_id', projetoId)
-        auditRecord.set('detalhes', {
+        if (auditCol.fields.getByName('user')) {
+          auditRecord.set('user', auth.id)
+        }
+        if (auditCol.fields.getByName('user_email')) {
+          auditRecord.set('user_email', auth.getString('email') || '')
+        }
+        if (auditCol.fields.getByName('acao')) {
+          auditRecord.set('acao', 'GERACAO_DOSSIE')
+        }
+        if (auditCol.fields.getByName('action')) {
+          auditRecord.set('action', 'GERACAO_DOSSIE')
+        }
+        if (auditCol.fields.getByName('entidade')) {
+          auditRecord.set('entidade', 'projetos')
+        }
+        if (auditCol.fields.getByName('entity_type')) {
+          auditRecord.set('entity_type', 'projetos')
+        }
+        if (auditCol.fields.getByName('registro_id')) {
+          auditRecord.set('registro_id', projetoId)
+        }
+        if (auditCol.fields.getByName('entity_id')) {
+          auditRecord.set('entity_id', projetoId)
+        }
+        const detalhesPayload = {
           codigo_projeto: projeto.getString('codigo'),
           nome_projeto: projeto.getString('nome'),
           formato: 'PDF_HTML',
           perfil: role,
           gerado_em: new Date().toISOString(),
-        })
+        }
+        if (auditCol.fields.getByName('detalhes')) {
+          auditRecord.set('detalhes', detalhesPayload)
+        }
+        if (auditCol.fields.getByName('details')) {
+          auditRecord.set('details', detalhesPayload)
+        }
         $app.save(auditRecord)
       } catch (_) {}
 

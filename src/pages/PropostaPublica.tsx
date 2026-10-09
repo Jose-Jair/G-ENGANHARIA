@@ -68,34 +68,10 @@ export function PropostaPublicaPage() {
   const [confirmacaoTravaRecusa, setConfirmacaoTravaRecusa] = useState(false)
   const [submittingRecusa, setSubmittingRecusa] = useState(false)
 
-  // Aceite com Validade Jurídica (Declaração + Dupla Confirmação)
-  const [showConfirmacaoAceiteModal, setShowConfirmacaoAceiteModal] = useState(false)
+  // Aceite com Validade Jurídica (Declaração direta sem modal intermediário)
   const [declaracaoAceite, setDeclaracaoAceite] = useState(false)
   const [processingAceite, setProcessingAceite] = useState(false)
   const [aceiteConcluido, setAceiteConcluido] = useState(false)
-
-  // Pós-Aceite: Formulário complementar / Validação cadastral
-  const [showPosAceite, setShowPosAceite] = useState(false)
-  const [submittingPosAceite, setSubmittingPosAceite] = useState(false)
-  const [posAceiteConcluido, setPosAceiteConcluido] = useState(false)
-
-  // Dados do formulário pós-aceite (PF ou PJ)
-  const [formData, setFormData] = useState({
-    nomeOuRazao: '',
-    nomeFantasia: '',
-    documento: '', // CPF ou CNPJ
-    email: '',
-    telefone: '',
-    cep: '',
-    logradouro: '',
-    numero: '',
-    complemento: '',
-    bairro: '',
-    municipio: '',
-    uf: '',
-    responsavelNome: '',
-    responsavelCpf: '',
-  })
 
   useEffect(() => {
     async function loadData() {
@@ -110,51 +86,6 @@ export function PropostaPublicaPage() {
         setProposta(record)
 
         if (record) {
-          // Inicializar formulário pós-aceite com o cadastro atual
-          const emp = record.expand?.empresa
-          const pf = record.expand?.cliente_pf
-
-          if (emp) {
-            setFormData({
-              nomeOuRazao: emp.razao_social || '',
-              nomeFantasia: emp.nome_fantasia || '',
-              documento: emp.cnpj || '',
-              email: emp.email || '',
-              telefone: emp.telefone || '',
-              cep: emp.cep || '',
-              logradouro: emp.logradouro || '',
-              numero: emp.numero || '',
-              complemento: emp.complemento || '',
-              bairro: emp.bairro || '',
-              municipio: emp.municipio || '',
-              uf: emp.uf || '',
-              responsavelNome: '',
-              responsavelCpf: '',
-            })
-          } else if (pf) {
-            setFormData({
-              nomeOuRazao: pf.nome || '',
-              nomeFantasia: '',
-              documento: pf.cpf || '',
-              email: pf.email || '',
-              telefone: pf.telefone || '',
-              cep: pf.cep || '',
-              logradouro: pf.logradouro || '',
-              numero: pf.numero || '',
-              complemento: pf.complemento || '',
-              bairro: pf.bairro || '',
-              municipio: pf.municipio || '',
-              uf: pf.uf || '',
-              responsavelNome: pf.nome || '',
-              responsavelCpf: pf.cpf || '',
-            })
-          }
-
-          // Se já está aceita mas ainda não preencheu dados complementares
-          if (record.status === 'aceita' && !record.dados_complementares_preenchidos) {
-            setShowPosAceite(true)
-          }
-
           // Marcar como visualizada se ainda estava em 'enviada'
           if (record.status === 'enviada') {
             try {
@@ -286,8 +217,8 @@ export function PropostaPublicaPage() {
     }
   }
 
-  // 3. ACEITE COM MECANISMOS DE VALIDADE JURÍDICA
-  const handleAbrirConfirmacaoAceite = () => {
+  // 3. ACEITE COM MECANISMOS DE VALIDADE JURÍDICA E REDIRECIONAMENTO DIRETO SEM MODAL INTERMEDIÁRIO
+  const handleConfirmarAceiteDireto = async () => {
     if (!declaracaoAceite) {
       toast({
         title: 'Declaração obrigatória',
@@ -297,10 +228,7 @@ export function PropostaPublicaPage() {
       })
       return
     }
-    setShowConfirmacaoAceiteModal(true)
-  }
 
-  const handleConfirmarAceiteFinal = async () => {
     if (!proposta || !token) return
 
     setProcessingAceite(true)
@@ -310,9 +238,7 @@ export function PropostaPublicaPage() {
         declaracao: true,
       })
 
-      setShowConfirmacaoAceiteModal(false)
       setAceiteConcluido(true)
-      setShowPosAceite(true)
 
       // Atualizar objeto em memória
       setProposta({
@@ -325,8 +251,23 @@ export function PropostaPublicaPage() {
 
       toast({
         title: 'Aceite Formalizado com Pleno Sucesso!',
-        description: 'O aceite digital possui validade jurídica e foi registrado com sucesso.',
+        description:
+          'O aceite digital possui validade jurídica. Redirecionando para o complemento cadastral...',
       })
+
+      // ALTERAÇÃO 1: Ao receber resposta positiva do endpoint POST /backend/v1/propostas/aceitar-digital,
+      // redirecionar IMEDIATAMENTE para /completar-cadastro/ + token_complemento_dados
+      // sem modal/etapa intermediária de confirmação/autenticação cadastral (PF e PJ)
+      if (res.token_complemento_dados) {
+        navigate(`/completar-cadastro/${res.token_complemento_dados}`)
+        return
+      }
+
+      // Se o cadastro já estava integralmente completo e veio token de assinatura do cliente:
+      if (res.token_assinatura_cliente) {
+        navigate(`/contrato-servico/${res.token_assinatura_cliente}`)
+        return
+      }
     } catch (err: any) {
       console.error('Erro ao registrar aceite digital:', err)
       toast({
@@ -336,44 +277,6 @@ export function PropostaPublicaPage() {
       })
     } finally {
       setProcessingAceite(false)
-    }
-  }
-
-  // 4. PÓS-ACEITE: ENVIO DO FORMULÁRIO COMPLEMENTAR / VALIDAÇÃO DE DADOS
-  const handleSalvarDadosComplementares = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!proposta) return
-
-    setSubmittingPosAceite(true)
-    try {
-      // Atualizar cadastro do cliente (empresa ou cliente_pf)
-      if (proposta.empresa) {
-        await propostasService.update(proposta.id, {
-          dados_complementares_preenchidos: true,
-          token_aceite: token,
-        })
-      } else if (proposta.cliente_pf) {
-        await propostasService.update(proposta.id, {
-          dados_complementares_preenchidos: true,
-          token_aceite: token,
-        })
-      }
-
-      setPosAceiteConcluido(true)
-      setShowPosAceite(false)
-
-      toast({
-        title: 'Informações Confirmadas com Sucesso!',
-        description: 'Os dados foram atualizados e o Contrato de Serviços está em elaboração.',
-      })
-    } catch (err: any) {
-      toast({
-        title: 'Erro ao salvar informações',
-        description: err.message || 'Falha ao processar os dados cadastrais.',
-        variant: 'destructive',
-      })
-    } finally {
-      setSubmittingPosAceite(false)
     }
   }
 
@@ -491,164 +394,6 @@ export function PropostaPublicaPage() {
               Expirada
             </Badge>
           </div>
-        )}
-
-        {/* BLOCO PÓS-ACEITE: FORMULÁRIO COMPLEMENTAR OU VALIDAÇÃO CADASTRAL */}
-        {showPosAceite && (
-          <Card className="border-2 border-emerald-500 shadow-md bg-white">
-            <CardHeader className="bg-emerald-50/70 border-b border-emerald-200 p-4 sm:p-5">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <CardTitle className="text-base sm:text-lg text-emerald-950">
-                  {proposta.expand?.empresa?.pre_cadastro ||
-                  proposta.expand?.cliente_pf?.pre_cadastro
-                    ? 'Etapa Complementar: Informações para Emissão do Contrato'
-                    : 'Validação e Atualização das Informações Cadastrais'}
-                </CardTitle>
-              </div>
-              <p className="text-xs text-emerald-800 mt-1">
-                Contrato de Prestação de Serviços Técnicos gerado com sucesso sob a numeração
-                oficial. Aguardando assinatura eletrônica bilateral.
-              </p>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6">
-              <form onSubmit={handleSalvarDadosComplementares} className="space-y-4 text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs font-semibold">Razão Social ou Nome Completo *</Label>
-                    <Input
-                      required
-                      value={formData.nomeOuRazao}
-                      onChange={(e) => setFormData({ ...formData, nomeOuRazao: e.target.value })}
-                      className="h-8 text-xs mt-1"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="text-xs font-semibold">Nome Fantasia (se houver)</Label>
-                    <Input
-                      value={formData.nomeFantasia}
-                      onChange={(e) => setFormData({ ...formData, nomeFantasia: e.target.value })}
-                      className="h-8 text-xs mt-1"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-xs font-semibold">CNPJ / CPF *</Label>
-                    <Input
-                      required
-                      value={formData.documento}
-                      onChange={(e) => setFormData({ ...formData, documento: e.target.value })}
-                      className="h-8 text-xs mt-1"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="text-xs font-semibold">
-                      E-mail Principal para Contrato *
-                    </Label>
-                    <Input
-                      type="email"
-                      required
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="h-8 text-xs mt-1"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="text-xs font-semibold">Telefone / WhatsApp *</Label>
-                    <Input
-                      required
-                      value={formData.telefone}
-                      onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
-                      className="h-8 text-xs mt-1"
-                    />
-                  </div>
-                </div>
-
-                <div className="border-t pt-3 mt-3 space-y-3">
-                  <span className="font-semibold text-slate-800 block text-[11px] uppercase tracking-wider">
-                    Endereço Completo para Qualificação Contratual
-                  </span>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <div>
-                      <Label className="text-[11px] text-slate-600">CEP</Label>
-                      <Input
-                        value={formData.cep}
-                        onChange={(e) => setFormData({ ...formData, cep: e.target.value })}
-                        className="h-8 text-xs mt-1"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <Label className="text-[11px] text-slate-600">Logradouro / Rua</Label>
-                      <Input
-                        value={formData.logradouro}
-                        onChange={(e) => setFormData({ ...formData, logradouro: e.target.value })}
-                        className="h-8 text-xs mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-[11px] text-slate-600">Número</Label>
-                      <Input
-                        value={formData.numero}
-                        onChange={(e) => setFormData({ ...formData, numero: e.target.value })}
-                        className="h-8 text-xs mt-1"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <Label className="text-[11px] text-slate-600">Bairro</Label>
-                      <Input
-                        value={formData.bairro}
-                        onChange={(e) => setFormData({ ...formData, bairro: e.target.value })}
-                        className="h-8 text-xs mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-[11px] text-slate-600">Município</Label>
-                      <Input
-                        value={formData.municipio}
-                        onChange={(e) => setFormData({ ...formData, municipio: e.target.value })}
-                        className="h-8 text-xs mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-[11px] text-slate-600">UF</Label>
-                      <Input
-                        value={formData.uf}
-                        maxLength={2}
-                        onChange={(e) =>
-                          setFormData({ ...formData, uf: e.target.value.toUpperCase() })
-                        }
-                        className="h-8 text-xs mt-1"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-3 border-t">
-                  <Button
-                    type="submit"
-                    disabled={submittingPosAceite}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs h-9 px-5 gap-1.5"
-                  >
-                    {submittingPosAceite ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Check className="w-3.5 h-3.5" />
-                    )}
-                    Confirmar e Enviar Informações Contratuais
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
         )}
 
         {/* DOCUMENTO DA PROPOSTA (LAYOUT DE DOCUMENTO FORMAL) */}
@@ -1046,14 +791,18 @@ export function PropostaPublicaPage() {
                     Recusar Proposta
                   </Button>
 
-                  {/* Botão Aceitar Proposta (dupla confirmação) */}
+                  {/* Botão Aceitar Proposta (redirecionamento direto pós-aceite sem etapas intermediárias) */}
                   <Button
                     type="button"
-                    onClick={handleAbrirConfirmacaoAceite}
+                    onClick={handleConfirmarAceiteDireto}
                     disabled={processingAceite || !declaracaoAceite}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-6 shadow-sm justify-center disabled:opacity-50"
                   >
-                    <Check className="w-4 h-4 mr-1.5 shrink-0" />
+                    {processingAceite ? (
+                      <Loader2 className="w-4 h-4 mr-1.5 shrink-0 animate-spin" />
+                    ) : (
+                      <Check className="w-4 h-4 mr-1.5 shrink-0" />
+                    )}
                     Aceitar Proposta
                   </Button>
                 </div>
@@ -1273,76 +1022,6 @@ export function PropostaPublicaPage() {
               onClick={() => setShowMinutaModal(false)}
             >
               Fechar Minuta
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 3. MODAL DE DUPLA CONFIRMAÇÃO DO ACEITE COM VALIDADE JURÍDICA */}
-      <Dialog open={showConfirmacaoAceiteModal} onOpenChange={setShowConfirmacaoAceiteModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-base flex items-center gap-2 text-emerald-800">
-              <ShieldCheck className="w-5 h-5 text-emerald-600" />
-              Confirmar Aceite Eletrônico da Proposta
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Você está prestes a formalizar o aceite eletrônico da Proposta Comercial{' '}
-              <strong className="text-slate-900 font-mono">{proposta.numero}</strong> no valor de{' '}
-              <strong className="text-slate-900">{formatCurrencyBr(proposta.preco)}</strong>.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-2 space-y-3 text-xs text-slate-600">
-            <div className="p-3 bg-slate-50 border rounded-lg space-y-1.5 text-[11px]">
-              <div className="flex justify-between">
-                <span>Versão da Proposta:</span>
-                <strong className="text-slate-800">{proposta.revisao || 'Rev.00'}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Prazo de Execução:</span>
-                <strong className="text-slate-800">{proposta.prazo || '30 dias'}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Segurança e Rastreabilidade:</span>
-                <strong className="text-emerald-700">IP, Data/Hora e Hash gravados</strong>
-              </div>
-            </div>
-
-            <p className="text-[11px] text-slate-500 italic">
-              * Nota: Este aceite eletrônico formaliza o compromisso comercial entre as partes e
-              encaminhará o processo para a elaboração do Contrato de Serviços GMAIS.
-            </p>
-          </div>
-
-          <DialogFooter className="pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowConfirmacaoAceiteModal(false)}
-              disabled={processingAceite}
-            >
-              Revisar Proposta
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleConfirmarAceiteFinal}
-              disabled={processingAceite}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5"
-            >
-              {processingAceite ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Gravando Hash e Aceite...
-                </>
-              ) : (
-                <>
-                  <Check className="w-3.5 h-3.5" />
-                  Confirmar Aceite Definitivo
-                </>
-              )}
             </Button>
           </DialogFooter>
         </DialogContent>

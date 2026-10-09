@@ -223,7 +223,16 @@ export default function AppLayout() {
   React.useEffect(() => {
     carregarNotificacoes()
     const timer = setInterval(carregarNotificacoes, 30000)
-    return () => clearInterval(timer)
+
+    const handleNotificacaoEvent = () => {
+      carregarNotificacoes()
+    }
+    window.addEventListener('gmais:notificacao_atualizada', handleNotificacaoEvent)
+
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('gmais:notificacao_atualizada', handleNotificacaoEvent)
+    }
   }, [user])
 
   const handleLogout = async () => {

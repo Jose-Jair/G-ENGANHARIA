@@ -222,16 +222,24 @@ export function ContratoServicoPublicoPage() {
             </Badge>
           </div>
         ) : !assinadoAdmin ? (
-          <div className="bg-amber-600 text-white p-4 rounded-lg shadow-sm flex items-center gap-3">
-            <Clock className="w-6 h-6 text-amber-100 shrink-0" />
-            <div className="text-xs">
-              <div className="font-bold text-sm">Aguardando Assinatura da Diretoria G+</div>
-              <div>
-                O cadastro do cliente está completo. O contrato agora aguarda a assinatura
-                preliminar da Diretoria Técnica da G+ Engenharia para liberação da assinatura do
-                contratante.
+          <div className="bg-blue-600 text-white p-4 rounded-lg shadow-sm flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Clock className="w-6 h-6 text-blue-100 shrink-0" />
+              <div className="text-xs">
+                <div className="font-bold text-sm">
+                  Minuta Contratual — Aguardando Assinatura da Diretoria G+
+                </div>
+                <div>
+                  O cadastro do cliente está confirmado. Abaixo está disponível a minuta oficial
+                  completa do Contrato para leitura e conferência. A assinatura eletrônica do
+                  cliente será habilitada assim que a Diretoria Técnica da G+ formalizar o
+                  instrumento.
+                </div>
               </div>
             </div>
+            <Badge className="bg-blue-800 text-white border-0 text-xs shrink-0 self-start sm:self-center font-medium">
+              Minuta Oficial
+            </Badge>
           </div>
         ) : (
           <div className="bg-blue-600 text-white p-4 rounded-lg shadow-sm flex items-center gap-3">

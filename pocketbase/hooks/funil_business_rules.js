@@ -6,6 +6,86 @@
 // - Atualizar proxima_acao_data e proxima_acao_desc da empresa a partir do próximo toque ativo
 
 onRecordUpdateRequest((e) => {
+  // Funções auxiliares declaradas DENTRO do escopo do callback para compatibilidade com o JSVM
+  function validarCnpjMod11(cnpjVal) {
+    if (!cnpjVal) return false
+    const limpo = String(cnpjVal).replace(/\D/g, '')
+    if (limpo.length !== 14) return false
+    if (/^(\d)\1{13}$/.test(limpo)) return false
+
+    const pesos1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    let soma = 0
+    for (let i = 0; i < 12; i++) {
+      soma += parseInt(limpo.charAt(i), 10) * pesos1[i]
+    }
+    let resto = soma % 11
+    const dig1 = resto < 2 ? 0 : 11 - resto
+    if (parseInt(limpo.charAt(12), 10) !== dig1) return false
+
+    const pesos2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    soma = 0
+    for (let i = 0; i < 13; i++) {
+      soma += parseInt(limpo.charAt(i), 10) * pesos2[i]
+    }
+    resto = soma % 11
+    const dig2 = resto < 2 ? 0 : 11 - resto
+    return parseInt(limpo.charAt(13), 10) === dig2
+  }
+
+  function checarRequisitosQualificacaoEmpresa(empRec) {
+    const pendencias = []
+
+    const rSocial = (empRec.getString('razao_social') || '').trim()
+    if (!rSocial) pendencias.push('razão social')
+
+    const cCnpj = (empRec.getString('cnpj') || '').trim()
+    if (!cCnpj || !validarCnpjMod11(cCnpj)) {
+      pendencias.push('CNPJ válido')
+    }
+
+    const eMail = (empRec.getString('email') || '').trim()
+    if (!eMail) pendencias.push('e-mail')
+
+    const tTel = (empRec.getString('telefone') || '').trim()
+    if (!tTel) pendencias.push('telefone')
+
+    const rResp = (empRec.getString('responsavel') || '').trim()
+    if (!rResp) pendencias.push('responsável interno atribuído')
+
+    // Verificar contato decisor da empresa
+    let temDecisorValido = false
+    const empId = empRec.id
+    if (empId) {
+      try {
+        const contatosDecisores = $app.findRecordsByFilter(
+          'contatos',
+          'empresa = {:empId} && decisor = true',
+          '-created',
+          50,
+          0,
+          { empId: empId },
+        )
+        for (let c = 0; c < contatosDecisores.length; c++) {
+          const cRec = contatosDecisores[c]
+          const cEmail = (cRec.getString('email') || '').trim()
+          const cTelefone = (cRec.getString('telefone') || '').trim()
+          if (cEmail && cTelefone) {
+            temDecisorValido = true
+            break
+          }
+        }
+      } catch (errDec) {
+        console.log('Erro ao checar contatos decisores: ' + errDec)
+      }
+    }
+
+    if (!temDecisorValido) {
+      pendencias.push('contato decisor com e-mail e telefone')
+    }
+
+    return pendencias
+  }
+
   try {
     const auth = e.auth
     const original = e.record.original()
@@ -34,9 +114,63 @@ onRecordUpdateRequest((e) => {
       )
     }
 
+    // Regra da DECISÃO DO USUÁRIO:
+    // O kanban principal é de LEADS. Parceiro nasce SOMENTE da conversão (proposta aceita -> projeto), nunca de arrastar.
+    // Bloquear drag manual para 'parceira'
+    if (newEtapa === 'parceira' && oldEtapa !== 'parceira') {
+      // Se não houver proposta aceita ou contrato ativo e for edição interativa do usuário
+      const empId = e.record.id
+      let temPropostaAceita = false
+      if (empId) {
+        try {
+          const pAceita = $app.findFirstRecordByFilter(
+            'propostas',
+            'empresa = {:empId} && status = "aceita"',
+            { empId: empId },
+          )
+          if (pAceita) temPropostaAceita = true
+        } catch (_) {}
+      }
+      if (!temPropostaAceita) {
+        throw new BadRequestError(
+          'Parceiro nasce somente da conversão (proposta aceita -> projeto), nunca por movimentação manual no kanban.',
+        )
+      }
+    }
+
     // Se estiver mudando de etapa, registrar no campo etapa_anterior para permitir restauração
     if (newEtapa && oldEtapa && newEtapa !== oldEtapa && newEtapa === 'inativa') {
       e.record.set('etapa_anterior', oldEtapa)
+    }
+
+    // =========================================================================
+    // ENTREGA 1 — TRAVA DE QUALIFICAÇÃO (identificada -> qualificada)
+    // =========================================================================
+    if (newEtapa === 'qualificada' && oldEtapa !== 'qualificada') {
+      const pendencias = checarRequisitosQualificacaoEmpresa(e.record)
+      if (pendencias.length > 0) {
+        throw new BadRequestError(
+          'Para avançar para Qualificada, complete: ' + pendencias.join(', ') + '.',
+        )
+      }
+    }
+
+    // =========================================================================
+    // ENTREGA 1 — TRANSIÇÃO AUTOMÁTICA: ao salvar/editar empresa identificada
+    // com todos os requisitos atendidos, o servidor move para qualificada sozinho.
+    // =========================================================================
+    if (newEtapa === 'identificada' && (oldEtapa === 'identificada' || !oldEtapa)) {
+      const pendencias = checarRequisitosQualificacaoEmpresa(e.record)
+      if (pendencias.length === 0) {
+        e.record.set('etapa_anterior', 'identificada')
+        e.record.set('etapa_funil', 'qualificada')
+        e.record.set(
+          'observacoes',
+          (e.record.getString('observacoes') || '') +
+            '\n[Qualificação Automática]: Todos os requisitos foram preenchidos em ' +
+            new Date().toISOString(),
+        )
+      }
     }
   } catch (err) {
     throw err
@@ -53,6 +187,33 @@ onRecordAfterUpdateSuccess((e) => {
     const original = empresa.original()
     const newEtapa = empresa.getString('etapa_funil')
     const oldEtapa = original ? original.getString('etapa_funil') : ''
+
+    // Se houve transição automática para qualificada (identificada -> qualificada sem intervenção manual de drag)
+    if (newEtapa === 'qualificada' && oldEtapa === 'identificada') {
+      try {
+        const obsAtual = empresa.getString('observacoes') || ''
+        if (obsAtual.indexOf('[Qualificação Automática]') !== -1) {
+          const auditCol = $app.findCollectionByNameOrId('audit_logs')
+          const aRec = new Record(auditCol)
+          aRec.set('user', e.auth ? e.auth.id : null)
+          aRec.set('user_email', e.auth ? e.auth.getString('email') : 'SISTEMA')
+          aRec.set('acao', 'QUALIFICACAO_AUTOMATICA')
+          aRec.set('entidade', 'empresas')
+          aRec.set('registro_id', empresa.id)
+          aRec.set('detalhes', {
+            origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+            mensagem:
+              'Empresa avançou automaticamente de Identificada para Qualificada ao cumprir todos os requisitos cadastrais.',
+            empresa_id: empresa.id,
+            razao_social: empresa.getString('razao_social'),
+            cnpj: empresa.getString('cnpj'),
+          })
+          $app.save(aRec)
+        }
+      } catch (errAuditQualif) {
+        console.log('Erro ao auditar qualificacao automatica: ' + errAuditQualif)
+      }
+    }
 
     if (newEtapa === 'em_cadencia' && oldEtapa !== 'em_cadencia') {
       const empresaId = empresa.id
@@ -178,6 +339,247 @@ onRecordAfterUpdateSuccess((e) => {
     e.next()
   }
 }, 'empresas')
+
+// Hook on contratos creation: if empresa is in 'nutricao_mensal' or 'inativa', create reativacao_sugerida
+// Ao adicionar ou alterar contatos de uma empresa, verificar se a empresa está em 'identificada'
+// e passou a atender todos os requisitos de qualificação (incluindo contato decisor com email e telefone)
+onRecordAfterCreateSuccess((e) => {
+  function validarCnpjMod11(cnpjVal) {
+    if (!cnpjVal) return false
+    const limpo = String(cnpjVal).replace(/\D/g, '')
+    if (limpo.length !== 14) return false
+    if (/^(\d)\1{13}$/.test(limpo)) return false
+
+    const pesos1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    let soma = 0
+    for (let i = 0; i < 12; i++) {
+      soma += parseInt(limpo.charAt(i), 10) * pesos1[i]
+    }
+    let resto = soma % 11
+    const dig1 = resto < 2 ? 0 : 11 - resto
+    if (parseInt(limpo.charAt(12), 10) !== dig1) return false
+
+    const pesos2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    soma = 0
+    for (let i = 0; i < 13; i++) {
+      soma += parseInt(limpo.charAt(i), 10) * pesos2[i]
+    }
+    resto = soma % 11
+    const dig2 = resto < 2 ? 0 : 11 - resto
+    return parseInt(limpo.charAt(13), 10) === dig2
+  }
+
+  function checarRequisitos(empRec) {
+    const pendencias = []
+    const rSocial = (empRec.getString('razao_social') || '').trim()
+    if (!rSocial) pendencias.push('razão social')
+
+    const cCnpj = (empRec.getString('cnpj') || '').trim()
+    if (!cCnpj || !validarCnpjMod11(cCnpj)) pendencias.push('CNPJ válido')
+
+    const eMail = (empRec.getString('email') || '').trim()
+    if (!eMail) pendencias.push('e-mail')
+
+    const tTel = (empRec.getString('telefone') || '').trim()
+    if (!tTel) pendencias.push('telefone')
+
+    const rResp = (empRec.getString('responsavel') || '').trim()
+    if (!rResp) pendencias.push('responsável interno atribuído')
+
+    let temDecisorValido = false
+    const empId = empRec.id
+    if (empId) {
+      try {
+        const contatosDecisores = $app.findRecordsByFilter(
+          'contatos',
+          'empresa = {:empId} && decisor = true',
+          '-created',
+          50,
+          0,
+          { empId: empId },
+        )
+        for (let c = 0; c < contatosDecisores.length; c++) {
+          const cRec = contatosDecisores[c]
+          const cEmail = (cRec.getString('email') || '').trim()
+          const cTelefone = (cRec.getString('telefone') || '').trim()
+          if (cEmail && cTelefone) {
+            temDecisorValido = true
+            break
+          }
+        }
+      } catch (_) {}
+    }
+    if (!temDecisorValido) pendencias.push('contato decisor com e-mail e telefone')
+    return pendencias
+  }
+
+  try {
+    const contato = e.record
+    const empresaId = contato.getString('empresa')
+    if (!empresaId) return
+
+    const empresa = $app.findRecordById('empresas', empresaId)
+    if (!empresa) return
+
+    if (empresa.getString('etapa_funil') === 'identificada') {
+      const pendencias = checarRequisitos(empresa)
+      if (pendencias.length === 0) {
+        empresa.set('etapa_anterior', 'identificada')
+        empresa.set('etapa_funil', 'qualificada')
+        empresa.set(
+          'observacoes',
+          (empresa.getString('observacoes') || '') +
+            '\n[Qualificação Automática]: Todos os requisitos foram preenchidos (contato decisor adicionado) em ' +
+            new Date().toISOString(),
+        )
+        $app.save(empresa)
+
+        try {
+          const auditCol = $app.findCollectionByNameOrId('audit_logs')
+          const aRec = new Record(auditCol)
+          aRec.set('user', e.auth ? e.auth.id : null)
+          aRec.set('user_email', e.auth ? e.auth.getString('email') : 'SISTEMA')
+          aRec.set('acao', 'QUALIFICACAO_AUTOMATICA')
+          aRec.set('entidade', 'empresas')
+          aRec.set('registro_id', empresa.id)
+          aRec.set('detalhes', {
+            origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+            mensagem:
+              'Empresa avançou automaticamente de Identificada para Qualificada ao cadastrar contato decisor com e-mail e telefone.',
+            empresa_id: empresa.id,
+            razao_social: empresa.getString('razao_social'),
+            cnpj: empresa.getString('cnpj'),
+          })
+          $app.save(aRec)
+        } catch (_) {}
+      }
+    }
+  } catch (errContatoCriado) {
+    console.log('Erro ao checar qualificacao automatica apos contato: ' + errContatoCriado)
+  } finally {
+    e.next()
+  }
+}, 'contatos')
+
+onRecordAfterUpdateSuccess((e) => {
+  function validarCnpjMod11(cnpjVal) {
+    if (!cnpjVal) return false
+    const limpo = String(cnpjVal).replace(/\D/g, '')
+    if (limpo.length !== 14) return false
+    if (/^(\d)\1{13}$/.test(limpo)) return false
+
+    const pesos1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    let soma = 0
+    for (let i = 0; i < 12; i++) {
+      soma += parseInt(limpo.charAt(i), 10) * pesos1[i]
+    }
+    let resto = soma % 11
+    const dig1 = resto < 2 ? 0 : 11 - resto
+    if (parseInt(limpo.charAt(12), 10) !== dig1) return false
+
+    const pesos2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    soma = 0
+    for (let i = 0; i < 13; i++) {
+      soma += parseInt(limpo.charAt(i), 10) * pesos2[i]
+    }
+    resto = soma % 11
+    const dig2 = resto < 2 ? 0 : 11 - resto
+    return parseInt(limpo.charAt(13), 10) === dig2
+  }
+
+  function checarRequisitos(empRec) {
+    const pendencias = []
+    const rSocial = (empRec.getString('razao_social') || '').trim()
+    if (!rSocial) pendencias.push('razão social')
+
+    const cCnpj = (empRec.getString('cnpj') || '').trim()
+    if (!cCnpj || !validarCnpjMod11(cCnpj)) pendencias.push('CNPJ válido')
+
+    const eMail = (empRec.getString('email') || '').trim()
+    if (!eMail) pendencias.push('e-mail')
+
+    const tTel = (empRec.getString('telefone') || '').trim()
+    if (!tTel) pendencias.push('telefone')
+
+    const rResp = (empRec.getString('responsavel') || '').trim()
+    if (!rResp) pendencias.push('responsável interno atribuído')
+
+    let temDecisorValido = false
+    const empId = empRec.id
+    if (empId) {
+      try {
+        const contatosDecisores = $app.findRecordsByFilter(
+          'contatos',
+          'empresa = {:empId} && decisor = true',
+          '-created',
+          50,
+          0,
+          { empId: empId },
+        )
+        for (let c = 0; c < contatosDecisores.length; c++) {
+          const cRec = contatosDecisores[c]
+          const cEmail = (cRec.getString('email') || '').trim()
+          const cTelefone = (cRec.getString('telefone') || '').trim()
+          if (cEmail && cTelefone) {
+            temDecisorValido = true
+            break
+          }
+        }
+      } catch (_) {}
+    }
+    if (!temDecisorValido) pendencias.push('contato decisor com e-mail e telefone')
+    return pendencias
+  }
+
+  try {
+    const contato = e.record
+    const empresaId = contato.getString('empresa')
+    if (!empresaId) return
+
+    const empresa = $app.findRecordById('empresas', empresaId)
+    if (!empresa) return
+
+    if (empresa.getString('etapa_funil') === 'identificada') {
+      const pendencias = checarRequisitos(empresa)
+      if (pendencias.length === 0) {
+        empresa.set('etapa_anterior', 'identificada')
+        empresa.set('etapa_funil', 'qualificada')
+        empresa.set(
+          'observacoes',
+          (empresa.getString('observacoes') || '') +
+            '\n[Qualificação Automática]: Todos os requisitos foram preenchidos (contato decisor atualizado) em ' +
+            new Date().toISOString(),
+        )
+        $app.save(empresa)
+
+        try {
+          const auditCol = $app.findCollectionByNameOrId('audit_logs')
+          const aRec = new Record(auditCol)
+          aRec.set('user', e.auth ? e.auth.id : null)
+          aRec.set('user_email', e.auth ? e.auth.getString('email') : 'SISTEMA')
+          aRec.set('acao', 'QUALIFICACAO_AUTOMATICA')
+          aRec.set('entidade', 'empresas')
+          aRec.set('registro_id', empresa.id)
+          aRec.set('detalhes', {
+            origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+            mensagem:
+              'Empresa avançou automaticamente de Identificada para Qualificada ao atualizar contato decisor com e-mail e telefone.',
+            empresa_id: empresa.id,
+            razao_social: empresa.getString('razao_social'),
+            cnpj: empresa.getString('cnpj'),
+          })
+          $app.save(aRec)
+        } catch (_) {}
+      }
+    }
+  } catch (errContatoAtualizado) {
+    console.log(
+      'Erro ao checar qualificacao automatica apos atualizar contato: ' + errContatoAtualizado,
+    )
+  } finally {
+    e.next()
+  }
+}, 'contatos')
 
 // Hook on contratos creation: if empresa is in 'nutricao_mensal' or 'inativa', create reativacao_sugerida
 onRecordAfterCreateSuccess((e) => {

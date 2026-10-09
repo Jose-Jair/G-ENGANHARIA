@@ -226,10 +226,52 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
       console.log('Erro ao auditar aceite digital: ' + errAudit)
     }
 
+    // DECISÃO DO SISTEMA: Parceiro nasce SOMENTE da conversão (proposta aceita -> parceira)
+    // Definir etapa_funil='parceira' na empresa atomicamente com auditoria CONVERSAO_PARCEIRO
+    const empresaVinculadaId = proposta.getString('empresa')
+    if (empresaVinculadaId) {
+      try {
+        const empRec = $app.findRecordById('empresas', empresaVinculadaId)
+        if (empRec) {
+          const etapaAtualEmp = empRec.getString('etapa_funil')
+          if (etapaAtualEmp !== 'parceira') {
+            empRec.set('etapa_anterior', etapaAtualEmp)
+            empRec.set('etapa_funil', 'parceira')
+            empRec.set('status', 'ativa')
+            $app.save(empRec)
+
+            try {
+              const auditCol = $app.findCollectionByNameOrId('audit_logs')
+              const aRecEmp = new Record(auditCol)
+              aRecEmp.set('acao', 'CONVERSAO_PARCEIRO')
+              aRecEmp.set('entidade', 'empresas')
+              aRecEmp.set('registro_id', empresaVinculadaId)
+              aRecEmp.set('detalhes', {
+                origem: 'SISTEMA / ACEITE DIGITAL DA PROPOSTA',
+                mensagem:
+                  'Empresa promovida automaticamente a Parceira após o aceite da Proposta ' +
+                  proposta.getString('numero'),
+                etapa_anterior: etapaAtualEmp,
+                nova_etapa: 'parceira',
+                proposta_id: proposta.id,
+                proposta_numero: proposta.getString('numero'),
+                ip: clientIp,
+              })
+              aRecEmp.set('ip', clientIp)
+              $app.save(aRecEmp)
+            } catch (_) {}
+          }
+        }
+      } catch (errEmpAceite) {
+        console.log(
+          'Erro ao converter empresa para parceira no aceite da proposta: ' + errEmpAceite,
+        )
+      }
+    }
+
     // =========================================================================
     // BLOCO 3: VERIFICAÇÃO RIGOROSA DO CADASTRO DO CLIENTE (PF OU PJ)
-    // =========================================================================
-    const propostaId = proposta.id
+    // =========================================================================    const propostaId = proposta.id
     const propostaNumero = proposta.getString('numero')
     const empresaId = proposta.getString('empresa')
     const clientePfId = proposta.getString('cliente_pf')
@@ -1985,7 +2027,7 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
               const aRec = new Record(auditCol)
               aRec.set('user', null)
               aRec.set('user_email', 'SISTEMA')
-              aRec.set('acao', 'CONVERSAO_EM_PARCEIRA')
+              aRec.set('acao', 'CONVERSAO_PARCEIRO')
               aRec.set('entidade', 'empresas')
               aRec.set('registro_id', empresaId)
               aRec.set('detalhes', {
@@ -2935,7 +2977,7 @@ routerAdd(
                 const aRec = new Record(auditCol)
                 aRec.set('user', null)
                 aRec.set('user_email', 'SISTEMA')
-                aRec.set('acao', 'CONVERSAO_EM_PARCEIRA')
+                aRec.set('acao', 'CONVERSAO_PARCEIRO')
                 aRec.set('entidade', 'empresas')
                 aRec.set('registro_id', empresaId)
                 aRec.set('detalhes', {

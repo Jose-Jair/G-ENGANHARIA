@@ -7,10 +7,12 @@ import {
   TempoPorEtapaSaude,
   MotivoDescarteAgrupado,
   DescarteRecenteItem,
+  SugestaoNutricaoItem,
 } from '@/services/funilSaude'
 import { EmpresaRecord, UserRecord } from '@/types'
 import { formatDateBr } from '@/lib/formatters'
 import { formatCnpj } from '@/lib/cnpj'
+import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,21 +30,29 @@ import {
   ChevronRight,
   ShieldAlert,
   Info,
+  Sparkles,
+  Ban,
+  Archive,
 } from 'lucide-react'
 
 interface FunilSaudeTabProps {
   users: UserRecord[]
   onOpenDetalhesEmpresa?: (empresaId: string) => void
   onNavigateToKanban?: () => void
+  onRecarregarEmpresas?: () => void
 }
 
 export const FunilSaudeTab: React.FC<FunilSaudeTabProps> = ({
   users,
   onOpenDetalhesEmpresa,
   onNavigateToKanban,
+  onRecarregarEmpresas,
 }) => {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
+  const [executandoAcao, setExecutandoAcao] = useState<string | null>(null)
   const [data, setData] = useState<SaudeFunilResponse | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -145,8 +155,61 @@ export const FunilSaudeTab: React.FC<FunilSaudeTabProps> = ({
   const resumo = data?.resumo
   const tempoPorEtapa = data?.tempo_por_etapa || []
   const estagnadas = data?.empresas_estagnadas || []
+  const sugestoesNutricao = data?.sugestoes_nutricao || []
   const conversaoEtapas = data?.conversao_etapas || []
   const descartes = data?.descartes_por_motivo || { total: 0, agrupado: [], recentes: [] }
+
+  const handleAcaoFimFunil = async (
+    acao: 'migrar_nutricao' | 'marcar_nao_contatar',
+    empresa: SugestaoNutricaoItem,
+  ) => {
+    if (!isAdmin) {
+      toast({
+        title: 'Acesso Negado',
+        description: 'Ações de fim de funil são exclusivas para Administradores.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const nomeEmp = empresa.nome_fantasia || empresa.razao_social
+    const confirmMsg =
+      acao === 'migrar_nutricao'
+        ? `Deseja migrar o lead "${nomeEmp}" para a etapa de Nutrição Mensal? Ele poderá retornar ao funil caso reative.`
+        : `Deseja marcar o lead "${nomeEmp}" como NÃO CONTATAR? Isso bloqueará novos contatos comerciais e inativará o prospect.`
+
+    if (!confirm(confirmMsg)) return
+
+    setExecutandoAcao(`${acao}_${empresa.id}`)
+    try {
+      const res = await funilSaudeService.executarAcaoFimFunil({
+        acao,
+        empresa_id: empresa.id,
+        motivo:
+          acao === 'migrar_nutricao'
+            ? 'Migração manual de fim de funil (>7 dias em proposta enviada)'
+            : 'Fim de funil sem conversão marcado como Não Contatar',
+      })
+
+      toast({
+        title: acao === 'migrar_nutricao' ? 'Migrado para Nutrição!' : 'Marcado como Não Contatar!',
+        description: res.message,
+      })
+
+      carregarSaude()
+      if (onRecarregarEmpresas) {
+        onRecarregarEmpresas()
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao executar ação',
+        description: err?.message || 'Falha ao processar solicitação.',
+        variant: 'destructive',
+      })
+    } finally {
+      setExecutandoAcao(null)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -180,6 +243,128 @@ export const FunilSaudeTab: React.FC<FunilSaudeTabProps> = ({
             Atualizar Diagnóstico
           </Button>
         </div>
+      </div>
+
+      {/* SEÇÃO ESPECIAL: SUGESTÃO DE FIM DE FUNIL (ENTREGA 3) */}
+      <div className="bg-white rounded-xl border border-violet-200 p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-violet-600" />
+            <h3 className="font-bold text-sm text-slate-900">
+              Sugestões de Fim de Funil (Nutrição Mensal)
+            </h3>
+            <Badge className="bg-violet-100 text-violet-800 border-violet-300 text-[10px] font-bold">
+              {sugestoesNutricao.length} {sugestoesNutricao.length === 1 ? 'lead' : 'leads'}{' '}
+              sugerido(s)
+            </Badge>
+          </div>
+          <span className="text-[11px] text-slate-500">
+            Critério: em <strong>Proposta Enviada há mais de 7 dias</strong> sem proposta aceita
+          </span>
+        </div>
+
+        <p className="text-xs text-slate-600 mb-4">
+          O sistema apenas <strong>sugere</strong> — nunca migra automaticamente. Ações são
+          exclusivas de <strong>Admin</strong>.
+        </p>
+
+        {sugestoesNutricao.length === 0 ? (
+          <div className="h-32 border border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center text-center p-4 text-slate-400 text-xs">
+            <Sparkles className="w-6 h-6 text-slate-300 mb-1" />
+            <span>Nenhum lead retido há mais de 7 dias em Proposta Enviada sem resposta.</span>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-[10px] font-bold uppercase text-slate-400">
+                  <th className="py-2 pr-3">Empresa / Lead</th>
+                  <th className="py-2 px-2 text-center">Curva</th>
+                  <th className="py-2 px-2 text-center">Dias sem Resposta</th>
+                  <th className="py-2 px-2">Responsável</th>
+                  <th className="py-2 pl-2 text-right">Ações (Admin)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {sugestoesNutricao.map((item) => {
+                  const ocupado =
+                    executandoAcao === `migrar_nutricao_${item.id}` ||
+                    executandoAcao === `marcar_nao_contatar_${item.id}`
+                  return (
+                    <tr key={item.id} className="hover:bg-violet-50/40 transition-colors">
+                      <td className="py-3 pr-3">
+                        <div className="font-semibold text-slate-900">
+                          {item.nome_fantasia || item.razao_social}
+                        </div>
+                        {item.cnpj && (
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            {formatCnpj(item.cnpj)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 px-2 text-center">
+                        <Badge
+                          variant="outline"
+                          className={`text-[9px] font-bold font-mono ${
+                            item.curva === 'A'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : item.curva === 'B'
+                                ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                : 'bg-slate-50 text-slate-700 border-slate-200'
+                          }`}
+                        >
+                          Curva {item.curva}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-2 text-center">
+                        <span className="font-mono font-bold text-violet-700 bg-violet-50 border border-violet-200 px-2 py-0.5 rounded text-xs">
+                          +{item.dias_na_etapa} dias
+                        </span>
+                      </td>
+                      <td className="py-3 px-2 text-slate-600 text-[11px]">
+                        {getUserName(item.responsavel_id)}
+                      </td>
+                      <td className="py-3 pl-2 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={ocupado || !isAdmin}
+                            onClick={() => handleAcaoFimFunil('migrar_nutricao', item)}
+                            className="h-7 text-[10px] font-semibold text-violet-800 bg-violet-50 hover:bg-violet-100 border-violet-200 gap-1 shadow-2xs"
+                            title={
+                              isAdmin
+                                ? 'Mover lead para Nutrição Mensal (permite retorno se reacordar)'
+                                : 'Ação exclusiva para Administradores (403)'
+                            }
+                          >
+                            <Archive className="w-3 h-3 text-violet-600" />
+                            Migrar para Nutrição
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={ocupado || !isAdmin}
+                            onClick={() => handleAcaoFimFunil('marcar_nao_contatar', item)}
+                            className="h-7 text-[10px] font-semibold text-rose-800 bg-rose-50 hover:bg-rose-100 border-rose-200 gap-1 shadow-2xs"
+                            title={
+                              isAdmin
+                                ? 'Inserir na lista Não Contatar e inativar lead'
+                                : 'Ação exclusiva para Administradores (403)'
+                            }
+                          >
+                            <Ban className="w-3 h-3 text-rose-600" />
+                            Não Contatar
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Cards de Métricas Principais (KPIs de Saúde) */}

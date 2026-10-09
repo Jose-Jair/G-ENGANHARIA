@@ -1,8 +1,10 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { EmpresaRecord, CurvaABC } from '@/types'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { isValidCnpj } from '@/lib/cnpj'
+import { pb } from '@/lib/pocketbase/client'
 import {
   Calendar,
   Clock,
@@ -11,14 +13,18 @@ import {
   ChevronRight,
   Sparkles,
   AlertCircle,
+  CheckCircle2,
   GripVertical,
   FileText,
+  HelpCircle,
 } from 'lucide-react'
 
 interface FunilEmpresaCardProps {
   empresa: EmpresaRecord
   totalContratosAtivos: number
   hasReativacaoPendente?: boolean
+  isSugeridoNutricao?: boolean
+  diasEmPropostaEnviada?: number
   onEditProximaAcao?: (empresa: EmpresaRecord) => void
   onOpenTimeline: (empresa: EmpresaRecord) => void
   onOpenDetalhes: (empresa: EmpresaRecord) => void
@@ -67,6 +73,62 @@ export const FunilEmpresaCard: React.FC<FunilEmpresaCardProps> = ({
     ? formatDateBr(empresa.proxima_acao_data)
     : null
 
+  // Indicador de Completude para Qualificação (quando em 'identificada')
+  // 6 Requisitos:
+  // 1. Razão Social
+  // 2. CNPJ válido (Módulo 11)
+  // 3. E-mail
+  // 4. Telefone
+  // 5. Responsável interno
+  // 6. Contato decisor com e-mail e telefone
+  const [temDecisorValido, setTemDecisorValido] = useState<boolean | null>(null)
+  const [mostrarDetalhesRequisitos, setMostrarDetalhesRequisitos] = useState(false)
+
+  const isIdentificada = empresa.etapa_funil === 'identificada'
+
+  useEffect(() => {
+    let ativo = true
+    if (isIdentificada) {
+      // Buscar se tem contato decisor com email e telefone
+      pb.collection('contatos')
+        .getList(1, 10, {
+          filter: `empresa = "${empresa.id}" && decisor = true`,
+          requestKey: `contatos_decisor_${empresa.id}`,
+        })
+        .then((res) => {
+          if (!ativo) return
+          const ok = res.items.some((c: any) => (c.email || '').trim() && (c.telefone || '').trim())
+          setTemDecisorValido(ok)
+        })
+        .catch(() => {
+          if (ativo) setTemDecisorValido(false)
+        })
+    }
+    return () => {
+      ativo = false
+    }
+  }, [empresa.id, isIdentificada, empresa.updated])
+
+  const reqRazao = Boolean((empresa.razao_social || '').trim())
+  const reqCnpj = Boolean((empresa.cnpj || '').trim() && isValidCnpj(empresa.cnpj || ''))
+  const reqEmail = Boolean((empresa.email || '').trim())
+  const reqTelefone = Boolean((empresa.telefone || '').trim())
+  const reqResponsavel = Boolean((empresa.responsavel || '').trim())
+  const reqDecisor = Boolean(temDecisorValido)
+
+  const requisitosLista = [
+    { label: 'Razão Social', ok: reqRazao },
+    { label: 'CNPJ Válido', ok: reqCnpj },
+    { label: 'E-mail', ok: reqEmail },
+    { label: 'Telefone', ok: reqTelefone },
+    { label: 'Responsável Atribuído', ok: reqResponsavel },
+    { label: 'Contato Decisor (E-mail + Tel)', ok: reqDecisor },
+  ]
+
+  const totalAtendidos = requisitosLista.filter((r) => r.ok).length
+  const totalRequisitos = 6
+  const requisitosFaltantes = requisitosLista.filter((r) => !r.ok).map((r) => r.label)
+
   return (
     <div
       draggable={canDrag}
@@ -82,6 +144,19 @@ export const FunilEmpresaCard: React.FC<FunilEmpresaCardProps> = ({
           </span>
           <span className="text-[9px] uppercase font-bold text-emerald-700 bg-emerald-200/60 px-1 py-0.2 rounded">
             Pendente
+          </span>
+        </div>
+      )}
+
+      {/* Entrega 3: Selo "Sugerido para Nutrição" no Card (>7 dias em proposta_enviada sem aceite) */}
+      {empresa.etapa_funil === 'proposta_enviada' && isSugeridoNutricao && (
+        <div className="mb-2 p-1.5 rounded bg-violet-50 border border-violet-300 text-[10px] text-violet-900 flex items-center justify-between shadow-2xs">
+          <span className="flex items-center gap-1 font-bold">
+            <Sparkles className="w-3 h-3 text-violet-600" />
+            Sugerido para Nutrição
+          </span>
+          <span className="text-[9px] font-mono font-semibold text-violet-700 bg-violet-200/70 px-1 py-0.5 rounded">
+            {diasEmPropostaEnviada !== undefined ? `+${diasEmPropostaEnviada} dias` : '>7 dias'}
           </span>
         </div>
       )}
@@ -118,6 +193,72 @@ export const FunilEmpresaCard: React.FC<FunilEmpresaCardProps> = ({
           </span>
         )}
       </div>
+
+      {/* Entrega 1: Mini-indicador de Completude para Qualificação (quando identificada) */}
+      {isIdentificada && (
+        <div className="mb-2 pl-4.5">
+          <div
+            onClick={(e) => {
+              e.stopPropagation()
+              setMostrarDetalhesRequisitos(!mostrarDetalhesRequisitos)
+            }}
+            className="p-1.5 rounded bg-slate-50 border border-slate-200 text-[10px] cursor-pointer hover:bg-slate-100/80 transition-colors"
+            title="Clique para ver os requisitos de qualificação"
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-semibold text-slate-700 flex items-center gap-1">
+                Qualificação:
+                <span
+                  className={`font-mono font-bold ${
+                    totalAtendidos === totalRequisitos
+                      ? 'text-emerald-700'
+                      : totalAtendidos >= 4
+                        ? 'text-amber-700'
+                        : 'text-slate-700'
+                  }`}
+                >
+                  {totalAtendidos}/{totalRequisitos} requisitos
+                </span>
+              </span>
+              <span className="text-[9px] text-blue-600 hover:underline">
+                {mostrarDetalhesRequisitos ? 'Ocultar' : 'Ver faltantes'}
+              </span>
+            </div>
+
+            {/* Barra de progresso */}
+            <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all ${
+                  totalAtendidos === totalRequisitos
+                    ? 'bg-emerald-500'
+                    : totalAtendidos >= 4
+                      ? 'bg-amber-500'
+                      : 'bg-blue-500'
+                }`}
+                style={{ width: `${(totalAtendidos / totalRequisitos) * 100}%` }}
+              />
+            </div>
+
+            {/* Detalhes dos Faltantes */}
+            {mostrarDetalhesRequisitos && (
+              <div className="mt-1.5 pt-1.5 border-t border-slate-200 space-y-0.5">
+                {requisitosLista.map((req, i) => (
+                  <div key={i} className="flex items-center justify-between text-[9px]">
+                    <span className={req.ok ? 'text-slate-600' : 'text-rose-700 font-medium'}>
+                      {req.label}
+                    </span>
+                    {req.ok ? (
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    ) : (
+                      <span className="text-[8px] uppercase text-rose-600 font-bold">Falta</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Valor Total dos Contratos Ativos */}
       <div className="pl-4.5 pt-1.5 border-t border-slate-100 flex items-center justify-between">

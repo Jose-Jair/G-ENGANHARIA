@@ -86,12 +86,6 @@ const KANBAN_COLUMNS: { id: EtapaFunil; title: string; color: string; border: st
     border: 'border-orange-200',
   },
   {
-    id: 'parceira',
-    title: 'Parceira',
-    color: 'bg-emerald-50 text-emerald-800',
-    border: 'border-emerald-300',
-  },
-  {
     id: 'nutricao_mensal',
     title: 'Nutrição Mensal',
     color: 'bg-violet-50 text-violet-800',
@@ -111,6 +105,7 @@ export default function FunilPage() {
   const [contratos, setContratos] = useState<ContratoRecord[]>([])
   const [users, setUsers] = useState<UserRecord[]>([])
   const [reativacoesPendentes, setReativacoesPendentes] = useState<ReativacaoSugeridaRecord[]>([])
+  const [empresasComPropostaAceita, setEmpresasComPropostaAceita] = useState<Set<string>>(new Set())
 
   // Aba ativa: 'kanban' ou 'saude' (Saúde exclusiva para Admin e Comercial)
   const canAccessSaude = isAdmin || isComercial
@@ -261,13 +256,27 @@ export default function FunilPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [empList, contList, userList, _paramList, reatList] = await Promise.all([
-        empresasService.list(),
-        contratosService.listAll(),
-        usersService.list(),
-        parametrosService.list(),
-        reativacoesService.listPendentes(),
-      ])
+      const [empList, contList, userList, _paramList, reatList, propAceitasList] =
+        await Promise.all([
+          empresasService.list(),
+          contratosService.listAll(),
+          usersService.list(),
+          parametrosService.list(),
+          reativacoesService.listPendentes(),
+          pb
+            .collection('propostas')
+            .getFullList({
+              filter: 'status = "aceita"',
+              fields: 'id,empresa',
+            })
+            .catch(() => []),
+        ])
+
+      const setPropsAceitas = new Set<string>()
+      propAceitasList.forEach((p: any) => {
+        if (p.empresa) setPropsAceitas.add(p.empresa)
+      })
+      setEmpresasComPropostaAceita(setPropsAceitas)
 
       setEmpresas(empList)
       setContratos(contList)
@@ -634,12 +643,13 @@ export default function FunilPage() {
               Funil de Intermediação Comercial
             </h1>
             <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
-              9 Etapas Operacionais
+              8 Etapas Operacionais
             </Badge>
           </div>
           <p className="text-xs text-slate-500 mt-1">
             Gestão de oportunidades com órgãos públicos e parceiros demandantes de engenharia.
-            Priorização por Curva ABC (A &gt; B &gt; C) e valores contratuais.
+            Parceiros nascem exclusivamente da conversão da proposta. Priorização por Curva ABC (A
+            &gt; B &gt; C) e valores contratuais.
           </p>
         </div>
 
@@ -898,7 +908,7 @@ export default function FunilPage() {
               value={filtroEtapa}
               onChange={(e) => setFiltroEtapa(e.target.value)}
             >
-              <option value="todas">Todas as Etapas (9)</option>
+              <option value="todas">Todas as Etapas ({KANBAN_COLUMNS.length})</option>
               {KANBAN_COLUMNS.map((col) => (
                 <option key={col.id} value={col.id}>
                   {col.title}
@@ -989,9 +999,10 @@ export default function FunilPage() {
             }
           }}
           onNavigateToKanban={() => setActiveTab('kanban')}
+          onRecarregarEmpresas={loadData}
         />
       ) : (
-        /* KANBAN BOARD: 9 COLUNAS COM DRAG & DROP E ORDENAÇÃO A -> B -> C */
+        /* KANBAN BOARD: 8 COLUNAS COM DRAG & DROP E ORDENAÇÃO A -> B -> C */
         <div className="relative">
           {loading ? (
             <div className="p-16 text-center text-slate-500">
@@ -1050,12 +1061,31 @@ export default function FunilPage() {
                           const totalAtivo = contratosPorEmpresa.get(emp.id)?.total || 0
                           const hasReat = reativacoesPendentes.some((r) => r.empresa === emp.id)
 
+                          // Cálculo de fim de funil (>7 dias em proposta_enviada sem proposta aceita)
+                          let isSugeridoNutricao = false
+                          let diasNaEtapa = 0
+                          if (
+                            emp.etapa_funil === 'proposta_enviada' &&
+                            !empresasComPropostaAceita.has(emp.id)
+                          ) {
+                            const dataBase = new Date(emp.updated || emp.created)
+                            const diffDias = Math.floor(
+                              (Date.now() - dataBase.getTime()) / (1000 * 60 * 60 * 24),
+                            )
+                            diasNaEtapa = Math.max(0, diffDias)
+                            if (diasNaEtapa > 7) {
+                              isSugeridoNutricao = true
+                            }
+                          }
+
                           return (
                             <div key={emp.id} className="relative">
                               <FunilEmpresaCard
                                 empresa={emp}
                                 totalContratosAtivos={totalAtivo}
                                 hasReativacaoPendente={hasReat}
+                                isSugeridoNutricao={isSugeridoNutricao}
+                                diasEmPropostaEnviada={diasNaEtapa}
                                 onEditProximaAcao={(e) => setEmpresaProximaAcao(e)}
                                 onOpenTimeline={(e) => setEmpresaTimeline(e)}
                                 onOpenDetalhes={(e) => setEmpresaDetalhe(e)}

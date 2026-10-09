@@ -1130,7 +1130,7 @@ onRecordAfterUpdateSuccess((e) => {
             try {
               const auditCol = $app.findCollectionByNameOrId('audit_logs')
               const aRec = new Record(auditCol)
-              aRec.set('acao', 'CONVERSAO_EM_PARCEIRA')
+              aRec.set('acao', 'CONVERSAO_PARCEIRO')
               aRec.set('entidade', 'empresas')
               aRec.set('registro_id', empresaId)
               aRec.set('detalhes', {

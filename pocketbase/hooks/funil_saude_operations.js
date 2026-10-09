@@ -9,6 +9,173 @@
 // c. Conversão etapa -> etapa e saídas/descartes por etapa
 // d. Descartes por motivo (agrupamento e mais recentes)
 
+// =========================================================================
+// ENDPOINT: AÇÕES EXCLUSIVAS DE ADMIN PARA LEADS EM FIM DE FUNIL
+// =========================================================================
+routerAdd(
+  'POST',
+  '/backend/v1/funil/acoes-fim-funil',
+  (e) => {
+    try {
+      const reqInfo = e.requestInfo()
+      if (!reqInfo.auth) {
+        return e.json(401, { message: 'Autenticação necessária.' })
+      }
+
+      const role = reqInfo.auth.getString('role')
+      if (role !== 'admin') {
+        return e.json(403, {
+          message: 'Ação exclusiva para Administradores.',
+        })
+      }
+
+      const body = reqInfo.body || {}
+      const acao = body.acao // 'migrar_nutricao' ou 'marcar_nao_contatar'
+      const empresaId = body.empresa_id
+      const motivo = body.motivo || 'Fim de funil sem conversão (>7 dias em proposta enviada)'
+
+      if (!empresaId) {
+        return e.json(400, { message: 'ID da empresa é obrigatório.' })
+      }
+
+      const empresa = $app.findRecordById('empresas', empresaId)
+      if (!empresa) {
+        return e.json(404, { message: 'Empresa não encontrada.' })
+      }
+
+      const auditCol = $app.findCollectionByNameOrId('audit_logs')
+      const userId = reqInfo.auth.id
+      const userEmail = reqInfo.auth.getString('email') || 'admin'
+      const clientIp = e.realIP() || ''
+
+      if (acao === 'migrar_nutricao') {
+        const etapaAnterior = empresa.getString('etapa_funil')
+        empresa.set('etapa_anterior', etapaAnterior)
+        empresa.set('etapa_funil', 'nutricao_mensal')
+        empresa.set('motivo_inativacao', motivo)
+        empresa.set(
+          'observacoes',
+          (empresa.getString('observacoes') || '') +
+            '\n[Migração para Nutrição Mensal]: Lead migrado manualmente por ' +
+            userEmail +
+            ' em ' +
+            new Date().toISOString() +
+            ' (pode retornar ao funil se reacordar).',
+        )
+        $app.save(empresa)
+
+        try {
+          const aRec = new Record(auditCol)
+          aRec.set('user', userId)
+          aRec.set('user_email', userEmail)
+          aRec.set('acao', 'MIGRACAO_NUTRICAO')
+          aRec.set('entidade', 'empresas')
+          aRec.set('registro_id', empresaId)
+          aRec.set('detalhes', {
+            etapa_anterior: etapaAnterior,
+            nova_etapa: 'nutricao_mensal',
+            razao_social: empresa.getString('razao_social'),
+            motivo: motivo,
+            usuario: userEmail,
+          })
+          aRec.set('ip', clientIp)
+          $app.save(aRec)
+        } catch (_) {}
+
+        return e.json(200, {
+          success: true,
+          message: 'Empresa migrada com sucesso para Nutrição Mensal.',
+          empresa_id: empresaId,
+          nova_etapa: 'nutricao_mensal',
+        })
+      } else if (acao === 'marcar_nao_contatar') {
+        const cnpj = empresa.getString('cnpj') || ''
+        const email = empresa.getString('email') || ''
+        const telefone = empresa.getString('telefone') || ''
+        const razaoSocial = empresa.getString('razao_social') || ''
+
+        // Inserir na coleção nao_contatar se não existir
+        const naoContatarCol = $app.findCollectionByNameOrId('nao_contatar')
+        let ncExiste = false
+        if (cnpj) {
+          try {
+            const achou = $app.findFirstRecordByData('nao_contatar', 'cnpj', cnpj)
+            if (achou) ncExiste = true
+          } catch (_) {}
+        }
+        if (!ncExiste && email) {
+          try {
+            const achou = $app.findFirstRecordByData('nao_contatar', 'email', email)
+            if (achou) ncExiste = true
+          } catch (_) {}
+        }
+
+        if (!ncExiste) {
+          const ncRec = new Record(naoContatarCol)
+          ncRec.set('cnpj', cnpj)
+          ncRec.set('razao_social', razaoSocial)
+          ncRec.set('email', email)
+          ncRec.set('telefone', telefone)
+          ncRec.set('origem', 'solicitacao_cliente')
+          ncRec.set('motivo', motivo)
+          ncRec.set('data_solicitacao', new Date().toISOString())
+          ncRec.set('ativo', true)
+          ncRec.set(
+            'observacoes',
+            'Lead marcado como Não Contatar a partir do Painel de Saúde do Funil.',
+          )
+          $app.save(ncRec)
+        }
+
+        // Também atualizar o status da empresa para inativa
+        const etapaAnterior = empresa.getString('etapa_funil')
+        empresa.set('status', 'inativa')
+        empresa.set('motivo_inativacao', 'Não contatar: ' + motivo)
+        empresa.set(
+          'observacoes',
+          (empresa.getString('observacoes') || '') +
+            '\n[Marcado como Não Contatar]: Marcado por ' +
+            userEmail +
+            ' em ' +
+            new Date().toISOString(),
+        )
+        $app.save(empresa)
+
+        try {
+          const aRec = new Record(auditCol)
+          aRec.set('user', userId)
+          aRec.set('user_email', userEmail)
+          aRec.set('acao', 'MARCADO_NAO_CONTATAR')
+          aRec.set('entidade', 'empresas')
+          aRec.set('registro_id', empresaId)
+          aRec.set('detalhes', {
+            razao_social: razaoSocial,
+            cnpj: cnpj,
+            email: email,
+            motivo: motivo,
+            usuario: userEmail,
+            etapa_anterior: etapaAnterior,
+          })
+          aRec.set('ip', clientIp)
+          $app.save(aRec)
+        } catch (_) {}
+
+        return e.json(200, {
+          success: true,
+          message: 'Lead incluído com sucesso na lista de Não Contatar.',
+          empresa_id: empresaId,
+        })
+      } else {
+        return e.json(400, { message: 'Ação desconhecida: ' + acao })
+      }
+    } catch (errAcao) {
+      console.log('Erro ao executar acao fim de funil: ' + errAcao)
+      return e.json(500, { message: 'Erro ao executar ação: ' + errAcao })
+    }
+  },
+  $apis.requireAuth(),
+)
+
 routerAdd(
   'GET',
   '/backend/v1/funil/saude',
@@ -536,10 +703,71 @@ routerAdd(
       // Limitar a lista de recentes aos 10 primeiros
       const descartesRecentes10 = descartesRecentes.slice(0, 10)
 
+      // ---------------------------------------------------------
+      // BLOCO E: Sugestões de Fim de Funil (Nutrição Mensal)
+      // ---------------------------------------------------------
+      // Critério EXATO: lead na última etapa (proposta_enviada)
+      // confirmada há mais de 7 DIAS sem resposta positiva (sem proposta aceita).
+      // Apenas sugestão — o sistema NUNCA migra sozinho.
+      const sugestoesNutricao = []
+      const SETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000
+
+      // Carregar todas as propostas aceitas para indexar por empresa
+      const propostasAceitas = $app.findRecordsByFilter(
+        'propostas',
+        "status = 'aceita'",
+        '',
+        5000,
+        0,
+      )
+      const empresasComPropostaAceita = {}
+      for (let pa = 0; pa < propostasAceitas.length; pa++) {
+        const empP = propostasAceitas[pa].getString('empresa')
+        if (empP) empresasComPropostaAceita[empP] = true
+      }
+
+      for (let eIdx = 0; eIdx < empresas.length; eIdx++) {
+        const emp = empresas[eIdx]
+        const etapaAtual = emp.getString('etapa_funil')
+        if (etapaAtual !== 'proposta_enviada') {
+          continue
+        }
+
+        const empId = emp.id
+        // Se já possui proposta aceita, não é fim de funil sem conversão
+        if (empresasComPropostaAceita[empId]) {
+          continue
+        }
+
+        const dtEntrada = empresasDataEntradaEtapa[empId] || new Date(emp.getString('created'))
+        const tempoMs = agoraMs - dtEntrada.getTime()
+        const diasNaEtapa = Math.max(0, Math.floor(tempoMs / (1000 * 60 * 60 * 24)))
+
+        if (diasNaEtapa > 7) {
+          sugestoesNutricao.push({
+            id: empId,
+            razao_social: emp.getString('razao_social'),
+            nome_fantasia: emp.getString('nome_fantasia'),
+            cnpj: emp.getString('cnpj'),
+            curva: emp.getString('curva') || 'C',
+            etapa_funil: etapaAtual,
+            dias_na_etapa: diasNaEtapa,
+            data_entrada_etapa: dtEntrada.toISOString(),
+            responsavel_id: emp.getString('responsavel'),
+            email: emp.getString('email'),
+            telefone: emp.getString('telefone'),
+          })
+        }
+      }
+
+      // Ordenar sugestões de nutrição pelo maior tempo na etapa
+      sugestoesNutricao.sort((a, b) => b.dias_na_etapa - a.dias_na_etapa)
+
       // Resumo executivo superior
       const resumo = {
         total_empresas: empresas.length,
         total_estagnadas: empresasEstagnadas.length,
+        total_sugestoes_nutricao: sugestoesNutricao.length,
         dias_estagnacao_limite: diasEstagnacaoLimite,
         total_descartes: totalDescartesGeral,
         etapa_maior_gargalo: etapaComMaiorAcumulo
@@ -558,6 +786,7 @@ routerAdd(
           agrupado: motivosLista,
           recentes: descartesRecentes10,
         },
+        sugestoes_nutricao: sugestoesNutricao,
       })
     } catch (err) {
       console.log('Erro ao calcular Painel de Saude do Funil: ' + err)

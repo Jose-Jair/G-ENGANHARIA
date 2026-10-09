@@ -4,7 +4,7 @@ import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { isValidCnpj } from '@/lib/cnpj'
-import { pb } from '@/lib/pocketbase/client'
+import pb from '@/lib/pocketbase/client'
 import {
   Calendar,
   Clock,
@@ -36,6 +36,8 @@ export const FunilEmpresaCard: React.FC<FunilEmpresaCardProps> = ({
   empresa,
   totalContratosAtivos,
   hasReativacaoPendente,
+  isSugeridoNutricao,
+  diasEmPropostaEnviada,
   onEditProximaAcao,
   onOpenTimeline,
   onOpenDetalhes,

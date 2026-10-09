@@ -640,6 +640,7 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                   <TabsContent value="etapas">
                     <EtapasTab
                       projetoId={projeto.id}
+                      projeto={projeto}
                       etapas={etapas}
                       executores={executores}
                       canEdit={canEdit}

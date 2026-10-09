@@ -1,10 +1,15 @@
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-export function formatDateBr(dateString?: string | null): string {
+export function formatDateBr(dateString?: string | Date | null): string {
   if (!dateString) return '-'
   try {
-    const date = typeof dateString === 'string' ? parseISO(dateString) : new Date(dateString)
+    const date =
+      typeof dateString === 'string'
+        ? parseISO(dateString)
+        : dateString instanceof Date
+          ? dateString
+          : new Date(dateString)
     if (isNaN(date.getTime())) return '-'
     return format(date, 'dd/MM/yyyy', { locale: ptBR })
   } catch {
@@ -12,10 +17,15 @@ export function formatDateBr(dateString?: string | null): string {
   }
 }
 
-export function formatDateTimeBr(dateString?: string | null): string {
+export function formatDateTimeBr(dateString?: string | Date | null): string {
   if (!dateString) return '-'
   try {
-    const date = typeof dateString === 'string' ? parseISO(dateString) : new Date(dateString)
+    const date =
+      typeof dateString === 'string'
+        ? parseISO(dateString)
+        : dateString instanceof Date
+          ? dateString
+          : new Date(dateString)
     if (isNaN(date.getTime())) return '-'
     return format(date, 'dd/MM/yyyy HH:mm', { locale: ptBR })
   } catch {

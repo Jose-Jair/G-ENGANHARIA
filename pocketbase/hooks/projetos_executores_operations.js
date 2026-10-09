@@ -74,10 +74,26 @@ onRecordCreate((e) => {
   e.next()
 })
 
-// Validação / Bloqueio no servidor de alocação de executor em etapas
+// Validação / Bloqueio no servidor de edição de etapas (permissões de perfil e validação de executor)
 onRecordValidate((e) => {
   const rec = e.record
   if (rec.collection().name === 'projeto_etapas') {
+    // 1. Validação de perfil no servidor:
+    // Apenas Admin ('admin') e Gestor de Projetos ('gestor') podem editar datas/etapas.
+    // Comercial, Financeiro e Executor são bloqueados no servidor caso tentem alterar diretamente.
+    const httpContext = e.httpContext
+    if (httpContext && httpContext.auth) {
+      const authUser = httpContext.auth
+      const role = authUser.getString('role')
+      if (role !== 'admin' && role !== 'gestor') {
+        throw new ForbiddenError(
+          'BLOQUEIO: Seu perfil (' +
+            role +
+            ') não possui permissão para editar ou alterar prazos de etapas.',
+        )
+      }
+    }
+
     const executorId = rec.getString('executor')
     if (executorId) {
       const etapaStatus = rec.getString('status')

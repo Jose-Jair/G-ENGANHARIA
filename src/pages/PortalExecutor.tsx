@@ -35,6 +35,7 @@ import {
   FileCheck2,
   Clock,
   Send,
+  BarChart3,
   Loader2,
   ExternalLink,
   ShieldAlert,
@@ -48,6 +49,8 @@ import {
   FolderKanban,
   Check,
 } from 'lucide-react'
+import { CronogramaGantt } from '@/components/projetos/CronogramaGantt'
+import { ModalDetalheEtapa } from '@/components/projetos/ModalDetalheEtapa'
 
 export const PortalExecutorPage: React.FC = () => {
   const { user } = useAuth()
@@ -72,6 +75,13 @@ export const PortalExecutorPage: React.FC = () => {
   const [subcontratoSelecionado, setSubcontratoSelecionado] = useState<SubcontratoRecord | null>(
     null,
   )
+
+  // Visualização de Cronograma (Gantt) somente leitura no Portal do Executor
+  const [visualizacaoAndamento, setVisualizacaoAndamento] = useState<'lista' | 'cronograma'>(
+    'cronograma',
+  )
+  const [modalDetalheEtapaOpen, setModalDetalheEtapaOpen] = useState(false)
+  const [etapaSelecionada, setEtapaSelecionada] = useState<ProjetoEtapaRecord | null>(null)
 
   const carregarDadosPortal = async () => {
     if (!user?.email) return
@@ -684,14 +694,46 @@ export const PortalExecutorPage: React.FC = () => {
         {/* ABA 3: ANDAMENTO TÉCNICO DOS PROJETOS DELEGADOS */}
         <TabsContent value="andamento">
           <Card className="bg-white border-slate-200 shadow-2xs">
-            <CardHeader className="pb-3 border-b border-slate-100">
-              <CardTitle className="text-sm font-bold text-slate-900">
-                Andamento Técnico das Etapas & Entregáveis
-              </CardTitle>
-              <CardDescription className="text-xs text-slate-500">
-                Acompanhe o cronograma, marcos e entregas técnicas das etapas atribuídas a você nos
-                projetos contratados.
-              </CardDescription>
+            <CardHeader className="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-sm font-bold text-slate-900">
+                  Andamento Técnico & Cronograma Visual
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">
+                  Acompanhe o cronograma, marcos e entregas técnicas das etapas atribuídas
+                  exclusivamente ao seu escopo contratado.
+                </CardDescription>
+              </div>
+
+              {/* Alternância Lista / Cronograma para o Executor */}
+              <div className="flex items-center border border-slate-200 rounded-md bg-slate-50 p-0.5 shrink-0">
+                <Button
+                  type="button"
+                  variant={visualizacaoAndamento === 'cronograma' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setVisualizacaoAndamento('cronograma')}
+                  className={`h-7 px-2.5 text-xs ${
+                    visualizacaoAndamento === 'cronograma'
+                      ? 'bg-[#D95A2B] text-white'
+                      : 'text-slate-600'
+                  }`}
+                >
+                  <BarChart3 className="w-3.5 h-3.5 mr-1" />
+                  Cronograma (Gantt)
+                </Button>
+                <Button
+                  type="button"
+                  variant={visualizacaoAndamento === 'lista' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setVisualizacaoAndamento('lista')}
+                  className={`h-7 px-2.5 text-xs ${
+                    visualizacaoAndamento === 'lista' ? 'bg-[#D95A2B] text-white' : 'text-slate-600'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5 mr-1" />
+                  Lista de Etapas
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
               {carregando ? (
@@ -710,6 +752,16 @@ export const PortalExecutorPage: React.FC = () => {
                     desdobradas pelo Gestor.
                   </p>
                 </div>
+              ) : visualizacaoAndamento === 'cronograma' ? (
+                <CronogramaGantt
+                  projeto={etapas[0]?.expand?.projeto || null}
+                  etapas={etapas}
+                  canEdit={false}
+                  onEtapaClick={(et) => {
+                    setEtapaSelecionada(et)
+                    setModalDetalheEtapaOpen(true)
+                  }}
+                />
               ) : (
                 <div className="space-y-4">
                   {etapas.map((et) => {
@@ -719,7 +771,11 @@ export const PortalExecutorPage: React.FC = () => {
                     return (
                       <div
                         key={et.id}
-                        className="p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-all shadow-2xs space-y-3"
+                        className="p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-all shadow-2xs space-y-3 cursor-pointer"
+                        onClick={() => {
+                          setEtapaSelecionada(et)
+                          setModalDetalheEtapaOpen(true)
+                        }}
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
                           <div className="space-y-0.5">
@@ -899,6 +955,14 @@ export const PortalExecutorPage: React.FC = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Modal Reutilizável de Detalhe da Etapa (Somente leitura para Executor) */}
+      <ModalDetalheEtapa
+        open={modalDetalheEtapaOpen}
+        onOpenChange={setModalDetalheEtapaOpen}
+        etapa={etapaSelecionada}
+        canEdit={false}
+      />
 
       {/* Modal para Visualizar Cláusulas e Detalhes do Subcontrato */}
       <Dialog open={modalSubcontratoOpen} onOpenChange={setModalSubcontratoOpen}>

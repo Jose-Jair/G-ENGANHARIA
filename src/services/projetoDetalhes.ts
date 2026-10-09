@@ -46,6 +46,54 @@ export const projetoEtapasService = {
     return await pb.collection('projeto_etapas').update<ProjetoEtapaRecord>(id, data)
   },
 
+  async atualizarDatasGantt(
+    etapaId: string,
+    dataInicioYmd: string,
+    prazoYmd: string,
+    etapaAnterior?: ProjetoEtapaRecord,
+  ): Promise<ProjetoEtapaRecord> {
+    const dataInicioIso = dataInicioYmd ? `${dataInicioYmd} 00:00:00.000Z` : null
+    const prazoIso = prazoYmd ? `${prazoYmd} 23:59:59.000Z` : null
+
+    // Atualização com gravação direta na coleção
+    const updated = await pb.collection('projeto_etapas').update<ProjetoEtapaRecord>(etapaId, {
+      data_inicio: dataInicioIso,
+      prazo: prazoIso,
+    })
+
+    // Registro explícito e detalhado em audit_logs via auditService.log
+    const antesObj = {
+      data_inicio: etapaAnterior?.data_inicio || null,
+      prazo: etapaAnterior?.prazo || etapaAnterior?.prazo_fim || null,
+    }
+    const depoisObj = {
+      data_inicio: dataInicioIso,
+      prazo: prazoIso,
+    }
+
+    await pb
+      .collection('audit_logs')
+      .create({
+        user: pb.authStore.record?.id || pb.authStore.model?.id || null,
+        user_email: pb.authStore.record?.email || (pb.authStore.model as any)?.email || 'SISTEMA',
+        acao: 'EDICAO_CRONOGRAMA_GANTT',
+        entidade: 'projeto_etapas',
+        registro_id: etapaId,
+        detalhes: {
+          etapa_nome: etapaAnterior?.nome || updated.nome,
+          projeto_id: updated.projeto,
+          antes: antesObj,
+          depois: depoisObj,
+          origem: 'Gantt Interativo',
+        },
+      })
+      .catch((err) => {
+        console.warn('Falha ao gravar auditoria do Gantt:', err)
+      })
+
+    return updated
+  },
+
   async delete(id: string): Promise<boolean> {
     return await pb.collection('projeto_etapas').delete(id)
   },

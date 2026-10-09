@@ -27,6 +27,9 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  LayoutGrid,
+  Table as TableIcon,
+  Kanban as KanbanIcon,
 } from 'lucide-react'
 import { exportService } from '@/services/exportService'
 import { formatCnpj, formatCpf } from '@/lib/cnpj'
@@ -37,7 +40,11 @@ import { ModalSaudeProjeto } from '@/components/projetos/ModalSaudeProjeto'
 import { ModalDossieProjeto } from '@/components/projetos/ModalDossieProjeto'
 import { ModalDefinirModoExecucao } from '@/components/projetos/ModalDefinirModoExecucao'
 import { CardProjeto, ProjetoComEtapasCalculadas } from '@/components/projetos/CardProjeto'
+import { TabelaProjetosDensa } from '@/components/projetos/TabelaProjetosDensa'
+import { KanbanProjetos } from '@/components/projetos/KanbanProjetos'
 import { SkeletonCardProjeto } from '@/components/projetos/SkeletonCardProjeto'
+import { SkeletonTabelaProjetos } from '@/components/projetos/SkeletonTabelaProjetos'
+import { SkeletonKanbanProjetos } from '@/components/projetos/SkeletonKanbanProjetos'
 
 import { useSearchParams } from 'react-router-dom'
 
@@ -69,6 +76,46 @@ export const ProjetosPage: React.FC = () => {
   const [filtroStatus, setFiltroStatus] = useState<string>(
     () => searchParams.get('status') || 'todos',
   )
+
+  // Alternância de visão: Cards ⇄ Tabela ⇄ Kanban (persistida por usuário)
+  type VisaoProjetos = 'cards' | 'tabela' | 'kanban'
+  const storageKeyVisao = useMemo(() => {
+    return `gestao_gplus_projetos_visao_${user?.id || 'anon'}`
+  }, [user?.id])
+
+  const [visao, setVisao] = useState<VisaoProjetos>(() => {
+    try {
+      const salva = localStorage.getItem(`gestao_gplus_projetos_visao_${user?.id || 'anon'}`)
+      if (salva === 'cards' || salva === 'tabela' || salva === 'kanban') {
+        return salva
+      }
+    } catch {
+      // silencioso
+    }
+    return 'cards'
+  })
+
+  // Sincroniza a chave se o usuário mudar de sessão
+  useEffect(() => {
+    try {
+      const salva = localStorage.getItem(storageKeyVisao)
+      if (salva === 'cards' || salva === 'tabela' || salva === 'kanban') {
+        setVisao(salva)
+      }
+    } catch {
+      // silencioso
+    }
+  }, [storageKeyVisao])
+
+  // Atualiza visão e salva no localStorage do usuário
+  const handleMudarVisao = (novaVisao: VisaoProjetos) => {
+    setVisao(novaVisao)
+    try {
+      localStorage.setItem(storageKeyVisao, novaVisao)
+    } catch {
+      // silencioso
+    }
+  }
 
   // Painel recolhível de filtros adicionais sob demanda
   const [painelFiltrosAberto, setPainelFiltrosAberto] = useState(false)
@@ -639,6 +686,58 @@ export const ProjetosPage: React.FC = () => {
                 <ChevronDown className="w-3.5 h-3.5 ml-0.5" />
               )}
             </Button>
+
+            {/* SELETOR DE VISÃO: Grupo de 3 ícones (Cards | Tabela | Kanban) persistido por usuário */}
+            <div
+              className="inline-flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200"
+              role="group"
+              aria-label="Alternar modo de visualização"
+            >
+              <button
+                type="button"
+                onClick={() => handleMudarVisao('cards')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  visao === 'cards'
+                    ? 'bg-white text-[#1E2A4A] shadow-2xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+                title="Visão em Cards"
+                aria-pressed={visao === 'cards'}
+              >
+                <LayoutGrid className="w-3.5 h-3.5 text-[#D95A2B]" />
+                <span className="hidden sm:inline">Cards</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleMudarVisao('tabela')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  visao === 'tabela'
+                    ? 'bg-white text-[#1E2A4A] shadow-2xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+                title="Visão em Tabela Densa"
+                aria-pressed={visao === 'tabela'}
+              >
+                <TableIcon className="w-3.5 h-3.5 text-[#D95A2B]" />
+                <span className="hidden sm:inline">Tabela</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleMudarVisao('kanban')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  visao === 'kanban'
+                    ? 'bg-white text-[#1E2A4A] shadow-2xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+                title="Visão em Quadro Kanban"
+                aria-pressed={visao === 'kanban'}
+              >
+                <KanbanIcon className="w-3.5 h-3.5 text-[#D95A2B]" />
+                <span className="hidden sm:inline">Kanban</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -872,9 +971,15 @@ export const ProjetosPage: React.FC = () => {
         )}
       </div>
 
-      {/* 4. Grid de Projetos Redenhado ou Esqueleto ou Estado Vazio */}
+      {/* 4. Conteúdo da Visão Ativa (Cards | Tabela | Kanban), Esqueletos ou Estado Vazio */}
       {carregando ? (
-        <SkeletonCardProjeto count={6} />
+        visao === 'tabela' ? (
+          <SkeletonTabelaProjetos rows={8} />
+        ) : visao === 'kanban' ? (
+          <SkeletonKanbanProjetos columns={4} />
+        ) : (
+          <SkeletonCardProjeto count={6} />
+        )
       ) : projetosExibidos.length === 0 ? (
         <div className="text-center py-16 bg-white border border-slate-200 rounded-xl max-w-md mx-auto space-y-3 shadow-2xs">
           <div className="w-12 h-12 rounded-full bg-orange-50 text-[#D95A2B] flex items-center justify-center mx-auto">
@@ -916,7 +1021,54 @@ export const ProjetosPage: React.FC = () => {
             )
           )}
         </div>
+      ) : visao === 'tabela' ? (
+        /* VISÃO 2: TABELA DENSA COM ORDENAÇÃO NO SERVIDOR E HOVER */
+        <TabelaProjetosDensa
+          projetos={projetosExibidos}
+          userRole={user?.role}
+          canViewDossie={canViewDossie}
+          ordenacao={ordenacao}
+          onMudarOrdenacao={setOrdenacao}
+          onAbrirProjeto={(id) => {
+            setProjetoSelecionadoId(id)
+            setModalDetalheOpen(true)
+          }}
+          onAbrirDossie={(id) => {
+            setProjetoDossieCardId(id)
+            setModalDossieCardOpen(true)
+          }}
+          onAbrirSaudeModal={(p) => {
+            setProjetoSaudeRapida(p)
+            setModalSaudeRapidaOpen(true)
+          }}
+          onDefinirModo={(p) => {
+            setProjetoDefinirModo(p)
+            setModalDefinirModoOpen(true)
+          }}
+        />
+      ) : visao === 'kanban' ? (
+        /* VISÃO 3: KANBAN POR STATUS COM REGRAS OFICIAIS DE TRANSIÇÃO */
+        <KanbanProjetos
+          projetos={projetosExibidos}
+          userRole={user?.role}
+          onAbrirProjeto={(id) => {
+            setProjetoSelecionadoId(id)
+            setModalDetalheOpen(true)
+          }}
+          onDefinirModo={(p) => {
+            setProjetoDefinirModo(p)
+            setModalDefinirModoOpen(true)
+          }}
+          onTentativaMudancaInvalida={(msg) => {
+            toast({
+              title: 'Caminho oficial obrigatório',
+              description: msg,
+              variant: 'destructive',
+            })
+          }}
+        />
       ) : (
+        /* VISÃO 1: CARDS (DEFAULT) */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {projetosExibidos.map((prj) => (
             <CardProjeto

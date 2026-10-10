@@ -63,20 +63,24 @@ export function formatPhoneBr(
   includeDdi: boolean = false,
 ): string {
   if (!value) return ''
-  let clean = value.replace(/\D/g, '')
+  const str = String(value).trim()
+  let clean = str.replace(/\D/g, '')
   if (!clean) return ''
 
-  // Se começar com 55 (DDI Brasil) e tiver 12 ou 13 dígitos, remove os 2 primeiros dígitos de DDI para formatar
-  if (clean.length > 11 && clean.startsWith('55')) {
+  // Se a string começar explicitamente com "+55" ou "55", remove o prefixo DDI 55
+  if (str.startsWith('+55') && clean.startsWith('55')) {
+    clean = clean.slice(2)
+  } else if (clean.startsWith('55') && clean.length > 11) {
+    // Caso venha número completo salvo tipo "5511987654321" (12 ou 13 dígitos)
     clean = clean.slice(2)
   }
 
-  // Limitar aos 11 dígitos (DDD + 9 dígitos) para não estourar a máscara
+  // Limitar aos 11 dígitos nacionais (DDD + até 9 dígitos)
   if (clean.length > 11) {
     clean = clean.slice(0, 11)
   }
 
-  let formatted = clean
+  let formatted = ''
   if (clean.length === 0) {
     formatted = ''
   } else if (clean.length <= 2) {
@@ -84,10 +88,10 @@ export function formatPhoneBr(
   } else if (clean.length <= 6) {
     formatted = `(${clean.slice(0, 2)}) ${clean.slice(2)}`
   } else if (clean.length <= 10) {
-    // 8 dígitos: (00) 0000-0000
-    formatted = `(${clean.slice(0, 2)}) ${clean.slice(2, 6)}-${clean.slice(6, 10)}`
+    // 8 dígitos: (XX) XXXX-XXXX
+    formatted = `(${clean.slice(0, 2)}) ${clean.slice(2, 6)}-${clean.slice(6)}`
   } else {
-    // 9 dígitos: (00) 00000-0000
+    // 9 dígitos: (XX) XXXXX-XXXX
     formatted = `(${clean.slice(0, 2)}) ${clean.slice(2, 7)}-${clean.slice(7, 11)}`
   }
 

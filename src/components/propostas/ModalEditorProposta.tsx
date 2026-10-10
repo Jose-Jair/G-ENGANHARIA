@@ -586,6 +586,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
     if (servicoId) {
       const servico = catalogoServicos.find((s) => s.id === servicoId)
       if (servico) {
+        const custoBase = servico.preco_base || 0
         const novoItem: PropostaItemRecord = {
           servico: servico.id,
           origem: 'catalogo',
@@ -593,10 +594,10 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
           disciplina: servico.disciplina,
           unidade: servico.unidade,
           quantidade: 1,
-          custo_unitario: 0,
-          custo_total: 0,
-          preco_venda_unitario: servico.preco_base,
-          preco_total: servico.preco_base,
+          custo_unitario: custoBase,
+          custo_total: custoBase,
+          preco_venda_unitario: custoBase,
+          preco_total: custoBase,
           bdi_percentual: 0,
         }
         setItens((prev) => [...prev, novoItem])
@@ -604,10 +605,8 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
       }
     }
 
-    // Item avulso: custo direto informado + margem BDI
+    // Item avulso: custo direto informado já inclui bonificação e BDI
     const custoAvulso = 5000
-    const bdiAvulso = margemPercent || 25
-    const precoAvulso = Math.round(custoAvulso * (1 + bdiAvulso / 100) * 100) / 100
     const novoItemAvulso: PropostaItemRecord = {
       origem: 'avulso',
       descricao: 'Serviço Técnico Especializado',
@@ -616,8 +615,9 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
       quantidade: 1,
       custo_unitario: custoAvulso,
       custo_total: custoAvulso,
-      bdi_percentual: bdiAvulso,
-      preco_total: precoAvulso,
+      bdi_percentual: 0,
+      preco_venda_unitario: custoAvulso,
+      preco_total: custoAvulso,
     }
     setItens((prev) => [...prev, novoItemAvulso])
   }
@@ -629,24 +629,10 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
     const q = field === 'quantidade' ? parseFloat(value) || 0 : item.quantidade || 0
     const c = field === 'custo_unitario' ? parseFloat(value) || 0 : item.custo_unitario || 0
     item.custo_total = Math.round(q * c * 100) / 100
-
-    if (item.origem === 'catalogo') {
-      const pv =
-        field === 'preco_venda_unitario'
-          ? parseFloat(value) || 0
-          : item.preco_venda_unitario !== undefined
-            ? item.preco_venda_unitario
-            : item.preco_total && q > 0
-              ? item.preco_total / q
-              : 0
-      item.preco_venda_unitario = pv
-      item.preco_total = Math.round(q * pv * 100) / 100
-      item.bdi_percentual = 0
-    } else {
-      const bdi = field === 'bdi_percentual' ? parseFloat(value) || 0 : item.bdi_percentual || 0
-      item.bdi_percentual = bdi
-      item.preco_total = Math.round(item.custo_total * (1 + bdi / 100) * 100) / 100
-    }
+    // O valor de Custo Direto já inclui bonificação e BDI (requisito 2).
+    // O Preço Total da linha é derivado diretamente do Custo Direto (q * c).
+    item.preco_total = item.custo_total
+    item.preco_venda_unitario = c
 
     updated[index] = item
     setItens(updated)
@@ -1136,10 +1122,10 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
 
                 {/* Tabela de Itens */}
                 <div className="overflow-x-auto border rounded-md">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full text-left text-xs min-w-[700px]">
                     <thead className="bg-slate-100 text-slate-700 font-semibold border-b">
                       <tr>
-                        <th className="py-2.5 px-3 w-[45%]">
+                        <th className="py-2.5 px-3 min-w-[260px]">
                           Disciplina &amp; Descrição do Serviço
                         </th>
                         <th className="py-2.5 px-2 w-20 text-center">Origem</th>
@@ -1147,16 +1133,19 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                         <th className="py-2.5 px-2 w-28 text-center bg-slate-200/80 font-bold text-slate-900">
                           Qtd.
                         </th>
-                        <th className="py-2.5 px-2 w-24 text-right">Custo Dir.</th>
-                        <th className="py-2.5 px-2 w-28 text-right">Preço Venda</th>
-                        <th className="py-2.5 px-3 w-32 text-right">Preço Total</th>
+                        <th className="py-2.5 px-2 min-w-[130px] w-36 text-right">
+                          Custo Direto (R$)
+                        </th>
+                        <th className="py-2.5 px-3 min-w-[130px] w-36 text-right">
+                          Custo Total (R$)
+                        </th>
                         <th className="py-2.5 px-2 w-10 text-center"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
                       {itens.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="py-6 text-center text-slate-400">
+                          <td colSpan={7} className="py-6 text-center text-slate-400">
                             Nenhum item adicionado à proposta. Clique em &quot;+ Inserir por Área
                             &amp; Catálogo&quot; acima.
                           </td>
@@ -1167,30 +1156,21 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                           const isCat =
                             it.origem === 'catalogo' ||
                             (Boolean(it.servico) && it.origem !== 'avulso')
-                          const precoUnit =
-                            it.preco_venda_unitario !== undefined
-                              ? it.preco_venda_unitario
-                              : it.preco_total && it.quantidade > 0
-                                ? it.preco_total / it.quantidade
-                                : (it.custo_unitario || 0) * (1 + (it.bdi_percentual || 0) / 100)
-                          const precoTotalLinha =
-                            it.preco_total !== undefined
-                              ? it.preco_total
-                              : Math.round(
-                                  (it.custo_total || 0) *
-                                    (1 + (it.bdi_percentual || 0) / 100) *
-                                    100,
-                                ) / 100
+                          const custoTotalLinha =
+                            it.custo_total !== undefined
+                              ? it.custo_total
+                              : Math.round((it.custo_unitario || 0) * (it.quantidade || 0) * 100) /
+                                100
 
                           return (
                             <tr key={idx} className="hover:bg-slate-50">
-                              <td className="p-3.5 space-y-1 w-[45%]">
+                              <td className="p-3 space-y-1">
                                 <Input
                                   value={it.descricao}
                                   onChange={(e) =>
                                     handleUpdateItem(idx, 'descricao', e.target.value)
                                   }
-                                  className="h-7 text-xs font-medium"
+                                  className="h-8 text-xs font-medium w-full"
                                 />
                                 {(areaObj || (it.subservicos && it.subservicos.length > 0)) && (
                                   <div className="flex flex-wrap items-center gap-1">
@@ -1210,7 +1190,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                                   </div>
                                 )}
                               </td>
-                              <td className="p-3.5 text-center">
+                              <td className="p-3 text-center">
                                 <Badge
                                   variant="outline"
                                   className={`text-[10px] ${
@@ -1222,14 +1202,14 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                                   {isCat ? 'Catálogo' : 'Avulso'}
                                 </Badge>
                               </td>
-                              <td className="p-3.5 text-center">
+                              <td className="p-3 text-center">
                                 <Input
                                   value={it.unidade || 'un'}
                                   onChange={(e) => handleUpdateItem(idx, 'unidade', e.target.value)}
-                                  className="h-7 text-xs text-center mx-auto w-14"
+                                  className="h-8 text-xs text-center mx-auto w-14"
                                 />
                               </td>
-                              <td className="p-3.5 text-center bg-slate-100">
+                              <td className="p-3 text-center bg-slate-100">
                                 <Input
                                   type="number"
                                   min="0.1"
@@ -1238,10 +1218,10 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                                   onChange={(e) =>
                                     handleUpdateItem(idx, 'quantidade', e.target.value)
                                   }
-                                  className="h-8 min-w-[80px] w-20 px-2.5 py-1 text-center font-mono font-bold text-sm bg-white border-slate-300 mx-auto shadow-2xs"
+                                  className="h-8 min-w-[80px] w-20 px-2 text-center font-mono font-bold text-sm bg-white border-slate-300 mx-auto shadow-2xs"
                                 />
                               </td>
-                              <td className="p-3.5 text-right font-mono">
+                              <td className="p-3 text-right font-mono">
                                 <Input
                                   type="number"
                                   min="0"
@@ -1251,52 +1231,20 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                                   onChange={(e) =>
                                     handleUpdateItem(idx, 'custo_unitario', e.target.value)
                                   }
-                                  className="h-7 text-xs text-right font-mono"
-                                  title="Custo direto unitário"
+                                  className="h-8 text-xs text-right font-mono font-semibold min-w-[100px] w-full px-2"
+                                  title="Custo direto unitário (já inclui bonificação e BDI)"
                                 />
                               </td>
-                              <td className="p-3.5 text-right font-mono">
-                                {isCat ? (
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={precoUnit}
-                                    onChange={(e) =>
-                                      handleUpdateItem(idx, 'preco_venda_unitario', e.target.value)
-                                    }
-                                    className="h-7 text-xs text-right font-mono font-medium"
-                                  />
-                                ) : (
-                                  <div className="space-y-0.5">
-                                    <div className="flex items-center gap-1 justify-end">
-                                      <span className="text-[10px] text-slate-500">BDI:</span>
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        step="1"
-                                        value={it.bdi_percentual || 0}
-                                        onChange={(e) =>
-                                          handleUpdateItem(idx, 'bdi_percentual', e.target.value)
-                                        }
-                                        className="h-6 w-14 text-[11px] text-center font-mono"
-                                      />
-                                      <span className="text-[10px] text-slate-500">%</span>
-                                    </div>
-                                  </div>
-                                )}
+                              <td className="p-3 text-right font-mono font-bold text-slate-900 text-xs whitespace-nowrap">
+                                {formatCurrencyBr(custoTotalLinha)}
                               </td>
-                              <td className="p-3.5 text-right font-mono font-bold text-slate-900 text-xs">
-                                {formatCurrencyBr(precoTotalLinha)}
-                              </td>
-                              <td className="p-3.5 text-center">
+                              <td className="p-3 text-center">
                                 <Button
                                   type="button"
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleRemoveItem(idx)}
-                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                  className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </Button>

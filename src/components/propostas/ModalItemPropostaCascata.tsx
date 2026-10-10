@@ -194,6 +194,15 @@ export const ModalItemPropostaCascata: React.FC<ModalItemPropostaCascataProps> =
       const precoTotClean = round2(precoTotalItem)
       const bdiClean = round2(origem === 'catalogo' ? 0 : bdiPercent)
 
+      // Custo Direto informado já inclui a bonificação e o BDI (requisito 2)
+      const valorUnitarioEfetivo =
+        origem === 'catalogo' && precoVendaUnitario > 0
+          ? round2(precoVendaUnitario)
+          : custoUnitClean > 0
+            ? custoUnitClean
+            : round2(precoVendaUnitario)
+      const valorTotalEfetivo = round2(qtdClean * valorUnitarioEfetivo)
+
       const item: PropostaItemRecord = {
         area:
           selectedAreaId && selectedAreaId !== '__nenhum__' && selectedAreaId.trim().length > 0
@@ -210,11 +219,11 @@ export const ModalItemPropostaCascata: React.FC<ModalItemPropostaCascataProps> =
         disciplina: disciplina.trim() || undefined,
         unidade: unidade.trim() || 'un',
         quantidade: qtdClean,
-        custo_unitario: custoUnitClean,
-        custo_total: custoTotClean,
-        preco_venda_unitario: origem === 'catalogo' ? round2(precoVendaUnitario) : undefined,
-        bdi_percentual: bdiClean,
-        preco_total: precoTotClean,
+        custo_unitario: valorUnitarioEfetivo,
+        custo_total: valorTotalEfetivo,
+        preco_venda_unitario: valorUnitarioEfetivo,
+        bdi_percentual: 0,
+        preco_total: valorTotalEfetivo,
         subservicos: nomesSubservicos,
         status_conversao: 'nao_convertido',
       }
@@ -438,21 +447,19 @@ export const ModalItemPropostaCascata: React.FC<ModalItemPropostaCascataProps> =
             )}
           </div>
 
-          {/* PASSO 5: QUANTIDADE, UNIDADE, VALORES E MARGEM */}
+          {/* PASSO 5: QUANTIDADE, UNIDADE E CUSTO DIRETO (JÁ INCLUI BONIFICAÇÃO E BDI) */}
           <div className="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-800">
                 5. Precificação do Item ({origem === 'catalogo' ? 'Origem Catálogo' : 'Item Avulso'}
                 )
               </span>
-              <Badge variant="outline" className="text-[10px]">
-                {origem === 'catalogo'
-                  ? 'Preço do Catálogo já inclui Margem'
-                  : 'Margem BDI Aplicada'}
+              <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-700">
+                Custo Direto já inclui bonificação e BDI
               </Badge>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label className="text-[11px] text-slate-600">Unidade</Label>
                 <Input
@@ -471,84 +478,48 @@ export const ModalItemPropostaCascata: React.FC<ModalItemPropostaCascataProps> =
                   step="0.1"
                   value={quantidade}
                   onChange={(e) => setQuantidade(parseFloat(e.target.value) || 0)}
-                  className="text-xs h-8 font-mono text-center"
+                  className="text-xs h-8 font-mono text-center font-bold"
                 />
               </div>
 
-              {origem === 'catalogo' ? (
-                <>
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-slate-600">Preço de Venda Unit. (R$)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={precoVendaUnitario}
-                      onChange={(e) => setPrecoVendaUnitario(parseFloat(e.target.value) || 0)}
-                      className="text-xs h-8 font-mono text-right font-medium"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-slate-600">
-                      Custo Direto Unit. (Opcional)
-                    </Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0,00"
-                      value={custoUnitario}
-                      onChange={(e) => setCustoUnitario(parseFloat(e.target.value) || 0)}
-                      className="text-xs h-8 font-mono text-right"
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-slate-600">Custo Direto (R$)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={custoUnitario}
-                      onChange={(e) => setCustoUnitario(parseFloat(e.target.value) || 0)}
-                      className="text-xs h-8 font-mono text-right"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-slate-600">BDI Sugerido (%)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="1"
-                      value={bdiPercent}
-                      onChange={(e) => setBdiPercent(parseFloat(e.target.value) || 0)}
-                      className="text-xs h-8 font-mono text-center"
-                    />
-                  </div>
-                </>
-              )}
+              <div className="space-y-1">
+                <Label className="text-[11px] text-slate-600">Custo Direto Unitário (R$)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={origem === 'catalogo' ? precoVendaUnitario : custoUnitario}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value) || 0
+                    if (origem === 'catalogo') {
+                      setPrecoVendaUnitario(val)
+                      setCustoUnitario(val)
+                    } else {
+                      setCustoUnitario(val)
+                      setPrecoVendaUnitario(val)
+                    }
+                  }}
+                  className="text-xs h-8 font-mono text-right font-semibold"
+                  title="Custo direto unitário (já inclui bonificação e BDI)"
+                />
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-2 border-t border-slate-200 gap-1 text-[11px]">
               <span className="text-slate-600">
-                Custo Direto:{' '}
-                <strong className="font-mono text-slate-900">
-                  {custoTotal > 0 ? formatCurrencyBr(custoTotal) : 'Não informado'}
+                Valor Total da Linha:{' '}
+                <strong className="font-mono text-slate-900 text-sm">
+                  {formatCurrencyBr(
+                    Math.round(
+                      (quantidade > 0 ? quantidade : 1) *
+                        (origem === 'catalogo' ? precoVendaUnitario : custoUnitario) *
+                        100,
+                    ) / 100,
+                  )}
                 </strong>
               </span>
-              <span className="text-emerald-700 font-semibold">
-                Preço de Venda do Item:{' '}
-                <strong className="font-mono text-sm">{formatCurrencyBr(precoTotalItem)}</strong>
-                {origem === 'catalogo' && (
-                  <span className="ml-1 text-[10px] text-slate-500 font-normal">
-                    (Sem margem adicional)
-                  </span>
-                )}
+              <span className="text-xs text-slate-500 italic">
+                (Preço único: custo direto informado na proposta)
               </span>
             </div>
           </div>

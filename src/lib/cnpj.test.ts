@@ -12,6 +12,18 @@ describe('Validação e Formatação de Telefone Brasileiro', () => {
     expect(formatPhoneBr('+55 11 98765-4321', true)).toBe('+55 (11) 98765-4321')
   })
 
+  it('não repete o número 5 durante a digitação progressiva', () => {
+    // Digitando DDD 88 com 5 no início do número
+    expect(formatPhoneBr('885', false)).toBe('(88) 5')
+    expect(formatPhoneBr('+55 (88) 5', true)).toBe('+55 (88) 5')
+    expect(formatPhoneBr('+55 (88) 55', true)).toBe('+55 (88) 55')
+    expect(formatPhoneBr('+55 (88) 555', true)).toBe('+55 (88) 555')
+    // Digitando celular com DDD 55 (RS)
+    expect(formatPhoneBr('55', false)).toBe('(55')
+    expect(formatPhoneBr('+55 (55) 9', true)).toBe('+55 (55) 9')
+    expect(formatPhoneBr('+55 (55) 99999-5555', true)).toBe('+55 (55) 99999-5555')
+  })
+
   it('formata telefone fixo com e sem DDI', () => {
     expect(formatPhoneBr('1133334444', false)).toBe('(11) 3333-4444')
     expect(formatPhoneBr('1133334444', true)).toBe('+55 (11) 3333-4444')

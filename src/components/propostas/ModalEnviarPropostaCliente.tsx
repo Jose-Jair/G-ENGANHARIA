@@ -354,26 +354,28 @@ export function ModalEnviarPropostaCliente({
       }}
     >
       <DialogContent
-        className="w-[96vw] max-w-2xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6"
+        className="w-[96vw] max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden"
         onCloseAutoFocus={() => restoreBodyPointerEvents()}
       >
-        <DialogHeader className="border-b pb-3">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-orange-100 text-orange-700">
-              <Send className="w-5 h-5 text-orange-600" />
+        <div className="p-4 sm:p-6 pb-3 border-b shrink-0">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-orange-100 text-orange-700">
+                <Send className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <DialogTitle className="text-base sm:text-lg font-bold text-slate-900">
+                  Enviar Proposta ao Cliente — {proposta.numero}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500 mt-0.5">
+                  Envio oficial com máscara padrão, texto configurável e registro de auditoria.
+                </DialogDescription>
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-base sm:text-lg font-bold text-slate-900">
-                Enviar Proposta ao Cliente — {proposta.numero}
-              </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500 mt-0.5">
-                Envio oficial com máscara padrão, texto configurável e registro de auditoria.
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+          </DialogHeader>
+        </div>
 
-        <div className="space-y-4 pt-2 text-xs">
+        <div className="space-y-4 p-4 sm:p-6 overflow-y-auto flex-1 text-xs">
           {/* Card com Resumo do Cliente / Pré-Cadastro Vinculado */}
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between">
@@ -609,50 +611,52 @@ export function ModalEnviarPropostaCliente({
           </div>
         </div>
 
-        <DialogFooter className="mt-4 gap-2 border-t pt-3 flex-col sm:flex-row">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              restoreBodyPointerEvents()
-              onOpenChange(false)
-            }}
-            disabled={loading}
-          >
-            Cancelar
-          </Button>
+        <div className="p-4 sm:p-6 pt-3 border-t bg-slate-50 shrink-0">
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                restoreBodyPointerEvents()
+                onOpenChange(false)
+              }}
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
 
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleEnviar}
-            disabled={loading || loadingTexto}
-            className={`text-xs gap-1.5 font-semibold text-white ${
-              canal === 'whatsapp'
-                ? 'bg-emerald-600 hover:bg-emerald-700'
-                : 'bg-blue-600 hover:bg-blue-700'
-            }`}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Processando...
-              </>
-            ) : canal === 'whatsapp' ? (
-              <>
-                <MessageSquare className="w-3.5 h-3.5" />
-                Abrir WhatsApp e Auditar Envio
-              </>
-            ) : (
-              <>
-                <Mail className="w-3.5 h-3.5" />
-                Disparar E-mail Transacional
-              </>
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleEnviar}
+              disabled={loading || loadingTexto}
+              className={`text-xs gap-1.5 font-semibold text-white ${
+                canal === 'whatsapp'
+                  ? 'bg-emerald-600 hover:bg-emerald-700'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Processando...
+                </>
+              ) : canal === 'whatsapp' ? (
+                <>
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  Abrir WhatsApp e Auditar Envio
+                </>
+              ) : (
+                <>
+                  <Mail className="w-3.5 h-3.5" />
+                  Disparar E-mail Oficial
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </div>
+      </DialogContent>{' '}
     </Dialog>
   )
 }

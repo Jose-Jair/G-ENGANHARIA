@@ -27,10 +27,11 @@ import {
   UserCheck,
   ExternalLink,
   MessageSquare,
+  Mail,
 } from 'lucide-react'
 import { ContratoServicoRecord } from '@/types'
 import { DossieContratoServicoGmais } from './DossieContratoServicoGmais'
-import { ModalEnviarContratoWhatsApp } from './ModalEnviarContratoWhatsApp'
+import { ModalEnviarContrato } from './ModalEnviarContrato'
 import { ModalEnviarComplementoWhatsApp } from './ModalEnviarComplementoWhatsApp'
 import { AlertCircle } from 'lucide-react'
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
@@ -61,7 +62,8 @@ export function ModalDetalhesContratoServico({
   const [clausulasTexto, setClausulasTexto] = useState('')
   const [uploadingPdf, setUploadingPdf] = useState(false)
   const [dossieOpen, setDossieOpen] = useState(false)
-  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false)
+  const [showEnviarModal, setShowEnviarModal] = useState(false)
+  const [canalInicialEnvio, setCanalInicialEnvio] = useState<'whatsapp' | 'email'>('whatsapp')
   const [showComplementoWhatsAppModal, setShowComplementoWhatsAppModal] = useState(false)
 
   const loadContrato = async () => {
@@ -256,15 +258,45 @@ export function ModalDetalhesContratoServico({
 
               {!isAguardandoDados && contrato.token_assinatura_cliente && (
                 <>
-                  <Button
-                    size="sm"
-                    onClick={() => setShowWhatsAppModal(true)}
-                    className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-semibold shadow-xs"
-                    title="Enviar link de assinatura ao cliente via WhatsApp"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    Enviar WhatsApp
-                  </Button>
+                  <div className="relative inline-flex items-center">
+                    <Button
+                      size="sm"
+                      disabled={!contrato.data_assinatura_admin}
+                      onClick={() => {
+                        setCanalInicialEnvio('whatsapp')
+                        setShowEnviarModal(true)
+                      }}
+                      className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-semibold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={
+                        contrato.data_assinatura_admin
+                          ? 'Enviar link de assinatura ao cliente via WhatsApp'
+                          : 'Assinatura do Admin obrigatória antes de enviar ao cliente'
+                      }
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      Enviar WhatsApp
+                    </Button>
+                  </div>
+
+                  <div className="relative inline-flex items-center">
+                    <Button
+                      size="sm"
+                      disabled={!contrato.data_assinatura_admin}
+                      onClick={() => {
+                        setCanalInicialEnvio('email')
+                        setShowEnviarModal(true)
+                      }}
+                      className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1.5 font-semibold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={
+                        contrato.data_assinatura_admin
+                          ? 'Enviar link de assinatura ao cliente via E-mail'
+                          : 'Assinatura do Admin obrigatória antes de enviar ao cliente'
+                      }
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      Enviar E-mail
+                    </Button>
+                  </div>
 
                   <Button
                     variant="outline"
@@ -486,13 +518,39 @@ export function ModalDetalhesContratoServico({
                     <Button
                       type="button"
                       size="sm"
-                      onClick={() => setShowWhatsAppModal(true)}
-                      className="h-7 text-xs px-2 bg-emerald-600 hover:bg-emerald-700 text-white gap-1 shrink-0"
-                      title="Enviar por WhatsApp"
+                      disabled={!contrato.data_assinatura_admin}
+                      onClick={() => {
+                        setCanalInicialEnvio('whatsapp')
+                        setShowEnviarModal(true)
+                      }}
+                      className="h-7 text-xs px-2 bg-emerald-600 hover:bg-emerald-700 text-white gap-1 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={
+                        contrato.data_assinatura_admin
+                          ? 'Enviar por WhatsApp'
+                          : 'Assinatura do Admin obrigatória antes do envio'
+                      }
                     >
-                      <MessageSquare className="w-3 h-3" />
+                      <MessageSquare className="w-3.5 h-3.5" />
                       WhatsApp
                     </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={!contrato.data_assinatura_admin}
+                      onClick={() => {
+                        setCanalInicialEnvio('email')
+                        setShowEnviarModal(true)
+                      }}
+                      className="h-7 text-xs px-2 bg-blue-600 hover:bg-blue-700 text-white gap-1 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={
+                        contrato.data_assinatura_admin
+                          ? 'Enviar por E-mail'
+                          : 'Assinatura do Admin obrigatória antes do envio'
+                      }
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      E-mail
+                    </Button>{' '}
                   </div>
                 </div>
               )}
@@ -581,14 +639,15 @@ export function ModalDetalhesContratoServico({
         contrato={contrato}
       />
 
-      {showWhatsAppModal && contrato && (
-        <ModalEnviarContratoWhatsApp
-          open={showWhatsAppModal}
+      {showEnviarModal && contrato && (
+        <ModalEnviarContrato
+          open={showEnviarModal}
           onOpenChange={(op) => {
-            setShowWhatsAppModal(op)
+            setShowEnviarModal(op)
             restoreBodyPointerEvents()
           }}
           contrato={contrato}
+          initialCanal={canalInicialEnvio}
           onEnvioConcluido={() => {
             if (onUpdated) onUpdated()
           }}

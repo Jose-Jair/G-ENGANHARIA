@@ -1991,6 +1991,47 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
       $app.save(aRec)
     } catch (_) {}
 
+    // Atualização do status da proposta para "convertida_em_projeto"
+    if (propostaId) {
+      try {
+        const propToUpdate = $app.findRecordById('propostas', propostaId)
+        if (propToUpdate) {
+          const stAnt = propToUpdate.getString('status')
+          if (stAnt !== 'convertida_em_projeto') {
+            propToUpdate.set('status', 'convertida_em_projeto')
+            $app.save(propToUpdate)
+
+            try {
+              const aRecProp = new Record(auditCol)
+              aRecProp.set('user', null)
+              aRecProp.set('user_email', 'SISTEMA')
+              aRecProp.set('acao', 'PROPOSTA_CONVERTIDA_EM_PROJETO')
+              aRecProp.set('entidade', 'propostas')
+              aRecProp.set('registro_id', propostaId)
+              aRecProp.set('detalhes', {
+                origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+                mensagem:
+                  'Proposta ' +
+                  propostaNumero +
+                  ' convertida em projeto após assinatura bilateral do Contrato ' +
+                  contratoNumero,
+                status_anterior: stAnt,
+                novo_status: 'convertida_em_projeto',
+                contrato_id: contratoId,
+                contrato_numero: contratoNumero,
+                total_projetos: projetosGerados.length,
+              })
+              $app.save(aRecProp)
+            } catch (_) {}
+          }
+        }
+      } catch (errPropUpdate) {
+        console.log(
+          'Erro ao atualizar status da proposta para convertida_em_projeto: ' + errPropUpdate,
+        )
+      }
+    }
+
     // Promoção
     if (empresaId) {
       try {
@@ -2943,6 +2984,47 @@ routerAdd(
         $app.save(aRec)
       } catch (_) {}
 
+      // Atualização do status da proposta para "convertida_em_projeto"
+      if (propostaId) {
+        try {
+          const propToUpdate = $app.findRecordById('propostas', propostaId)
+          if (propToUpdate) {
+            const stAnt = propToUpdate.getString('status')
+            if (stAnt !== 'convertida_em_projeto') {
+              propToUpdate.set('status', 'convertida_em_projeto')
+              $app.save(propToUpdate)
+
+              try {
+                const aRecProp = new Record(auditCol)
+                aRecProp.set('user', null)
+                aRecProp.set('user_email', 'SISTEMA')
+                aRecProp.set('acao', 'PROPOSTA_CONVERTIDA_EM_PROJETO')
+                aRecProp.set('entidade', 'propostas')
+                aRecProp.set('registro_id', propostaId)
+                aRecProp.set('detalhes', {
+                  origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+                  mensagem:
+                    'Proposta ' +
+                    propostaNumero +
+                    ' convertida em projeto após assinatura bilateral do Contrato ' +
+                    contratoNumero,
+                  status_anterior: stAnt,
+                  novo_status: 'convertida_em_projeto',
+                  contrato_id: contratoId,
+                  contrato_numero: contratoNumero,
+                  total_projetos: projetosGerados.length,
+                })
+                $app.save(aRecProp)
+              } catch (_) {}
+            }
+          }
+        } catch (errPropUpdate) {
+          console.log(
+            'Erro ao atualizar status da proposta para convertida_em_projeto: ' + errPropUpdate,
+          )
+        }
+      }
+
       // Promoção
       if (empresaId) {
         try {
@@ -3159,6 +3241,346 @@ routerAdd(
     } catch (err) {
       console.log('Erro ao assinar contrato como admin: ' + err)
       return e.json(500, { message: 'Erro interno ao assinar contrato: ' + err })
+    }
+  },
+  $apis.requireAuth(),
+)
+
+// Endpoint para envio do Contrato por E-mail ao cliente
+// Requer autenticação e valida gate jurídico (o contrato DEVE estar assinado pelo Admin)
+routerAdd(
+  'POST',
+  '/backend/v1/contratos-servico/enviar-email',
+  (e) => {
+    try {
+      const reqInfo = e.requestInfo()
+      const authRecord = reqInfo.auth || e.auth
+      if (!authRecord) {
+        return e.json(401, { message: 'Autenticação necessária para enviar contrato por e-mail.' })
+      }
+
+      let body = {}
+      try {
+        body = reqInfo.body || {}
+      } catch (err) {
+        // body vazio
+      }
+
+      const contratoId = body.contrato_id || body.contratoId
+      if (!contratoId) {
+        return e.json(400, { message: 'ID do contrato não informado.' })
+      }
+
+      let contrato = null
+      try {
+        contrato = $app.findRecordById('contratos_servico', contratoId)
+      } catch (_) {
+        return e.json(404, { message: 'Contrato não encontrado.' })
+      }
+      if (!contrato) {
+        return e.json(404, { message: 'Contrato não encontrado.' })
+      }
+
+      // GATE JURÍDICO RIGOROSO:
+      // O envio ao cliente só é liberado após a assinatura formal do Administrador
+      const assinadoAdmin = Boolean(contrato.getString('data_assinatura_admin'))
+      if (!assinadoAdmin) {
+        return e.json(403, {
+          message:
+            'Envio bloqueado: o Contrato deve ser formalmente assinado pelo Administrador da G+ Engenharia antes de ser enviado ao cliente.',
+        })
+      }
+
+      // Se estiver aguardando dados cadastrais, também não pode enviar
+      if (contrato.getString('status') === 'aguardando_dados_cliente') {
+        return e.json(400, {
+          message: 'Envio bloqueado: os dados cadastrais do cliente ainda estão incompletos.',
+        })
+      }
+
+      // Identificar destinatário: body com fallback para PF ou PJ
+      let destinatarioEmail = (
+        body.destinatarioEmail ||
+        body.destinatario_email ||
+        body.email ||
+        ''
+      )
+        .toString()
+        .trim()
+        .toLowerCase()
+      let destinatarioNome = (body.destinatarioNome || body.destinatario_nome || body.nome || '')
+        .toString()
+        .trim()
+      const assuntoCustomizado = (body.assunto || '').toString().trim()
+      const corpoCustomizado = (body.corpo || '').toString().trim()
+
+      if (!destinatarioEmail) {
+        const pfId = contrato.getString('cliente_pf')
+        if (pfId) {
+          try {
+            const pf = $app.findRecordById('clientes_pf', pfId)
+            if (pf && pf.getString('email')) {
+              destinatarioEmail = pf.getString('email').trim().toLowerCase()
+              if (!destinatarioNome) destinatarioNome = pf.getString('nome') || 'Cliente'
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (!destinatarioEmail) {
+        const empId = contrato.getString('empresa')
+        if (empId) {
+          try {
+            const contatos = $app.findAllRecords(
+              'contatos',
+              $dbx.exp('empresa = {:emp}', { emp: empId }),
+            )
+            if (contatos && contatos.length > 0) {
+              const decisor = contatos.find((c) => c.getBool('decisor') === true) || contatos[0]
+              if (decisor && decisor.getString('email')) {
+                destinatarioEmail = decisor.getString('email').trim().toLowerCase()
+                if (!destinatarioNome) destinatarioNome = decisor.getString('nome') || ''
+              }
+            }
+          } catch (_) {}
+
+          if (!destinatarioEmail) {
+            try {
+              const emp = $app.findRecordById('empresas', empId)
+              if (emp && emp.getString('email')) {
+                destinatarioEmail = emp.getString('email').trim().toLowerCase()
+                if (!destinatarioNome) {
+                  destinatarioNome =
+                    emp.getString('razao_social') || emp.getString('nome_fantasia') || 'Cliente'
+                }
+              }
+            } catch (_) {}
+          }
+        }
+      }
+
+      if (!destinatarioEmail) {
+        return e.json(400, {
+          message:
+            'Não foi possível identificar o e-mail do cliente. Informe o endereço de destino no formulário.',
+        })
+      }
+
+      if (!destinatarioNome) {
+        destinatarioNome = 'Cliente'
+      }
+
+      // Verificação da lista "Não Contatar" (regra de plataforma)
+      try {
+        const emNaoContatar = $app.findAllRecords(
+          'nao_contatar',
+          $dbx.exp('LOWER(email) = {:email}', { email: destinatarioEmail }),
+        )
+        if (emNaoContatar && emNaoContatar.length > 0) {
+          return e.json(403, {
+            message:
+              'O destinatário (' +
+              destinatarioEmail +
+              ') encontra-se na lista "Não Contatar" da plataforma.',
+          })
+        }
+      } catch (ncErr) {
+        console.warn('[contratos_envio] Erro ao consultar lista nao_contatar:', ncErr)
+      }
+
+      // URL pública do contrato para assinatura eletrônica
+      const baseUrl = $os.getenv('PUBLIC_APP_URL') || 'https://gestao-gmais.skip.app'
+      const tokenAssinatura = contrato.getString('token_assinatura_cliente')
+      const linkPublico = baseUrl + '/contrato/' + tokenAssinatura
+      const linkDescadastro =
+        baseUrl + '/descadastro?email=' + encodeURIComponent(destinatarioEmail)
+
+      const contratoNumero = contrato.getString('numero') || 'CTR'
+      const objeto = contrato.getString('objeto') || 'Prestação de serviços técnicos de engenharia'
+      const valorTotal = contrato.getFloat('valor_total') || 0
+      const valorFmt =
+        'R$ ' +
+        valorTotal
+          .toFixed(2)
+          .replace('.', ',')
+          .replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+
+      const prazoDias = contrato.getInt('prazo_dias') || 30
+      const assuntoFinal =
+        assuntoCustomizado ||
+        'Contrato de Prestação de Serviços ' + contratoNumero + ' — G+ Engenharia'
+
+      const textoPrincipalHtml = corpoCustomizado
+        ? corpoCustomizado.replace(/\n/g, '<br/>')
+        : 'Encaminhamos para sua conferência e assinatura eletrônica o <strong>Contrato de Prestação de Serviços ' +
+          contratoNumero +
+          '</strong>.<br/><br/>' +
+          'O documento já foi devidamente formalizado e assinado pela Diretoria da <strong>G+ Engenharia</strong>. ' +
+          'Para formalizar o seu aceite e iniciar os trabalhos de engenharia, acesse o link seguro abaixo:'
+
+      const htmlBody = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>${assuntoFinal}</title>
+</head>
+<body style="margin: 0; padding: 24px 0; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0">
+    <tr>
+      <td align="center">
+        <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; max-width: 92%;">
+          <tr>
+            <td style="background-color: #1E2A4A; padding: 24px 32px; text-align: left;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td>
+                    <span style="font-size: 24px; font-weight: bold; color: #ffffff; letter-spacing: -0.5px;">GESTÃO <span style="color: #D95A2B;">G+</span></span>
+                    <div style="color: #cbd5e1; font-size: 11px; margin-top: 2px;">Engenharia Consultiva & Gestão de Projetos</div>
+                  </td>
+                  <td align="right">
+                    <span style="display: inline-block; padding: 4px 10px; background-color: rgba(217, 90, 43, 0.2); border: 1px solid #D95A2B; color: #ffedd5; font-size: 11px; font-weight: 600; border-radius: 4px;">CONTRATO DE SERVIÇOS</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 32px;">
+              <p style="font-size: 15px; line-height: 1.6; margin-top: 0; color: #1e293b;">
+                Olá, <strong>${destinatarioNome}</strong>,
+              </p>
+
+              <p style="font-size: 14px; line-height: 1.6; color: #334155;">
+                ${textoPrincipalHtml}
+              </p>
+
+              <table width="100%" border="0" cellspacing="0" cellpadding="12" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin: 20px 0; font-size: 13px;">
+                <tr>
+                  <td width="35%" style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Instrumento:</td>
+                  <td style="color: #0f172a; font-weight: bold; border-bottom: 1px solid #edf2f7;">${contratoNumero}</td>
+                </tr>
+                <tr>
+                  <td style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Objeto:</td>
+                  <td style="color: #0f172a; border-bottom: 1px solid #edf2f7;">${objeto}</td>
+                </tr>
+                <tr>
+                  <td style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Valor Global:</td>
+                  <td style="color: #D95A2B; font-weight: bold; font-size: 15px; border-bottom: 1px solid #edf2f7;">${valorFmt}</td>
+                </tr>
+                <tr>
+                  <td style="color: #64748b; font-weight: 600;">Prazo Estimado:</td>
+                  <td style="color: #0f172a;">${prazoDias} dias</td>
+                </tr>
+              </table>
+
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 28px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${linkPublico}" target="_blank" style="display: inline-block; padding: 14px 32px; background-color: #D95A2B; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: bold; border-radius: 6px; box-shadow: 0 2px 4px rgba(217, 90, 43, 0.3);">
+                      Assinar Contrato Online &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin-bottom: 0;">
+                Caso o botão acima não funcione, acesse copiando e colando o endereço abaixo:<br/>
+                <a href="${linkPublico}" style="color: #D95A2B; word-break: break-all;">${linkPublico}</a>
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background-color: #f8fafc; padding: 20px 32px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center;">
+              <p style="margin: 0 0 6px 0;">
+                Este e-mail foi gerado automaticamente pelo sistema <strong>GESTÃO G+</strong> da G+ Engenharia.
+              </p>
+              <p style="margin: 0;">
+                Se não deseja mais receber comunicados deste contrato, <a href="${linkDescadastro}" style="color: #64748b; text-decoration: underline;">clique aqui para descadastrar-se</a>.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`
+
+      const clientIp =
+        (e.request &&
+          typeof e.request.getHeader === 'function' &&
+          (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+        (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+        '127.0.0.1'
+
+      try {
+        const mailClient = $app.newMailClient()
+        const senderAddress =
+          $app.settings().meta.senderAddress || 'nao-responder@gmaisengenharia.com.br'
+        const senderName = $app.settings().meta.senderName || 'G+ Engenharia'
+
+        mailClient.send({
+          from: { address: senderAddress, name: senderName },
+          to: [{ address: destinatarioEmail, name: destinatarioNome }],
+          subject: assuntoFinal,
+          html: htmlBody,
+        })
+      } catch (sendErr) {
+        console.error('[contratos_envio] Falha no mailClient.send:', sendErr)
+        return e.json(500, {
+          message:
+            'Falha no servidor de e-mail ao enviar o contrato: ' +
+            (sendErr.message || String(sendErr)),
+        })
+      }
+
+      // Registro de auditoria do disparo com quem/quando/para quem/IP
+      try {
+        const auditCol = $app.findCollectionByNameOrId('audit_logs')
+        const aRec = new Record(auditCol)
+        aRec.set('user', authRecord.id)
+        aRec.set('user_email', authRecord.getString('email') || '')
+        aRec.set('acao', 'ENVIO_EMAIL_CONTRATO_SERVICO')
+        aRec.set('entidade', 'contratos_servico')
+        aRec.set('registro_id', contrato.id)
+        aRec.set('detalhes', {
+          origem: 'DISPARO_MANUAL_SISTEMA',
+          mensagem:
+            'Contrato ' +
+            contratoNumero +
+            ' enviado por e-mail para ' +
+            destinatarioEmail +
+            ' por ' +
+            authRecord.getString('name'),
+          contrato_id: contrato.id,
+          contrato_numero: contratoNumero,
+          destinatario_nome: destinatarioNome,
+          destinatario_email: destinatarioEmail,
+          assunto: assuntoFinal,
+          remetente_id: authRecord.id,
+          remetente_nome: authRecord.getString('name'),
+          data_envio: new Date().toISOString(),
+          ip: clientIp,
+        })
+        aRec.set('ip', clientIp)
+        $app.save(aRec)
+      } catch (auditErr) {
+        console.warn('[contratos_envio] Falha ao registrar auditoria:', auditErr)
+      }
+
+      return e.json(200, {
+        success: true,
+        message: 'Contrato enviado por e-mail com sucesso para ' + destinatarioEmail + '.',
+        contrato_id: contrato.id,
+        contrato_numero: contratoNumero,
+      })
+    } catch (err) {
+      console.log('Erro ao enviar contrato por e-mail: ' + err)
+      return e.json(500, { message: 'Erro interno ao enviar contrato: ' + err })
     }
   },
   $apis.requireAuth(),

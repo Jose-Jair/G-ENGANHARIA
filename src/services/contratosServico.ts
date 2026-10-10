@@ -267,6 +267,34 @@ export const contratosServicoService = {
   },
 
   /**
+   * Envia o link de assinatura do contrato por e-mail ao cliente via servidor
+   */
+  async enviarEmail(params: {
+    contratoId: string
+    destinatarioEmail?: string
+    destinatarioNome?: string
+    assunto?: string
+    corpo?: string
+  }): Promise<{ success: boolean; message: string; contrato_id: string; contrato_numero: string }> {
+    const res = await pb.send<{
+      success: boolean
+      message: string
+      contrato_id: string
+      contrato_numero: string
+    }>('/backend/v1/contratos-servico/enviar-email', {
+      method: 'POST',
+      body: {
+        contrato_id: params.contratoId,
+        destinatarioEmail: params.destinatarioEmail,
+        destinatarioNome: params.destinatarioNome,
+        assunto: params.assunto,
+        corpo: params.corpo,
+      },
+    })
+    return res
+  },
+
+  /**
    * Upload de arquivo PDF final assinado
    */
   async uploadPdfAssinado(contratoId: string, file: File): Promise<ContratoServicoRecord> {

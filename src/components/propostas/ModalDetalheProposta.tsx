@@ -135,11 +135,8 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
     }
   }
 
-  // Portão de validação: O link só é liberado para o cliente se a proposta estiver validada/aprovada (não rascunho nem em aprovação interna)
-  const isAprovadaParaEnvio =
-    proposta.status !== 'rascunho' &&
-    proposta.status !== 'aprovacao_interna' &&
-    Boolean(proposta.token_aceite)
+  // Portão de validação: O link só é liberado para o cliente se a proposta estiver validada/aprovada (não rascunho)
+  const isAprovadaParaEnvio = proposta.status !== 'rascunho' && Boolean(proposta.token_aceite)
 
   const publicLink = isAprovadaParaEnvio
     ? `${window.location.origin}/proposta/${proposta.token_aceite}`
@@ -341,14 +338,20 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                   </Button>
                 )}
 
-                {proposta.status === 'rascunho' && onAbrirAprovacao && (
+                {proposta.status === 'rascunho' && (
                   <Button
                     size="sm"
-                    onClick={() => onAbrirAprovacao(proposta)}
+                    onClick={() => {
+                      if (onAbrirAprovacao) {
+                        onAbrirAprovacao(proposta)
+                      } else if (onMudarStatus) {
+                        onMudarStatus(proposta, 'aprovada')
+                      }
+                    }}
                     className="h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white gap-1"
                   >
                     <FileCheck className="w-3.5 h-3.5" />
-                    Aprovar Proposta
+                    {proposta.requer_aprovacao_admin ? 'Aprovar Proposta' : 'Aprovar Proposta'}
                   </Button>
                 )}
               </div>
@@ -950,12 +953,16 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() =>
-                          onMudarStatus && onMudarStatus(proposta, 'aprovacao_interna')
-                        }
+                        onClick={() => {
+                          if (onAbrirAprovacao) {
+                            onAbrirAprovacao(proposta)
+                          } else if (onMudarStatus) {
+                            onMudarStatus(proposta, 'aprovada')
+                          }
+                        }}
                         className="text-xs h-7 text-amber-700 hover:bg-amber-50"
                       >
-                        Enviar para Aprovação
+                        Aprovar Proposta
                       </Button>
                     )}
                   </div>

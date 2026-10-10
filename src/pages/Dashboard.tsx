@@ -657,7 +657,7 @@ export function DashboardPage() {
 
             {/* Aguardando Aprovação Interna (Alçada) */}
             <div
-              onClick={() => navigate('/propostas?status=aprovacao_interna')}
+              onClick={() => navigate('/propostas?status=rascunho')}
               className="p-4 bg-amber-50/60 border border-amber-200 rounded-lg cursor-pointer hover:bg-amber-50 transition-colors"
             >
               <div className="flex items-center justify-between">
@@ -670,7 +670,7 @@ export function DashboardPage() {
                 {dados?.propostas.aguardandoAprovacaoInterna.total ?? 0}
               </div>
               <p className="text-[11px] text-amber-800 mt-1">
-                Propostas retidas por alçada financeira/admin
+                Propostas em rascunho com pendência de aprovação
               </p>
             </div>
 

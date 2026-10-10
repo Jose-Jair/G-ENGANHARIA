@@ -427,24 +427,14 @@ export const ModalDetalheEtapa: React.FC<ModalDetalheEtapaProps> = ({
                 </Button>
               )}
 
-              {canEdit &&
-                isTerceirizada &&
-                etapa.status === 'concluida' &&
-                etapa.executor &&
-                onAbrirAvaliacao && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      onOpenChange(false)
-                      onAbrirAvaliacao(etapa)
-                    }}
-                    className="text-xs border-amber-300 text-amber-800 hover:bg-amber-50"
-                  >
-                    <Star className="w-3.5 h-3.5 mr-1" />
-                    Avaliar Executor
-                  </Button>
-                )}
+              {isTerceirizada && etapa.status === 'concluida' && etapa.executor && (
+                <span
+                  className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 px-2 py-1 rounded"
+                  title="Avaliação formal vinculada a subcontrato e medições na aba Medições"
+                >
+                  Avaliações agora na aba Medições
+                </span>
+              )}
 
               <div className="ml-auto flex items-center gap-2">
                 {canEdit && (

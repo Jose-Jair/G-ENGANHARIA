@@ -551,20 +551,15 @@ export const EtapasTab: React.FC<EtapasTabProps> = ({
                       </Button>
                     )}
 
-                    {/* Avaliar Executor quando concluída e terceirizada */}
-                    {canEdit &&
-                      isEtapaTerceirizada &&
-                      etapa.status === 'concluida' &&
-                      etapa.executor && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onAbrirAvaliacao(etapa)}
-                          className="text-xs border-amber-300 hover:bg-amber-50 text-amber-800 h-8"
-                        >
-                          ⭐ Avaliar Executor
-                        </Button>
-                      )}
+                    {/* Indicação de avaliação canônica na aba Medições */}
+                    {isEtapaTerceirizada && etapa.status === 'concluida' && etapa.executor && (
+                      <span
+                        className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 px-2 py-1 rounded"
+                        title="Avaliação de desempenho do executor agora é realizada com base nas medições pagas na aba Medições"
+                      >
+                        Avaliações na aba Medições
+                      </span>
+                    )}
 
                     {/* Transições de Status */}
                     {canEdit && (

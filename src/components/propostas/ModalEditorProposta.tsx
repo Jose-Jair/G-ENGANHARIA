@@ -884,7 +884,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
       }
 
       if (enviarParaAprovacao) {
-        payload.status = 'aprovacao_interna'
+        payload.status = 'aprovada'
       }
 
       let res: PropostaRecord
@@ -902,7 +902,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
         })
       } else {
         payload.criado_por = currentUserId
-        payload.status = enviarParaAprovacao ? 'aprovacao_interna' : 'rascunho'
+        payload.status = enviarParaAprovacao ? 'aprovada' : 'rascunho'
         res = await propostasService.create(payload)
 
         // Sincronizar parcelas no banco

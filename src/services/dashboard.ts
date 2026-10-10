@@ -429,8 +429,10 @@ export const dashboardService = {
       }
     }
 
-    // Propostas aguardando aprovação interna
-    const propostasAprovacao = propostas.filter((p) => p.status === 'aprovacao_interna')
+    // Propostas aguardando aprovação interna (rascunhos com pendência de aprovação de alçada)
+    const propostasAprovacao = propostas.filter(
+      (p) => p.status === 'rascunho' && Boolean(p.requer_aprovacao_admin),
+    )
     const aguardandoAprovacaoInterna = {
       total: propostasAprovacao.length,
       propostas: propostasAprovacao.map((p) => ({

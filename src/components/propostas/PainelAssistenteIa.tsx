@@ -68,11 +68,7 @@ export const PainelAssistenteIa: React.FC<PainelAssistenteIaProps> = ({
   const [entregaveisSelecionados, setEntregaveisSelecionados] = useState<string[]>([])
 
   // Bloqueio de aplicação se proposta já foi enviada/aprovada/aceita
-  const isBloqueadaParaGravacao =
-    isEdicao &&
-    propostaStatus &&
-    propostaStatus !== 'rascunho' &&
-    propostaStatus !== 'aprovacao_interna'
+  const isBloqueadaParaGravacao = isEdicao && propostaStatus && propostaStatus !== 'rascunho'
 
   const handleEnviar = async () => {
     const textoLimpo = mensagem.trim()

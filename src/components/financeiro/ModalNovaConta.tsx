@@ -8,6 +8,8 @@ import {
   DocumentoRecord,
 } from '@/types'
 import { financeiroService, CreateContaManualData } from '@/services/financeiro'
+import { contratosServicoService } from '@/services/contratosServico'
+import { ContratoServicoRecord } from '@/types'
 import { formatCurrencyBr } from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -63,6 +65,8 @@ export function ModalNovaConta({
   const [nf, setNf] = useState('')
   const [projetoId, setProjetoId] = useState('')
   const [executorId, setExecutorId] = useState('')
+  const [contratoServicoId, setContratoServicoId] = useState('')
+  const [contratos, setContratos] = useState<ContratoServicoRecord[]>([])
 
   // Campos Geração por Medição de Projeto
   const [medicaoDocId, setMedicaoDocId] = useState('')
@@ -77,6 +81,22 @@ export function ModalNovaConta({
   React.useEffect(() => {
     setTipo(tipoDefault)
   }, [tipoDefault, open])
+
+  React.useEffect(() => {
+    if (open) {
+      contratosServicoService
+        .getAll()
+        .then(setContratos)
+        .catch((err) => {
+          console.warn('Erro ao carregar contratos de serviço:', err)
+        })
+    }
+  }, [open])
+
+  const contratosFiltrados = React.useMemo(() => {
+    if (!projetoId) return contratos
+    return contratos.filter((c) => c.projeto === projetoId)
+  }, [contratos, projetoId])
 
   // Quando escolhe uma medição existente
   const handleSelecionarMedicao = (docId: string) => {
@@ -124,6 +144,7 @@ export function ModalNovaConta({
         forma_pagamento: formaPagamento,
         nf: nf.trim() || undefined,
         projeto: projetoId || undefined,
+        contrato_servico: contratoServicoId || undefined,
         executor: executorId || undefined,
         status: 'rascunho',
       }
@@ -212,6 +233,7 @@ export function ModalNovaConta({
     setVencimento('')
     setNf('')
     setProjetoId('')
+    setContratoServicoId('')
     setExecutorId('')
     setMedicaoDocId('')
     setMedicaoProjetoId('')
@@ -335,12 +357,24 @@ export function ModalNovaConta({
 
                 <div>
                   <Label>Projeto Vinculado (Opcional)</Label>
-                  <Select value={projetoId} onValueChange={setProjetoId}>
+                  <Select
+                    value={projetoId || '_none_'}
+                    onValueChange={(val) => {
+                      const next = val === '_none_' ? '' : val
+                      setProjetoId(next)
+                      if (next && contratoServicoId) {
+                        const ct = contratos.find((c) => c.id === contratoServicoId)
+                        if (ct && ct.projeto && ct.projeto !== next) {
+                          setContratoServicoId('')
+                        }
+                      }
+                    }}
+                  >
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Selecione se aplicável..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">-- Sem vínculo com projeto --</SelectItem>
+                      <SelectItem value="_none_">-- Sem vínculo com projeto --</SelectItem>
                       {projetos.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
                           {p.codigo} - {p.nome || 'Projeto'}
@@ -349,6 +383,32 @@ export function ModalNovaConta({
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div>
+                <Label>Contrato de Serviços (Opcional)</Label>
+                <Select
+                  value={contratoServicoId || '_none_'}
+                  onValueChange={(val) => setContratoServicoId(val === '_none_' ? '' : val)}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Selecione um contrato CTR..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none_">
+                      -- Sem vínculo com contrato de serviço --
+                    </SelectItem>
+                    {contratosFiltrados.map((c) => {
+                      const clienteNome =
+                        c.expand?.empresa?.razao_social || c.expand?.cliente_pf?.nome || 'Cliente'
+                      return (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.numero} - {c.objeto?.substring(0, 35)}... ({clienteNome})
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
               </div>
 
               {tipo === 'pagar' && (

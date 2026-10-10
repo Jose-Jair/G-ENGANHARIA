@@ -199,6 +199,10 @@ export const contratosServicoService = {
     })
   },
 
+  async getAll(): Promise<ContratoServicoRecord[]> {
+    return this.listAll()
+  },
+
   async updateClausulas(id: string, clausulasTexto: string): Promise<ContratoServicoRecord> {
     const updated = await pb.collection('contratos_servico').update<ContratoServicoRecord>(id, {
       clausulas_texto: clausulasTexto,

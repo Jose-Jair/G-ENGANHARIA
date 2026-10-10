@@ -717,7 +717,7 @@ export const ExecutoresPage: React.FC = () => {
                               type="button"
                               onClick={() => {
                                 setExecutorHistorico(ex)
-                                setModalHistoricoOpen(true)
+                                setModalHistoricoExecOpen(true)
                               }}
                               className="flex items-center gap-1 text-slate-900 font-black text-sm hover:underline"
                               title="Ver histórico de avaliações"
@@ -1120,7 +1120,7 @@ export const ExecutoresPage: React.FC = () => {
                               type="button"
                               onClick={() => {
                                 setExecutorHistorico(ex)
-                                setModalHistoricoOpen(true)
+                                setModalHistoricoExecOpen(true)
                               }}
                               className="inline-flex items-center gap-1 font-black text-sm hover:underline text-slate-900"
                             >
@@ -1159,7 +1159,7 @@ export const ExecutoresPage: React.FC = () => {
                               size="sm"
                               onClick={() => {
                                 setExecutorHistorico(ex)
-                                setModalHistoricoOpen(true)
+                                setModalHistoricoExecOpen(true)
                               }}
                               className="h-7 text-xs text-blue-600 hover:text-blue-800"
                             >

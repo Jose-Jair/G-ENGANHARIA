@@ -775,6 +775,16 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
       }
     }
 
+    if (!empreendimento.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Nome do empreendimento obrigatório',
+        description:
+          'Informe o nome do empreendimento ou obra antes de salvar ou finalizar a proposta.',
+      })
+      return
+    }
+
     if (tipoCliente === 'pj' && !selectedEmpresaId) {
       toast({
         variant: 'destructive',

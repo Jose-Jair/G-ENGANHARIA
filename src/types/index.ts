@@ -580,7 +580,6 @@ export interface PropostaRecord {
   condicoes_gerais?: string
   status:
     | 'rascunho'
-    | 'aprovacao_interna'
     | 'aprovada'
     | 'enviada'
     | 'visualizada'
@@ -1046,6 +1045,7 @@ export interface ContaRecord {
   tipo: 'receber' | 'pagar'
   projeto?: string
   proposta?: string
+  contrato_servico?: string
   executor?: string
   etapa?: string
   descricao: string
@@ -1067,6 +1067,7 @@ export interface ContaRecord {
   expand?: {
     projeto?: ProjetoRecord
     proposta?: PropostaRecord
+    contrato_servico?: ContratoServicoRecord
     executor?: ExecutorRecord
     etapa?: ProjetoEtapaRecord
     subcontrato?: SubcontratoRecord

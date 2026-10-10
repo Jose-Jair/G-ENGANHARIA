@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-10T00:09:32.364Z",
+  "generatedAt": "2026-10-10T00:52:05.025Z",
   "collections": [
     {
       "name": "users",
@@ -1248,14 +1248,13 @@
           "system": false,
           "selectValues": [
             "rascunho",
-            "aprovacao_interna",
+            "aprovada",
             "enviada",
             "visualizada",
             "em_negociacao",
             "aceita",
             "recusada",
-            "expirada",
-            "aprovada"
+            "expirada"
           ]
         },
         {
@@ -2529,6 +2528,13 @@
           "required": false,
           "system": false,
           "collectionRef": "subcontratos"
+        },
+        {
+          "name": "contrato_servico",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "contratos_servico"
         }
       ],
       "indexes": [

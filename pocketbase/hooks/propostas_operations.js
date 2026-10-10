@@ -58,13 +58,9 @@ onRecordCreate((e) => {
     }
 
     // Regra: link/token_aceite só é gerado quando aprovada pelo Admin/Comercial
-    // Se a proposta já estiver nascendo aprovada ou com status posterior a rascunho/aprovacao_interna
+    // Se a proposta já estiver nascendo aprovada ou com status posterior a rascunho
     const statusCriado = rec.getString('status') || 'rascunho'
-    if (
-      statusCriado !== 'rascunho' &&
-      statusCriado !== 'aprovacao_interna' &&
-      !rec.getString('token_aceite')
-    ) {
+    if (statusCriado !== 'rascunho' && !rec.getString('token_aceite')) {
       rec.set('token_aceite', $security.randomString(32))
     }
 
@@ -167,13 +163,9 @@ onRecordUpdate((e) => {
     const oldStatus = original ? original.getString('status') : ''
     const newStatus = rec.getString('status')
 
-    // PORTÃO DE VALIDAÇÃO: Quando a proposta for validada/aprovada (ex: vira 'enviada'),
+    // PORTÃO DE VALIDAÇÃO: Quando a proposta for validada/aprovada (ex: vira 'enviada' ou 'aprovada'),
     // se ainda não possuir token_aceite, gera agora!
-    if (
-      newStatus !== 'rascunho' &&
-      newStatus !== 'aprovacao_interna' &&
-      !rec.getString('token_aceite')
-    ) {
+    if (newStatus !== 'rascunho' && !rec.getString('token_aceite')) {
       rec.set('token_aceite', $security.randomString(32))
     }
 
@@ -941,6 +933,7 @@ onRecordAfterUpdateSuccess((e) => {
             novaConta.set('tipo', 'receber')
             if (projetoRefId) novaConta.set('projeto', projetoRefId)
             if (propostaId) novaConta.set('proposta', propostaId)
+            if (contratoId) novaConta.set('contrato_servico', contratoId)
             novaConta.set(
               'descricao',
               'Contrato ' +
@@ -1013,6 +1006,7 @@ onRecordAfterUpdateSuccess((e) => {
           novaConta.set('tipo', 'receber')
           if (projetoRefId) novaConta.set('projeto', projetoRefId)
           if (propostaId) novaConta.set('proposta', propostaId)
+          if (contratoId) novaConta.set('contrato_servico', contratoId)
           novaConta.set(
             'descricao',
             'Recebimento integral do Contrato Assinado ' +

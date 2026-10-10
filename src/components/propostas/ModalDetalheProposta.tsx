@@ -108,10 +108,6 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
     switch (status) {
       case 'rascunho':
         return <Badge variant="secondary">Rascunho</Badge>
-      case 'aprovacao_interna':
-        return (
-          <Badge className="bg-amber-100 text-amber-800 border-amber-300">Aprovação Interna</Badge>
-        )
       case 'aprovada':
         return <Badge className="bg-teal-100 text-teal-800 border-teal-300">Aprovada</Badge>
       case 'enviada':
@@ -345,14 +341,14 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                   </Button>
                 )}
 
-                {proposta.status === 'aprovacao_interna' && onAbrirAprovacao && (
+                {proposta.status === 'rascunho' && onAbrirAprovacao && (
                   <Button
                     size="sm"
                     onClick={() => onAbrirAprovacao(proposta)}
                     className="h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white gap-1"
                   >
                     <FileCheck className="w-3.5 h-3.5" />
-                    Aprovação Interna
+                    Aprovar Proposta
                   </Button>
                 )}
               </div>

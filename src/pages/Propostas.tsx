@@ -229,10 +229,6 @@ export const PropostasPage: React.FC = () => {
     switch (status) {
       case 'rascunho':
         return <Badge variant="secondary">Rascunho</Badge>
-      case 'aprovacao_interna':
-        return (
-          <Badge className="bg-amber-100 text-amber-800 border-amber-300">Aprovação Interna</Badge>
-        )
       case 'aprovada':
         return <Badge className="bg-teal-100 text-teal-800 border-teal-300">Aprovada</Badge>
       case 'enviada':
@@ -546,7 +542,6 @@ export const PropostasPage: React.FC = () => {
             <SelectContent>
               <SelectItem value="todos">Todos os Status</SelectItem>
               <SelectItem value="rascunho">Rascunho</SelectItem>
-              <SelectItem value="aprovacao_interna">Aprovação Interna</SelectItem>
               <SelectItem value="aprovada">Aprovada</SelectItem>
               <SelectItem value="enviada">Enviada</SelectItem>
               <SelectItem value="visualizada">Visualizada</SelectItem>
@@ -775,7 +770,7 @@ export const PropostasPage: React.FC = () => {
                             </Button>
                           )}
 
-                          {p.status === 'aprovacao_interna' && (
+                          {p.status === 'rascunho' && (
                             <Button
                               variant="outline"
                               size="sm"

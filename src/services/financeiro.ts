@@ -12,6 +12,7 @@ export interface CreateContaManualData {
   tipo: 'receber' | 'pagar'
   projeto?: string
   proposta?: string
+  contrato_servico?: string
   executor?: string
   etapa?: string
   descricao: string
@@ -65,7 +66,7 @@ export const financeiroService = {
   async listAll(): Promise<ContaRecord[]> {
     const list = await pb.collection('contas').getFullList<ContaRecord>({
       sort: 'vencimento',
-      expand: 'projeto,proposta,executor,etapa',
+      expand: 'projeto,proposta,contrato_servico,executor,etapa',
     })
     return this.normalizarContasAtrasadas(list)
   },
@@ -109,6 +110,7 @@ export const financeiroService = {
 
     if (data.projeto) payload.projeto = data.projeto
     if (data.proposta) payload.proposta = data.proposta
+    if (data.contrato_servico) payload.contrato_servico = data.contrato_servico
     if (data.executor) payload.executor = data.executor
     if (data.etapa) payload.etapa = data.etapa
     if (data.retencao_impostos !== undefined) payload.retencao_impostos = data.retencao_impostos

@@ -1840,6 +1840,7 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
             novaConta.set('tipo', 'receber')
             if (projetoRefId) novaConta.set('projeto', projetoRefId)
             if (propostaId) novaConta.set('proposta', propostaId)
+            if (contratoId) novaConta.set('contrato_servico', contratoId)
             novaConta.set(
               'descricao',
               'Contrato ' +
@@ -1909,6 +1910,7 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
           novaConta.set('tipo', 'receber')
           if (projetoRefId) novaConta.set('projeto', projetoRefId)
           if (propostaId) novaConta.set('proposta', propostaId)
+          if (contratoId) novaConta.set('contrato_servico', contratoId)
           novaConta.set(
             'descricao',
             'Recebimento integral do Contrato Assinado ' +
@@ -2783,6 +2785,7 @@ routerAdd(
               novaConta.set('tipo', 'receber')
               if (projetoRefId) novaConta.set('projeto', projetoRefId)
               if (propostaId) novaConta.set('proposta', propostaId)
+              if (contratoId) novaConta.set('contrato_servico', contratoId)
               novaConta.set(
                 'descricao',
                 'Contrato ' +
@@ -2856,6 +2859,7 @@ routerAdd(
             novaConta.set('tipo', 'receber')
             if (projetoRefId) novaConta.set('projeto', projetoRefId)
             if (propostaId) novaConta.set('proposta', propostaId)
+            if (contratoId) novaConta.set('contrato_servico', contratoId)
             novaConta.set(
               'descricao',
               'Recebimento integral do Contrato Assinado ' +

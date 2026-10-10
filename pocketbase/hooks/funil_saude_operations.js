@@ -91,15 +91,14 @@ routerAdd(
       } else if (acao === 'marcar_nao_contatar') {
         const cnpj = empresa.getString('cnpj') || ''
         const email = empresa.getString('email') || ''
-        const telefone = empresa.getString('telefone') || ''
         const razaoSocial = empresa.getString('razao_social') || ''
 
         // Inserir na coleção nao_contatar se não existir
         const naoContatarCol = $app.findCollectionByNameOrId('nao_contatar')
         let ncExiste = false
-        if (cnpj) {
+        if (empresaId) {
           try {
-            const achou = $app.findFirstRecordByData('nao_contatar', 'cnpj', cnpj)
+            const achou = $app.findFirstRecordByData('nao_contatar', 'empresa', empresaId)
             if (achou) ncExiste = true
           } catch (_) {}
         }
@@ -110,20 +109,12 @@ routerAdd(
           } catch (_) {}
         }
 
-        if (!ncExiste) {
+        if (!ncExiste && (email || empresaId)) {
           const ncRec = new Record(naoContatarCol)
-          ncRec.set('cnpj', cnpj)
-          ncRec.set('razao_social', razaoSocial)
-          ncRec.set('email', email)
-          ncRec.set('telefone', telefone)
-          ncRec.set('origem', 'solicitacao_cliente')
+          ncRec.set('empresa', empresaId)
+          ncRec.set('email', email || 'nao-informado@lead.com')
           ncRec.set('motivo', motivo)
-          ncRec.set('data_solicitacao', new Date().toISOString())
-          ncRec.set('ativo', true)
-          ncRec.set(
-            'observacoes',
-            'Lead marcado como Não Contatar a partir do Painel de Saúde do Funil.',
-          )
+          ncRec.set('data_inclusao', new Date().toISOString().substring(0, 10) + ' 12:00:00.000Z')
           $app.save(ncRec)
         }
 

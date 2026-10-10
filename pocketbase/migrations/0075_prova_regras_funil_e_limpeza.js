@@ -247,12 +247,10 @@ migrate(
 
       // Marcar Não Contatar
       const ncRec = new Record(naoContatarCol)
-      ncRec.set('cnpj', '33.444.555/0001-99')
-      ncRec.set('razao_social', 'LEAD FIM DE FUNIL 8 DIAS QA LTDA')
+      ncRec.set('empresa', empFimFunil.id)
       ncRec.set('email', 'lead8dias@teste.eng.br')
-      ncRec.set('origem', 'solicitacao_cliente')
       ncRec.set('motivo', 'Fim de funil sem conversão')
-      ncRec.set('ativo', true)
+      ncRec.set('data_inclusao', new Date().toISOString().substring(0, 10) + ' 12:00:00.000Z')
       app.save(ncRec)
       idsNaoContatarLimpar.push(ncRec.id)
 

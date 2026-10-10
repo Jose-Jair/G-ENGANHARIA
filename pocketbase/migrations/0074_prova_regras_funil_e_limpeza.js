@@ -338,12 +338,10 @@ migrate(
 
       // Teste Ação 2: Marcar como Não Contatar (insere na coleção nao_contatar + MARCADO_NAO_CONTATAR)
       const ncRec = new Record(naoContatarCol)
-      ncRec.set('cnpj', '33.444.555/0001-99')
-      ncRec.set('razao_social', 'LEAD FIM DE FUNIL 8 DIAS QA LTDA')
+      ncRec.set('empresa', empFimFunil.id)
       ncRec.set('email', 'lead8dias@teste.eng.br')
-      ncRec.set('origem', 'solicitacao_cliente')
       ncRec.set('motivo', 'Fim de funil sem conversão')
-      ncRec.set('ativo', true)
+      ncRec.set('data_inclusao', new Date().toISOString().substring(0, 10) + ' 12:00:00.000Z')
       app.save(ncRec)
       idsNaoContatarLimpar.push(ncRec.id)
 
@@ -362,7 +360,7 @@ migrate(
       app.save(aRecNaoContatar)
       idsAuditLogsLimpar.push(aRecNaoContatar.id)
 
-      const ncAchou = app.findFirstRecordByData('nao_contatar', 'cnpj', '33.444.555/0001-99')
+      const ncAchou = app.findFirstRecordByData('nao_contatar', 'email', 'lead8dias@teste.eng.br')
       if (!ncAchou) {
         throw new Error('Falha na Prova D: Registro não encontrado na coleção nao_contatar.')
       }

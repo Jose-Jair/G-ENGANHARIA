@@ -76,12 +76,22 @@ migrate(
     // Checklist inicial com 4 itens pendentes
     subProva.set('checklist_encerramento_json', [
       { id: 'art_rrt', titulo: 'ART / RRT recolhida e averbada', concluido: false },
-      { id: 'laudos', titulo: 'Laudos e entregáveis técnicos entregues e aprovados', concluido: false },
+      {
+        id: 'laudos',
+        titulo: 'Laudos e entregáveis técnicos entregues e aprovados',
+        concluido: false,
+      },
       { id: 'medicao_final', titulo: 'Medição final conferida e fechada', concluido: false },
-      { id: 'avaliacao_registrada', titulo: 'Avaliação do executor registrada no sistema', concluido: false },
+      {
+        id: 'avaliacao_registrada',
+        titulo: 'Avaliação do executor registrada no sistema',
+        concluido: false,
+      },
     ])
     app.save(subProva)
-    fnLog('3. Subcontrato de prova criado: ' + subProva.id + ' (' + subProva.getString('numero') + ')')
+    fnLog(
+      '3. Subcontrato de prova criado: ' + subProva.id + ' (' + subProva.getString('numero') + ')',
+    )
 
     // Auditoria de criação
     fnAudit('SUBCONTRATO_PROVA_CRIADO', 'subcontratos', subProva.id, {
@@ -120,7 +130,10 @@ migrate(
     const contaMedicao = new Record(contasCol)
     contaMedicao.set('tipo', 'pagar')
     contaMedicao.set('status', 'rascunho')
-    contaMedicao.set('descricao', 'PROVA_0086 Medição 01 — Subcontrato ' + subProva.getString('numero'))
+    contaMedicao.set(
+      'descricao',
+      'PROVA_0086 Medição 01 — Subcontrato ' + subProva.getString('numero'),
+    )
     contaMedicao.set('valor', 18000.0)
     contaMedicao.set('subcontrato', subProva.id)
     contaMedicao.set('projeto', projetoProva.id)
@@ -146,7 +159,10 @@ migrate(
     // Agora simular o aceite formal pelo cliente da medição
     medProva.set('aceita_pelo_cliente', true)
     medProva.set('data_aceite_cliente', new Date().toISOString())
-    medProva.set('parecer_aceite_cliente', 'Entrega técnica conferida e aprovada formalmente pelo fiscal.')
+    medProva.set(
+      'parecer_aceite_cliente',
+      'Entrega técnica conferida e aprovada formalmente pelo fiscal.',
+    )
     app.save(medProva)
     fnLog('8. Medição marcada com aceite formal do cliente.')
 
@@ -159,7 +175,10 @@ migrate(
     const contaRetencao = new Record(contasCol)
     contaRetencao.set('tipo', 'pagar')
     contaRetencao.set('status', 'rascunho')
-    contaRetencao.set('descricao', 'PROVA_0086 Liberação de Retenção Técnica — ' + subProva.getString('numero'))
+    contaRetencao.set(
+      'descricao',
+      'PROVA_0086 Liberação de Retenção Técnica — ' + subProva.getString('numero'),
+    )
     contaRetencao.set('valor', 2000.0)
     contaRetencao.set('subcontrato', subProva.id)
     contaRetencao.set('projeto', projetoProva.id)
@@ -170,7 +189,9 @@ migrate(
     // 8. Teste de Encerramento com Bloqueios:
     // TENTATIVA INVÁLIDA 1: Tentar encerrar com checklist pendente e contas a pagar em aberto
     let tentativaBloqueadaPendente = false
-    const pendenciasChecklist = subProva.get('checklist_encerramento_json').filter((it) => !it.concluido)
+    const pendenciasChecklist = subProva
+      .get('checklist_encerramento_json')
+      .filter((it) => !it.concluido)
     const contasNaoPagas = app.findRecordsByFilter(
       'contas',
       "subcontrato = '" + subProva.id + "' && status != 'paga'",
@@ -216,10 +237,30 @@ migrate(
 
     // 10. Completar todos os 4 itens do checklist
     const checklistCompleto = [
-      { id: 'art_rrt', titulo: 'ART / RRT recolhida e averbada', concluido: true, concluido_por: 'sistema' },
-      { id: 'laudos', titulo: 'Laudos e entregáveis técnicos entregues e aprovados', concluido: true, concluido_por: 'sistema' },
-      { id: 'medicao_final', titulo: 'Medição final conferida e fechada', concluido: true, concluido_por: 'sistema' },
-      { id: 'avaliacao_registrada', titulo: 'Avaliação do executor registrada no sistema', concluido: true, concluido_por: 'sistema' },
+      {
+        id: 'art_rrt',
+        titulo: 'ART / RRT recolhida e averbada',
+        concluido: true,
+        concluido_por: 'sistema',
+      },
+      {
+        id: 'laudos',
+        titulo: 'Laudos e entregáveis técnicos entregues e aprovados',
+        concluido: true,
+        concluido_por: 'sistema',
+      },
+      {
+        id: 'medicao_final',
+        titulo: 'Medição final conferida e fechada',
+        concluido: true,
+        concluido_por: 'sistema',
+      },
+      {
+        id: 'avaliacao_registrada',
+        titulo: 'Avaliação do executor registrada no sistema',
+        concluido: true,
+        concluido_por: 'sistema',
+      },
     ]
     subProva.set('checklist_encerramento_json', checklistCompleto)
     app.save(subProva)
@@ -298,7 +339,8 @@ migrate(
 
     // Auditoria de Limpeza Concluída
     fnAudit('PROVA_0086_LIMPEZA_CONCLUIDA', 'sistema', '0086', {
-      mensagem: 'Todos os registros fictícios de prova da migração 0086 foram excluídos e o banco de dados permanece limpo e consistente.',
+      mensagem:
+        'Todos os registros fictícios de prova da migração 0086 foram excluídos e o banco de dados permanece limpo e consistente.',
       subcontrato_numero_testado: 'SUB-2026-TEST0086',
       data_limpeza: new Date().toISOString(),
     })

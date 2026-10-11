@@ -1013,6 +1013,8 @@ export interface ParcelaSubcontratoItem {
   descricao?: string
   valor: number
   vencimento?: string
+  status?: string
+  gatilho?: string
 }
 
 export interface SubcontratoRecord {

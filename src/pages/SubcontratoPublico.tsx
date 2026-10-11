@@ -375,6 +375,41 @@ export const SubcontratoPublicoPage: React.FC = () => {
               <span className="text-slate-500 text-[10px]">Conforme proposta comercial aceita</span>
             </div>
           </CardContent>
+
+          {/* Faixa de Retenção Técnica e Status do Ciclo */}
+          <div className="bg-amber-50/70 border-t border-amber-200/80 px-5 py-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div>
+              <span className="text-slate-500 text-[10px] uppercase font-semibold block">
+                Retenção Técnica de Garantia:
+              </span>
+              <strong className="text-amber-950 font-mono">
+                {sub.percentual_retencao_tecnica || 0}% sobre cada medição
+              </strong>
+            </div>
+            <div>
+              <span className="text-slate-500 text-[10px] uppercase font-semibold block">
+                Acumulado Retido / Liberado:
+              </span>
+              <strong className="text-slate-800 font-mono">
+                {formatCurrencyBr(sub.retencao_tecnica_acumulada || 0)} /{' '}
+                {formatCurrencyBr(sub.retencao_tecnica_liberada || 0)}
+              </strong>
+            </div>
+            <div>
+              <span className="text-slate-500 text-[10px] uppercase font-semibold block">
+                Status da Retenção:
+              </span>
+              <strong className="text-emerald-700">
+                {sub.status_retencao === 'totalmente_liberada'
+                  ? 'Totalmente Liberada'
+                  : sub.status_retencao === 'parcialmente_liberada'
+                    ? 'Parcialmente Liberada'
+                    : sub.status_retencao === 'acumulando'
+                      ? 'Acumulando em Medições'
+                      : 'Sem Retenção'}
+              </strong>
+            </div>
+          </div>
         </Card>
 
         {/* Detalhe da Delegação (se parcial) */}

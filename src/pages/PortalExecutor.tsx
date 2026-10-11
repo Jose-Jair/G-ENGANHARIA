@@ -1033,10 +1033,38 @@ export const PortalExecutorPage: React.FC = () => {
                   <span className="text-[10px] text-slate-400 uppercase font-bold block">
                     Status
                   </span>
-                  <span className="font-semibold text-slate-800">
-                    {subcontratoSelecionado.status === 'assinado'
-                      ? 'Assinado'
-                      : 'Aguardando Assinatura'}
+                  <span className="font-semibold text-slate-800 capitalize">
+                    {subcontratoSelecionado.status.replace('_', ' ')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Informações de Retenção Técnica */}
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-lg text-xs space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-amber-950">
+                    Retenção Técnica de Garantia (
+                    {subcontratoSelecionado.percentual_retencao_tecnica || 0}%):
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-white text-amber-800 border-amber-300"
+                  >
+                    {subcontratoSelecionado.status_retencao || 'sem_retencao'}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-600">
+                  <span>
+                    Retido Acumulado:{' '}
+                    <strong>
+                      {formatCurrencyBr(subcontratoSelecionado.retencao_tecnica_acumulada || 0)}
+                    </strong>
+                  </span>
+                  <span>
+                    Já Liberado:{' '}
+                    <strong>
+                      {formatCurrencyBr(subcontratoSelecionado.retencao_tecnica_liberada || 0)}
+                    </strong>
                   </span>
                 </div>
               </div>

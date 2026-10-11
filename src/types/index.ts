@@ -959,11 +959,45 @@ export type StatusSubcontrato =
   | 'encerrado'
   | 'cancelado'
 
+export const STATUS_SUBCONTRATO_LABELS: Record<
+  StatusSubcontrato,
+  { label: string; cor: string; variant?: string }
+> = {
+  minuta: { label: 'Minuta', cor: 'bg-slate-100 text-slate-700 border-slate-300' },
+  aguardando_assinatura: {
+    label: 'Aguardando Assinatura',
+    cor: 'bg-amber-50 text-amber-800 border-amber-300',
+  },
+  assinado: { label: 'Assinado', cor: 'bg-blue-50 text-blue-800 border-blue-300' },
+  em_execucao: { label: 'Em Execução', cor: 'bg-indigo-50 text-indigo-800 border-indigo-300' },
+  concluido: { label: 'Concluído', cor: 'bg-purple-50 text-purple-800 border-purple-300' },
+  avaliado: { label: 'Avaliado', cor: 'bg-teal-50 text-teal-800 border-teal-300' },
+  encerrado: { label: 'Encerrado', cor: 'bg-emerald-50 text-emerald-800 border-emerald-300' },
+  cancelado: { label: 'Cancelado', cor: 'bg-rose-50 text-rose-800 border-rose-300' },
+}
+
 export type StatusRetencaoTecnica =
   | 'sem_retencao'
   | 'acumulando'
   | 'parcialmente_liberada'
   | 'totalmente_liberada'
+
+export const STATUS_RETENCAO_LABELS: Record<StatusRetencaoTecnica, { label: string; cor: string }> =
+  {
+    sem_retencao: { label: 'Sem Retenção', cor: 'bg-slate-100 text-slate-600 border-slate-200' },
+    acumulando: {
+      label: 'Retenção Acumulando',
+      cor: 'bg-amber-50 text-amber-800 border-amber-300',
+    },
+    parcialmente_liberada: {
+      label: 'Parcialmente Liberada',
+      cor: 'bg-blue-50 text-blue-800 border-blue-300',
+    },
+    totalmente_liberada: {
+      label: 'Totalmente Liberada',
+      cor: 'bg-emerald-50 text-emerald-800 border-emerald-300',
+    },
+  }
 
 export interface ItemChecklistEncerramento {
   id: string
@@ -1024,7 +1058,7 @@ export interface SubcontratoRecord {
     cotacao?: CotacaoRecord
     emitido_por?: UserRecord
   }
-}}
+}
 
 export interface AvaliacaoRecord {
   id: string

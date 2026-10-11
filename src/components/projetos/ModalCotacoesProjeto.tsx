@@ -5,7 +5,9 @@ import {
   ExecutorRecord,
   ParcelaSubcontratoItem,
   SugestaoExecutorArea,
+  SubcontratoRecord,
 } from '@/types'
+import { BlocoDetalhesSubcontrato } from './BlocoDetalhesSubcontrato'
 import { useAuth } from '@/contexts/AuthContext'
 import { cotacoesService, RespostaCotacaoExternaData } from '@/services/executores'
 import { subcontratosService, ContratarExecutorPayload } from '@/services/subcontratos'
@@ -55,6 +57,7 @@ import {
   Share2,
   ArrowRight,
   ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react'
 import { openWhatsAppWithFallback } from '@/lib/whatsapp'
 
@@ -80,9 +83,11 @@ export const ModalCotacoesProjeto: React.FC<ModalCotacoesProjetoProps> = ({
   const { toast } = useToast()
   const [cotacoes, setCotacoes] = useState<CotacaoRecord[]>([])
   const [carregando, setCarregando] = useState(false)
-  const [activeTab, setActiveTab] = useState<'comparativo' | 'convites' | 'historico'>(
-    'comparativo',
-  )
+  const [activeTab, setActiveTab] = useState<
+    'comparativo' | 'convites' | 'subcontratos' | 'historico'
+  >('comparativo')
+  const [subcontratosDoProjeto, setSubcontratosDoProjeto] = useState<SubcontratoRecord[]>([])
+  const [carregandoSubcontratos, setCarregandoSubcontratos] = useState(false)
 
   // Critério de indicação da melhor cotação
   const [criterioRecomendacao, setCriterioRecomendacao] =
@@ -126,8 +131,23 @@ export const ModalCotacoesProjeto: React.FC<ModalCotacoesProjetoProps> = ({
   const [condicoesPagamento, setCondicoesPagamento] = useState(
     '30 dias após emissão da medição técnica aprovada',
   )
+  const [percentualRetencao, setPercentualRetencao] = useState<number>(10)
   const [parcelasContrato, setParcelasContrato] = useState<ParcelaSubcontratoItem[]>([])
   const [salvandoContratacao, setSalvandoContratacao] = useState(false)
+
+  // Carregar subcontratos do projeto
+  const carregarSubcontratos = async () => {
+    if (!projeto) return
+    setCarregandoSubcontratos(true)
+    try {
+      const lista = await subcontratosService.listByProjeto(projeto.id)
+      setSubcontratosDoProjeto(lista)
+    } catch (err: any) {
+      console.error('Erro ao carregar subcontratos do projeto:', err)
+    } finally {
+      setCarregandoSubcontratos(false)
+    }
+  }
 
   // Carregar cotações do projeto
   const carregarCotacoes = async () => {
@@ -136,6 +156,7 @@ export const ModalCotacoesProjeto: React.FC<ModalCotacoesProjetoProps> = ({
     try {
       const lista = await cotacoesService.listByProjeto(projeto.id)
       setCotacoes(lista)
+      await carregarSubcontratos()
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar cotações',
@@ -191,6 +212,17 @@ export const ModalCotacoesProjeto: React.FC<ModalCotacoesProjetoProps> = ({
       setTextoPadraoWhatsApp(
         'Olá, {executor_nome}! A G+ Engenharia solicita cotação para o projeto {projeto_codigo} ({projeto_nome}). Acesse o link exclusivo para visualizar o escopo e enviar seus valores: {link_cotacao}',
       )
+    }
+
+    // 3. Carregar parâmetro de retenção técnica padrão da coleção parametros
+    try {
+      const retPadrao = await parametrosService.get('subcontrato_retencao_tecnica_padrao', '10')
+      const valNum = parseFloat(retPadrao)
+      if (!isNaN(valNum)) {
+        setPercentualRetencao(valNum)
+      }
+    } catch (err) {
+      console.error('Erro ao carregar percentual padrão de retenção técnica:', err)
     }
   }
 
@@ -410,6 +442,7 @@ export const ModalCotacoesProjeto: React.FC<ModalCotacoesProjetoProps> = ({
         descricao_delegada:
           modoContratacao === 'terceirizada_parcial' ? descricaoDelegada.trim() : undefined,
         condicoes_pagamento: condicoesPagamento.trim(),
+        percentual_retencao_tecnica: percentualRetencao,
         parcelas: parcelasContrato,
       }
 
@@ -569,6 +602,10 @@ export const ModalCotacoesProjeto: React.FC<ModalCotacoesProjetoProps> = ({
               <TabsTrigger value="convites" className="text-xs font-medium gap-1.5">
                 <MessageSquareQuote className="w-3.5 h-3.5" />
                 Todos os Convites ({cotacoes.length})
+              </TabsTrigger>
+              <TabsTrigger value="subcontratos" className="text-xs font-medium gap-1.5">
+                <FileSignature className="w-3.5 h-3.5 text-[#D95A2B]" />
+                Subcontratos Formalizados ({subcontratosDoProjeto.length})
               </TabsTrigger>
             </TabsList>
 
@@ -787,6 +824,38 @@ export const ModalCotacoesProjeto: React.FC<ModalCotacoesProjetoProps> = ({
                     </tbody>
                   </table>
                 </div>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* TAB SUBCONTRATOS: GESTÃO DO CICLO DE VIDA, CHECKLIST E RETENÇÃO TÉCNICA */}
+          <TabsContent value="subcontratos" className="space-y-4">
+            {carregandoSubcontratos ? (
+              <div className="py-16 text-center text-xs text-slate-400">
+                <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#D95A2B]" />
+                Carregando subcontratos do projeto...
+              </div>
+            ) : subcontratosDoProjeto.length === 0 ? (
+              <div className="text-center py-12 bg-slate-50 border border-dashed border-slate-200 rounded-xl space-y-3">
+                <FileSignature className="w-10 h-10 text-slate-300 mx-auto" />
+                <h3 className="text-sm font-bold text-slate-700">
+                  Nenhum subcontrato formalizado neste projeto
+                </h3>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  Após receber propostas no comparativo de cotações, clique no botão "Contratar"
+                  para emitir o Termo de Subcontratação com herança do contrato original.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {subcontratosDoProjeto.map((sub) => (
+                  <BlocoDetalhesSubcontrato
+                    key={sub.id}
+                    subcontrato={sub}
+                    onUpdate={carregarCotacoes}
+                    readOnly={!canEdit}
+                  />
+                ))}
               </div>
             )}
           </TabsContent>
@@ -1276,6 +1345,35 @@ export const ModalCotacoesProjeto: React.FC<ModalCotacoesProjetoProps> = ({
                     />
                   </div>
                 )}
+
+                {/* Retenção Técnica Contratual */}
+                <div className="space-y-1.5 p-3 bg-amber-50/60 border border-amber-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="retencaoInput"
+                      className="font-semibold text-xs text-amber-950 flex items-center gap-1.5"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-amber-600" />
+                      Percentual de Retenção Técnica de Garantia (%)
+                    </Label>
+                    <span className="text-[10px] text-amber-800 font-mono">Padrão G+: 10%</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      id="retencaoInput"
+                      type="number"
+                      min="0"
+                      max="30"
+                      step="0.5"
+                      value={percentualRetencao}
+                      onChange={(e) => setPercentualRetencao(parseFloat(e.target.value) || 0)}
+                      className="w-28 text-xs h-8 bg-white font-mono font-bold"
+                    />
+                    <span className="text-[11px] text-slate-600">
+                      Será retido automaticamente em cada medição aprovada deste subcontrato.
+                    </span>
+                  </div>
+                </div>
 
                 {/* Condições e Parcelas Financeiras */}
                 <div className="space-y-2 pt-2 border-t border-slate-100">

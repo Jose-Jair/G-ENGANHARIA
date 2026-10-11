@@ -62,9 +62,10 @@ routerAdd(
       }
 
       const subStatus = sub.getString('status')
-      if (subStatus !== 'assinado') {
+      if (subStatus !== 'assinado' && subStatus !== 'em_execucao') {
         return e.json(400, {
-          message: 'Apenas subcontratos no status "assinado" podem receber medições progressivas.',
+          message:
+            'Apenas subcontratos no status "assinado" ou "em_execucao" podem receber medições progressivas.',
         })
       }
 
@@ -165,7 +166,25 @@ routerAdd(
       }
       const numeroGlobal = prefixoMED + ('0000' + proximoSeq).slice(-4)
 
-      const valorLiquido = Math.round((valorBruto - retencaoImpostos) * 100) / 100
+      // Percentual de retenção técnica configurado no subcontrato (ou herdado de parâmetros)
+      let pctRetencaoTec = sub.getFloat('percentual_retencao_tecnica')
+      if (isNaN(pctRetencaoTec) || pctRetencaoTec < 0) {
+        pctRetencaoTec = 0
+      }
+      // Se body enviou percentual específico e o usuário tem perfil interno, respeita; caso contrário usa o do subcontrato
+      if (
+        body.percentual_retencao_tecnica !== undefined &&
+        (role === 'admin' || role === 'gestor')
+      ) {
+        const bodyPct = parseFloat(body.percentual_retencao_tecnica)
+        if (!isNaN(bodyPct) && bodyPct >= 0 && bodyPct <= 100) {
+          pctRetencaoTec = bodyPct
+        }
+      }
+      const valorRetencaoTecnica = Math.round(((valorBruto * pctRetencaoTec) / 100) * 100) / 100
+
+      const valorLiquido =
+        Math.round((valorBruto - retencaoImpostos - valorRetencaoTecnica) * 100) / 100
 
       const medicoesCol = $app.findCollectionByNameOrId('medicoes')
       const novaMedicao = new Record(medicoesCol)
@@ -179,6 +198,9 @@ routerAdd(
       novaMedicao.set('percentual_executado', percentualExecutado)
       novaMedicao.set('valor_bruto', valorBruto)
       novaMedicao.set('retencao_impostos', retencaoImpostos)
+      novaMedicao.set('percentual_retencao_tecnica', pctRetencaoTec)
+      novaMedicao.set('valor_retencao_tecnica', valorRetencaoTecnica)
+      novaMedicao.set('aceita_pelo_cliente', false)
       novaMedicao.set('valor_liquido', valorLiquido)
       novaMedicao.set('status', 'apresentada')
       if (Array.isArray(anexos) && anexos.length > 0) {
@@ -216,6 +238,8 @@ routerAdd(
           executor_id: executorId,
           valor_bruto: valorBruto,
           retencao_impostos: retencaoImpostos,
+          percentual_retencao_tecnica: pctRetencaoTec,
+          valor_retencao_tecnica: valorRetencaoTecnica,
           valor_liquido: valorLiquido,
           percentual_executado: percentualExecutado,
           periodo_inicio: periodoInicio,
@@ -238,6 +262,8 @@ routerAdd(
           status: 'apresentada',
           valor_bruto: valorBruto,
           retencao_impostos: retencaoImpostos,
+          percentual_retencao_tecnica: pctRetencaoTec,
+          valor_retencao_tecnica: valorRetencaoTecnica,
           valor_liquido: valorLiquido,
         },
       })
@@ -291,7 +317,10 @@ routerAdd(
       const executorId = medicao.getString('executor')
       const valorBruto = medicao.getFloat('valor_bruto') || 0
       const retencao = medicao.getFloat('retencao_impostos') || 0
-      const valorLiquido = medicao.getFloat('valor_liquido') || valorBruto - retencao
+      const valorRetencaoTecnica = medicao.getFloat('valor_retencao_tecnica') || 0
+      const valorLiquido =
+        medicao.getFloat('valor_liquido') ||
+        Math.round((valorBruto - retencao - valorRetencaoTecnica) * 100) / 100
       const numeroMedicaoSeq = medicao.getInt('numero_medicao') || 1
 
       // Idempotência: se já aprovada/faturada/paga, não duplicar a conta a pagar
@@ -326,6 +355,68 @@ routerAdd(
       medicao.set('aprovada_por', userId)
       medicao.set('data_aprovacao', nowIso)
       $app.save(medicao)
+
+      // Transição automática: se o subcontrato ainda estiver 'assinado', a aprovação da primeira medição
+      // avança o ciclo para 'em_execucao' e acumula a retenção técnica calculada.
+      try {
+        const subRec = $app.findRecordById('subcontratos', subcontratoId)
+        if (subRec) {
+          let mudouSub = false
+          if (subRec.getString('status') === 'assinado') {
+            subRec.set('status', 'em_execucao')
+            mudouSub = true
+
+            // Auditoria da transição de ciclo disparada pela primeira medição aprovada
+            try {
+              const auditCol = $app.findCollectionByNameOrId('audit_logs')
+              const aCiclo = new Record(auditCol)
+              aCiclo.set('user', userId)
+              aCiclo.set('user_email', userEmail)
+              aCiclo.set('acao', 'SUBCONTRATO_INICIO_EXECUCAO')
+              aCiclo.set('entidade', 'subcontratos')
+              aCiclo.set('registro_id', subRec.id)
+              aCiclo.set('detalhes', {
+                mensagem:
+                  'Subcontrato ' +
+                  subRec.getString('numero') +
+                  ' avançou para "em_execucao" automaticamente pela aprovação da medição ' +
+                  medicaoNumero,
+                status_anterior: 'assinado',
+                novo_status: 'em_execucao',
+                medicao_id: medicaoId,
+                medicao_numero: medicaoNumero,
+              })
+              aCiclo.set(
+                'ip',
+                (reqInfo.headers &&
+                  (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+                  '127.0.0.1',
+              )
+              $app.save(aCiclo)
+            } catch (_) {}
+          }
+
+          // Acumular retenção técnica no subcontrato
+          if (valorRetencaoTecnica > 0) {
+            const retAtual = subRec.getFloat('retencao_tecnica_acumulada') || 0
+            const novaRetAcumulada = Math.round((retAtual + valorRetencaoTecnica) * 100) / 100
+            subRec.set('retencao_tecnica_acumulada', novaRetAcumulada)
+            const retLiberada = subRec.getFloat('retencao_tecnica_liberada') || 0
+            if (retLiberada <= 0) {
+              subRec.set('status_retencao', 'acumulando')
+            } else if (retLiberada < novaRetAcumulada) {
+              subRec.set('status_retencao', 'parcialmente_liberada')
+            }
+            mudouSub = true
+          }
+
+          if (mudouSub) {
+            $app.save(subRec)
+          }
+        }
+      } catch (errSubTrans) {
+        console.log('Aviso ao atualizar subcontrato na aprovação da medição: ' + errSubTrans)
+      }
 
       let contaCriada = null
       if (contasExistentes.length > 0) {
@@ -560,6 +651,100 @@ routerAdd(
     } catch (err) {
       console.log('Erro interno em /medicoes/reprovar: ' + err)
       return e.json(500, { message: 'Erro interno ao reprovar medição: ' + err })
+    }
+  },
+  $apis.requireAuth(),
+)
+
+// 4. Aceitar Medição pelo Cliente (Gestor ou Admin registra aceitação da etapa/entrega)
+// Essencial para permitir a posterior liberação da retenção técnica
+routerAdd(
+  'POST',
+  '/backend/v1/medicoes/{id}/aceitar-cliente',
+  (e) => {
+    try {
+      const reqInfo = e.requestInfo()
+      if (!reqInfo.auth) {
+        return e.json(401, { message: 'Autenticação necessária' })
+      }
+
+      const role = reqInfo.auth.getString('role')
+      const userEmail = reqInfo.auth.getString('email')
+      const userId = reqInfo.auth.id
+
+      if (role !== 'admin' && role !== 'gestor') {
+        return e.json(403, {
+          message:
+            'Apenas Administradores ou Gestores de Projetos podem registrar a aceitação da entrega pelo cliente.',
+        })
+      }
+
+      const medicaoId = e.request.pathValue('id')
+      if (!medicaoId) {
+        return e.json(400, { message: 'ID da medição não informado.' })
+      }
+
+      let medicao
+      try {
+        medicao = $app.findRecordById('medicoes', medicaoId)
+      } catch (_) {
+        return e.json(404, { message: 'Medição não encontrada.' })
+      }
+
+      const statusAtual = medicao.getString('status')
+      if (statusAtual !== 'aprovada' && statusAtual !== 'faturada' && statusAtual !== 'paga') {
+        return e.json(400, {
+          message:
+            'Apenas medições aprovadas, faturadas ou pagas podem ter aceitação pelo cliente registrada.',
+        })
+      }
+
+      const body = reqInfo.body || {}
+      const responsavel = (body.responsavel_aceitacao_cliente || body.responsavel || userEmail)
+        .toString()
+        .trim()
+      const nowIso = new Date().toISOString()
+
+      medicao.set('aceita_pelo_cliente', true)
+      medicao.set('data_aceitacao_cliente', nowIso)
+      medicao.set('responsavel_aceitacao_cliente', responsavel)
+      $app.save(medicao)
+
+      const medicaoNumero = medicao.getString('numero')
+      const clientIp =
+        (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+        '127.0.0.1'
+
+      try {
+        const auditCol = $app.findCollectionByNameOrId('audit_logs')
+        const aRec = new Record(auditCol)
+        aRec.set('user', userId)
+        aRec.set('user_email', userEmail)
+        aRec.set('acao', 'MEDICAO_ACEITA_CLIENTE')
+        aRec.set('entidade', 'medicoes')
+        aRec.set('registro_id', medicaoId)
+        aRec.set('detalhes', {
+          mensagem:
+            'Aceitação da medição ' + medicaoNumero + ' pelo cliente registrada por ' + responsavel,
+          medicao_numero: medicaoNumero,
+          responsavel: responsavel,
+          data_aceitacao: nowIso,
+          valor_retencao_tecnica: medicao.getFloat('valor_retencao_tecnica') || 0,
+        })
+        aRec.set('ip', clientIp)
+        $app.save(aRec)
+      } catch (_) {}
+
+      return e.json(200, {
+        success: true,
+        message: 'Aceitação da entrega pelo cliente registrada com sucesso!',
+        medicao_id: medicaoId,
+        aceita_pelo_cliente: true,
+        data_aceitacao_cliente: nowIso,
+      })
+    } catch (err) {
+      console.log('Erro interno em /medicoes/aceitar-cliente: ' + err)
+      return e.json(500, { message: 'Erro interno ao aceitar medição: ' + err })
     }
   },
   $apis.requireAuth(),

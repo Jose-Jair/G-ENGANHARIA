@@ -65,10 +65,10 @@ routerAdd(
       }
 
       const subStatus = sub.getString('status')
-      if (subStatus !== 'assinado') {
+      if (subStatus !== 'assinado' && subStatus !== 'em_execucao' && subStatus !== 'concluido') {
         return e.json(400, {
           message:
-            'Apenas subcontratos no status "assinado" podem ser avaliados após a conclusão dos pagamentos.',
+            'Apenas subcontratos no status "concluido", "em_execucao" ou "assinado" podem ser avaliados.',
         })
       }
 
@@ -202,6 +202,10 @@ routerAdd(
         execRec.set('nota_geral', notaGeralDepois)
         execRec.set('total_avaliacoes', totalAvaliacoesDepois)
         txApp.save(execRec)
+
+        // Atualizar subcontrato para status 'avaliado'
+        sub.set('status', 'avaliado')
+        txApp.save(sub)
       })
 
       const clientIp =

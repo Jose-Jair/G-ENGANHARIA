@@ -43,6 +43,8 @@ export function ModalDetalhesMedicao({
   const [observacoesReprovacao, setObservacoesReprovacao] = useState('')
   const [modoReprovar, setModoReprovar] = useState(false)
   const [processando, setProcessando] = useState(false)
+  const [responsavelAceitacao, setResponsavelAceitacao] = useState('')
+  const [processandoAceite, setProcessandoAceite] = useState(false)
 
   if (!medicao) return null
 
@@ -107,6 +109,34 @@ export function ModalDetalhesMedicao({
       })
     } finally {
       setProcessando(false)
+    }
+  }
+
+  const handleAceitarCliente = async () => {
+    if (!medicao) return
+    setProcessandoAceite(true)
+    try {
+      const res = await medicoesService.aceitarPeloCliente(
+        medicao.id,
+        responsavelAceitacao.trim() || undefined,
+      )
+      toast({
+        title: 'Aceitação Registrada!',
+        description:
+          res.message ||
+          'A entrega desta medição foi formalmente aceita pelo cliente, liberando o teto de retenção técnica.',
+      })
+      onSuccess()
+    } catch (err: any) {
+      console.error('Erro ao aceitar medição:', err)
+      const msg = err?.data?.message || err?.message || 'Falha ao registrar aceitação pelo cliente.'
+      toast({
+        title: 'Não foi possível registrar aceitação',
+        description: msg,
+        variant: 'destructive',
+      })
+    } finally {
+      setProcessandoAceite(false)
     }
   }
 
@@ -189,8 +219,8 @@ export function ModalDetalhesMedicao({
             </div>
           </div>
 
-          {/* Valores Financeiros */}
-          <div className="grid grid-cols-3 gap-2">
+          {/* Valores Financeiros e Retenção Técnica */}
+          <div className="grid grid-cols-4 gap-2">
             <div className="p-2.5 bg-white border border-slate-200 rounded-lg text-center">
               <span className="text-[10px] uppercase font-bold text-slate-400 block">
                 Valor Bruto
@@ -202,10 +232,19 @@ export function ModalDetalhesMedicao({
 
             <div className="p-2.5 bg-white border border-slate-200 rounded-lg text-center">
               <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                Retenção Impostos
+                Ret. Impostos
               </span>
               <span className="font-mono font-bold text-slate-600 text-sm mt-0.5 block">
                 {formatCurrencyBr(medicao.retencao_impostos || 0)}
+              </span>
+            </div>
+
+            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-center">
+              <span className="text-[10px] uppercase font-bold text-amber-800 block">
+                Ret. Técnica ({medicao.percentual_retencao_tecnica || 0}%)
+              </span>
+              <span className="font-mono font-bold text-amber-900 text-sm mt-0.5 block">
+                {formatCurrencyBr(medicao.valor_retencao_tecnica || 0)}
               </span>
             </div>
 
@@ -217,6 +256,88 @@ export function ModalDetalhesMedicao({
                 {formatCurrencyBr(medicao.valor_liquido)}
               </span>
             </div>
+          </div>
+
+          {/* Box de Aceitação do Cliente (Proteção da Retenção Técnica) */}
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2
+                  className={`w-4 h-4 ${
+                    medicao.aceita_pelo_cliente ? 'text-emerald-600' : 'text-slate-400'
+                  }`}
+                />
+                <span className="font-bold text-slate-800 text-xs">
+                  Aceitação Formal pelo Cliente (G+ / Contratante)
+                </span>
+              </div>
+              <Badge
+                className={
+                  medicao.aceita_pelo_cliente
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-amber-100 text-amber-900 border-amber-300'
+                }
+              >
+                {medicao.aceita_pelo_cliente ? 'Etapa Aceita pelo Cliente' : 'Aguardando Aceite'}
+              </Badge>
+            </div>
+
+            {medicao.aceita_pelo_cliente ? (
+              <p className="text-[11px] text-emerald-700 bg-emerald-50/60 p-2 rounded border border-emerald-200">
+                Aceitação confirmada em{' '}
+                {formatDateBr(medicao.data_aceitacao_cliente || medicao.updated)}
+                {medicao.responsavel_aceitacao_cliente
+                  ? ` por ${medicao.responsavel_aceitacao_cliente}`
+                  : ''}
+                . A parcela de retenção técnica deste boletim (
+                {formatCurrencyBr(medicao.valor_retencao_tecnica || 0)}) está apta para liberação no
+                subcontrato.
+              </p>
+            ) : (
+              <div className="space-y-2 pt-1">
+                <p className="text-[11px] text-slate-500">
+                  A retenção técnica só pode ser liberada ao executor após o cliente aceitar
+                  formalmente a etapa correspondente.
+                </p>
+                {canApprove && (
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Nome do responsável pelo aceite no cliente (ex: Fiscal de Contrato / Gestor)"
+                      value={responsavelAceitacao}
+                      onChange={(e) => setResponsavelAceitacao(e.target.value)}
+                      className="text-xs px-2.5 py-1.5 bg-white border border-slate-300 rounded flex-1"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleAceitarCliente}
+                      disabled={
+                        processandoAceite ||
+                        (medicao.status !== 'aprovada' &&
+                          medicao.status !== 'faturada' &&
+                          medicao.status !== 'paga')
+                      }
+                      title={
+                        medicao.status !== 'aprovada' &&
+                        medicao.status !== 'faturada' &&
+                        medicao.status !== 'paga'
+                          ? 'A medição precisa ser aprovada antes do aceite pelo cliente'
+                          : 'Registrar aceite do cliente'
+                      }
+                      className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs h-8 shrink-0 font-semibold"
+                    >
+                      {processandoAceite ? (
+                        <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                      )}
+                      Registrar Aceite do Cliente
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Dados de Aprovação se houver */}

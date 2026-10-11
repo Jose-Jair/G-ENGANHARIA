@@ -170,6 +170,23 @@ export function MedicoesTab({
           </div>
           <span className="text-[11px] text-slate-500">Exige ação do Gestor/Admin</span>
         </div>
+
+        <div className="p-3.5 bg-amber-50/50 border border-amber-200 rounded-xl shadow-2xs">
+          <span className="text-[10px] uppercase font-bold text-amber-800 block tracking-wider">
+            Retenção Técnica Acumulada
+          </span>
+          <div className="font-mono font-bold text-amber-900 text-base mt-0.5">
+            {formatCurrencyBr(
+              subcontratos.reduce((acc, s) => acc + (s.retencao_tecnica_acumulada || 0), 0),
+            )}
+          </div>
+          <span className="text-[11px] text-amber-700">
+            Liberada:{' '}
+            {formatCurrencyBr(
+              subcontratos.reduce((acc, s) => acc + (s.retencao_tecnica_liberada || 0), 0),
+            )}
+          </span>
+        </div>
       </div>
 
       {/* Header com Ação */}
@@ -259,11 +276,12 @@ export function MedicoesTab({
                   Valor Bruto
                 </TableHead>
                 <TableHead className="text-xs font-bold text-slate-700 text-right">
-                  Retenção
+                  Ret. Técnica
                 </TableHead>
                 <TableHead className="text-xs font-bold text-slate-700 text-right">
                   Valor Líquido
                 </TableHead>
+                <TableHead className="text-xs font-bold text-slate-700">Aceite Cliente</TableHead>
                 <TableHead className="text-xs font-bold text-slate-700">Status</TableHead>
                 <TableHead className="text-xs font-bold text-slate-700 text-center">
                   Ações
@@ -307,12 +325,26 @@ export function MedicoesTab({
                       {formatCurrencyBr(med.valor_bruto)}
                     </TableCell>
 
-                    <TableCell className="font-mono text-xs text-right text-slate-500">
-                      {formatCurrencyBr(med.retencao_impostos || 0)}
+                    <TableCell className="font-mono text-xs text-right text-amber-800 font-medium">
+                      {formatCurrencyBr(med.valor_retencao_tecnica || 0)}
+                      <span className="block text-[10px] text-slate-400">
+                        {med.percentual_retencao_tecnica || 0}%
+                      </span>
                     </TableCell>
 
                     <TableCell className="font-mono text-xs text-right font-bold text-emerald-700">
                       {formatCurrencyBr(med.valor_liquido)}
+                    </TableCell>
+
+                    <TableCell>
+                      {med.aceita_pelo_cliente ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          Aceita
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 italic">Pendente</span>
+                      )}
                     </TableCell>
 
                     <TableCell>{getStatusBadge(med.status)}</TableCell>

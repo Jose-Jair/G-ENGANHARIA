@@ -8,7 +8,16 @@ export interface CriarMedicaoPayload {
   percentual_executado: number
   valor_bruto: number
   retencao_impostos?: number
+  percentual_retencao_tecnica?: number
   anexos?: File[]
+}
+
+export interface AceitarMedicaoClienteResponse {
+  success: boolean
+  message: string
+  medicao_id: string
+  aceita_pelo_cliente: boolean
+  data_aceitacao_cliente: string
 }
 
 export interface AprovarMedicaoResponse {
@@ -87,6 +96,7 @@ export const medicoesService = {
         percentual_executado: payload.percentual_executado,
         valor_bruto: payload.valor_bruto,
         retencao_impostos: payload.retencao_impostos || 0,
+        percentual_retencao_tecnica: payload.percentual_retencao_tecnica,
       },
     })
 
@@ -123,6 +133,21 @@ export const medicoesService = {
       method: 'POST',
       body: {
         observacoes_gestor: observacoes,
+      },
+    })
+  },
+
+  /**
+   * Registrar aceitação formal da etapa/entrega pelo cliente
+   */
+  async aceitarPeloCliente(
+    medicaoId: string,
+    responsavel?: string,
+  ): Promise<AceitarMedicaoClienteResponse> {
+    return pb.send(`/backend/v1/medicoes/${medicaoId}/aceitar-cliente`, {
+      method: 'POST',
+      body: {
+        responsavel_aceitacao_cliente: responsavel,
       },
     })
   },

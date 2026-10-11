@@ -33,6 +33,9 @@ const businessCollections = [
   'entregaveis_padrao',
   'proposta_parcelas',
   'contratos_servico',
+  'subcontratos',
+  'medicoes',
+  'avaliacoes_executor',
 ]
 for (let i = 0; i < businessCollections.length; i++) {
   const targetCol = businessCollections[i]

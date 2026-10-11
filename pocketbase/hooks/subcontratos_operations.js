@@ -111,7 +111,12 @@ routerAdd(
               data_limite: dataLimite,
               link_cotacao: linkCotacao,
             })
-            aRec.set('ip', reqInfo.remoteIP || '')
+            aRec.set(
+              'ip',
+              (reqInfo.headers &&
+                (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+                '127.0.0.1',
+            )
             $app.save(aRec)
           } catch (_) {}
 
@@ -253,7 +258,12 @@ routerAdd(
           prazo_ofertado: prazoOfertado,
           observacoes: observacoes,
         })
-        aRec.set('ip', reqInfo.remoteIP || '')
+        aRec.set(
+          'ip',
+          (reqInfo.headers &&
+            (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+            '127.0.0.1',
+        )
         $app.save(aRec)
       } catch (_) {}
 
@@ -444,6 +454,69 @@ routerAdd(
       novoSub.set('clausulas_texto', clausulasTermo)
       novoSub.set('condicoes_pagamento', condicoesPagamento)
       novoSub.set('parcelas_json', parcelas)
+
+      // Percentual de retenção técnica: do payload ou buscar padrão de parâmetros (default 10%)
+      let pctRetencao = parseFloat(body.percentual_retencao_tecnica)
+      if (isNaN(pctRetencao) || pctRetencao < 0) {
+        try {
+          const pRec = $app.findFirstRecordByData(
+            'parametros',
+            'chave',
+            'subcontrato_retencao_tecnica_padrao',
+          )
+          if (pRec) {
+            pctRetencao = parseFloat(pRec.getString('valor')) || 10
+          } else {
+            pctRetencao = 10
+          }
+        } catch (_) {
+          pctRetencao = 10
+        }
+      }
+      novoSub.set('percentual_retencao_tecnica', pctRetencao)
+      novoSub.set('retencao_tecnica_acumulada', 0)
+      novoSub.set('retencao_tecnica_liberada', 0)
+      novoSub.set('status_retencao', pctRetencao > 0 ? 'acumulando' : 'sem_retencao')
+
+      // Checklist padrão de encerramento automático com 4 itens auditáveis
+      const checklistInicial = [
+        {
+          id: 'art_rrt',
+          titulo: 'ART / RRT recolhida e averbada',
+          descricao: 'Anotação ou Registro de Responsabilidade Técnica comprovado pelo executor.',
+          concluido: false,
+          concluido_por: '',
+          data_conclusao: '',
+        },
+        {
+          id: 'laudos',
+          titulo: 'Laudos e entregáveis técnicos entregues e aprovados',
+          descricao:
+            'Todos os documentos, memórias de cálculo ou relatórios técnicos foram conferidos.',
+          concluido: false,
+          concluido_por: '',
+          data_conclusao: '',
+        },
+        {
+          id: 'medicao_final',
+          titulo: 'Medição final conferida e fechada',
+          descricao: 'Escopo 100% medido e aprovado sem novas medições pendentes.',
+          concluido: false,
+          concluido_por: '',
+          data_conclusao: '',
+        },
+        {
+          id: 'avaliacao_registrada',
+          titulo: 'Avaliação do executor registrada no sistema',
+          descricao:
+            'Avaliação de prazo, qualidade e comunicação concluída na ficha de avaliações.',
+          concluido: false,
+          concluido_por: '',
+          data_conclusao: '',
+        },
+      ]
+      novoSub.set('checklist_encerramento_json', checklistInicial)
+
       novoSub.set('status', 'aguardando_assinatura')
       novoSub.set('token_assinatura', tokenAssinatura)
       novoSub.set('emitido_por', reqInfo.auth.id)
@@ -555,7 +628,12 @@ routerAdd(
           valor_total: precoContratado,
           prazo_dias: prazoDiasContratoOriginal,
         })
-        aRec.set('ip', reqInfo.remoteIP || '')
+        aRec.set(
+          'ip',
+          (reqInfo.headers &&
+            (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+            '127.0.0.1',
+        )
         $app.save(aRec)
       } catch (_) {}
 
@@ -692,7 +770,8 @@ routerAdd('POST', '/backend/v1/subcontratos/assinar-executor', (e) => {
     }
 
     const clientIp =
-      reqInfo.remoteIP || (reqInfo.headers && reqInfo.headers['x-forwarded-for']) || '127.0.0.1'
+      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+      '127.0.0.1'
     const clientUserAgent = (reqInfo.headers && reqInfo.headers['user-agent']) || 'Navegador Web'
     const nowIso = new Date().toISOString()
 
@@ -869,6 +948,11 @@ routerAdd('GET', '/backend/v1/subcontratos/obter-por-token/{token}', (e) => {
       condicoes_pagamento: sub.getString('condicoes_pagamento'),
       parcelas_json: sub.get('parcelas_json'),
       data_emissao: sub.getString('data_emissao') || sub.getString('created'),
+      percentual_retencao_tecnica: sub.getFloat('percentual_retencao_tecnica') || 0,
+      retencao_tecnica_acumulada: sub.getFloat('retencao_tecnica_acumulada') || 0,
+      retencao_tecnica_liberada: sub.getFloat('retencao_tecnica_liberada') || 0,
+      status_retencao: sub.getString('status_retencao') || 'sem_retencao',
+      checklist_encerramento_json: sub.get('checklist_encerramento_json') || [],
       // Dados de assinatura caso já assinado
       executor_nome_assinante: sub.getString('executor_nome_assinante'),
       executor_documento_assinante: sub.getString('executor_documento_assinante'),
@@ -963,7 +1047,12 @@ routerAdd(
           prazo_ofertado: prazoOfertado,
           observacoes: observacoes,
         })
-        aRec.set('ip', reqInfo.remoteIP || '')
+        aRec.set(
+          'ip',
+          (reqInfo.headers &&
+            (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+            '127.0.0.1',
+        )
         $app.save(aRec)
       } catch (_) {}
 
@@ -975,6 +1064,699 @@ routerAdd(
     } catch (err) {
       console.log('Erro em responder-cotacao portal: ' + err)
       return e.json(500, { message: 'Erro interno ao responder cotação: ' + err })
+    }
+  },
+  $apis.requireAuth(),
+)
+
+// 7. Atualizar Item do Checklist de Encerramento (Admin ou Gestor)
+// Cada marcação de item é auditada com quem, quando e qual item
+routerAdd(
+  'POST',
+  '/backend/v1/subcontratos/{id}/checklist',
+  (e) => {
+    try {
+      const reqInfo = e.requestInfo()
+      if (!reqInfo.auth) {
+        return e.json(401, { message: 'Autenticação necessária' })
+      }
+
+      const role = reqInfo.auth.getString('role')
+      const userEmail = reqInfo.auth.getString('email')
+      const userId = reqInfo.auth.id
+
+      if (role !== 'admin' && role !== 'gestor') {
+        return e.json(403, {
+          message:
+            'Apenas Administradores ou Gestores de Projetos podem atualizar o checklist de encerramento.',
+        })
+      }
+
+      const subId = e.request.pathValue('id')
+      if (!subId) {
+        return e.json(400, { message: 'ID do subcontrato não informado.' })
+      }
+
+      let sub
+      try {
+        sub = $app.findRecordById('subcontratos', subId)
+      } catch (_) {
+        return e.json(404, { message: 'Subcontrato não encontrado.' })
+      }
+
+      const body = reqInfo.body || {}
+      const itemId = (body.item_id || '').trim()
+      const concluido = body.concluido === true
+
+      if (!itemId) {
+        return e.json(400, { message: 'ID do item do checklist não informado.' })
+      }
+
+      const checklistAtual = sub.get('checklist_encerramento_json') || []
+      const itensValidos = [
+        {
+          id: 'art_rrt',
+          titulo: 'ART / RRT recolhida e averbada',
+          descricao: 'Anotação ou Registro de Responsabilidade Técnica comprovado pelo executor.',
+        },
+        {
+          id: 'laudos',
+          titulo: 'Laudos e entregáveis técnicos entregues e aprovados',
+          descricao:
+            'Todos os documentos, memórias de cálculo ou relatórios técnicos foram conferidos.',
+        },
+        {
+          id: 'medicao_final',
+          titulo: 'Medição final conferida e fechada',
+          descricao: 'Escopo 100% medido e aprovado sem novas medições pendentes.',
+        },
+        {
+          id: 'avaliacao_registrada',
+          titulo: 'Avaliação do executor registrada no sistema',
+          descricao:
+            'Avaliação de prazo, qualidade e comunicação concluída na ficha de avaliações.',
+        },
+      ]
+
+      // Mesclar checklist existente com itens padrão se estiver vazio
+      let lista = Array.isArray(checklistAtual) && checklistAtual.length > 0 ? checklistAtual : []
+      if (lista.length === 0) {
+        lista = itensValidos.map((it) => ({
+          id: it.id,
+          titulo: it.titulo,
+          descricao: it.descricao,
+          concluido: false,
+          concluido_por: '',
+          data_conclusao: '',
+        }))
+      }
+
+      let itemEncontrado = false
+      const nowIso = new Date().toISOString()
+      let itemTitulo = itemId
+
+      for (let i = 0; i < lista.length; i++) {
+        if (lista[i].id === itemId) {
+          itemEncontrado = true
+          itemTitulo = lista[i].titulo || itemId
+          lista[i].concluido = concluido
+          lista[i].concluido_por = concluido ? userEmail : ''
+          lista[i].data_conclusao = concluido ? nowIso : ''
+          break
+        }
+      }
+
+      if (!itemEncontrado) {
+        // Se item não existia na lista, adicionar
+        const padrao = itensValidos.find((it) => it.id === itemId)
+        lista.push({
+          id: itemId,
+          titulo: padrao ? padrao.titulo : itemId,
+          descricao: padrao ? padrao.descricao : '',
+          concluido: concluido,
+          concluido_por: concluido ? userEmail : '',
+          data_conclusao: concluido ? nowIso : '',
+        })
+        itemTitulo = padrao ? padrao.titulo : itemId
+      }
+
+      sub.set('checklist_encerramento_json', lista)
+      $app.save(sub)
+
+      const clientIp =
+        (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+        '127.0.0.1'
+
+      // Auditoria do item de checklist
+      try {
+        const auditCol = $app.findCollectionByNameOrId('audit_logs')
+        const aRec = new Record(auditCol)
+        aRec.set('user', userId)
+        aRec.set('user_email', userEmail)
+        aRec.set('acao', concluido ? 'CHECKLIST_ITEM_CONCLUIDO' : 'CHECKLIST_ITEM_REABERTO')
+        aRec.set('entidade', 'subcontratos')
+        aRec.set('registro_id', subId)
+        aRec.set('detalhes', {
+          mensagem:
+            'Item do checklist "' +
+            itemTitulo +
+            '" ' +
+            (concluido ? 'concluído' : 'desmarcado') +
+            ' por ' +
+            userEmail,
+          subcontrato_id: subId,
+          subcontrato_numero: sub.getString('numero'),
+          item_id: itemId,
+          item_titulo: itemTitulo,
+          concluido: concluido,
+          usuario: userEmail,
+          data: nowIso,
+        })
+        aRec.set('ip', clientIp)
+        $app.save(aRec)
+      } catch (_) {}
+
+      return e.json(200, {
+        success: true,
+        message:
+          'Item "' + itemTitulo + '" ' + (concluido ? 'marcado como concluído.' : 'desmarcado.'),
+        checklist: lista,
+      })
+    } catch (err) {
+      console.log('Erro ao atualizar checklist do subcontrato: ' + err)
+      return e.json(500, { message: 'Erro interno ao atualizar checklist: ' + err })
+    }
+  },
+  $apis.requireAuth(),
+)
+
+// 8. Transição de Status do Ciclo de Vida do Subcontrato
+// Ciclo: assinado -> em_execucao -> concluido -> avaliado -> encerrado
+// Validado com bloqueios no servidor e auditoria rigorosa
+routerAdd(
+  'POST',
+  '/backend/v1/subcontratos/{id}/transicao-status',
+  (e) => {
+    try {
+      const reqInfo = e.requestInfo()
+      if (!reqInfo.auth) {
+        return e.json(401, { message: 'Autenticação necessária' })
+      }
+
+      const role = reqInfo.auth.getString('role')
+      const userEmail = reqInfo.auth.getString('email')
+      const userId = reqInfo.auth.id
+
+      if (role !== 'admin' && role !== 'gestor') {
+        return e.json(403, {
+          message:
+            'Apenas Administradores ou Gestores de Projetos podem alterar o status do ciclo de vida de subcontratos.',
+        })
+      }
+
+      const subId = e.request.pathValue('id')
+      if (!subId) {
+        return e.json(400, { message: 'ID do subcontrato não informado.' })
+      }
+
+      let sub
+      try {
+        sub = $app.findRecordById('subcontratos', subId)
+      } catch (_) {
+        return e.json(404, { message: 'Subcontrato não encontrado.' })
+      }
+
+      const body = reqInfo.body || {}
+      const novoStatus = (body.status || '').trim()
+      const statusAtual = sub.getString('status')
+      const subNumero = sub.getString('numero')
+
+      const statusValidos = [
+        'minuta',
+        'aguardando_assinatura',
+        'assinado',
+        'em_execucao',
+        'concluido',
+        'avaliado',
+        'encerrado',
+        'cancelado',
+      ]
+
+      if (!statusValidos.includes(novoStatus)) {
+        return e.json(400, {
+          message: 'Status "' + novoStatus + '" inválido.',
+        })
+      }
+
+      if (statusAtual === novoStatus) {
+        return e.json(200, {
+          success: true,
+          message: 'Subcontrato já se encontra no status ' + novoStatus + '.',
+          status: novoStatus,
+        })
+      }
+
+      // Regras de Transição de Ciclo de Vida:
+      // A) assinado -> em_execucao: manual ou via medição aprovada
+      if (novoStatus === 'em_execucao') {
+        if (statusAtual !== 'assinado') {
+          return e.json(400, {
+            message:
+              'Apenas subcontratos no status "assinado" podem entrar "em_execucao". Status atual: ' +
+              statusAtual +
+              '.',
+          })
+        }
+      }
+
+      // B) em_execucao -> concluido: escopo do subcontrato foi concluído
+      if (novoStatus === 'concluido') {
+        if (statusAtual !== 'em_execucao' && statusAtual !== 'assinado') {
+          return e.json(400, {
+            message:
+              'Apenas subcontratos "assinado" ou "em_execucao" podem ser marcados como "concluido".',
+          })
+        }
+      }
+
+      // C) concluido -> avaliado: exige avaliação do executor registrada no sistema novo (avaliacoes_executor)
+      if (novoStatus === 'avaliado') {
+        if (statusAtual !== 'concluido' && statusAtual !== 'em_execucao') {
+          return e.json(400, {
+            message:
+              'Subcontrato precisa estar "concluido" ou "em_execucao" antes de ser marcado como "avaliado".',
+          })
+        }
+
+        const avals = $app.findRecordsByFilter(
+          'avaliacoes_executor',
+          "subcontrato = '" + subId + "'",
+          '-created',
+          1,
+          0,
+        )
+        if (!avals || avals.length === 0) {
+          return e.json(400, {
+            message:
+              'BLOQUEIO: Para transicionar para "avaliado", é OBRIGATÓRIO que a avaliação do executor esteja registrada na coleção de avaliações de execução.',
+          })
+        }
+      }
+
+      // D) avaliado -> encerrado: BLOQUEADO enquanto houver pendência no checklist ou conta em aberto
+      if (novoStatus === 'encerrado') {
+        if (statusAtual !== 'avaliado' && statusAtual !== 'concluido') {
+          return e.json(400, {
+            message:
+              'O subcontrato precisa estar no status "avaliado" antes de ser encerrado definitivamente. Status atual: ' +
+              statusAtual +
+              '.',
+          })
+        }
+
+        // 1. Validar avaliação registrada
+        const avals = $app.findRecordsByFilter(
+          'avaliacoes_executor',
+          "subcontrato = '" + subId + "'",
+          '-created',
+          1,
+          0,
+        )
+        if (!avals || avals.length === 0) {
+          return e.json(400, {
+            message:
+              'BLOQUEIO DE ENCERRAMENTO: Nenhuma avaliação do executor foi encontrada para este subcontrato. O executor deve ser avaliado antes do encerramento.',
+          })
+        }
+
+        // 2. Validar checklist de encerramento: TODOS os itens devem estar concluídos
+        const checklistAtual = sub.get('checklist_encerramento_json') || []
+        const listaChecklist =
+          Array.isArray(checklistAtual) && checklistAtual.length > 0 ? checklistAtual : []
+        if (listaChecklist.length === 0) {
+          return e.json(400, {
+            message:
+              'BLOQUEIO DE ENCERRAMENTO: O checklist de encerramento não foi inicializado/preenchido. Todos os 4 itens obrigatórios (ART/RRT, laudos, medição final, avaliação) devem estar conferidos.',
+          })
+        }
+
+        const pendentes = []
+        for (let k = 0; k < listaChecklist.length; k++) {
+          const item = listaChecklist[k]
+          if (!item.concluido) {
+            pendentes.push(item.titulo || item.id)
+          }
+        }
+        if (pendentes.length > 0) {
+          return e.json(400, {
+            message:
+              'BLOQUEIO DE ENCERRAMENTO: Existem itens pendentes no checklist de encerramento auditado: ' +
+              pendentes.join('; ') +
+              '. Todos os itens devem ser concluídos antes do encerramento.',
+          })
+        }
+
+        // 3. Validar contas do subcontrato em aberto: NENHUMA conta do subcontrato pode estar pendente/rascunho/vencida
+        const contasAbertas = $app.findRecordsByFilter(
+          'contas',
+          "subcontrato = '" + subId + "' && status != 'paga' && status != 'cancelada'",
+          '-created',
+          10,
+          0,
+        )
+        if (contasAbertas && contasAbertas.length > 0) {
+          const descs = contasAbertas.map(
+            (c) => c.getString('descricao') + ' (status: ' + c.getString('status') + ')',
+          )
+          return e.json(400, {
+            message:
+              'BLOQUEIO DE ENCERRAMENTO: Existem contas do subcontrato em aberto no Financeiro que ainda não foram pagas ou canceladas: ' +
+              descs.join(' | ') +
+              '. NADA é encerrado com pendência financeira.',
+          })
+        }
+      }
+
+      // Se passou por todas as regras, atualizar status
+      sub.set('status', novoStatus)
+      $app.save(sub)
+
+      const clientIp =
+        (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+        '127.0.0.1'
+
+      // Auditoria da transição de status
+      try {
+        const auditCol = $app.findCollectionByNameOrId('audit_logs')
+        const aRec = new Record(auditCol)
+        aRec.set('user', userId)
+        aRec.set('user_email', userEmail)
+        aRec.set('acao', 'SUBCONTRATO_TRANSICAO_CICLO')
+        aRec.set('entidade', 'subcontratos')
+        aRec.set('registro_id', subId)
+        aRec.set('detalhes', {
+          mensagem:
+            'Transição de status do subcontrato ' +
+            subNumero +
+            ': ' +
+            statusAtual +
+            ' ➔ ' +
+            novoStatus +
+            ' realizada por ' +
+            userEmail,
+          subcontrato_id: subId,
+          subcontrato_numero: subNumero,
+          status_anterior: statusAtual,
+          novo_status: novoStatus,
+          role: role,
+        })
+        aRec.set('ip', clientIp)
+        $app.save(aRec)
+      } catch (_) {}
+
+      return e.json(200, {
+        success: true,
+        message:
+          'Status do subcontrato ' +
+          subNumero +
+          ' atualizado para "' +
+          novoStatus +
+          '" com sucesso.',
+        status: novoStatus,
+        status_anterior: statusAtual,
+      })
+    } catch (err) {
+      console.log('Erro na transição de status do subcontrato: ' + err)
+      return e.json(500, { message: 'Erro interno ao transicionar status: ' + err })
+    }
+  },
+  $apis.requireAuth(),
+)
+
+// 10. Bloqueio no servidor para edição direta do subcontrato (Guardião de Integridade)
+// Garante que ninguém force encerramento ou liberação burlando as regras de negócio
+onRecordUpdateRequest((e) => {
+  try {
+    const auth = e.auth
+    const role = auth ? auth.getString('role') : ''
+    const original = e.record.original()
+    const oldStatus = original ? original.getString('status') : ''
+    const newStatus = e.record.getString('status')
+
+    if (oldStatus !== newStatus && newStatus === 'encerrado') {
+      // Validar que possui avaliação
+      const subId = e.record.id
+      const avals = $app.findRecordsByFilter(
+        'avaliacoes_executor',
+        "subcontrato = '" + subId + "'",
+        '-created',
+        1,
+        0,
+      )
+      if (!avals || avals.length === 0) {
+        throw new BadRequestError(
+          'BLOQUEIO NO SERVIDOR: Não é permitido encerrar o subcontrato sem avaliação do executor registrada.',
+        )
+      }
+
+      // Validar itens do checklist
+      const chk = e.record.get('checklist_encerramento_json') || []
+      const lista = Array.isArray(chk) ? chk : []
+      if (lista.length === 0) {
+        throw new BadRequestError(
+          'BLOQUEIO NO SERVIDOR: O checklist de encerramento não está completo.',
+        )
+      }
+      for (let i = 0; i < lista.length; i++) {
+        if (!lista[i].concluido) {
+          throw new BadRequestError(
+            'BLOQUEIO NO SERVIDOR: O item "' +
+              (lista[i].titulo || lista[i].id) +
+              '" do checklist de encerramento ainda está pendente.',
+          )
+        }
+      }
+
+      // Validar contas abertas
+      const contasAbertas = $app.findRecordsByFilter(
+        'contas',
+        "subcontrato = '" + subId + "' && status != 'paga' && status != 'cancelada'",
+        '-created',
+        1,
+        0,
+      )
+      if (contasAbertas && contasAbertas.length > 0) {
+        throw new BadRequestError(
+          'BLOQUEIO NO SERVIDOR: Existem contas financeiras vinculadas a este subcontrato ainda pendentes de quitação.',
+        )
+      }
+    }
+  } catch (err) {
+    throw err
+  }
+  e.next()
+}, 'subcontratos')
+
+// 9. Liberação de Retenção Técnica (Admin ou Financeiro ou Gestor)
+// Requisitos:
+// - Medições correspondentes devem estar com aceita_pelo_cliente = true
+// - Valor a liberar não pode exceder o saldo retido disponível (acumulado - liberado)
+// - Gera automaticamente conta a pagar do tipo 'pagar' integrada ao financeiro
+// - Atualiza retencao_tecnica_liberada e status_retencao no subcontrato
+// - Registra auditoria completa
+routerAdd(
+  'POST',
+  '/backend/v1/subcontratos/{id}/liberar-retencao',
+  (e) => {
+    try {
+      const reqInfo = e.requestInfo()
+      if (!reqInfo.auth) {
+        return e.json(401, { message: 'Autenticação necessária' })
+      }
+
+      const role = reqInfo.auth.getString('role')
+      const userEmail = reqInfo.auth.getString('email')
+      const userId = reqInfo.auth.id
+
+      if (role !== 'admin' && role !== 'financeiro' && role !== 'gestor') {
+        return e.json(403, {
+          message:
+            'Apenas Financeiro, Administradores ou Gestores de Projetos podem liberar a retenção técnica.',
+        })
+      }
+
+      const subId = e.request.pathValue('id')
+      if (!subId) {
+        return e.json(400, { message: 'ID do subcontrato não informado.' })
+      }
+
+      let sub
+      try {
+        sub = $app.findRecordById('subcontratos', subId)
+      } catch (_) {
+        return e.json(404, { message: 'Subcontrato não encontrado.' })
+      }
+
+      const body = reqInfo.body || {}
+      const valorLiberar = parseFloat(body.valor_liberar)
+      const justificativa = (body.justificativa || '').trim()
+
+      const retAcumulada = sub.getFloat('retencao_tecnica_acumulada') || 0
+      const retLiberada = sub.getFloat('retencao_tecnica_liberada') || 0
+      const saldoDisponivel = Math.round((retAcumulada - retLiberada) * 100) / 100
+
+      if (saldoDisponivel <= 0) {
+        return e.json(400, {
+          message:
+            'Não há saldo de retenção técnica retido para este subcontrato (Saldo retido: R$ 0,00).',
+        })
+      }
+
+      if (isNaN(valorLiberar) || valorLiberar <= 0) {
+        return e.json(400, {
+          message: 'Informe um valor válido maior que zero para a liberação da retenção.',
+        })
+      }
+
+      if (valorLiberar > saldoDisponivel + 0.01) {
+        return e.json(400, {
+          message:
+            'BLOQUEIO: O valor solicitado para liberação (R$ ' +
+            valorLiberar.toFixed(2) +
+            ') excede o saldo de retenção disponível (R$ ' +
+            saldoDisponivel.toFixed(2) +
+            ').',
+        })
+      }
+
+      // Regra fundamental: medições com retenção deste subcontrato devem estar ACEITAS pelo cliente
+      const medicoesComRetencao = $app.findRecordsByFilter(
+        'medicoes',
+        "subcontrato = '" + subId + "' && valor_retencao_tecnica > 0",
+        '-numero_medicao',
+        200,
+        0,
+      )
+
+      let totalAceito = 0
+      const naoAceitas = []
+      for (let m = 0; m < medicoesComRetencao.length; m++) {
+        const med = medicoesComRetencao[m]
+        if (med.getBool('aceita_pelo_cliente')) {
+          totalAceito += med.getFloat('valor_retencao_tecnica') || 0
+        } else {
+          naoAceitas.push(med.getString('numero'))
+        }
+      }
+
+      // O teto que pode ser liberado até o momento é o valor das medições aceitas pelo cliente
+      const tetoLiberavelPorAceitacao = Math.round(totalAceito * 100) / 100
+      const maximoLiberavelHoje = Math.round((tetoLiberavelPorAceitacao - retLiberada) * 100) / 100
+
+      if (valorLiberar > maximoLiberavelHoje + 0.01) {
+        return e.json(400, {
+          message:
+            'BLOQUEIO DE ACEITAÇÃO: A liberação de retenção técnica exige a aceitação formal da etapa/entrega pelo cliente. ' +
+            (naoAceitas.length > 0
+              ? 'As medições [' +
+                naoAceitas.join(', ') +
+                '] ainda não possuem aceitação registrada pelo cliente. '
+              : '') +
+            'Valor máximo liberável com base nas entregas aceitas: R$ ' +
+            (maximoLiberavelHoje > 0 ? maximoLiberavelHoje.toFixed(2) : '0,00') +
+            '.',
+        })
+      }
+
+      // Criar CONTA A PAGAR correspondente ao valor liberado
+      const subNumero = sub.getString('numero')
+      const projetoId = sub.getString('projeto')
+      const executorId = sub.getString('executor')
+
+      let prjCodigo = ''
+      try {
+        const prjRec = $app.findRecordById('projetos', projetoId)
+        if (prjRec) prjCodigo = prjRec.getString('codigo')
+      } catch (_) {}
+
+      let execNome = ''
+      try {
+        const exRec = $app.findRecordById('executores', executorId)
+        if (exRec) execNome = exRec.getString('nome')
+      } catch (_) {}
+
+      const contasCol = $app.findCollectionByNameOrId('contas')
+      const novaConta = new Record(contasCol)
+      novaConta.set('tipo', 'pagar')
+      novaConta.set('status', 'rascunho')
+      novaConta.set(
+        'descricao',
+        'Liberação de Retenção Técnica — Subcontrato ' +
+          subNumero +
+          (prjCodigo ? ' • ' + prjCodigo : '') +
+          (execNome ? ' • ' + execNome : '') +
+          (justificativa ? ' — ' + justificativa : ''),
+      )
+      novaConta.set('valor', valorLiberar)
+      novaConta.set('retencao_impostos', 0)
+      novaConta.set('valor_liquido', valorLiberar)
+      novaConta.set('subcontrato', subId)
+      novaConta.set('projeto', projetoId)
+      novaConta.set('executor', executorId)
+      novaConta.set(
+        'forma_pagamento',
+        'Transferência Bancária / PIX (Liberação de Retenção Técnica)',
+      )
+      novaConta.set('bloqueada_por_fechamento', false)
+
+      // Vencimento em D+10 dias
+      const dataVenc = new Date()
+      dataVenc.setDate(dataVenc.getDate() + 10)
+      novaConta.set('vencimento', dataVenc.toISOString().substring(0, 10) + ' 12:00:00.000Z')
+
+      $app.save(novaConta)
+
+      // Atualizar o subcontrato com o novo acumulado liberado e status
+      const novoTotalLiberado = Math.round((retLiberada + valorLiberar) * 100) / 100
+      sub.set('retencao_tecnica_liberada', novoTotalLiberado)
+
+      let novoStatusRetencao = 'parcialmente_liberada'
+      if (novoTotalLiberado >= retAcumulada - 0.01) {
+        novoStatusRetencao = 'totalmente_liberada'
+      }
+      sub.set('status_retencao', novoStatusRetencao)
+      $app.save(sub)
+
+      const clientIp =
+        (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+        '127.0.0.1'
+
+      // Auditoria completa da liberação de retenção
+      try {
+        const auditCol = $app.findCollectionByNameOrId('audit_logs')
+        const aRec = new Record(auditCol)
+        aRec.set('user', userId)
+        aRec.set('user_email', userEmail)
+        aRec.set('acao', 'RETENCAO_TECNICA_LIBERADA')
+        aRec.set('entidade', 'subcontratos')
+        aRec.set('registro_id', subId)
+        aRec.set('detalhes', {
+          mensagem:
+            'Liberação de retenção técnica de R$ ' +
+            valorLiberar.toFixed(2) +
+            ' aprovada por ' +
+            userEmail +
+            '. Conta a pagar gerada no Financeiro.',
+          subcontrato_id: subId,
+          subcontrato_numero: subNumero,
+          valor_liberado: valorLiberar,
+          novo_total_liberado: novoTotalLiberado,
+          retencao_acumulada: retAcumulada,
+          saldo_remanescente: Math.round((retAcumulada - novoTotalLiberado) * 100) / 100,
+          status_retencao: novoStatusRetencao,
+          conta_pagar_id: novaConta.id,
+          justificativa: justificativa,
+        })
+        aRec.set('ip', clientIp)
+        $app.save(aRec)
+      } catch (_) {}
+
+      return e.json(200, {
+        success: true,
+        message:
+          'Retenção técnica de R$ ' +
+          valorLiberar.toFixed(2) +
+          ' liberada com sucesso! Conta a pagar gerada no Financeiro.',
+        subcontrato_id: subId,
+        valor_liberado: valorLiberar,
+        total_liberado: novoTotalLiberado,
+        saldo_remanescente: Math.round((retAcumulada - novoTotalLiberado) * 100) / 100,
+        status_retencao: novoStatusRetencao,
+        conta_pagar_id: novaConta.id,
+      })
+    } catch (err) {
+      console.log('Erro ao liberar retenção técnica: ' + err)
+      return e.json(500, { message: 'Erro interno ao liberar retenção: ' + err })
     }
   },
   $apis.requireAuth(),

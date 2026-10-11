@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-11T14:43:52.013Z",
+  "generatedAt": "2026-10-11T17:59:58.882Z",
   "collections": [
     {
       "name": "users",
@@ -3799,7 +3799,16 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["minuta", "aguardando_assinatura", "assinado", "cancelado"]
+          "selectValues": [
+            "minuta",
+            "aguardando_assinatura",
+            "assinado",
+            "em_execucao",
+            "concluido",
+            "avaliado",
+            "encerrado",
+            "cancelado"
+          ]
         },
         {
           "name": "token_assinatura",
@@ -3875,6 +3884,42 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "percentual_retencao_tecnica",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "retencao_tecnica_acumulada",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "retencao_tecnica_liberada",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_retencao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "sem_retencao",
+            "acumulando",
+            "parcialmente_liberada",
+            "totalmente_liberada"
+          ]
+        },
+        {
+          "name": "checklist_encerramento_json",
+          "type": "json",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -4010,6 +4055,36 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "percentual_retencao_tecnica",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_retencao_tecnica",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aceita_pelo_cliente",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_aceitacao_cliente",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsavel_aceitacao_cliente",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

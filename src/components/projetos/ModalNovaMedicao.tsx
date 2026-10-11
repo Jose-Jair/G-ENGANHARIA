@@ -44,11 +44,14 @@ export function ModalNovaMedicao({
   const [percentualExecutado, setPercentualExecutado] = useState<string>('')
   const [valorBruto, setValorBruto] = useState<string>('')
   const [retencaoImpostos, setRetencaoImpostos] = useState<string>('0')
+  const [percentualRetencaoTecnica, setPercentualRetencaoTecnica] = useState<string>('10')
   const [anexos, setAnexos] = useState<File[]>([])
   const [salvando, setSalvando] = useState(false)
 
-  // Subcontratos assinados válidos
-  const subcontratosValidos = subcontratos.filter((s) => s.status === 'assinado')
+  // Subcontratos válidos para medição: assinado ou em_execucao
+  const subcontratosValidos = subcontratos.filter(
+    (s) => s.status === 'assinado' || s.status === 'em_execucao',
+  )
 
   useEffect(() => {
     if (open) {
@@ -73,6 +76,15 @@ export function ModalNovaMedicao({
       setValorBruto('')
       setRetencaoImpostos('0')
       setAnexos([])
+
+      const subSel = subcontratos.find(
+        (s) => s.id === (subcontratoPreSelecionadoId || subcontratosValidos[0]?.id || ''),
+      )
+      if (subSel && typeof subSel.percentual_retencao_tecnica === 'number') {
+        setPercentualRetencaoTecnica(String(subSel.percentual_retencao_tecnica))
+      } else {
+        setPercentualRetencaoTecnica('10')
+      }
     }
   }, [open, subcontratoPreSelecionadoId])
 
@@ -100,7 +112,13 @@ export function ModalNovaMedicao({
 
   const numValorBruto = parseFloat(valorBruto) || 0
   const numRetencao = parseFloat(retencaoImpostos) || 0
-  const valorLiquidoCalculado = Math.max(0, Math.round((numValorBruto - numRetencao) * 100) / 100)
+  const numPctRetencaoTec = parseFloat(percentualRetencaoTecnica) || 0
+  const valorRetencaoTecnicaCalculado =
+    Math.round(((numValorBruto * numPctRetencaoTec) / 100) * 100) / 100
+  const valorLiquidoCalculado = Math.max(
+    0,
+    Math.round((numValorBruto - numRetencao - valorRetencaoTecnicaCalculado) * 100) / 100,
+  )
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -152,6 +170,7 @@ export function ModalNovaMedicao({
         percentual_executado: parseFloat(percentualExecutado) || 0,
         valor_bruto: numValorBruto,
         retencao_impostos: numRetencao,
+        percentual_retencao_tecnica: numPctRetencaoTec,
         anexos: anexos,
       })
 
@@ -222,13 +241,16 @@ export function ModalNovaMedicao({
                   </SelectContent>
                 </Select>
                 {subcontratoSelecionado && (
-                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs flex justify-between items-center text-slate-600">
+                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs flex flex-wrap justify-between items-center gap-2 text-slate-600">
                     <span>
                       Executor: <strong>{subcontratoSelecionado.expand?.executor?.nome}</strong>
                     </span>
                     <span>
                       Valor Total:{' '}
                       <strong>{formatCurrencyBr(subcontratoSelecionado.valor_total)}</strong>
+                    </span>
+                    <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-semibold">
+                      Retenção Técnica: {subcontratoSelecionado.percentual_retencao_tecnica ?? 10}%
                     </span>
                   </div>
                 )}
@@ -301,11 +323,14 @@ export function ModalNovaMedicao({
                 </div>
               </div>
 
-              {/* Retenção de Impostos e Valor Líquido */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Retenções e Valor Líquido */}
+              <div className="grid grid-cols-3 gap-2.5">
                 <div className="space-y-1">
-                  <Label htmlFor="retencao" className="text-xs font-semibold text-slate-700">
-                    Retenção de Impostos (R$)
+                  <Label
+                    htmlFor="retencao"
+                    className="text-[11px] font-semibold text-slate-700 truncate block"
+                  >
+                    Retenção Impostos (R$)
                   </Label>
                   <Input
                     id="retencao"
@@ -319,10 +344,21 @@ export function ModalNovaMedicao({
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-slate-700">
-                    Valor Líquido a Pagar (R$)
+                  <Label
+                    htmlFor="retencaoTec"
+                    className="text-[11px] font-semibold text-amber-800 truncate block"
+                  >
+                    Retenção Técnica ({numPctRetencaoTec}%)
                   </Label>
-                  <div className="h-9 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded text-xs font-bold text-emerald-800 flex items-center">
+                  <div className="h-9 px-2 py-2 bg-amber-50 border border-amber-200 rounded text-xs font-bold text-amber-900 flex items-center">
+                    {formatCurrencyBr(valorRetencaoTecnicaCalculado)}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold text-emerald-800 truncate block">
+                    Valor Líquido (R$)
+                  </Label>
+                  <div className="h-9 px-2 py-2 bg-emerald-50 border border-emerald-200 rounded text-xs font-bold text-emerald-800 flex items-center">
                     {formatCurrencyBr(valorLiquidoCalculado)}
                   </div>
                 </div>

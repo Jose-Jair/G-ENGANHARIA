@@ -7,6 +7,7 @@ export interface ContratarExecutorPayload {
   modo_execucao: 'terceirizada_parcial' | 'terceirizada_integral'
   descricao_delegada?: string
   condicoes_pagamento?: string
+  percentual_retencao_tecnica?: number
   parcelas?: ParcelaSubcontratoItem[]
 }
 
@@ -64,6 +65,10 @@ export interface SubcontratoPublicoData {
     prazo_dias: number
     nota_prazo: string
   }
+  percentual_retencao_tecnica?: number
+  retencao_tecnica_acumulada?: number
+  retencao_tecnica_liberada?: number
+  status_retencao?: string
 }
 
 export const subcontratosService = {
@@ -138,6 +143,59 @@ export const subcontratosService = {
     return await pb.send('/backend/v1/subcontratos/assinar-executor', {
       method: 'POST',
       body: payload,
+    })
+  },
+
+  // Transição de status do ciclo de vida: assinado -> em_execucao -> concluido -> avaliado -> encerrado
+  async transicionarStatus(
+    subcontratoId: string,
+    novoStatus: string,
+  ): Promise<{
+    success: boolean
+    message: string
+    status: string
+    status_anterior: string
+  }> {
+    return await pb.send(`/backend/v1/subcontratos/${subcontratoId}/transicao-status`, {
+      method: 'POST',
+      body: { status: novoStatus },
+    })
+  },
+
+  // Atualizar item do checklist de encerramento auditado
+  async atualizarChecklistItem(
+    subcontratoId: string,
+    itemId: string,
+    concluido: boolean,
+  ): Promise<{
+    success: boolean
+    message: string
+    checklist: SubcontratoRecord['checklist_encerramento_json']
+  }> {
+    return await pb.send(`/backend/v1/subcontratos/${subcontratoId}/checklist`, {
+      method: 'POST',
+      body: { item_id: itemId, concluido },
+    })
+  },
+
+  // Liberação de Retenção Técnica (gera conta a pagar e audita)
+  async liberarRetencao(
+    subcontratoId: string,
+    valorLiberar: number,
+    justificativa?: string,
+  ): Promise<{
+    success: boolean
+    message: string
+    subcontrato_id: string
+    valor_liberado: number
+    total_liberado: number
+    saldo_remanescente: number
+    status_retencao: string
+    conta_pagar_id: string
+  }> {
+    return await pb.send(`/backend/v1/subcontratos/${subcontratoId}/liberar-retencao`, {
+      method: 'POST',
+      body: { valor_liberar: valorLiberar, justificativa },
     })
   },
 }

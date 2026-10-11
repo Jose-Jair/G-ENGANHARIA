@@ -949,14 +949,36 @@ export interface CotacaoRecord {
   }
 }
 
-export type StatusSubcontrato = 'minuta' | 'aguardando_assinatura' | 'assinado' | 'cancelado'
+export type StatusSubcontrato =
+  | 'minuta'
+  | 'aguardando_assinatura'
+  | 'assinado'
+  | 'em_execucao'
+  | 'concluido'
+  | 'avaliado'
+  | 'encerrado'
+  | 'cancelado'
+
+export type StatusRetencaoTecnica =
+  | 'sem_retencao'
+  | 'acumulando'
+  | 'parcialmente_liberada'
+  | 'totalmente_liberada'
+
+export interface ItemChecklistEncerramento {
+  id: string
+  titulo: string
+  descricao?: string
+  concluido: boolean
+  concluido_por?: string
+  data_conclusao?: string
+}
 
 export interface ParcelaSubcontratoItem {
   numero?: number
   descricao?: string
   valor: number
   vencimento?: string
-  gatilho?: string
 }
 
 export interface SubcontratoRecord {
@@ -967,26 +989,31 @@ export interface SubcontratoRecord {
   contrato_servico_origem?: string
   executor: string
   cotacao?: string
-  modo_execucao: 'terceirizada_parcial' | 'terceirizada_integral'
+  modo_execucao: ModoExecucaoProjeto
   descricao_escopo?: string
   descricao_delegada?: string
   valor_total: number
-  prazo_dias?: number
+  prazo_dias: number
   nota_prazo?: string
   clausulas_texto?: string
   condicoes_pagamento?: string
   parcelas_json?: ParcelaSubcontratoItem[]
   status: StatusSubcontrato
   token_assinatura?: string
+  emitido_por?: string
+  data_emissao?: string
+  data_assinatura_executor?: string
   executor_nome_assinante?: string
   executor_documento_assinante?: string
-  data_assinatura_executor?: string
   executor_ip?: string
   executor_user_agent?: string
   executor_declaracao?: boolean
   executor_hash?: string
-  emitido_por?: string
-  data_emissao?: string
+  percentual_retencao_tecnica?: number
+  retencao_tecnica_acumulada?: number
+  retencao_tecnica_liberada?: number
+  status_retencao?: StatusRetencaoTecnica
+  checklist_encerramento_json?: ItemChecklistEncerramento[]
   created: string
   updated: string
   expand?: {
@@ -997,7 +1024,7 @@ export interface SubcontratoRecord {
     cotacao?: CotacaoRecord
     emitido_por?: UserRecord
   }
-}
+}}
 
 export interface AvaliacaoRecord {
   id: string
@@ -1089,6 +1116,11 @@ export interface MedicaoRecord {
   percentual_executado: number
   valor_bruto: number
   retencao_impostos?: number
+  percentual_retencao_tecnica?: number
+  valor_retencao_tecnica?: number
+  aceita_pelo_cliente?: boolean
+  data_aceitacao_cliente?: string
+  responsavel_aceitacao_cliente?: string
   valor_liquido: number
   status: StatusMedicao
   aprovada_por?: string

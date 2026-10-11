@@ -141,6 +141,7 @@ export const executoresService = {
     if (data.motivo_suspensao) formData.append('motivo_suspensao', data.motivo_suspensao)
     if (data.nda_contrato instanceof File) {
       formData.append('nda_contrato', data.nda_contrato)
+      formData.append('documento_termo', data.nda_contrato)
     }
 
     return await pb.collection('executores').create<ExecutorRecord>(formData)
@@ -168,6 +169,7 @@ export const executoresService = {
       formData.append('motivo_suspensao', data.motivo_suspensao)
     if (data.nda_contrato instanceof File) {
       formData.append('nda_contrato', data.nda_contrato)
+      formData.append('documento_termo', data.nda_contrato)
     }
 
     return await pb.collection('executores').update<ExecutorRecord>(id, formData)

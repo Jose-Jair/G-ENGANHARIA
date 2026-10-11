@@ -667,10 +667,20 @@ export const ExecutoresPage: React.FC = () => {
                         )}
 
                         {ex.isRegistroVencido && (
+                          <div className="p-2 bg-rose-100/80 border border-rose-200 rounded text-[11px] text-rose-900 flex items-center gap-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                            <span>
+                              <strong>Conselho Vencido (Bloqueio Cotação):</strong> Validade expirou
+                              em {formatDateBr(ex.conselho_validade!)}
+                            </span>
+                          </div>
+                        )}
+
+                        {!ex.isRegistroVencido && ex.isRegistroVencendoBreve && (
                           <div className="p-2 bg-amber-100/70 border border-amber-200 rounded text-[11px] text-amber-900 flex items-center gap-1.5">
                             <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                             <span>
-                              <strong>Conselho Vencido:</strong> Validade expirou em{' '}
+                              <strong>Vencimento em Breve (≤30 dias):</strong> Registro expira em{' '}
                               {formatDateBr(ex.conselho_validade!)}
                             </span>
                           </div>

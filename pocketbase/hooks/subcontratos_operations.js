@@ -63,6 +63,26 @@ routerAdd(
             continue
           }
 
+          // Bloqueio server-side de convite para cotação quando o registro estiver vencido
+          const valConselho =
+            executor.getString('conselho_validade') ||
+            executor.getString('validade_registro_conselho') ||
+            ''
+          if (valConselho) {
+            const hoje = new Date()
+            hoje.setHours(0, 0, 0, 0)
+            const dtVal = new Date(valConselho.substring(0, 10) + 'T23:59:59.000Z')
+            if (dtVal < hoje) {
+              throw new BadRequestError(
+                'BLOQUEIO_COTACAO: Executor ' +
+                  executor.getString('nome') +
+                  ' possui registro de conselho VENCIDO (' +
+                  valConselho.substring(0, 10) +
+                  ') e não pode receber cotações.',
+              )
+            }
+          }
+
           const token = $security.randomString(32)
           const novaCotacao = new Record(cotacoesCol)
           novaCotacao.set('projeto', projetoId)

@@ -316,11 +316,11 @@ routerAdd('POST', '/backend/v1/executores/submeter-cadastro-token', (e) => {
     const tipo = body.tipo === 'PJ' ? 'PJ' : 'PF'
     const cpfCnpj = (body.cpf_cnpj || '').trim()
     const telefone = (body.telefone || '').trim()
-    const conselhoClasse = (body.conselho_classe || body.conselho || 'CREA').toUpperCase()
-    const numeroRegistro = (body.numero_registro_conselho || body.numero_registro || '').trim()
+    const conselhoClasse = (body.conselho || body.conselho_classe || 'CREA').toUpperCase()
+    const numeroRegistro = (body.numero_registro || body.numero_registro_conselho || '').trim()
     const validadeRegistro = (
-      body.validade_registro_conselho ||
       body.conselho_validade ||
+      body.validade_registro_conselho ||
       ''
     ).trim()
     const disciplinas = (body.disciplinas || '').trim()
@@ -456,6 +456,48 @@ routerAdd(
         executor = $app.findRecordById('executores', executorId)
       } catch (_) {
         return e.json(404, { error: 'Executor não encontrado' })
+      }
+
+      // CHECKLIST MÍNIMO NO SERVIDOR PARA ATIVAÇÃO:
+      // 1. Documento do conselho com validade futura
+      const validadeStr =
+        executor.getString('conselho_validade') ||
+        executor.getString('validade_registro_conselho') ||
+        ''
+      if (!validadeStr) {
+        return e.json(400, {
+          error: 'Não é possível ativar o executor sem a data de validade do conselho preenchida.',
+        })
+      }
+      const hoje = new Date()
+      hoje.setHours(0, 0, 0, 0)
+      const dtVal = new Date(validadeStr.substring(0, 10) + 'T23:59:59.000Z')
+      if (dtVal < hoje) {
+        return e.json(400, {
+          error:
+            'O registro de classe do executor está VENCIDO (' +
+            validadeStr.substring(0, 10) +
+            '). Regularize a anuidade antes de ativar.',
+        })
+      }
+
+      // 2. Dados bancários preenchidos
+      const dadosBancarios = (executor.getString('dados_bancarios') || '').trim()
+      if (!dadosBancarios || dadosBancarios.length < 5) {
+        return e.json(400, {
+          error:
+            'Os dados bancários do executor são obrigatórios para homologação e ativação na base.',
+        })
+      }
+
+      // 3. Termo/NDA anexado
+      const termoAnexado =
+        executor.getString('nda_contrato') || executor.getString('documento_termo') || ''
+      if (!termoAnexado) {
+        return e.json(400, {
+          error:
+            'É obrigatório anexar o Termo de Credenciamento ou NDA assinado para ativar o executor.',
+        })
       }
 
       const statusAnterior = executor.getString('status')

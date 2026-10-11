@@ -13,6 +13,7 @@ import {
   PropostaRecord,
 } from '@/types'
 import { propostasService } from '@/services/propostas'
+import { executoresService, ExecutorComMetricas } from '@/services/executores'
 import { toquesService } from '@/services/toques'
 import { empresasService } from '@/services/empresas'
 import { contatosService } from '@/services/contatos'
@@ -68,6 +69,9 @@ export default function AcoesDoDiaPage() {
   const [motivosCancelamento, setMotivosCancelamento] = useState<MotivoRecord[]>([])
   const [diasLimiteAtraso, setDiasLimiteAtraso] = useState<number>(5)
   const [propostasAlteracao, setPropostasAlteracao] = useState<PropostaRecord[]>([])
+  const [executoresAlertaVencimento, setExecutoresAlertaVencimento] = useState<
+    ExecutorComMetricas[]
+  >([])
 
   // Filtros de tela
   const [busca, setBusca] = useState('')
@@ -151,6 +155,15 @@ export default function AcoesDoDiaPage() {
       try {
         const propsAlt = await propostasService.list({ status: 'solicitada_alteracao' })
         setPropostasAlteracao(propsAlt)
+      } catch {
+        /* ignore */
+      }
+
+      // 6. Carregar Executores com conselho vencendo em breve ou vencido (≤30 dias)
+      try {
+        const execs = await executoresService.listComMetricas()
+        const comAlerta = execs.filter((ex) => ex.isRegistroVencido || ex.isRegistroVencendoBreve)
+        setExecutoresAlertaVencimento(comAlerta)
       } catch {
         /* ignore */
       }
@@ -448,6 +461,58 @@ export default function AcoesDoDiaPage() {
           </Button>
         </div>
       </div>
+
+      {/* Alerta de Executores com Conselho Vencendo (30 dias) ou Vencido */}
+      {executoresAlertaVencimento.length > 0 && (
+        <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/90 text-amber-950 flex items-start gap-3 shadow-xs">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex-1 text-xs">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+              <strong className="text-sm font-bold text-amber-900 block">
+                Alerta de Habilitação Técnica: {executoresAlertaVencimento.length}{' '}
+                {executoresAlertaVencimento.length === 1
+                  ? 'executor requer renovação de anuidade'
+                  : 'executores requerem renovação de anuidade'}
+              </strong>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate('/executores')}
+                className="h-6 text-[11px] border-amber-400 text-amber-900 hover:bg-amber-100"
+              >
+                Abrir Ficha de Executores &rarr;
+              </Button>
+            </div>
+            <p className="text-amber-800 leading-relaxed">
+              Executores com registro de classe vencido têm bloqueio automático no servidor para
+              recebimento de convites a novas cotações. Comunique os parceiros 30 dias antes do
+              vencimento da anuidade:
+            </p>
+            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              {executoresAlertaVencimento.map((ex) => (
+                <div
+                  key={ex.id}
+                  className="p-2 bg-white/80 border border-amber-200 rounded text-[11px] flex items-center justify-between gap-1 shadow-2xs"
+                >
+                  <div className="truncate">
+                    <span className="font-bold text-slate-800 block truncate">{ex.nome}</span>
+                    <span className="text-[10px] text-slate-500">
+                      {ex.conselho || 'Conselho'}: {ex.numero_registro || 'S/N'}
+                    </span>
+                  </div>
+                  <Badge
+                    className={`text-[9px] shrink-0 font-bold uppercase ${
+                      ex.isRegistroVencido ? 'bg-rose-600 text-white' : 'bg-amber-600 text-white'
+                    }`}
+                  >
+                    {ex.isRegistroVencido ? 'Vencido' : 'Vence em ≤30d'}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Alerta de Atraso Crítico para Admin */}
       {isAdmin && totalCriticosAdmin > 0 && (

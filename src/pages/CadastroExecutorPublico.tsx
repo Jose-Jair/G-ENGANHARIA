@@ -224,6 +224,21 @@ export const CadastroExecutorPublicoPage: React.FC = () => {
       return false
     }
 
+    if (validadeRegistro) {
+      const hoje = new Date()
+      hoje.setHours(0, 0, 0, 0)
+      const dtVal = new Date(validadeRegistro.substring(0, 10) + 'T23:59:59.000Z')
+      if (dtVal < hoje) {
+        toast({
+          title: 'Registro de Classe Vencido',
+          description:
+            'A validade do registro de classe não pode estar no passado no ato do cadastro.',
+          variant: 'destructive',
+        })
+        return false
+      }
+    }
+
     return true
   }
 

@@ -401,7 +401,7 @@ export const dashboardService = {
       if (statusEnviadas.includes(p.status)) {
         enviadasPeriodo++
       }
-      if (p.status === 'aceita') {
+      if (p.status === 'aceita' || p.status === 'convertida_em_projeto') {
         aceitasPeriodo++
       } else if (p.status === 'recusada') {
         const motivo = p.motivo_recusa || 'Outros motivos'
@@ -421,7 +421,7 @@ export const dashboardService = {
       if (criadoEm >= inicioMesCorrente) {
         valorPropostoMes += Number(p.preco) || 0
       }
-      if (p.status === 'aceita') {
+      if (p.status === 'aceita' || p.status === 'convertida_em_projeto') {
         const dataAceite = p.data_aceite ? new Date(p.data_aceite) : new Date(p.updated || '')
         if (dataAceite >= inicioMesCorrente) {
           valorFechadoMes += Number(p.preco) || 0
@@ -894,7 +894,7 @@ export const dashboardService = {
         registro.propostasEmitidasIds.add(item.proposta)
         registro.valorProposto += Number(item.preco_total) || 0
 
-        if (prop.status === 'aceita') {
+        if (prop.status === 'aceita' || prop.status === 'convertida_em_projeto') {
           registro.propostasAceitasIds.add(item.proposta)
           registro.valorFechado += Number(item.preco_total) || 0
         }
@@ -929,7 +929,7 @@ export const dashboardService = {
         registro.propostasEmitidasIds.add(prop.id)
         registro.valorProposto += Number(item.preco_total) || 0
 
-        if (prop.status === 'aceita') {
+        if (prop.status === 'aceita' || prop.status === 'convertida_em_projeto') {
           registro.propostasAceitasIds.add(prop.id)
           registro.valorFechado += Number(item.preco_total) || 0
         }

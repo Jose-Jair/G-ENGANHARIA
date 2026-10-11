@@ -331,7 +331,13 @@
     display: block !important;
   }
 
-  div[role='dialog'] {
+  /* Ocultar qualquer portal ou modal que NÃO contenha o dossiê ativo */
+  [data-radix-portal]:not(:has(.dossie-contrato-documento)):not(:has(.dossie-gmais-documento)) {
+    display: none !important;
+  }
+
+  div[role='dialog']:has(.dossie-contrato-documento),
+  div[role='dialog']:has(.dossie-gmais-documento) {
     position: static !important;
     transform: none !important;
     width: 100% !important;
@@ -343,6 +349,12 @@
     padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
+    background: #ffffff !important;
+  }
+
+  /* Qualquer outro diálogo aberto por baixo (ex.: ModalDetalhesContratoServico) fica oculto */
+  div[role='dialog']:not(:has(.dossie-contrato-documento)):not(:has(.dossie-gmais-documento)) {
+    display: none !important;
   }
 
   div[data-state='open'] {
@@ -357,7 +369,7 @@
     display: none !important;
   }
 
-  /* Ocultar cabeçalhos, barras laterais, navegação, botões e toasts */
+  /* Ocultar cabeçalhos, barras laterais, navegação, botões, modais secundários e toasts */
   header,
   nav,
   aside,

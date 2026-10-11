@@ -122,6 +122,12 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
         )
       case 'aceita':
         return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">Aceita</Badge>
+      case 'convertida_em_projeto':
+        return (
+          <Badge className="bg-blue-600 text-white border-blue-700 shadow-2xs font-semibold">
+            Convertida em Projeto
+          </Badge>
+        )
       case 'recusada':
         return <Badge variant="destructive">Recusada</Badge>
       case 'expirada':

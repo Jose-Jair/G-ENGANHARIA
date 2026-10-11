@@ -585,6 +585,7 @@ export interface PropostaRecord {
     | 'visualizada'
     | 'em_negociacao'
     | 'aceita'
+    | 'convertida_em_projeto'
     | 'recusada'
     | 'expirada'
   motivo_recusa?: string

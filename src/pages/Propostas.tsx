@@ -243,6 +243,12 @@ export const PropostasPage: React.FC = () => {
         )
       case 'aceita':
         return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">Aceita</Badge>
+      case 'convertida_em_projeto':
+        return (
+          <Badge className="bg-blue-600 text-white border-blue-700 shadow-2xs font-semibold">
+            Convertida em Projeto
+          </Badge>
+        )
       case 'recusada':
         return <Badge variant="destructive">Recusada</Badge>
       case 'expirada':
@@ -547,6 +553,7 @@ export const PropostasPage: React.FC = () => {
               <SelectItem value="visualizada">Visualizada</SelectItem>
               <SelectItem value="em_negociacao">Em Negociação</SelectItem>
               <SelectItem value="aceita">Aceita</SelectItem>
+              <SelectItem value="convertida_em_projeto">Convertida em Projeto</SelectItem>
               <SelectItem value="recusada">Recusada</SelectItem>
               <SelectItem value="expirada">Expirada</SelectItem>
             </SelectContent>

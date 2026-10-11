@@ -511,7 +511,7 @@ export const propostasService = {
         totalEnviadas++
       }
 
-      if (p.status === 'aceita') {
+      if (p.status === 'aceita' || p.status === 'convertida_em_projeto') {
         totalAceitas++
         valorTotalAceitas += Number(p.preco) || 0
       } else if (p.status === 'recusada') {

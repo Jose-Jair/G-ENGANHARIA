@@ -267,7 +267,7 @@ export default function FunilPage() {
           pb
             .collection('propostas')
             .getFullList({
-              filter: 'status = "aceita"',
+              filter: 'status = "aceita" || status = "convertida_em_projeto"',
               fields: 'id,empresa',
             })
             .catch(() => []),

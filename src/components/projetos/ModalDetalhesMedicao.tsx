@@ -24,6 +24,7 @@ import {
   Calendar,
   AlertTriangle,
   Download,
+  ShieldAlert,
 } from 'lucide-react'
 
 interface ModalDetalhesMedicaoProps {
@@ -46,6 +47,7 @@ export function ModalDetalhesMedicao({
   const [processando, setProcessando] = useState(false)
   const [responsavelAceitacao, setResponsavelAceitacao] = useState('')
   const [processandoAceite, setProcessandoAceite] = useState(false)
+  const [erroBloqueioEntregavel, setErroBloqueioEntregavel] = useState<string | null>(null)
 
   if (!medicao) return null
 
@@ -57,22 +59,33 @@ export function ModalDetalhesMedicao({
   const handleAprovar = async () => {
     if (!medicao) return
     setProcessando(true)
+    setErroBloqueioEntregavel(null)
     try {
       const res = await medicoesService.aprovar(medicao.id)
       toast({
         title: 'Medição Aprovada!',
-        description: res.message || 'Conta a pagar gerada automaticamente no Financeiro.',
+        description: res.message || 'Boletim aprovado e conta a pagar lançada no Financeiro.',
       })
-      onOpenChange(false)
       onSuccess()
     } catch (err: any) {
       console.error('Erro ao aprovar medição:', err)
       const msg = err?.data?.message || err?.message || 'Falha ao aprovar medição.'
-      toast({
-        title: 'Não foi possível aprovar a medição',
-        description: msg,
-        variant: 'destructive',
-      })
+      if (
+        msg.toLowerCase().includes('entregável') ||
+        msg.toLowerCase().includes('entregavel') ||
+        msg.toLowerCase().includes('aprovado') ||
+        msg.toLowerCase().includes('gate')
+      ) {
+        setErroBloqueioEntregavel(
+          `BLOQUEIO DE LIBERAÇÃO: A aprovação desta medição foi impedida pelo servidor porque os entregáveis técnicos da etapa/disciplina ainda não foram homologados/aprovados na íntegra. (${msg})`,
+        )
+      } else {
+        toast({
+          title: 'Não foi possível aprovar a medição',
+          description: msg,
+          variant: 'destructive',
+        })
+      }
     } finally {
       setProcessando(false)
     }
@@ -195,6 +208,20 @@ export function ModalDetalhesMedicao({
         </DialogHeader>
 
         <div className="space-y-4 pt-2 text-xs">
+          {/* Alerta Visível de Bloqueio por Entregável não aprovado */}
+          {erroBloqueioEntregavel && (
+            <div className="p-3.5 bg-rose-50 border-2 border-rose-300 rounded-lg text-rose-900 space-y-1">
+              <div className="font-bold flex items-center gap-1.5 text-rose-800 text-xs">
+                <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                Regra de Gate / Liberação Bloqueada
+              </div>
+              <p className="text-[11px] leading-relaxed text-rose-800">{erroBloqueioEntregavel}</p>
+              <div className="pt-1 text-[10px] text-slate-600">
+                Acesse a aba <strong>Entregáveis</strong> do projeto para revisar e aprovar as
+                versões submetidas pelo prestador antes de aprovar a medição.
+              </div>
+            </div>
+          )}
           {/* Card Resumo do Executor e Período */}
           <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 grid grid-cols-2 gap-3">
             <div>

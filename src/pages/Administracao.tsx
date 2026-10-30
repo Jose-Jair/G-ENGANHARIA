@@ -17,6 +17,7 @@ import { catalogoServicosService } from '@/services/catalogoServicos'
 import { areasAtuacaoService } from '@/services/areasAtuacao'
 import { GestaoAreasModalidades } from '@/components/administracao/GestaoAreasModalidades'
 import { GestaoModeloProposta } from '@/components/administracao/GestaoModeloProposta'
+import { GestaoCatalogoEscopos } from '@/components/administracao/GestaoCatalogoEscopos'
 import { AreaAtuacaoRecord } from '@/types'
 import { formatCurrencyBr } from '@/lib/formatters'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -647,7 +648,7 @@ export default function AdministracaoPage() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-2 md:grid-cols-7 bg-slate-200/80 p-1">
+        <TabsList className="grid grid-cols-2 md:grid-cols-8 bg-slate-200/80 p-1">
           <TabsTrigger value="usuarios" className="gap-2 text-xs font-medium">
             <Users className="w-4 h-4" />
             <span>Usuários ({usersList.length})</span>
@@ -662,6 +663,13 @@ export default function AdministracaoPage() {
           <TabsTrigger value="areas_atuacao" className="gap-2 text-xs font-medium">
             <Layers className="w-4 h-4 text-orange-600" />
             <span>Áreas & Subserviços</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="catalogo_escopos"
+            className="gap-2 text-xs font-medium text-[#D95A2B] data-[state=active]:bg-white"
+          >
+            <BookOpen className="w-4 h-4 text-[#D95A2B]" />
+            <span>Catálogo de Escopos</span>
           </TabsTrigger>
           <TabsTrigger value="catalogo" className="gap-2 text-xs font-medium">
             <Wrench className="w-4 h-4" />
@@ -852,6 +860,11 @@ export default function AdministracaoPage() {
         {/* ABA ÁREAS DE ATUAÇÃO E SUBSERVIÇOS */}
         <TabsContent value="areas_atuacao" className="space-y-4">
           <GestaoAreasModalidades />
+        </TabsContent>
+
+        {/* ABA CATÁLOGO DE ESCOPOS TÉCNICOS */}
+        <TabsContent value="catalogo_escopos" className="space-y-4">
+          <GestaoCatalogoEscopos />
         </TabsContent>
 
         {/* ABA CATÁLOGO DE SERVIÇOS */}

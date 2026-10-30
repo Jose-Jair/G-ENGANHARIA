@@ -861,12 +861,23 @@ export interface ProjetoEtapaRecord {
   custo_estimado?: number
   valor_executor?: number
   status: StatusEtapa
+  is_pacote_trabalho?: boolean
+  is_marco?: boolean
+  valor_interno_referencia?: number
+  valor_vendido?: number
+  escopo_detalhado?: string
+  proposta_item_origem?: string
+  parcela_origem?: string
+  ordem_servico_ativa?: string
   created: string
   updated: string
   expand?: {
     projeto?: ProjetoRecord
     executor?: ExecutorRecord
     area?: AreaAtuacaoRecord
+    ordem_servico_ativa?: OrdemServicoRecord
+    parcela_origem?: any
+    proposta_item_origem?: any
   }
 }
 
@@ -874,17 +885,93 @@ export interface EntregavelRecord {
   id: string
   etapa: string
   nome: string
+  titulo?: string
   descricao?: string
   versao?: string
-  status: StatusEntregavel
+  versao_atual?: number
+  status:
+    | StatusEntregavel
+    | 'atribuido'
+    | 'em_producao'
+    | 'enviado_revisao'
+    | 'aprovado'
+    | 'devolvido'
   arquivo?: string
+  prestador?: string
+  ordem_servico?: string
+  prazo?: string
+  revisor_interno?: string
+  motivo_devolucao?: string
   data_aprovacao?: string
   observacoes_revisao?: string
   created: string
   updated: string
   expand?: {
     etapa?: ProjetoEtapaRecord
+    prestador?: PrestadorRecord
+    revisor_interno?: UserRecord
+    ordem_servico?: OrdemServicoRecord
   }
+}
+
+export interface EntregavelVersaoRecord {
+  id: string
+  entregavel: string
+  numero_versao: number
+  arquivo?: string
+  enviado_por?: string
+  enviado_em?: string
+  status: 'submetido' | 'em_revisao' | 'aprovado' | 'devolvido'
+  motivo_devolucao?: string
+  avaliado_por?: string
+  avaliado_em?: string
+  observacoes?: string
+  created: string
+  updated: string
+  expand?: {
+    entregavel?: EntregavelRecord
+    enviado_por?: UserRecord
+    avaliado_por?: UserRecord
+  }
+}
+
+export interface CatalogoEscopoItemEntregavel {
+  nome: string
+  descricao?: string
+  ordem?: number
+}
+
+export interface CatalogoEscopoChecklistItem {
+  item: string
+  obrigatorio: boolean
+}
+
+export interface CatalogoEscopoRecord {
+  id: string
+  disciplina: string
+  nome: string
+  entregaveis_padrao?: CatalogoEscopoItemEntregavel[]
+  checklist_revisao?: CatalogoEscopoChecklistItem[]
+  ativo: boolean
+  created: string
+  updated: string
+}
+
+export interface SugestaoPrestadorItem {
+  prestador_id: string
+  nome: string
+  tipo: 'interno' | 'pf_externo' | 'pj_externo' | string
+  email: string
+  uf: string
+  disciplinas: string[]
+  nota_media: number
+  capacidade_maxima: number
+  capacidade_livre: number
+  os_ativas: number
+  tendencia: 'melhorou' | 'estavel' | 'piorou'
+  score_final: number
+  motivos: string[]
+  conselho_validade: string
 }
 
 export interface DocumentoRecord {

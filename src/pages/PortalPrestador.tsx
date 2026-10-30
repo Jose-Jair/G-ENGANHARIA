@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { portalPrestadorService, ordensServicoService } from '@/services/prestadores'
 import { PortalOsRecord, PortalEntregavelRecord, PortalDocumentoRecord } from '@/types'
+import { entregaveisCicloService } from '@/services/cadeiaContratosProjetos'
 import { formatDateBr, formatCurrencyBr } from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -46,6 +47,13 @@ export const PortalPrestadorPage: React.FC = () => {
   const [entregaveis, setEntregaveis] = useState<PortalEntregavelRecord[]>([])
   const [documentos, setDocumentos] = useState<PortalDocumentoRecord[]>([])
   const [carregandoDetalhes, setCarregandoDetalhes] = useState(false)
+
+  // Submissão de versão pelo prestador
+  const [modalSubmeterVersaoOpen, setModalSubmeterVersaoOpen] = useState(false)
+  const [entregavelSelecionadoSubmissao, setEntregavelSelecionadoSubmissao] =
+    useState<PortalEntregavelRecord | null>(null)
+  const [obsSubmissaoPrestador, setObsSubmissaoPrestador] = useState('')
+  const [submetendoVersao, setSubmetendoVersao] = useState(false)
 
   // Modal de Assinatura da OS
   const [modalAssinarOpen, setModalAssinarOpen] = useState(false)
@@ -376,30 +384,68 @@ export const PortalPrestadorPage: React.FC = () => {
                           Nenhum entregável específico cadastrado para esta OS.
                         </p>
                       ) : (
-                        <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg">
+                        <div className="space-y-2">
                           {entregaveis.map((ent) => (
                             <div
                               key={ent.id}
-                              className="p-3 text-xs flex items-center justify-between"
+                              className="p-3.5 text-xs bg-slate-50/70 border border-slate-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                             >
-                              <div>
-                                <span className="font-semibold text-slate-800 block">
-                                  {ent.nome}
-                                </span>
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-slate-900">{ent.nome}</span>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] ${
+                                      ent.status === 'aprovado'
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                        : ent.status === 'enviado_revisao'
+                                          ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                          : ent.status === 'devolvido'
+                                            ? 'bg-rose-50 text-rose-800 border-rose-300'
+                                            : 'bg-white text-slate-700'
+                                    }`}
+                                  >
+                                    {ent.status === 'aprovado'
+                                      ? 'Aprovado'
+                                      : ent.status === 'enviado_revisao'
+                                        ? 'Em Revisão Interna'
+                                        : ent.status === 'devolvido'
+                                          ? 'Devolvido com Apontamentos'
+                                          : ent.status || 'Atribuído'}
+                                  </Badge>
+                                </div>
                                 {ent.descricao && (
-                                  <span className="text-slate-500 text-[11px] block mt-0.5">
+                                  <p className="text-slate-600 text-[11px] leading-snug">
                                     {ent.descricao}
-                                  </span>
+                                  </p>
                                 )}
                                 {ent.prazo_entrega && (
-                                  <span className="text-slate-400 text-[10px] block mt-0.5">
-                                    Prazo: {formatDateBr(ent.prazo_entrega)}
+                                  <span className="text-slate-500 text-[10px] block">
+                                    Prazo de entrega:{' '}
+                                    <strong>{formatDateBr(ent.prazo_entrega)}</strong>
                                   </span>
                                 )}
                               </div>
-                              <Badge variant="outline" className="text-[10px]">
-                                {ent.status || 'Pendente'}
-                              </Badge>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                {(ent.status === 'atribuido' ||
+                                  ent.status === 'em_producao' ||
+                                  ent.status === 'devolvido' ||
+                                  !ent.status) && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      setEntregavelSelecionadoSubmissao(ent)
+                                      setObsSubmissaoPrestador('')
+                                      setModalSubmeterVersaoOpen(true)
+                                    }}
+                                    className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1"
+                                  >
+                                    <FileDown className="w-3.5 h-3.5" />
+                                    Enviar Versão
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -450,6 +496,88 @@ export const PortalPrestadorPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modal Submeter Versão pelo Prestador */}
+      <Dialog open={modalSubmeterVersaoOpen} onOpenChange={setModalSubmeterVersaoOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base text-slate-900 flex items-center gap-2">
+              <FileDown className="w-5 h-5 text-blue-600" />
+              Submeter Nova Versão do Entregável
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Envio técnico para revisão da equipe G+:{' '}
+              <strong>"{entregavelSelecionadoSubmissao?.nome}"</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 pt-2">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-slate-700">Notas da Entrega</Label>
+              <Input
+                placeholder="Ex: Versão preliminar com plantas e memorial ajustado..."
+                value={obsSubmissaoPrestador}
+                onChange={(e) => setObsSubmissaoPrestador(e.target.value)}
+                className="text-xs"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="pt-3 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setModalSubmeterVersaoOpen(false)}
+              disabled={submetendoVersao}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={submetendoVersao}
+              onClick={async () => {
+                if (!entregavelSelecionadoSubmissao) return
+                setSubmetendoVersao(true)
+                try {
+                  await entregaveisCicloService.submeterVersao(
+                    entregavelSelecionadoSubmissao.id,
+                    obsSubmissaoPrestador,
+                  )
+                  toast({
+                    title: 'Entregável enviado para revisão!',
+                    description: 'A equipe técnica da G+ foi notificada para avaliar a versão.',
+                  })
+                  setModalSubmeterVersaoOpen(false)
+                  if (osSelecionada) {
+                    const ents = await portalPrestadorService.listEntregaveis(osSelecionada.os_id)
+                    setEntregaveis(ents)
+                  }
+                } catch (err: any) {
+                  toast({
+                    title: 'Erro ao enviar versão',
+                    description: err.message || 'Falha ao submeter versão.',
+                    variant: 'destructive',
+                  })
+                } finally {
+                  setSubmetendoVersao(false)
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {submetendoVersao ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                'Confirmar Envio'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Assinatura da OS */}
       <Dialog open={modalAssinarOpen} onOpenChange={setModalAssinarOpen}>

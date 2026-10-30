@@ -15,8 +15,10 @@ import {
   AlertCircle,
   FileSignature,
   MessageSquare,
+  Sparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { geradorPacotesContratoService } from '@/services/cadeiaContratosProjetos'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -63,6 +65,31 @@ export function ContratoTab({
   const [salvandoClausulas, setSalvandoClausulas] = useState(false)
   const [clausulasTexto, setClausulasTexto] = useState('')
   const [uploadingPdf, setUploadingPdf] = useState(false)
+  const [gerandoPacotes, setGerandoPacotes] = useState(false)
+
+  const handleGerarPacotes = async () => {
+    if (!contrato) return
+    try {
+      setGerandoPacotes(true)
+      const res = await geradorPacotesContratoService.gerarPacotesParaContrato(
+        contrato.id,
+        projeto.id,
+      )
+      toast({
+        title: 'Pacotes e Marcos Gerados',
+        description: res.mensagem,
+      })
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        title: 'Falha ao gerar pacotes',
+        description: err.message || 'Erro ao processar contrato.',
+        variant: 'destructive',
+      })
+    } finally {
+      setGerandoPacotes(false)
+    }
+  }
   const [dossieOpen, setDossieOpen] = useState(false)
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false)
   const [showComplementoWhatsAppModal, setShowComplementoWhatsAppModal] = useState(false)
@@ -287,6 +314,23 @@ export function ContratoTab({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {assinado && canEdit && (
+                <Button
+                  size="sm"
+                  onClick={handleGerarPacotes}
+                  disabled={gerandoPacotes}
+                  className="h-8 text-xs bg-[#D95A2B] hover:bg-[#c44e24] text-white gap-1.5 font-semibold shadow-xs"
+                  title="Gera ou atualiza os pacotes de trabalho e marcos sem duplicar registros"
+                >
+                  {gerandoPacotes ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5 text-orange-200" />
+                  )}
+                  Gerar pacotes do contrato
+                </Button>
+              )}
+
               <Button
                 variant="outline"
                 size="sm"

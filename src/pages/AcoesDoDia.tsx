@@ -506,19 +506,24 @@ export default function AcoesDoDiaPage() {
               {entregaveisAtrasados.map((ent) => (
                 <div
                   key={ent.id}
-                  className="p-2.5 rounded-lg border border-rose-200 bg-white/90 flex flex-col justify-between gap-1 shadow-2xs"
+                  onClick={() => navigate('/projetos')}
+                  className="p-2.5 rounded-lg border border-rose-200 bg-white hover:border-rose-400 hover:shadow-xs transition-all flex flex-col justify-between gap-1 shadow-2xs cursor-pointer"
+                  title="Clique para ir ao projeto/pacote do entregável"
                 >
                   <div>
-                    <span className="font-bold text-slate-800 line-clamp-1">
-                      {ent.titulo || ent.nome}
-                    </span>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-bold text-slate-800 line-clamp-1 hover:text-rose-700">
+                        {ent.titulo || ent.nome}
+                      </span>
+                      <span className="text-[10px] text-blue-600 underline font-medium">Ver</span>
+                    </div>
                     <span className="text-[11px] text-slate-500 block">
                       Prestador: {ent.expand?.prestador?.nome || 'Não atribuído'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-[10px] mt-1 pt-1 border-t border-rose-100">
                     <span className="text-rose-700 font-bold">
-                      Prazo: {formatDateBr(ent.prazo)}
+                      Vencido em: {formatDateBr(ent.prazo)}
                     </span>
                     <Badge
                       variant="outline"

@@ -45,6 +45,7 @@ import { ContratoServicoRecord } from '@/types'
 import { EtapasTab } from './EtapasTab'
 import { EntregaveisTab } from './EntregaveisTab'
 import { EquipeInternaTab } from './EquipeInternaTab'
+import { PacotesTrabalhoTab } from './PacotesTrabalhoTab'
 import { DocumentosTab } from './DocumentosTab'
 import { RiscosTab } from './RiscosTab'
 import { ContratoTab } from './ContratoTab'
@@ -605,12 +606,24 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                       )}
                     </TabsTrigger>
 
+                    <TabsTrigger
+                      value="pacotes"
+                      className="text-xs flex items-center gap-1.5 text-[#D95A2B] font-semibold data-[state=active]:bg-white"
+                    >
+                      <Briefcase className="w-3.5 h-3.5 text-[#D95A2B]" />
+                      Pacotes de Trabalho ({etapas.filter((e) => e.is_pacote_trabalho).length})
+                    </TabsTrigger>
+
                     <TabsTrigger value="etapas" className="text-xs flex items-center gap-1.5">
                       <Layers className="w-3.5 h-3.5" />
                       Aba Etapas ({etapas.length})
                     </TabsTrigger>
 
-                    <TabsTrigger value="entregaveis" className="text-xs flex items-center gap-1.5">
+                    <TabsTrigger
+                      value="entregaveis"
+                      className="text-xs flex items-center gap-1.5"
+                      id="tab-trigger-entregaveis"
+                    >
                       <FileCheck2 className="w-3.5 h-3.5" />
                       Aba Entregáveis ({entregaveis.length})
                     </TabsTrigger>
@@ -663,6 +676,20 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                         carregarDadosCompletos()
                         onUpdate()
                       }}
+                    />
+                  </TabsContent>
+                  <TabsContent value="pacotes">
+                    <PacotesTrabalhoTab
+                      projeto={projeto}
+                      contratoServico={contratoServico}
+                      etapas={etapas}
+                      entregaveis={entregaveis}
+                      canEdit={canEdit}
+                      onRefresh={() => {
+                        carregarDadosCompletos()
+                        onUpdate()
+                      }}
+                      onNavegarParaEntregaveis={() => setActiveTab('entregaveis')}
                     />
                   </TabsContent>
                   <TabsContent value="etapas">

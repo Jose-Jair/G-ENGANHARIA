@@ -446,6 +446,71 @@ routerAdd(
         }
       } catch (_) {}
 
+      // Mapeamento de 5 colunas para compatibilidade da Rodada 10
+      const mapeamento5Colunas = {
+        identificada: 'identificada',
+        qualificada: 'qualificada',
+        em_cadencia: 'qualificada',
+        com_proposta_elaborada: 'em_proposta',
+        proposta_enviada: 'em_proposta',
+        em_conversa: 'negociacao',
+        parceira: 'ganha_perdida',
+        nutricao_mensal: 'ganha_perdida',
+        inativa: 'ganha_perdida',
+      }
+      try {
+        const paramMap = $app.findFirstRecordByData(
+          'parametros',
+          'chave',
+          'funil_correspondencia_5_colunas',
+        )
+        if (paramMap) {
+          const valMap = paramMap.getString('valor')
+          if (valMap) {
+            const parsedMap = JSON.parse(valMap)
+            Object.assign(mapeamento5Colunas, parsedMap)
+          }
+        }
+      } catch (_) {}
+
+      const colunas5Contadores = {
+        identificada: {
+          coluna: 'identificada',
+          titulo: 'Identificada',
+          total_empresas: 0,
+          valor_bruto_potencial: 0,
+          valor_ponderado: 0,
+        },
+        qualificada: {
+          coluna: 'qualificada',
+          titulo: 'Qualificada',
+          total_empresas: 0,
+          valor_bruto_potencial: 0,
+          valor_ponderado: 0,
+        },
+        em_proposta: {
+          coluna: 'em_proposta',
+          titulo: 'Em proposta',
+          total_empresas: 0,
+          valor_bruto_potencial: 0,
+          valor_ponderado: 0,
+        },
+        negociacao: {
+          coluna: 'negociacao',
+          titulo: 'Negociação',
+          total_empresas: 0,
+          valor_bruto_potencial: 0,
+          valor_ponderado: 0,
+        },
+        ganha_perdida: {
+          coluna: 'ganha_perdida',
+          titulo: 'Ganha / Perdida',
+          total_empresas: 0,
+          valor_bruto_potencial: 0,
+          valor_ponderado: 0,
+        },
+      }
+
       // Buscar empresas ativas com etapa_funil
       const empresas = $app.findRecordsByFilter('empresas', "status = 'ativa'", '-created', 2000, 0)
 
@@ -517,11 +582,21 @@ routerAdd(
         etapasContadores[etapa].valor_bruto_potencial += valorBruto
         etapasContadores[etapa].valor_ponderado += valorPonderado
 
+        // Acumular também na visão compatível de 5 colunas
+        const col5Key = mapeamento5Colunas[etapa] || 'identificada'
+        if (colunas5Contadores[col5Key]) {
+          colunas5Contadores[col5Key].total_empresas++
+          colunas5Contadores[col5Key].valor_bruto_potencial += valorBruto
+          colunas5Contadores[col5Key].valor_ponderado += valorPonderado
+        }
+
         etapasContadores[etapa].empresas_detalhe.push({
           id: emp.id,
           nome: emp.getString('nome_fantasia') || emp.getString('razao_social'),
           cnpj: emp.getString('cnpj'),
           etapa: etapa,
+          coluna_5: col5Key,
+          is_parceira: emp.getBool('is_parceira') || etapa === 'parceira',
           probabilidade_perc: prob,
           valor_bruto: Math.round(valorBruto * 100) / 100,
           valor_ponderado: valorPonderado,
@@ -541,9 +616,18 @@ routerAdd(
         empresas_detalhe: item.empresas_detalhe,
       }))
 
+      const colunas5Lista = Object.values(colunas5Contadores).map((c) => ({
+        coluna: c.coluna,
+        titulo: c.titulo,
+        total_empresas: c.total_empresas,
+        valor_bruto_potencial: Math.round(c.valor_bruto_potencial * 100) / 100,
+        valor_ponderado: Math.round(c.valor_ponderado * 100) / 100,
+      }))
+
       return e.json(200, {
         success: true,
         parametros_probabilidades: probabilidades,
+        correspondencia_5_colunas: mapeamento5Colunas,
         totalizador: {
           total_empresas: empresas.length,
           valor_bruto_total: Math.round(totalBrutoCarteira * 100) / 100,
@@ -554,6 +638,7 @@ routerAdd(
               : 0,
         },
         etapas: etapasLista,
+        colunas_5: colunas5Lista,
       })
     } catch (err) {
       console.log('Erro ao calcular previsão de receita do funil: ' + err)

@@ -112,6 +112,22 @@ export interface TelefoneItem {
 
 export type TelefoneEmpresaItem = TelefoneItem
 
+// RODADA 10: 5 Colunas oficiais do Funil Enxuto
+export type ColunaFunil5 =
+  | 'identificada'
+  | 'qualificada'
+  | 'em_proposta'
+  | 'negociacao'
+  | 'ganha_perdida'
+
+export const COLUNAS_FUNIL_5_LABELS: Record<ColunaFunil5, string> = {
+  identificada: 'Identificada',
+  qualificada: 'Qualificada',
+  em_proposta: 'Em proposta',
+  negociacao: 'Negociação',
+  ganha_perdida: 'Ganha / Perdida',
+}
+
 export interface EmpresaRecord {
   id: string
   razao_social: string
@@ -134,6 +150,10 @@ export interface EmpresaRecord {
   linkedin?: string
   site?: string
   etapa_funil?: EtapaFunil
+  is_parceira?: boolean
+  data_selo_parceira?: string
+  tipo_cliente?: 'pj' | 'pf'
+  cliente_pf_ref?: string
   curva?: CurvaABC
   score?: number
   responsavel?: string
@@ -150,6 +170,7 @@ export interface EmpresaRecord {
     responsavel?: UserRecord
     'contratos(empresa)'?: ContratoRecord[]
     'contatos(empresa)'?: ContatoRecord[]
+    cliente_pf_ref?: ClientePfRecord
   }
 }
 

@@ -76,6 +76,8 @@ describe('Endpoint de Autochecagem de Segurança (/backend/v1/seguranca/selfchec
     expect(res.resultados.item9_canal_comunicacao_os.todas_conformes).toBe(true)
     expect(res.resultados.item10_monitoramento_cobranca_prazos).toBeDefined()
     expect(res.resultados.item10_monitoramento_cobranca_prazos.todas_conformes).toBe(true)
+    expect(res.resultados.item11_ia_operacao_chaves).toBeDefined()
+    expect(res.resultados.item11_ia_operacao_chaves.todas_conformes).toBe(true)
     expect(res.resultados.conformidade_geral).toBe(true)
   })
 })

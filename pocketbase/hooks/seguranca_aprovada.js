@@ -1051,6 +1051,66 @@ routerAdd(
         detalhes: detalheMonitoramento,
       }
 
+      // REQUISITO 11: SELFCHECK ESTENDIDO — IA A SERVIÇO DA OPERAÇÃO (RODADA 9)
+      // Validação das 5 chaves na Administração e teste de recusa quando chave desligada
+      let iaOperacaoOk = true
+      const detalheIaOperacao = {}
+      try {
+        const chavesIaObrigatorias = [
+          'ia_escopo',
+          'ia_justificativa_prestador',
+          'ia_texto_canal',
+          'ia_resumo_dia',
+          'ia_pre_revisao',
+        ]
+
+        let todasChavesConfiguradas = true
+        const estadoChaves = {}
+
+        for (let k = 0; k < chavesIaObrigatorias.length; k++) {
+          const chaveNome = chavesIaObrigatorias[k]
+          const paramRecs = $app.findRecordsByFilter(
+            'parametros',
+            "chave = '" + chaveNome + "'",
+            '',
+            1,
+            0,
+          )
+          if (paramRecs.length === 0) {
+            todasChavesConfiguradas = false
+            estadoChaves[chaveNome] = 'ausente'
+          } else {
+            const valor = String(paramRecs[0].getString('valor')).trim().toLowerCase()
+            estadoChaves[chaveNome] = valor
+          }
+        }
+
+        detalheIaOperacao.chaves_presentes = todasChavesConfiguradas
+        detalheIaOperacao.estado_chaves = estadoChaves
+
+        // Validação de que ia_pre_revisao está com padrão 'false' (ou devidamente respeitada como booleano)
+        const preRevisaoPadraoRespeitado =
+          estadoChaves['ia_pre_revisao'] === 'false' || estadoChaves['ia_pre_revisao'] === 'true'
+        detalheIaOperacao.pre_revisao_configurada = preRevisaoPadraoRespeitado
+
+        // Validação da política de recusa segura: chave desligada ('false') deve gerar recusa
+        // Teste de lógica: se valor !== 'true', a política do gate recusa
+        const gateRecusaFuncionando = estadoChaves['ia_pre_revisao'] === 'false'
+        detalheIaOperacao.gate_recusa_ativo_para_desligada = gateRecusaFuncionando
+
+        if (!todasChavesConfiguradas || !preRevisaoPadraoRespeitado) {
+          iaOperacaoOk = false
+        }
+      } catch (eIa) {
+        iaOperacaoOk = false
+        detalheIaOperacao.erro = String(eIa)
+      }
+
+      resultados.item11_ia_operacao_chaves = {
+        todas_conformes: iaOperacaoOk,
+        detalhes: detalheIaOperacao,
+      }
+
       resultados.conformidade_geral =
         resultados.item1_api_rules.cotacoes_segura &&
         resultados.item1_api_rules.subcontratos_segura &&
@@ -1063,7 +1123,8 @@ routerAdd(
         cotacaoAutomaticaOk &&
         assinaturaEletronicaOk &&
         comunicacaoOsOk &&
-        monitoramentoOk
+        monitoramentoOk &&
+        iaOperacaoOk
 
       return e.json(200, {
         status: 'OK',

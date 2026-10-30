@@ -1126,6 +1126,26 @@ export default function AdministracaoPage() {
                               titulo: 'Antecedência de alerta de inversão de fluxo (dias)',
                               badge: 'Fluxo Projetado',
                             },
+                            ia_escopo: {
+                              titulo: 'IA: Geração de Escopo e Entregáveis de Pacotes',
+                              badge: 'IA Operação',
+                            },
+                            ia_justificativa_prestador: {
+                              titulo: 'IA: Justificativa de Sugestão de Prestadores',
+                              badge: 'IA Operação',
+                            },
+                            ia_texto_canal: {
+                              titulo: 'IA: Redação de Mensagens no Canal da OS',
+                              badge: 'IA Operação',
+                            },
+                            ia_resumo_dia: {
+                              titulo: 'IA: Resumo Diário do Gestor',
+                              badge: 'IA Operação',
+                            },
+                            ia_pre_revisao: {
+                              titulo: 'IA: Pré-revisão de Entregáveis contra Checklist',
+                              badge: 'IA Operação (Opcional)',
+                            },
                           }
                         const infoAmigavel = rotulosAmigaveis[param.chave]
 

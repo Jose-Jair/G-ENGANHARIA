@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T00:59:39.138Z",
+  "generatedAt": "2026-10-30T01:35:17.555Z",
   "collections": [
     {
       "name": "users",
@@ -2572,6 +2572,13 @@
           "required": false,
           "system": false,
           "collectionRef": "contratos_servico"
+        },
+        {
+          "name": "ordem_servico",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "ordens_servico"
         }
       ],
       "indexes": [
@@ -4273,6 +4280,945 @@
         "CREATE UNIQUE INDEX idx_avaliacoes_executor_subcontrato ON avaliacoes_executor (subcontrato)",
         "CREATE INDEX idx_avaliacoes_executor_executor ON avaliacoes_executor (executor)",
         "CREATE INDEX idx_avaliacoes_executor_projeto ON avaliacoes_executor (projeto)"
+      ]
+    },
+    {
+      "name": "prestadores",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["interno", "pf_externo", "pj_externo"]
+        },
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "cpf_cnpj",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "telefone",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "telefones",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conselho",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conselho_classe",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "numero_registro_conselho",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validade_registro_conselho",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "disciplinas",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "regiao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "capacidade_simultanea",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dados_bancarios",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nda_contrato",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "documento_termo",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ativo", "pendente", "suspenso", "inativo"]
+        },
+        {
+          "name": "motivo_suspensao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nota_geral",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_avaliacoes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "token_cadastro",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "token_cadastro_expira",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tentativas_token",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "executor_legado_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_prestadores_tipo ON prestadores (tipo)",
+        "CREATE INDEX idx_prestadores_status ON prestadores (status)",
+        "CREATE INDEX idx_prestadores_email ON prestadores (email)",
+        "CREATE INDEX idx_prestadores_cpf_cnpj ON prestadores (cpf_cnpj)"
+      ]
+    },
+    {
+      "name": "profissionais_prestador",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "prestador",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "prestadores"
+        },
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "conselho",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "numero",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validade",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "telefone",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cargo_funcao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_prof_prestador ON profissionais_prestador (prestador)"]
+    },
+    {
+      "name": "contratos_mestre",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')",
+        "create": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "update": "(@request.auth.id != '' && @request.auth.role = 'admin') || (token_assinatura != '' && (@request.query.token = token_assinatura || token_assinatura = @request.headers.x_token_assinatura))",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "numero",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "prestador",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "prestadores"
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "minuta",
+            "aguardando_assinatura_gmais",
+            "aguardando_assinatura_prestador",
+            "assinado",
+            "cancelado"
+          ]
+        },
+        {
+          "name": "minuta_texto",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "clausulas_nda",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "token_assinatura",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "assinante_gmais",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "data_assinatura_gmais",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "gmais_ip",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "gmais_hash",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "assinante_prestador_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "assinante_prestador_doc",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_assinatura_prestador",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prestador_ip",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prestador_hash",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "arquivo_pdf",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_emissao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "token_expiracao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tentativas_token",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_cm_numero ON contratos_mestre (numero)",
+        "CREATE INDEX idx_cm_prestador ON contratos_mestre (prestador)",
+        "CREATE INDEX idx_cm_status ON contratos_mestre (status)",
+        "CREATE INDEX idx_cm_token ON contratos_mestre (token_assinatura)"
+      ]
+    },
+    {
+      "name": "ordens_servico",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "update": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')) || (token_assinatura != '' && (@request.query.token = token_assinatura || token_assinatura = @request.headers.x_token_assinatura))",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "numero",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo_prestador",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["interno", "externo"]
+        },
+        {
+          "name": "projeto",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "projetos"
+        },
+        {
+          "name": "prestador",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "prestadores"
+        },
+        {
+          "name": "contrato_mestre",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "contratos_mestre"
+        },
+        {
+          "name": "subcontrato_legado",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "subcontratos"
+        },
+        {
+          "name": "disciplina",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "escopo_tecnico",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "entregaveis_texto",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prazo_dias",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_inicio",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_previsao_fim",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_conclusao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_os",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "minuta",
+            "aguardando_assinatura",
+            "assinada",
+            "em_execucao",
+            "concluida",
+            "avaliada",
+            "encerrada",
+            "cancelada"
+          ]
+        },
+        {
+          "name": "percentual_retencao_tecnica",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "retencao_tecnica_acumulada",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "retencao_tecnica_liberada",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_retencao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "sem_retencao",
+            "acumulando",
+            "parcialmente_liberada",
+            "totalmente_liberada"
+          ]
+        },
+        {
+          "name": "checklist_encerramento_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aceite_cliente",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_aceite_cliente",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "token_assinatura",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "assinante_prestador_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "assinante_prestador_doc",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_assinatura_prestador",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prestador_ip",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prestador_hash",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "clausulas_texto",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "parcelas_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "emitido_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "token_expiracao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tentativas_token",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_os_numero ON ordens_servico (numero)",
+        "CREATE INDEX idx_os_projeto ON ordens_servico (projeto)",
+        "CREATE INDEX idx_os_prestador ON ordens_servico (prestador)",
+        "CREATE INDEX idx_os_status ON ordens_servico (status)",
+        "CREATE INDEX idx_os_tipo ON ordens_servico (tipo_prestador)"
+      ]
+    },
+    {
+      "name": "portal_os",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador_email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador_email = @request.auth.email))",
+        "create": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "update": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "os_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "prestador_email",
+          "type": "email",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "prestador_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "codigo_projeto",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "numero_os",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "disciplina",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "escopo_tecnico",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "entregaveis_resumo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prazo_dias",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_inicio",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_previsao_fim",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_os",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "token_assinatura",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pos_os_id ON portal_os (os_id)",
+        "CREATE INDEX idx_pos_email ON portal_os (prestador_email)"
+      ]
+    },
+    {
+      "name": "portal_entregaveis",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador_email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador_email = @request.auth.email))",
+        "create": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "update": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "os_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "prestador_email",
+          "type": "email",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "codigo_projeto",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "versao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prazo_entrega",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "arquivo",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pent_os_id ON portal_entregaveis (os_id)",
+        "CREATE INDEX idx_pent_email ON portal_entregaveis (prestador_email)"
+      ]
+    },
+    {
+      "name": "portal_documentos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador_email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador_email = @request.auth.email))",
+        "create": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "update": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "os_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "prestador_email",
+          "type": "email",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "codigo_projeto",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "categoria",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "arquivo",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pdoc_os_id ON portal_documentos (os_id)",
+        "CREATE INDEX idx_pdoc_email ON portal_documentos (prestador_email)"
       ]
     }
   ]

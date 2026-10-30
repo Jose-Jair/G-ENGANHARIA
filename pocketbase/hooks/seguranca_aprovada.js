@@ -536,6 +536,7 @@ routerAdd(
         item2_protected_files: {},
         item3_token_security: {},
         item4_telefones_json: {},
+        item5_modulo_prestadores: {},
         conformidade_geral: true,
       }
 
@@ -624,13 +625,64 @@ routerAdd(
       }
       resultados.item4_telefones_json.campos_configurados = telefonesJsonOk
 
+      // Verificações do Módulo de Prestadores e Portal
+      let prestadoresOk = true
+      try {
+        const prestCol = $app.findCollectionByNameOrId('prestadores')
+        const profCol = $app.findCollectionByNameOrId('profissionais_prestador')
+        const cmCol = $app.findCollectionByNameOrId('contratos_mestre')
+        const osCol = $app.findCollectionByNameOrId('ordens_servico')
+        const posCol = $app.findCollectionByNameOrId('portal_os')
+
+        // Validar que executor externo NÃO tem acesso a ordens_servico nem contratos_mestre
+        const osRuleSegura =
+          osCol.listRule && !osCol.listRule.includes('executor') && !osCol.listRule.includes('true')
+        const cmRuleSegura =
+          cmCol.listRule && !cmCol.listRule.includes('executor') && !cmCol.listRule.includes('true')
+
+        // Validar que portal_os filtra por prestador_email = @request.auth.email
+        const posRuleSegura =
+          posCol.listRule && posCol.listRule.includes('prestador_email = @request.auth.email')
+
+        // Validar que portal_os NÃO tem campos de cliente, obra, proposta, bdi
+        const camposPos = posCol.fields
+        const posSemCamposSensiveis =
+          !camposPos.getByName('cliente') &&
+          !camposPos.getByName('proposta') &&
+          !camposPos.getByName('bdi') &&
+          !camposPos.getByName('obra') &&
+          !camposPos.getByName('outros_prestadores')
+
+        resultados.item5_modulo_prestadores = {
+          colecoes_criadas: Boolean(prestCol && profCol && cmCol && osCol && posCol),
+          os_regra_segura_sem_executor: Boolean(osRuleSegura),
+          contrato_mestre_regra_segura_sem_executor: Boolean(cmRuleSegura),
+          portal_os_isolado_por_email: Boolean(posRuleSegura),
+          portal_os_sem_campos_sensiveis: Boolean(posSemCamposSensiveis),
+        }
+
+        if (
+          !resultados.item5_modulo_prestadores.colecoes_criadas ||
+          !osRuleSegura ||
+          !cmRuleSegura ||
+          !posRuleSegura ||
+          !posSemCamposSensiveis
+        ) {
+          prestadoresOk = false
+        }
+      } catch (eModP) {
+        prestadoresOk = false
+        resultados.item5_modulo_prestadores = { erro: String(eModP) }
+      }
+
       resultados.conformidade_geral =
         resultados.item1_api_rules.cotacoes_segura &&
         resultados.item1_api_rules.subcontratos_segura &&
         resultados.item1_api_rules.users_anti_escalonamento &&
         resultados.item2_protected_files.todos_protegidos &&
         resultados.item3_token_security.campos_configurados &&
-        resultados.item4_telefones_json.campos_configurados
+        resultados.item4_telefones_json.campos_configurados &&
+        prestadoresOk
 
       return e.json(200, {
         status: 'OK',

@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast'
 import { projetosService, SugestaoSaudeProjeto } from '@/services/projetos'
 import { financeiroService } from '@/services/financeiro'
 import { SaudeProjeto } from '@/types'
-import { Loader2, Sparkles, CheckCircle2, AlertTriangle, ShieldAlert } from 'lucide-react'
+import { Loader2, Sparkles, CheckCircle2, AlertTriangle } from 'lucide-react'
 
 interface ModalSaudeProjetoProps {
   open: boolean

@@ -18,7 +18,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { geradorPacotesContratoService } from '@/services/cadeiaContratosProjetos'
+import { geradorPacotesContratoService } from '@/services/geradorPacotesContrato'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'

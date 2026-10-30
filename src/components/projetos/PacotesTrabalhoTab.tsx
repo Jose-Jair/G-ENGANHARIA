@@ -34,10 +34,8 @@ import {
 import { ProjetoRecord, ProjetoEtapaRecord, EntregavelRecord, ContratoServicoRecord } from '@/types'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
-import {
-  sugestoesPrestadoresService,
-  geradorPacotesContratoService,
-} from '@/services/cadeiaContratosProjetos'
+import { sugestoesPrestadoresService } from '@/services/cadeiaContratosProjetos'
+import { geradorPacotesContratoService } from '@/services/geradorPacotesContrato'
 import { SugestaoPrestadorItem } from '@/types'
 
 interface PacotesTrabalhoTabProps {

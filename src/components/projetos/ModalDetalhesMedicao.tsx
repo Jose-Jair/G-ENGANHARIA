@@ -69,15 +69,21 @@ export function ModalDetalhesMedicao({
       onSuccess()
     } catch (err: any) {
       console.error('Erro ao aprovar medição:', err)
-      const msg = err?.data?.message || err?.message || 'Falha ao aprovar medição.'
+      const msg =
+        err?.data?.error || err?.data?.message || err?.message || 'Falha ao aprovar medição.'
+      const pendentesMsg =
+        Array.isArray(err?.data?.pendentes) && err.data.pendentes.length > 0
+          ? `\nEntregáveis pendentes: ${err.data.pendentes.map((p: any) => `"${p.titulo}" (${p.status})`).join(', ')}.`
+          : ''
       if (
         msg.toLowerCase().includes('entregável') ||
         msg.toLowerCase().includes('entregavel') ||
         msg.toLowerCase().includes('aprovado') ||
-        msg.toLowerCase().includes('gate')
+        msg.toLowerCase().includes('gate') ||
+        msg.toLowerCase().includes('bloqueio')
       ) {
         setErroBloqueioEntregavel(
-          `BLOQUEIO DE LIBERAÇÃO: A aprovação desta medição foi impedida pelo servidor porque os entregáveis técnicos da etapa/disciplina ainda não foram homologados/aprovados na íntegra. (${msg})`,
+          `GATE DE LIBERAÇÃO ATIVO: A aprovação desta medição foi impedida pelo servidor porque existem entregáveis técnicos vinculados que ainda não estão aprovados.${pendentesMsg} (${msg})`,
         )
       } else {
         toast({

@@ -85,6 +85,8 @@ export const entregaveisCicloService = {
   },
 }
 
+export { geradorPacotesContratoService } from './geradorPacotesContrato'
+
 export const sugestoesPrestadoresService = {
   async obterSugestoes(params: {
     disciplina: string

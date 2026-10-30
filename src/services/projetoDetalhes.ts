@@ -123,7 +123,13 @@ export interface CreateEntregavelData {
   nome: string
   descricao?: string
   versao?: string
-  status?: StatusEntregavel
+  status?:
+    | StatusEntregavel
+    | 'atribuido'
+    | 'em_producao'
+    | 'enviado_revisao'
+    | 'aprovado'
+    | 'devolvido'
   arquivo?: File | string
   data_aprovacao?: string
   observacoes_revisao?: string

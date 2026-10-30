@@ -175,7 +175,7 @@ export default function AcoesDoDiaPage() {
         const hojeIso = new Date().toISOString()
         const entsVencidos = await pb.collection('entregaveis').getFullList({
           filter: `status != 'aprovado' && prazo != '' && prazo < '${hojeIso}'`,
-          expand: 'prestador,etapa,ordem_servico',
+          expand: 'prestador,etapa,etapa.projeto,ordem_servico',
           sort: 'prazo',
         })
         setEntregaveisAtrasados(entsVencidos)
@@ -484,10 +484,7 @@ export default function AcoesDoDiaPage() {
           <div className="flex-1 text-xs">
             <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
               <strong className="text-sm font-bold text-rose-900 block">
-                Alerta de Engenharia: {entregaveisAtrasados.length}{' '}
-                {entregaveisAtrasados.length === 1
-                  ? 'entregável com prazo de produção vencido'
-                  : 'entregáveis com prazo de produção vencido'}
+                Entregáveis com prazo vencido ({entregaveisAtrasados.length})
               </strong>
               <Button
                 size="sm"
@@ -503,37 +500,55 @@ export default function AcoesDoDiaPage() {
               no ranqueamento inteligente:
             </p>
             <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-              {entregaveisAtrasados.map((ent) => (
-                <div
-                  key={ent.id}
-                  onClick={() => navigate('/projetos')}
-                  className="p-2.5 rounded-lg border border-rose-200 bg-white hover:border-rose-400 hover:shadow-xs transition-all flex flex-col justify-between gap-1 shadow-2xs cursor-pointer"
-                  title="Clique para ir ao projeto/pacote do entregável"
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="font-bold text-slate-800 line-clamp-1 hover:text-rose-700">
-                        {ent.titulo || ent.nome}
+              {entregaveisAtrasados.map((ent) => {
+                const projetoId =
+                  ent.expand?.etapa?.projeto || ent.expand?.etapa?.expand?.projeto?.id || ''
+                const projetoCodigo =
+                  ent.expand?.etapa?.expand?.projeto?.codigo || ent.expand?.etapa?.nome || ''
+                return (
+                  <div
+                    key={ent.id}
+                    onClick={() => {
+                      if (projetoId) {
+                        navigate(`/projetos?id=${projetoId}`)
+                      } else {
+                        navigate('/projetos')
+                      }
+                    }}
+                    className="p-2.5 rounded-lg border border-rose-200 bg-white hover:border-rose-400 hover:shadow-xs transition-all flex flex-col justify-between gap-1 shadow-2xs cursor-pointer"
+                    title={
+                      projetoCodigo
+                        ? `Ir para o projeto ${projetoCodigo}`
+                        : 'Clique para ir ao projeto'
+                    }
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-bold text-slate-800 line-clamp-1 hover:text-rose-700">
+                          {ent.titulo || ent.nome}
+                        </span>
+                        <span className="text-[10px] text-blue-600 underline font-medium">
+                          {projetoCodigo ? `Projeto ${projetoCodigo}` : 'Ver'}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 block truncate">
+                        Prestador: {ent.expand?.prestador?.nome || 'Não atribuído'}
                       </span>
-                      <span className="text-[10px] text-blue-600 underline font-medium">Ver</span>
                     </div>
-                    <span className="text-[11px] text-slate-500 block">
-                      Prestador: {ent.expand?.prestador?.nome || 'Não atribuído'}
-                    </span>
+                    <div className="flex items-center justify-between text-[10px] mt-1 pt-1 border-t border-rose-100">
+                      <span className="text-rose-700 font-bold">
+                        Vencido em: {formatDateBr(ent.prazo)}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] capitalize border-rose-300 text-rose-800"
+                      >
+                        {ent.status}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-[10px] mt-1 pt-1 border-t border-rose-100">
-                    <span className="text-rose-700 font-bold">
-                      Vencido em: {formatDateBr(ent.prazo)}
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] capitalize border-rose-300 text-rose-800"
-                    >
-                      {ent.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         </div>

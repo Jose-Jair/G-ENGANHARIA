@@ -59,6 +59,9 @@ import {
   Phone,
   Mail,
   ExternalLink,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from 'lucide-react'
 import { exportService } from '@/services/exportService'
 
@@ -595,6 +598,60 @@ export const PrestadoresPage: React.FC = () => {
                   </div>
 
                   <div className="mb-4">{getTipoBadge(p.tipo)}</div>
+
+                  {/* Desempenho e Tendência */}
+                  <div className="mb-3 p-2 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                      <span className="font-semibold text-slate-800">
+                        {p.nota_geral ? p.nota_geral.toFixed(1) : '5.0'}
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        ({p.total_avaliacoes || 0} avaliações)
+                      </span>
+                    </div>
+
+                    {/* Selo de Tendência na Ficha do Prestador */}
+                    {p.total_avaliacoes && p.total_avaliacoes >= 2 ? (
+                      (p.nota_geral || 5) >= 4.5 ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] gap-1 py-0 h-5"
+                          title="Tendência: Melhorou / Alto desempenho"
+                        >
+                          <TrendingUp className="w-3 h-3 text-emerald-600" />
+                          Melhorou
+                        </Badge>
+                      ) : (p.nota_geral || 5) < 3.5 ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-rose-50 text-rose-700 border-rose-300 text-[10px] gap-1 py-0 h-5"
+                          title="Tendência: Piorou / Sob atenção técnica"
+                        >
+                          <TrendingDown className="w-3 h-3 text-rose-600" />
+                          Piorou
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="bg-slate-100 text-slate-700 border-slate-300 text-[10px] gap-1 py-0 h-5"
+                          title="Tendência: Desempenho Estável"
+                        >
+                          <Minus className="w-3 h-3 text-slate-500" />
+                          Estável
+                        </Badge>
+                      )
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="bg-slate-50 text-slate-500 border-slate-200 text-[10px] gap-1 py-0 h-5"
+                        title="Tendência: Estável / Inicial"
+                      >
+                        <Minus className="w-3 h-3 text-slate-400" />
+                        Estável
+                      </Badge>
+                    )}
+                  </div>
 
                   <div className="space-y-1.5 text-xs text-slate-600 mb-4">
                     <div className="flex items-center gap-2">

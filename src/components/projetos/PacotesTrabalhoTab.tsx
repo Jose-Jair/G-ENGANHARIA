@@ -38,7 +38,7 @@ import { sugestoesPrestadoresService } from '@/services/cadeiaContratosProjetos'
 import { geradorPacotesContratoService } from '@/services/geradorPacotesContrato'
 import { SugestaoPrestadorItem, CotacaoRecord } from '@/types'
 import { ModalRankingCotacoes } from '@/components/projetos/ModalRankingCotacoes'
-import { pb } from '@/lib/pocketbase/client'
+import pb from '@/lib/pocketbase/client'
 import { Award, Users, AlertOctagon } from 'lucide-react'
 
 interface PacotesTrabalhoTabProps {

@@ -35,6 +35,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { GPlusLogo } from '@/components/GPlusLogo'
+import { SecaoCotacoesPrestador } from '@/components/projetos/SecaoCotacoesPrestador'
+import { Briefcase } from 'lucide-react'
 
 export const PortalPrestadorPage: React.FC = () => {
   const { user, logout } = useAuth()
@@ -199,11 +201,11 @@ export const PortalPrestadorPage: React.FC = () => {
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900">
-                Ordens de Serviço Atribuídas a Você
+                Portal de Engenharia & Cotações G+
               </h2>
               <p className="text-xs text-slate-500">
-                Consulte as especificações da disciplina, faça download dos arquivos de projeto e
-                acompanhe suas entregas.
+                Acompanhe suas cotações técnicas abertas, ordens de serviço ativas, escopos
+                delegados e entregas de projetos.
               </p>
             </div>
           </div>
@@ -216,285 +218,314 @@ export const PortalPrestadorPage: React.FC = () => {
           </Badge>
         </div>
 
-        {carregando ? (
-          <div className="flex justify-center p-16">
-            <Loader2 className="w-8 h-8 animate-spin text-[#D95A2B]" />
-          </div>
-        ) : ordensServico.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-xl border border-slate-200">
-            <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-base font-semibold text-slate-800">
-              Nenhuma Ordem de Serviço Encontrada
-            </h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-              No momento você não possui Ordens de Serviço ativas no sistema. Assim que a equipe de
-              engenharia da G+ emitir uma OS vinculada ao seu e-mail, ela aparecerá aqui.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Coluna 1: Lista de Ordens de Serviço */}
-            <div className="space-y-3">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block px-1">
-                Suas Ordens de Serviço ({ordensServico.length})
-              </span>
+        {/* Abas Principais: Cotações vs Ordens de Serviço */}
+        <Tabs defaultValue="cotacoes" className="w-full space-y-4">
+          <TabsList className="grid grid-cols-2 max-w-md text-xs bg-slate-200/70 p-1">
+            <TabsTrigger
+              value="cotacoes"
+              className="gap-2 text-xs font-semibold data-[state=active]:bg-white"
+            >
+              <Briefcase className="w-3.5 h-3.5 text-[#D95A2B]" />
+              Cotações
+            </TabsTrigger>
+            <TabsTrigger
+              value="ordens_servico"
+              className="gap-2 text-xs font-semibold data-[state=active]:bg-white"
+            >
+              <Layers className="w-3.5 h-3.5 text-blue-600" />
+              Ordens de Serviço ({ordensServico.length})
+            </TabsTrigger>
+          </TabsList>
 
-              {ordensServico.map((os) => {
-                const isSelected = osSelecionada?.id === os.id
-                return (
-                  <div
-                    key={os.id}
-                    onClick={() => setOsSelecionada(os)}
-                    className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                      isSelected
-                        ? 'border-[#D95A2B] bg-orange-50/40 shadow-xs'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-slate-900 text-sm">{os.numero_os}</span>
-                      {getStatusBadge(os.status)}
-                    </div>
+          {/* ABA 1: COTAÇÕES */}
+          <TabsContent value="cotacoes" className="space-y-4">
+            <SecaoCotacoesPrestador onCotacaoRespondida={carregarMinhasOS} />
+          </TabsContent>
 
-                    <div className="space-y-1 text-xs text-slate-600">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Código do Projeto:</span>
-                        <span className="font-mono font-medium text-slate-800">
-                          {os.codigo_projeto}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Disciplina:</span>
-                        <span className="font-medium text-slate-800">
-                          {os.disciplina || 'Engenharia'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Valor da OS:</span>
-                        <span className="font-bold text-emerald-700">
-                          {formatCurrencyBr(os.valor_os || 0)}
-                        </span>
-                      </div>
-                      {os.prazo_dias && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-400">Prazo:</span>
-                          <span>{os.prazo_dias} dias</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+          {/* ABA 2: ORDENS DE SERVIÇO */}
+          <TabsContent value="ordens_servico" className="space-y-4">
+            {carregando ? (
+              <div className="flex justify-center p-16 bg-white rounded-xl border border-slate-200">
+                <Loader2 className="w-8 h-8 animate-spin text-[#D95A2B]" />
+              </div>
+            ) : ordensServico.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-xl border border-slate-200">
+                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-base font-semibold text-slate-800">
+                  Nenhuma Ordem de Serviço Encontrada
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                  No momento você não possui Ordens de Serviço ativas no sistema. Assim que uma
+                  proposta sua for escolhida na cotação automática ou a equipe G+ emitir uma OS
+                  vinculada ao seu e-mail, ela aparecerá aqui.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Coluna 1: Lista de Ordens de Serviço */}
+                <div className="space-y-3">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block px-1">
+                    Suas Ordens de Serviço ({ordensServico.length})
+                  </span>
 
-            {/* Coluna 2 e 3: Detalhes da Ordem de Serviço Selecionada */}
-            <div className="lg:col-span-2 space-y-6">
-              {osSelecionada && (
-                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-6">
-                  {/* Topo da OS */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-xl font-bold text-slate-900">
-                          {osSelecionada.numero_os}
-                        </h2>
-                        {getStatusBadge(osSelecionada.status)}
-                      </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Projeto Referência:{' '}
-                        <strong className="font-mono text-slate-700">
-                          {osSelecionada.codigo_projeto}
-                        </strong>{' '}
-                        • Disciplina:{' '}
-                        <strong className="text-slate-700">
-                          {osSelecionada.disciplina || 'Engenharia'}
-                        </strong>
-                      </p>
-                    </div>
-
-                    {osSelecionada.status === 'aguardando_assinatura' && (
-                      <Button
-                        onClick={() => {
-                          setConcordou(false)
-                          setModalAssinarOpen(true)
-                        }}
-                        className="bg-[#D95A2B] hover:bg-[#b84820] text-white text-xs shadow-xs"
+                  {ordensServico.map((os) => {
+                    const isSelected = osSelecionada?.id === os.id
+                    return (
+                      <div
+                        key={os.id}
+                        onClick={() => setOsSelecionada(os)}
+                        className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                          isSelected
+                            ? 'border-[#D95A2B] bg-orange-50/40 shadow-xs'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
                       >
-                        <ShieldCheck className="w-4 h-4 mr-1.5" />
-                        Assinar Eletronicamente
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Detalhes Técnicos */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-lg text-xs">
-                    <div>
-                      <span className="text-slate-400 block">Valor Acordado da OS</span>
-                      <span className="text-base font-bold text-emerald-700 mt-0.5 block">
-                        {formatCurrencyBr(osSelecionada.valor_os || 0)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block">Prazo de Execução</span>
-                      <span className="font-semibold text-slate-800 mt-0.5 block">
-                        {osSelecionada.prazo_dias
-                          ? `${osSelecionada.prazo_dias} dias corridos`
-                          : 'A definir'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block">Previsão de Término</span>
-                      <span className="font-semibold text-slate-800 mt-0.5 block">
-                        {osSelecionada.data_previsao_fim
-                          ? formatDateBr(osSelecionada.data_previsao_fim)
-                          : 'Acompanhar cronograma'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Escopo Técnico */}
-                  <div className="space-y-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Escopo Técnico Delegado
-                    </h3>
-                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 leading-relaxed whitespace-pre-line">
-                      {osSelecionada.escopo_tecnico ||
-                        'Nenhuma descrição técnica detalhada informada.'}
-                    </div>
-                  </div>
-
-                  {/* Entregáveis e Documentos Técnicos */}
-                  <Tabs defaultValue="entregaveis" className="w-full">
-                    <TabsList className="grid grid-cols-2 text-xs">
-                      <TabsTrigger value="entregaveis">
-                        Entregáveis Técnicos ({entregaveis.length})
-                      </TabsTrigger>
-                      <TabsTrigger value="documentos">
-                        Arquivos Técnicos ({documentos.length})
-                      </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="entregaveis" className="pt-3">
-                      {carregandoDetalhes ? (
-                        <div className="flex justify-center p-6">
-                          <Loader2 className="w-6 h-6 animate-spin text-[#D95A2B]" />
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-bold text-slate-900 text-sm">{os.numero_os}</span>
+                          {getStatusBadge(os.status)}
                         </div>
-                      ) : entregaveis.length === 0 ? (
-                        <p className="text-xs text-slate-400 text-center py-6 bg-slate-50 rounded-lg">
-                          Nenhum entregável específico cadastrado para esta OS.
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {entregaveis.map((ent) => (
-                            <div
-                              key={ent.id}
-                              className="p-3.5 text-xs bg-slate-50/70 border border-slate-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                            >
-                              <div className="space-y-0.5">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-slate-900">{ent.nome}</span>
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-[10px] ${
-                                      ent.status === 'aprovado'
-                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                                        : ent.status === 'enviado_revisao'
-                                          ? 'bg-amber-50 text-amber-800 border-amber-300'
-                                          : ent.status === 'devolvido'
-                                            ? 'bg-rose-50 text-rose-800 border-rose-300'
-                                            : 'bg-white text-slate-700'
-                                    }`}
-                                  >
-                                    {ent.status === 'aprovado'
-                                      ? 'Aprovado'
-                                      : ent.status === 'enviado_revisao'
-                                        ? 'Em Revisão Interna'
-                                        : ent.status === 'devolvido'
-                                          ? 'Devolvido com Apontamentos'
-                                          : ent.status || 'Atribuído'}
+
+                        <div className="space-y-1 text-xs text-slate-600">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-400">Código do Projeto:</span>
+                            <span className="font-mono font-medium text-slate-800">
+                              {os.codigo_projeto}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-400">Disciplina:</span>
+                            <span className="font-medium text-slate-800">
+                              {os.disciplina || 'Engenharia'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-400">Valor da OS:</span>
+                            <span className="font-bold text-emerald-700">
+                              {formatCurrencyBr(os.valor_os || 0)}
+                            </span>
+                          </div>
+                          {os.prazo_dias && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-400">Prazo:</span>
+                              <span>{os.prazo_dias} dias</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Coluna 2 e 3: Detalhes da Ordem de Serviço Selecionada */}
+                <div className="lg:col-span-2 space-y-6">
+                  {osSelecionada && (
+                    <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-6">
+                      {/* Topo da OS */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h2 className="text-xl font-bold text-slate-900">
+                              {osSelecionada.numero_os}
+                            </h2>
+                            {getStatusBadge(osSelecionada.status)}
+                          </div>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Projeto Referência:{' '}
+                            <strong className="font-mono text-slate-700">
+                              {osSelecionada.codigo_projeto}
+                            </strong>{' '}
+                            • Disciplina:{' '}
+                            <strong className="text-slate-700">
+                              {osSelecionada.disciplina || 'Engenharia'}
+                            </strong>
+                          </p>
+                        </div>
+
+                        {osSelecionada.status === 'aguardando_assinatura' && (
+                          <Button
+                            onClick={() => {
+                              setConcordou(false)
+                              setModalAssinarOpen(true)
+                            }}
+                            className="bg-[#D95A2B] hover:bg-[#b84820] text-white text-xs shadow-xs"
+                          >
+                            <ShieldCheck className="w-4 h-4 mr-1.5" />
+                            Assinar Eletronicamente
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* Detalhes Técnicos */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-lg text-xs">
+                        <div>
+                          <span className="text-slate-400 block">Valor Acordado da OS</span>
+                          <span className="text-base font-bold text-emerald-700 mt-0.5 block">
+                            {formatCurrencyBr(osSelecionada.valor_os || 0)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Prazo de Execução</span>
+                          <span className="font-semibold text-slate-800 mt-0.5 block">
+                            {osSelecionada.prazo_dias
+                              ? `${osSelecionada.prazo_dias} dias corridos`
+                              : 'A definir'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Previsão de Término</span>
+                          <span className="font-semibold text-slate-800 mt-0.5 block">
+                            {osSelecionada.data_previsao_fim
+                              ? formatDateBr(osSelecionada.data_previsao_fim)
+                              : 'Acompanhar cronograma'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Escopo Técnico */}
+                      <div className="space-y-2">
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                          Escopo Técnico Delegado
+                        </h3>
+                        <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 leading-relaxed whitespace-pre-line">
+                          {osSelecionada.escopo_tecnico ||
+                            'Nenhuma descrição técnica detalhada informada.'}
+                        </div>
+                      </div>
+
+                      {/* Entregáveis e Documentos Técnicos */}
+                      <Tabs defaultValue="entregaveis" className="w-full">
+                        <TabsList className="grid grid-cols-2 text-xs">
+                          <TabsTrigger value="entregaveis">
+                            Entregáveis Técnicos ({entregaveis.length})
+                          </TabsTrigger>
+                          <TabsTrigger value="documentos">
+                            Arquivos Técnicos ({documentos.length})
+                          </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="entregaveis" className="pt-3">
+                          {carregandoDetalhes ? (
+                            <div className="flex justify-center p-6">
+                              <Loader2 className="w-6 h-6 animate-spin text-[#D95A2B]" />
+                            </div>
+                          ) : entregaveis.length === 0 ? (
+                            <p className="text-xs text-slate-400 text-center py-6 bg-slate-50 rounded-lg">
+                              Nenhum entregável específico cadastrado para esta OS.
+                            </p>
+                          ) : (
+                            <div className="space-y-2">
+                              {entregaveis.map((ent) => (
+                                <div
+                                  key={ent.id}
+                                  className="p-3.5 text-xs bg-slate-50/70 border border-slate-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                >
+                                  <div className="space-y-0.5">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-slate-900">{ent.nome}</span>
+                                      <Badge
+                                        variant="outline"
+                                        className={`text-[10px] ${
+                                          ent.status === 'aprovado'
+                                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                            : ent.status === 'enviado_revisao'
+                                              ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                              : ent.status === 'devolvido'
+                                                ? 'bg-rose-50 text-rose-800 border-rose-300'
+                                                : 'bg-white text-slate-700'
+                                        }`}
+                                      >
+                                        {ent.status === 'aprovado'
+                                          ? 'Aprovado'
+                                          : ent.status === 'enviado_revisao'
+                                            ? 'Em Revisão Interna'
+                                            : ent.status === 'devolvido'
+                                              ? 'Devolvido com Apontamentos'
+                                              : ent.status || 'Atribuído'}
+                                      </Badge>
+                                    </div>
+                                    {ent.descricao && (
+                                      <p className="text-slate-600 text-[11px] leading-snug">
+                                        {ent.descricao}
+                                      </p>
+                                    )}
+                                    {ent.prazo_entrega && (
+                                      <span className="text-slate-500 text-[10px] block">
+                                        Prazo de entrega:{' '}
+                                        <strong>{formatDateBr(ent.prazo_entrega)}</strong>
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {(ent.status === 'atribuido' ||
+                                      ent.status === 'em_producao' ||
+                                      ent.status === 'devolvido' ||
+                                      !ent.status) && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          setEntregavelSelecionadoSubmissao(ent)
+                                          setObsSubmissaoPrestador('')
+                                          setModalSubmeterVersaoOpen(true)
+                                        }}
+                                        className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1"
+                                      >
+                                        <FileDown className="w-3.5 h-3.5" />
+                                        Enviar Versão
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </TabsContent>
+
+                        <TabsContent value="documentos" className="pt-3">
+                          {carregandoDetalhes ? (
+                            <div className="flex justify-center p-6">
+                              <Loader2 className="w-6 h-6 animate-spin text-[#D95A2B]" />
+                            </div>
+                          ) : documentos.length === 0 ? (
+                            <p className="text-xs text-slate-400 text-center py-6 bg-slate-50 rounded-lg">
+                              Nenhum arquivo ou documento complementar anexado a esta OS.
+                            </p>
+                          ) : (
+                            <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg">
+                              {documentos.map((doc) => (
+                                <div
+                                  key={doc.id}
+                                  className="p-3 text-xs flex items-center justify-between"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <FileText className="w-4 h-4 text-slate-400" />
+                                    <div>
+                                      <span className="font-semibold text-slate-800 block">
+                                        {doc.titulo}
+                                      </span>
+                                      {doc.categoria && (
+                                        <span className="text-slate-400 text-[10px] block">
+                                          {doc.categoria}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <Badge variant="outline" className="text-[10px]">
+                                    Disponível
                                   </Badge>
                                 </div>
-                                {ent.descricao && (
-                                  <p className="text-slate-600 text-[11px] leading-snug">
-                                    {ent.descricao}
-                                  </p>
-                                )}
-                                {ent.prazo_entrega && (
-                                  <span className="text-slate-500 text-[10px] block">
-                                    Prazo de entrega:{' '}
-                                    <strong>{formatDateBr(ent.prazo_entrega)}</strong>
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-2 shrink-0">
-                                {(ent.status === 'atribuido' ||
-                                  ent.status === 'em_producao' ||
-                                  ent.status === 'devolvido' ||
-                                  !ent.status) && (
-                                  <Button
-                                    size="sm"
-                                    onClick={() => {
-                                      setEntregavelSelecionadoSubmissao(ent)
-                                      setObsSubmissaoPrestador('')
-                                      setModalSubmeterVersaoOpen(true)
-                                    }}
-                                    className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1"
-                                  >
-                                    <FileDown className="w-3.5 h-3.5" />
-                                    Enviar Versão
-                                  </Button>
-                                )}
-                              </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </TabsContent>
-
-                    <TabsContent value="documentos" className="pt-3">
-                      {carregandoDetalhes ? (
-                        <div className="flex justify-center p-6">
-                          <Loader2 className="w-6 h-6 animate-spin text-[#D95A2B]" />
-                        </div>
-                      ) : documentos.length === 0 ? (
-                        <p className="text-xs text-slate-400 text-center py-6 bg-slate-50 rounded-lg">
-                          Nenhum arquivo ou documento complementar anexado a esta OS.
-                        </p>
-                      ) : (
-                        <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg">
-                          {documentos.map((doc) => (
-                            <div
-                              key={doc.id}
-                              className="p-3 text-xs flex items-center justify-between"
-                            >
-                              <div className="flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-slate-400" />
-                                <div>
-                                  <span className="font-semibold text-slate-800 block">
-                                    {doc.titulo}
-                                  </span>
-                                  {doc.categoria && (
-                                    <span className="text-slate-400 text-[10px] block">
-                                      {doc.categoria}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <Badge variant="outline" className="text-[10px]">
-                                Disponível
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </TabsContent>
-                  </Tabs>
+                          )}
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-        )}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Modal Submeter Versão pelo Prestador */}

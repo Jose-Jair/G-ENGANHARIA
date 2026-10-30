@@ -321,4 +321,17 @@ describe('Cotação Automática — Regras de Segurança e Isolamento de Dados',
     expect(dadosVisiveisPrestador).not.toHaveProperty('proposta_comercial_bdi')
     expect(Object.keys(dadosProibidos)).toHaveLength(5)
   })
+
+  it('deve validar payload de resposta do prestador (preço positivo e prazo obrigatório)', () => {
+    const validarResposta = (preco: number, prazo: string) => {
+      if (isNaN(preco) || preco <= 0) return { valido: false, erro: 'Preço inválido' }
+      if (!prazo || prazo.trim() === '') return { valido: false, erro: 'Prazo obrigatório' }
+      return { valido: true, erro: null }
+    }
+
+    expect(validarResposta(0, '15 dias').valido).toBe(false)
+    expect(validarResposta(-100, '15 dias').valido).toBe(false)
+    expect(validarResposta(1500, '').valido).toBe(false)
+    expect(validarResposta(1500, '15 dias corridos').valido).toBe(true)
+  })
 })

@@ -18,6 +18,17 @@ export interface EscolherCotacaoResponse {
 
 export const cotacaoAutomaticaService = {
   /**
+   * Lista cotações atribuídas ao prestador autenticado
+   * O RLS no PocketBase isola automaticamente onde prestador.email = @request.auth.email
+   */
+  async listMinhasCotacoes(): Promise<CotacaoRecord[]> {
+    return await pb.collection('cotacoes').getFullList<CotacaoRecord>({
+      sort: '-created',
+      expand: 'projeto,pacote,etapa',
+    })
+  },
+
+  /**
    * Lista cotações do pacote de trabalho
    */
   async listByPacote(pacoteId: string): Promise<CotacaoRecord[]> {

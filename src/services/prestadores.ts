@@ -244,6 +244,23 @@ export const prestadoresService = {
       body: payload,
     })
   },
+
+  /**
+   * Obtém os dados cadastrais do prestador autenticado
+   */
+  async getMeuPerfilPrestador(): Promise<PrestadorRecord | null> {
+    return portalPrestadorService.getMeuPerfilPrestador()
+  },
+
+  /**
+   * Atualização cadastral do perfil do prestador
+   */
+  async updatePerfilPrestador(
+    _prestadorId: string,
+    payload: AtualizarMeuPerfilPrestadorPayload,
+  ): Promise<AtualizarMeuPerfilPrestadorResponse> {
+    return portalPrestadorService.atualizarMeuPerfil(payload)
+  },
 }
 
 export const ordensServicoService = {
@@ -362,6 +379,23 @@ export const portalPrestadorService = {
       body: payload,
     })
   },
+
+  /**
+   * Obtém os dados cadastrais do prestador autenticado por seu email
+   */
+  async getMeuPerfilPrestador(): Promise<PrestadorRecord | null> {
+    const userEmail = pb.authStore.model?.email
+    if (!userEmail) return null
+    try {
+      const records = await pb.collection('prestadores').getFullList<PrestadorRecord>({
+        filter: `email = '${userEmail.replace(/'/g, "\\'")}'`,
+        limit: 1,
+      })
+      return records[0] || null
+    } catch (_) {
+      return null
+    }
+  },
 }
 
 // =============================================================================
@@ -469,6 +503,18 @@ export const prestadoresDocumentosService = {
     formData.append('status_verificacao', 'pendente')
 
     return pb.collection('prestadores_documentos').create<PrestadorDocumentoRecord>(formData)
+  },
+
+  /**
+   * Alias de conveniência para upload de documento
+   */
+  async uploadDocumento(
+    prestadorId: string,
+    tipo: string,
+    arquivo: File | Blob,
+    validade?: string,
+  ): Promise<PrestadorDocumentoRecord> {
+    return this.upload({ prestador: prestadorId, tipo, arquivo, validade })
   },
 
   /**

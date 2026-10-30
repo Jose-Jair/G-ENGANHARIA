@@ -710,34 +710,111 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
     ],
   },
   {
-    id: 'executores',
-    titulo: 'Módulo Executores & Cotações',
-    subtitulo: 'Homologação técnica, cotações com link seguro e nota ponderada',
-    icone: HardHat,
-    corIcone: 'text-amber-600',
-    perfisPermitidos: ['admin', 'gestor', 'comercial'],
+    id: 'recrutamento-triagem-prestadores',
+    titulo: 'Recrutamento & Triagem Técnica de Prestadores',
+    subtitulo: 'Links públicos por slug, esteira em 4 etapas, honeypot anti-spam e triagem técnica',
+    icone: UserCheck,
+    corIcone: 'text-[#D95A2B]',
+    perfisPermitidos: ['admin', 'gestor'],
     descricao:
-      'Credenciamento de profissionais e empresas especializadas de engenharia (projetistas, calculistas, desenhistas, peritos), solicitação de propostas e avaliação de performance.',
+      'Fluxo completo de credenciamento e triagem técnica para atração e homologação de prestadores de engenharia (PF e PJ). Abrange a criação de links parametrizados na Administração, o preenchimento público sem login, defesa anti-abuso e a mesa de avaliação na aba Triagem de Prestadores.',
     passos: [
       {
-        titulo: 'Cadastrar executor técnico',
+        titulo: '1. Gestão de Links de Recrutamento na Administração',
         descricao:
-          'Preencha dados cadastrais, número de registro profissional (CREA/CAU), especialidades técnicas e modalidade (PJ ou autônomo).',
+          'Em Administração > Links de Recrutamento, o Admin ou Gestor cria links amigáveis com slug exclusivo (ex: /pre-cadastro/estruturas-sp, /pre-cadastro/bim-eletrica). Cada link possui título descritivo, disciplina-alvo, prazo de expiração (padrão 30 dias, parametrizável) e contador de acessos em tempo real. É possível ativar, pausar ou copiar o link com 1 clique.',
+        dica: 'O link geral padrão (/pre-cadastro/geral) permanece sempre ativo para captação institucional contínua.',
       },
       {
-        titulo: 'Disparar solicitação de cotação (/cotacao/:token)',
+        titulo: '2. Pré-Cadastro Público (/pre-cadastro/:slug) em 4 Etapas',
         descricao:
-          'Na etapa do projeto, clique em "Convidar Executor". O sistema gera um link individual seguro. O executor acessa sem necessidade de senha e preenche o preço e prazo ofertados.',
+          'O candidato acessa o formulário sem necessidade de login e percorre 4 etapas estruturadas: (1) Identificação e Conselho (PF/PJ, documento com máscara, e-mail, telefone, conselho CREA/CAU/CRT e região); (2) Disciplinas, Softwares BIM e Capacidade simultânea; (3) Portfólio de Trabalhos Anteriores (até 5 projetos com cliente de referência, ano e links de nuvem); (4) Tabela de Preços de Referência, Disponibilidade semanal e Aceite formal dos termos de confidencialidade.',
       },
       {
-        titulo: 'Avaliação de Desempenho pós-entrega',
+        titulo: '3. Proteção Honeypot Anti-Spam e Conclusão Segura',
         descricao:
-          'Ao concluir uma etapa, o Gestor preenche a avaliação com notas de 1 a 5 em Qualidade Técnica, Pontualidade de Entrega e Comunicação/Postura.',
+          'A rota pública possui campos honeypot invisíveis e rate limit por IP (padrão 5 envios/hora). Ao submeter, o candidato visualiza uma tela de confirmação formal de recebimento SEM QUALQUER LINK de acesso interno ao sistema, preservando o isolamento da plataforma.',
+      },
+      {
+        titulo: '4. Fila de Triagem Técnica (Prestadores > Triagem)',
+        descricao:
+          'Na aba "Fila de Triagem Técnica" de Prestadores, os candidatos recém-chegados (status "triagem") exibem o badge de origem ("Público (Recrutamento)"). Ao selecionar a ficha, o avaliador inspeciona portfólio, referências de preços e disponibilidade, podendo: (a) Aprovar Triagem (promove para status "pendente", registra parecer/nota e gera minuta de Contrato-Mestre); (b) Recusar Triagem (exige motivo obrigatório para auditoria e move para "inativo"); ou (c) Pedir Complemento de Dados (gera link seguro com token criptográfico de retorno com prazo configurável).',
       },
     ],
     regrasAutomaticas: [
-      'Nota do executor ponderada por volume e recência: avaliações mais recentes e etapas de maior complexidade têm peso superior no cálculo da média.',
-      'Executores com nota média recorrentemente baixa (< 3.0) exibem aviso de atenção ao Gestor.',
+      'Validação de taxa de submissão por IP parametrizada em recrutamento_rate_limit_ip_hora.',
+      'Validação de links expirados ou inativos antes da exibição do formulário.',
+      'Auditoria de cada deliberação de triagem (aprovação, recusa, complemento) com registro do gestor e parecer.',
+    ],
+  },
+  {
+    id: 'portal-prestador-meu-cadastro',
+    titulo: 'Portal do Prestador & Aba "Meu Cadastro"',
+    subtitulo:
+      'Ambiente isolado, portfólio técnico, preços de referência, disponibilidade e documentos',
+    icone: HardHat,
+    corIcone: 'text-amber-600',
+    perfisPermitidos: ['admin', 'gestor', 'executor'],
+    descricao:
+      'Espaço de trabalho seguro do prestador credenciado na plataforma G+. Além de responder a cotações técnicas e assinar Ordens de Serviço (OS), o prestador conta com a aba "Meu Cadastro" para manter seu perfil técnico sempre atualizado junto à engenharia da G+.',
+    passos: [
+      {
+        titulo: '1. Portfólio Técnico de Trabalhos',
+        descricao:
+          'Na aba "Meu Cadastro", o prestador adiciona e edita até 10 projetos realizados, incluindo título, cliente/contratante, ano de conclusão, disciplina aplicada, link para nuvem (Drive/OneDrive) e descrição do escopo.',
+      },
+      {
+        titulo: '2. Tabela de Preços de Referência & Disponibilidade Semanal',
+        descricao:
+          'O prestador informa valores médios de referência por hora, prancha (A1), metro quadrado ou diária, além da carga horária semanal disponível, prazo para início e observações de agenda, agilizando cotações futuras.',
+      },
+      {
+        titulo: '3. Envio de Documentos Comprobatórios Protegidos',
+        descricao:
+          'O formulário seguro permite o envio de arquivos PDF ou imagens nos tipos oficiais aceitos pelo backend: Registro no Conselho (CREA/CAU/CRT), Certidão de Regularidade Profissional, RG/CNH, Comprovante de Residência, Contrato Social/MEI, Certidão Tributária e Currículo/Acervo Técnico (CAT).',
+        dica: 'Os arquivos são gravados com proteção de acesso e passam por verificação técnica da equipe gestora.',
+      },
+      {
+        titulo: '4. Isolamento Absoluto de Dados de Negócio',
+        descricao:
+          'Por regras de segurança no servidor (RLS e endpoints dedicados), nenhum dado de cliente, obra, proposta comercial, valor de contrato, BDI ou informações de outros prestadores alcança o Portal do Prestador.',
+      },
+    ],
+    regrasAutomaticas: [
+      'Validação server-side dos tipos de documento contra o schema oficial da coleção prestadores_documentos.',
+      'Auditoria de cada atualização cadastral na trilha audit_logs vinculada ao e-mail autenticado.',
+      'Acesso do prestador restrito estritamente aos seus próprios documentos e Ordens de Serviço.',
+    ],
+  },
+  {
+    id: 'executores',
+    titulo: 'Módulo Prestadores & Executores Homologados',
+    subtitulo: 'Homologação técnica, contratos-mestre com NDA, OS e nota ponderada',
+    icone: Briefcase,
+    corIcone: 'text-amber-600',
+    perfisPermitidos: ['admin', 'gestor', 'comercial'],
+    descricao:
+      'Credenciamento de profissionais e empresas especializadas de engenharia (projetistas, calculistas, desenhistas, peritos), formalização de Contratos-Mestre com cláusulas de confidencialidade (NDA), emissão de Ordens de Serviço formais e avaliação de performance.',
+    passos: [
+      {
+        titulo: 'Cadastrar prestador técnico homologado',
+        descricao:
+          'Preencha dados cadastrais, número de registro profissional (CREA/CAU/CRT), especialidades técnicas e modalidade (Equipe Interna, PF Externo ou PJ Externo). Para PJ, vincule a equipe de profissionais técnicos.',
+      },
+      {
+        titulo: 'Contrato-Mestre e Cláusulas NDA',
+        descricao:
+          'Para prestadores externos, gere o Contrato-Mestre de prestação de serviços com cláusulas de confidencialidade e aceite de assinatura eletrônica. A G+ assina primeiro e libera a assinatura do prestador via OTP.',
+      },
+      {
+        titulo: 'Avaliação de Desempenho e Selo de Tendência',
+        descricao:
+          'Ao concluir entregáveis e ordens de serviço, o Gestor registra notas de 1 a 5. O sistema calcula a nota média e exibe o selo de tendência operacional (Melhorou, Estável ou Piorou) na ficha do prestador.',
+      },
+    ],
+    regrasAutomaticas: [
+      'Nota do prestador ponderada por volume e recência com auditoria de avaliações.',
+      'Bloqueio preventivo de emissão de novas Ordens de Serviço para prestadores em status Suspenso.',
     ],
   },
   {

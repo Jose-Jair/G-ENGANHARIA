@@ -31,7 +31,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
-import { prestadoresService, prestadoresDocumentosService } from '@/services/prestadores'
+import {
+  prestadoresService,
+  prestadoresDocumentosService,
+  portalPrestadorService,
+} from '@/services/prestadores'
 import {
   PrestadorRecord,
   PrestadorDocumentoRecord,
@@ -70,7 +74,7 @@ export const PortalMeuCadastro: React.FC<PortalMeuCadastroProps> = ({
   // Documentos
   const [documentos, setDocumentos] = useState<PrestadorDocumentoRecord[]>([])
   const [carregandoDocs, setCarregandoDocs] = useState(true)
-  const [tipoDocUpload, setTipoDocUpload] = useState<TipoDocumentoPrestador>('certidao_conselho')
+  const [tipoDocUpload, setTipoDocUpload] = useState<TipoDocumentoPrestador>('registro_conselho')
   const [arquivoUpload, setArquivoUpload] = useState<File | null>(null)
   const [enviandoDoc, setEnviandoDoc] = useState(false)
 
@@ -173,7 +177,7 @@ export const PortalMeuCadastro: React.FC<PortalMeuCadastroProps> = ({
         (p) => p.disciplina && p.disciplina.trim().length > 0,
       )
 
-      await prestadoresService.updatePerfilPrestador(prestador.id, {
+      await portalPrestadorService.atualizarMeuPerfil({
         portfolio_json: portfolioValido,
         preco_referencia_json: precosValidos,
         disponibilidade_json: disponibilidade,
@@ -585,11 +589,21 @@ export const PortalMeuCadastro: React.FC<PortalMeuCadastroProps> = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="certidao_conselho">Certidão do Conselho (CREA/CAU)</SelectItem>
-                  <SelectItem value="contrato_social">Contrato Social / MEI</SelectItem>
-                  <SelectItem value="diploma">Diploma de Graduação / Pós</SelectItem>
-                  <SelectItem value="comprovante_endereco">Comprovante de Endereço</SelectItem>
-                  <SelectItem value="acervo_tecnico">Certidão de Acervo Técnico (CAT)</SelectItem>
+                  <SelectItem value="registro_conselho">
+                    Registro no Conselho (CREA / CAU / CRT)
+                  </SelectItem>
+                  <SelectItem value="certidao_regularidade">
+                    Certidão de Regularidade Profissional
+                  </SelectItem>
+                  <SelectItem value="rg_cnh">RG / CNH / Documento de Identidade</SelectItem>
+                  <SelectItem value="comprovante_residencia">Comprovante de Residência</SelectItem>
+                  <SelectItem value="contrato_social">
+                    Contrato Social / Requerimento MEI
+                  </SelectItem>
+                  <SelectItem value="certidao_tributaria">Certidão Tributária / Fiscal</SelectItem>
+                  <SelectItem value="curriculo_portfolio">
+                    Currículo / Acervo Técnico (CAT)
+                  </SelectItem>
                   <SelectItem value="outro">Outro Comprovante</SelectItem>
                 </SelectContent>
               </Select>

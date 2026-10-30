@@ -66,6 +66,7 @@ import {
   TrendingDown,
   Minus,
   MessageSquare,
+  Inbox,
 } from 'lucide-react'
 import { exportService } from '@/services/exportService'
 import { ModalMensagensOsGestor } from '@/components/prestadores/ModalMensagensOsGestor'

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T18:59:00.753Z",
+  "generatedAt": "2026-10-30T22:43:28.458Z",
   "collections": [
     {
       "name": "users",
@@ -1694,8 +1694,8 @@
       "apiRules": {
         "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial')",
         "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial')",
-        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
-        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "create": null,
+        "update": null,
         "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
       },
       "fields": [
@@ -1880,8 +1880,8 @@
       "apiRules": {
         "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || @request.auth.role = 'comercial' || (@request.auth.role = 'executor' && ((@collection.subcontratos.projeto ?= projeto && @collection.subcontratos.executor.email ?= @request.auth.email) || (@collection.cotacoes.projeto ?= projeto && @collection.cotacoes.executor.email ?= @request.auth.email))))",
         "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || @request.auth.role = 'comercial' || (@request.auth.role = 'executor' && ((@collection.subcontratos.projeto ?= projeto && @collection.subcontratos.executor.email ?= @request.auth.email) || (@collection.cotacoes.projeto ?= projeto && @collection.cotacoes.executor.email ?= @request.auth.email))))",
-        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
-        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "create": null,
+        "update": null,
         "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
       },
       "fields": [
@@ -2309,8 +2309,8 @@
       "apiRules": {
         "list": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))) || (token != '' && (@request.query.token = token || token = @request.headers.x_token_cotacao))",
         "view": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))) || (token != '' && (@request.query.token = token || token = @request.headers.x_token_cotacao))",
-        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
-        "update": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))) || (token != '' && (@request.query.token = token || token = @request.headers.x_token_cotacao))",
+        "create": null,
+        "update": null,
         "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
       },
       "fields": [
@@ -4005,8 +4005,8 @@
       "apiRules": {
         "list": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && executor.email = @request.auth.email))) || (token_assinatura != '' && (@request.query.token = token_assinatura || token_assinatura = @request.headers.x_token_assinatura))",
         "view": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && executor.email = @request.auth.email))) || (token_assinatura != '' && (@request.query.token = token_assinatura || token_assinatura = @request.headers.x_token_assinatura))",
-        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
-        "update": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')) || (token_assinatura != '' && (@request.query.token = token_assinatura || token_assinatura = @request.headers.x_token_assinatura))",
+        "create": null,
+        "update": null,
         "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
       },
       "fields": [

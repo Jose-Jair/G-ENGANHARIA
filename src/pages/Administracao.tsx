@@ -19,6 +19,7 @@ import { GestaoAreasModalidades } from '@/components/administracao/GestaoAreasMo
 import { GestaoModeloProposta } from '@/components/administracao/GestaoModeloProposta'
 import { GestaoCatalogoEscopos } from '@/components/administracao/GestaoCatalogoEscopos'
 import { PainelLimpezaDadosNegocio } from '@/components/administracao/PainelLimpezaDadosNegocio'
+import { PainelSmtpSeguranca } from '@/components/administracao/PainelSmtpSeguranca'
 import { AreaAtuacaoRecord } from '@/types'
 import { formatCurrencyBr } from '@/lib/formatters'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -650,7 +651,7 @@ export default function AdministracaoPage() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 bg-slate-200/80 p-1 h-auto gap-1">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 bg-slate-200/80 p-1 h-auto gap-1">
           <TabsTrigger value="usuarios" className="gap-1.5 text-xs font-medium">
             <Users className="w-4 h-4" />
             <span>Usuários ({usersList.length})</span>
@@ -695,6 +696,13 @@ export default function AdministracaoPage() {
           >
             <Trash2 className="w-4 h-4 text-red-600" />
             <span>Limpeza de Negócio</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="smtp_seguranca"
+            className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white"
+          >
+            <Mail className="w-4 h-4 text-[#D95A2B]" />
+            <span>SMTP & Selfcheck</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1393,6 +1401,11 @@ export default function AdministracaoPage() {
               loadCatalogo()
             }}
           />
+        </TabsContent>
+
+        {/* ABA SMTP & SELFCHECK (NOVO RODADA 11) */}
+        <TabsContent value="smtp_seguranca" className="space-y-4">
+          <PainelSmtpSeguranca />
         </TabsContent>
       </Tabs>
 

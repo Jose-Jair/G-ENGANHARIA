@@ -1111,6 +1111,45 @@ routerAdd(
         detalhes: detalheIaOperacao,
       }
 
+      // REQUISITO 12: SELFCHECK ESTENDIDO — SMTP OPERANTE (RODADA 11)
+      let smtpOk = false
+      const detalheSmtp = {}
+      try {
+        const settings = $app.settings()
+        const meta = settings.meta || {}
+        const smtp = settings.smtp || {}
+
+        detalheSmtp.senderAddress = meta.senderAddress || ''
+        detalheSmtp.senderName = meta.senderName || ''
+        detalheSmtp.host = smtp.host || ''
+        detalheSmtp.port = smtp.port || 0
+        detalheSmtp.enabled = Boolean(smtp.enabled)
+        detalheSmtp.auth_user_configurado = Boolean(smtp.username)
+
+        // SMTP é considerado configurado e operante quando habilitado com host e remetente
+        if (smtp.enabled && smtp.host && meta.senderAddress) {
+          smtpOk = true
+          detalheSmtp.status = 'configurado'
+        } else {
+          smtpOk = false
+          detalheSmtp.status = 'pendente_configuracao_painel'
+          detalheSmtp.motivo = !smtp.enabled
+            ? 'SMTP desabilitado nas configurações do servidor'
+            : !smtp.host
+              ? 'Host SMTP não configurado'
+              : 'Remetente (senderAddress) não configurado'
+        }
+      } catch (eSmtp) {
+        smtpOk = false
+        detalheSmtp.status = 'erro_verificacao'
+        detalheSmtp.erro = String(eSmtp)
+      }
+
+      resultados.item12_smtp_operante = {
+        todas_conformes: smtpOk,
+        detalhes: detalheSmtp,
+      }
+
       resultados.conformidade_geral =
         resultados.item1_api_rules.cotacoes_segura &&
         resultados.item1_api_rules.subcontratos_segura &&
@@ -1124,7 +1163,8 @@ routerAdd(
         assinaturaEletronicaOk &&
         comunicacaoOsOk &&
         monitoramentoOk &&
-        iaOperacaoOk
+        iaOperacaoOk &&
+        smtpOk
 
       return e.json(200, {
         status: 'OK',

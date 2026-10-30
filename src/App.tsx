@@ -31,6 +31,7 @@ import { GrupoProjetosPage } from './pages/GrupoProjetos'
 import { ExecutoresPage } from './pages/Executores'
 import { PrestadoresPage } from './pages/Prestadores'
 import { PortalPrestadorPage } from './pages/PortalPrestador'
+import { MonitoramentoPrazosPage } from './pages/MonitoramentoPrazos'
 import { CotacaoPublicaPage } from './pages/CotacaoPublica'
 import { SubcontratoPublicoPage } from './pages/SubcontratoPublico'
 import { CadastroExecutorPublicoPage } from './pages/CadastroExecutorPublico'
@@ -144,6 +145,15 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['admin', 'comercial', 'financeiro', 'gestor']}>
                   <ProjetosPage />
+                </ProtectedRoute>
+              }
+            />
+            {/* RODADA 7: Painel de Monitoramento e Cobrança de Prazos (Admin e Gestor) */}
+            <Route
+              path="/monitoramento"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'gestor']}>
+                  <MonitoramentoPrazosPage />
                 </ProtectedRoute>
               }
             />

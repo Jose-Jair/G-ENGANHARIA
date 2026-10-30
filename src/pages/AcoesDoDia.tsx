@@ -55,6 +55,10 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { exportService } from '@/services/exportService'
 import { useTempoRealContratos } from '@/hooks/useTempoRealContratos'
+import { monitoramentoPrazosService } from '@/services/monitoramentoPrazos'
+import { EventoCobrancaRecord, ResumoDiarioGestorRecord } from '@/types'
+import { CardResumoDiarioGestor } from '@/components/monitoramento/CardResumoDiarioGestor'
+import { CardCobrancaPrazo } from '@/components/monitoramento/CardCobrancaPrazo'
 
 export default function AcoesDoDiaPage() {
   const { user, isAdmin } = useAuth()
@@ -77,6 +81,11 @@ export default function AcoesDoDiaPage() {
   const [entregaveisAtrasados, setEntregaveisAtrasados] = useState<any[]>([])
   const [cotacoesVencidas, setCotacoesVencidas] = useState<any[]>([])
   const [pacotesSemElegiveis, setPacotesSemElegiveis] = useState<any[]>([])
+
+  // Rodada 7: Monitoramento e Cobrança de Prazos (Admin/Gestor)
+  const [eventosCobranca, setEventosCobranca] = useState<EventoCobrancaRecord[]>([])
+  const [resumoDiario, setResumoDiario] = useState<ResumoDiarioGestorRecord | null>(null)
+  const [carregandoResumo, setCarregandoResumo] = useState(false)
 
   // Filtros de tela
   const [busca, setBusca] = useState('')
@@ -208,6 +217,24 @@ export default function AcoesDoDiaPage() {
         setPacotesSemElegiveis(logsSemElegiveis)
       } catch {
         /* ignore */
+      }
+
+      // 10. Rodada 7: Eventos de Cobrança de Prazo recentes e Resumo Diário do Gestor
+      try {
+        const eventos = await monitoramentoPrazosService.listarEventos(undefined, '-created', 30)
+        setEventosCobranca(eventos)
+      } catch {
+        /* ignore */
+      }
+
+      try {
+        setCarregandoResumo(true)
+        const resResumo = await monitoramentoPrazosService.obterResumoDiario()
+        setResumoDiario(resResumo?.resumo || null)
+      } catch {
+        /* ignore */
+      } finally {
+        setCarregandoResumo(false)
       }
     } catch (err: any) {
       toast({
@@ -503,6 +530,39 @@ export default function AcoesDoDiaPage() {
           </Button>
         </div>
       </div>
+
+      {/* RODADA 7: RESUMO DIÁRIO DO GESTOR DE PROJETOS */}
+      <CardResumoDiarioGestor
+        resumo={resumoDiario}
+        carregando={carregandoResumo}
+        onAtualizar={carregarDados}
+      />
+
+      {/* RODADA 7: CARTÕES DE COBRANÇA DE PRAZO COM LINK WHATSAPP PRONTO */}
+      {eventosCobranca.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+              <h2 className="text-sm font-bold text-slate-900">
+                Cobranças de Prazo & Lembretes WhatsApp ({eventosCobranca.length})
+              </h2>
+              <Badge className="bg-emerald-600 text-white text-[10px] font-mono">
+                wa.me pronto
+              </Badge>
+            </div>
+            <span className="text-[11px] text-slate-500">
+              Disparos automáticos por degraus (D-3, D0, D+1, D+3 e SLA Revisor)
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {eventosCobranca.map((ev) => (
+              <CardCobrancaPrazo key={ev.id} evento={ev} onAcaoConcluida={carregarDados} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Seção Cotações Automáticas — Alertas: Vencidas sem Resposta e Sem Elegíveis */}
       {cotacoesVencidas.length > 0 && (

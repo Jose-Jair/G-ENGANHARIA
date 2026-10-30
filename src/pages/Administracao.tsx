@@ -1075,7 +1075,7 @@ export default function AdministracaoPage() {
                       </tr>
                     ) : (
                       parametrosList.map((param) => {
-                        // Mapeamento amigável para os parâmetros da cotação automática e do sistema
+                        // Mapeamento amigável para os parâmetros da cotação automática, monitoramento de prazos e do sistema
                         const rotulosAmigaveis: Record<string, { titulo: string; badge?: string }> =
                           {
                             prazo_resposta_cotacao_dias: {
@@ -1089,6 +1089,30 @@ export default function AdministracaoPage() {
                             max_convidados_cotacao: {
                               titulo: 'Máximo de convidados por cotação',
                               badge: 'Cotação Automática',
+                            },
+                            monitoramento_prazo_dias_lembrete: {
+                              titulo: 'Monitoramento: Lembrete Preventivo (dias D-3)',
+                              badge: 'Monitoramento Prazos',
+                            },
+                            monitoramento_prazo_dias_aviso: {
+                              titulo: 'Monitoramento: Aviso no Vencimento (dias D0)',
+                              badge: 'Monitoramento Prazos',
+                            },
+                            monitoramento_prazo_dias_cobranca: {
+                              titulo: 'Monitoramento: Cobrança Atraso (dias D+1)',
+                              badge: 'Monitoramento Prazos',
+                            },
+                            monitoramento_prazo_dias_escalonamento: {
+                              titulo: 'Monitoramento: Escalonamento Crítico ao Gestor (dias D+3)',
+                              badge: 'Monitoramento Prazos',
+                            },
+                            monitoramento_revisao_sla_horas: {
+                              titulo: 'Monitoramento: SLA de Revisão Interna (horas)',
+                              badge: 'Monitoramento Prazos',
+                            },
+                            monitoramento_cron_horario: {
+                              titulo: 'Monitoramento: Horário do Resumo Diário (HH:MM)',
+                              badge: 'Monitoramento Prazos',
                             },
                           }
                         const infoAmigavel = rotulosAmigaveis[param.chave]
@@ -1553,7 +1577,19 @@ export default function AdministracaoPage() {
                       ? 'Lembrete automático (dias antes do vencimento)'
                       : editingParam.chave === 'max_convidados_cotacao'
                         ? 'Máximo de convidados por cotação'
-                        : editingParam.chave}
+                        : editingParam.chave === 'monitoramento_prazo_dias_lembrete'
+                          ? 'Monitoramento: Lembrete Preventivo (dias D-3)'
+                          : editingParam.chave === 'monitoramento_prazo_dias_aviso'
+                            ? 'Monitoramento: Aviso no Vencimento (dias D0)'
+                            : editingParam.chave === 'monitoramento_prazo_dias_cobranca'
+                              ? 'Monitoramento: Cobrança Atraso (dias D+1)'
+                              : editingParam.chave === 'monitoramento_prazo_dias_escalonamento'
+                                ? 'Monitoramento: Escalonamento Crítico ao Gestor (dias D+3)'
+                                : editingParam.chave === 'monitoramento_revisao_sla_horas'
+                                  ? 'Monitoramento: SLA de Revisão Interna (horas)'
+                                  : editingParam.chave === 'monitoramento_cron_horario'
+                                    ? 'Monitoramento: Horário do Resumo Diário (HH:MM)'
+                                    : editingParam.chave}
                 </div>
                 <Input
                   value={editingParam.chave}

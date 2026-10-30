@@ -31,6 +31,7 @@ import {
   Mail,
   MessageSquare,
   FileCheck,
+  Clock,
 } from 'lucide-react'
 import { ModalTrocarSenha } from '@/components/ModalTrocarSenha'
 import { GPlusLogo } from '@/components/GPlusLogo'
@@ -565,6 +566,28 @@ export default function AppLayout() {
                         Leitura
                       </span>
                     )}
+                  </div>
+                </NavLink>
+              )}
+
+              {/* RODADA 7: Monitoramento de Prazos e Cobrança (Admin e Gestor) */}
+              {(user.role === 'admin' || user.role === 'gestor') && (
+                <NavLink
+                  to="/monitoramento"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                        : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                    }`
+                  }
+                >
+                  <Clock className="w-4 h-4 text-emerald-400" />
+                  <div className="flex items-center justify-between flex-1">
+                    <span>Monitoramento</span>
+                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded font-mono">
+                      Prazos
+                    </span>
                   </div>
                 </NavLink>
               )}

@@ -18,6 +18,7 @@ import { areasAtuacaoService } from '@/services/areasAtuacao'
 import { GestaoAreasModalidades } from '@/components/administracao/GestaoAreasModalidades'
 import { GestaoModeloProposta } from '@/components/administracao/GestaoModeloProposta'
 import { GestaoCatalogoEscopos } from '@/components/administracao/GestaoCatalogoEscopos'
+import { PainelLimpezaDadosNegocio } from '@/components/administracao/PainelLimpezaDadosNegocio'
 import { AreaAtuacaoRecord } from '@/types'
 import { formatCurrencyBr } from '@/lib/formatters'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -649,44 +650,51 @@ export default function AdministracaoPage() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-2 md:grid-cols-8 bg-slate-200/80 p-1">
-          <TabsTrigger value="usuarios" className="gap-2 text-xs font-medium">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 bg-slate-200/80 p-1 h-auto gap-1">
+          <TabsTrigger value="usuarios" className="gap-1.5 text-xs font-medium">
             <Users className="w-4 h-4" />
             <span>Usuários ({usersList.length})</span>
           </TabsTrigger>
           <TabsTrigger
             value="modelo_proposta"
-            className="gap-2 text-xs font-medium text-blue-700 data-[state=active]:bg-white"
+            className="gap-1.5 text-xs font-medium text-blue-700 data-[state=active]:bg-white"
           >
             <FileText className="w-4 h-4 text-blue-600" />
-            <span>Modelo Proposta GMAIS</span>
+            <span>Modelo Proposta</span>
           </TabsTrigger>
-          <TabsTrigger value="areas_atuacao" className="gap-2 text-xs font-medium">
+          <TabsTrigger value="areas_atuacao" className="gap-1.5 text-xs font-medium">
             <Layers className="w-4 h-4 text-orange-600" />
             <span>Áreas & Subserviços</span>
           </TabsTrigger>
           <TabsTrigger
             value="catalogo_escopos"
-            className="gap-2 text-xs font-medium text-[#D95A2B] data-[state=active]:bg-white"
+            className="gap-1.5 text-xs font-medium text-[#D95A2B] data-[state=active]:bg-white"
           >
             <BookOpen className="w-4 h-4 text-[#D95A2B]" />
-            <span>Catálogo de Escopos</span>
+            <span>Catálogo Escopos</span>
           </TabsTrigger>
-          <TabsTrigger value="catalogo" className="gap-2 text-xs font-medium">
+          <TabsTrigger value="catalogo" className="gap-1.5 text-xs font-medium">
             <Wrench className="w-4 h-4" />
             <span>Catálogo ({catalogoList.length})</span>
           </TabsTrigger>
-          <TabsTrigger value="parametros" className="gap-2 text-xs font-medium">
+          <TabsTrigger value="parametros" className="gap-1.5 text-xs font-medium">
             <Sliders className="w-4 h-4" />
             <span>Parâmetros ({parametrosList.length})</span>
           </TabsTrigger>
-          <TabsTrigger value="modelos" className="gap-2 text-xs font-medium">
+          <TabsTrigger value="modelos" className="gap-1.5 text-xs font-medium">
             <FileCode2 className="w-4 h-4" />
             <span>Modelos E-mail ({modelosList.length})</span>
           </TabsTrigger>
-          <TabsTrigger value="motivos" className="gap-2 text-xs font-medium">
+          <TabsTrigger value="motivos" className="gap-1.5 text-xs font-medium">
             <ListFilter className="w-4 h-4" />
             <span>Motivos ({motivosList.length})</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="limpeza_negocio"
+            className="gap-1.5 text-xs font-semibold text-red-700 hover:text-red-800 data-[state=active]:bg-red-50 data-[state=active]:text-red-900 data-[state=active]:border-red-300"
+          >
+            <Trash2 className="w-4 h-4 text-red-600" />
+            <span>Limpeza de Negócio</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1374,6 +1382,17 @@ export default function AdministracaoPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ABA LIMPEZA DE DADOS DE NEGÓCIO (ADMIN EXCLUSIVO) */}
+        <TabsContent value="limpeza_negocio" className="space-y-4">
+          <PainelLimpezaDadosNegocio
+            onSucessoExecucao={() => {
+              loadUsers()
+              loadParametros()
+              loadCatalogo()
+            }}
+          />
         </TabsContent>
       </Tabs>
 

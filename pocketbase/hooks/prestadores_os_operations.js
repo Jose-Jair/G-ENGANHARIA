@@ -169,6 +169,23 @@ onRecordValidate((e) => {
     const orig = rec.original()
     const statusAntigo = orig ? orig.getString('status') : ''
 
+    // TRAVA DE SEGURANÇA: OS externa só transita para 'em_execucao' (ou 'em_producao') com aceite_status = 'aceito'
+    const tipoPrestadorVal = rec.getString('tipo_prestador')
+    const aceiteStatusVal = rec.getString('aceite_status') || 'pendente'
+
+    if (
+      tipoPrestadorVal === 'externo' &&
+      (statusNovo === 'em_execucao' || statusNovo === 'em_producao')
+    ) {
+      if (aceiteStatusVal !== 'aceito') {
+        throw new BadRequestError(
+          'BLOQUEIO DE SEGURANÇA: A Ordem de Serviço externa nº ' +
+            rec.getString('numero') +
+            ' só pode iniciar execução após formalização do aceite eletrônico pelo prestador (aceite_status="aceito").',
+        )
+      }
+    }
+
     // REQUISITO 4: TRAVA NO SERVIDOR (create e update)
     // A soma dos valores das ordens de serviço EXTERNAS de uma disciplina no projeto não pode ultrapassar
     // o valor vendido dessa disciplina (valor do item/disciplina na proposta/contrato) — bloquear com erro claro e auditado.
@@ -519,6 +536,52 @@ routerAdd('POST', '/backend/v1/ordens-servico/{id}/assinar-prestador', (e) => {
       return e.json(403, { error: 'Token de assinatura inválido ou não autorizado' })
     }
 
+    // Validação de Código OTP de 6 dígitos se enviado ou exigido
+    const codigoEnviado = (body.codigo_otp || body.codigo || '').trim()
+    const codigoHashEsperado = osRec.getString('codigo_verificacao_hash')
+
+    if (codigoHashEsperado) {
+      if (!codigoEnviado) {
+        return e.json(400, {
+          error:
+            'Código de verificação OTP de 6 dígitos é obrigatório para confirmar a assinatura.',
+        })
+      }
+
+      let tentativas = osRec.getInt('codigo_tentativas') || 0
+      if (tentativas >= 5) {
+        return e.json(403, {
+          error:
+            'Limite de 5 tentativas de validação excedido. Solicite um novo código de verificação para continuar.',
+        })
+      }
+
+      const expiraEmStr = osRec.getString('codigo_expiracao')
+      if (expiraEmStr) {
+        const expiraEmDate = new Date(expiraEmStr).getTime()
+        if (Date.now() > expiraEmDate) {
+          return e.json(400, {
+            error:
+              'Código de verificação expirado (validade de 10 minutos). Solicite um novo código.',
+          })
+        }
+      }
+
+      const hashEnviado = $security.sha256(codigoEnviado)
+      if (hashEnviado !== codigoHashEsperado) {
+        tentativas += 1
+        osRec.set('codigo_tentativas', tentativas)
+        $app.save(osRec)
+        return e.json(400, {
+          error:
+            'Código de verificação incorreto. Tentativa ' +
+            tentativas +
+            ' de 5' +
+            (tentativas >= 5 ? ' (token bloqueado por segurança).' : '.'),
+        })
+      }
+    }
+
     const clientIp =
       (e.request &&
         typeof e.request.getHeader === 'function' &&
@@ -526,17 +589,84 @@ routerAdd('POST', '/backend/v1/ordens-servico/{id}/assinar-prestador', (e) => {
       (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
       '127.0.0.1'
 
-    const hashAssinatura = $security.hs256(
-      osRec.id + '|' + osRec.getString('numero') + '|' + new Date().toISOString() + '|' + clientIp,
-      'gmais-os-signature-secret',
-    )
+    const clientUserAgent =
+      (e.request &&
+        typeof e.request.getHeader === 'function' &&
+        e.request.getHeader('user-agent')) ||
+      (reqInfo.headers && reqInfo.headers['user-agent']) ||
+      'Navegador Web / API'
+
+    const nowIso = new Date().toISOString()
+
+    let clausulaPadrao =
+      'CLÁUSULA DE ACEITE DE ASSINATURA ELETRÔNICA: As partes declaram e reconhecem expressamente a validade, ' +
+      'integridade e eficácia jurídica desta contratação formalizada por meio eletrônico, nos termos da Medida ' +
+      'Provisória nº 2.200-2/2001 e da Lei Federal nº 14.063/2020.'
+    try {
+      const p = $app.findFirstRecordByData(
+        'parametros',
+        'chave',
+        'clausula_assinatura_eletronica_padrao',
+      )
+      if (p && p.getString('valor')) clausulaPadrao = p.getString('valor')
+    } catch (_) {}
+
+    // Montar texto base congelado e calcular SHA-256
+    const textoBaseCongelado =
+      'OS_EXTERNA|' +
+      osRec.id +
+      '|' +
+      osRec.getString('numero') +
+      '|' +
+      osRec.getFloat('valor_os') +
+      '|' +
+      (nomeAssinante || 'Prestador') +
+      '|' +
+      docAssinante +
+      '|' +
+      nowIso +
+      '|' +
+      clientIp +
+      '|' +
+      clausulaPadrao
+
+    const hashCongelado = $security.sha256(textoBaseCongelado)
+
+    const emailUtilizado =
+      osRec.getString('codigo_enviado_para') || (authUser ? authUser.getString('email') : '')
+
+    const dossieEvidencias = {
+      tipo: 'assinatura_prestador_otp',
+      documento_tipo: 'Ordem de Serviço',
+      documento_numero: osRec.getString('numero'),
+      documento_id: osRec.id,
+      data_aceite_utc: nowIso,
+      ip_origem: clientIp,
+      user_agent: clientUserAgent,
+      email_utilizado: emailUtilizado,
+      assinante_nome: nomeAssinante || 'Prestador Autorizado',
+      assinante_documento: docAssinante,
+      pdf_congelado_hash: hashCongelado,
+      versao_texto_hash: hashCongelado,
+      clausula_assinatura: clausulaPadrao,
+      tentativas_utilizadas: osRec.getInt('codigo_tentativas') || 0,
+      validacao_otp_concluida: !!codigoHashEsperado,
+    }
 
     osRec.set('status', 'assinada')
+    osRec.set('aceite_status', 'aceito')
+    osRec.set('data_aceite', nowIso)
+    osRec.set('aceite_ip', clientIp)
+    osRec.set('aceite_user_agent', clientUserAgent)
+    osRec.set('versao_texto_aceito', clausulaPadrao)
+    osRec.set('versao_texto_hash', hashCongelado)
+    osRec.set('pdf_congelado_hash', hashCongelado)
+    osRec.set('dossie_evidencias_json', dossieEvidencias)
     osRec.set('assinante_prestador_nome', nomeAssinante || 'Prestador Autorizado')
     osRec.set('assinante_prestador_doc', docAssinante)
-    osRec.set('data_assinatura_prestador', new Date().toISOString())
+    osRec.set('data_assinatura_prestador', nowIso)
     osRec.set('prestador_ip', clientIp)
-    osRec.set('prestador_hash', hashAssinatura)
+    osRec.set('prestador_hash', hashCongelado)
 
     // Se for OS externa com parcelas e sem contas geradas, gerar contas a pagar
     if (osRec.getString('tipo_prestador') === 'externo') {
@@ -659,6 +789,52 @@ routerAdd('POST', '/backend/v1/contratos-mestre/{id}/assinar-prestador', (e) => 
       return e.json(403, { error: 'Token inválido ou não autorizado' })
     }
 
+    // Validação de Código OTP se exigido ou informado
+    const codigoEnviado = (body.codigo_otp || body.codigo || '').trim()
+    const codigoHashEsperado = cmRec.getString('codigo_verificacao_hash')
+
+    if (codigoHashEsperado) {
+      if (!codigoEnviado) {
+        return e.json(400, {
+          error:
+            'Código de verificação OTP de 6 dígitos é obrigatório para confirmar a assinatura.',
+        })
+      }
+
+      let tentativas = cmRec.getInt('codigo_tentativas') || 0
+      if (tentativas >= 5) {
+        return e.json(403, {
+          error:
+            'Limite de 5 tentativas de validação excedido. Solicite um novo código de verificação para continuar.',
+        })
+      }
+
+      const expiraEmStr = cmRec.getString('codigo_expiracao')
+      if (expiraEmStr) {
+        const expiraEmDate = new Date(expiraEmStr).getTime()
+        if (Date.now() > expiraEmDate) {
+          return e.json(400, {
+            error:
+              'Código de verificação expirado (validade de 10 minutos). Solicite um novo código.',
+          })
+        }
+      }
+
+      const hashEnviado = $security.sha256(codigoEnviado)
+      if (hashEnviado !== codigoHashEsperado) {
+        tentativas += 1
+        cmRec.set('codigo_tentativas', tentativas)
+        $app.save(cmRec)
+        return e.json(400, {
+          error:
+            'Código de verificação incorreto. Tentativa ' +
+            tentativas +
+            ' de 5' +
+            (tentativas >= 5 ? ' (bloqueado por segurança).' : '.'),
+        })
+      }
+    }
+
     const clientIp =
       (e.request &&
         typeof e.request.getHeader === 'function' &&
@@ -666,17 +842,80 @@ routerAdd('POST', '/backend/v1/contratos-mestre/{id}/assinar-prestador', (e) => 
       (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
       '127.0.0.1'
 
-    const hashAssinatura = $security.hs256(
-      cmRec.id + '|' + cmRec.getString('numero') + '|' + new Date().toISOString() + '|' + clientIp,
-      'gmais-cm-signature-secret',
-    )
+    const clientUserAgent =
+      (e.request &&
+        typeof e.request.getHeader === 'function' &&
+        e.request.getHeader('user-agent')) ||
+      (reqInfo.headers && reqInfo.headers['user-agent']) ||
+      'Navegador Web / API'
+
+    const nowIso = new Date().toISOString()
+
+    let clausulaPadrao =
+      'CLÁUSULA DE ACEITE DE ASSINATURA ELETRÔNICA: As partes declaram e reconhecem expressamente a validade, ' +
+      'integridade e eficácia jurídica desta contratação formalizada por meio eletrônico, nos termos da Medida ' +
+      'Provisória nº 2.200-2/2001 e da Lei Federal nº 14.063/2020.'
+    try {
+      const p = $app.findFirstRecordByData(
+        'parametros',
+        'chave',
+        'clausula_assinatura_eletronica_padrao',
+      )
+      if (p && p.getString('valor')) clausulaPadrao = p.getString('valor')
+    } catch (_) {}
+
+    const textoBaseCongelado =
+      'CONTRATO_MESTRE|' +
+      cmRec.id +
+      '|' +
+      cmRec.getString('numero') +
+      '|' +
+      (nomeAssinante || 'Prestador') +
+      '|' +
+      docAssinante +
+      '|' +
+      nowIso +
+      '|' +
+      clientIp +
+      '|' +
+      clausulaPadrao
+
+    const hashCongelado = $security.sha256(textoBaseCongelado)
+    const emailUtilizado =
+      cmRec.getString('codigo_enviado_para') || (authUser ? authUser.getString('email') : '')
+
+    const dossieEvidencias = {
+      tipo: 'assinatura_contrato_mestre_otp',
+      documento_tipo: 'Contrato-Mestre',
+      documento_numero: cmRec.getString('numero'),
+      documento_id: cmRec.id,
+      data_aceite_utc: nowIso,
+      ip_origem: clientIp,
+      user_agent: clientUserAgent,
+      email_utilizado: emailUtilizado,
+      assinante_nome: nomeAssinante || 'Prestador Autorizado',
+      assinante_documento: docAssinante,
+      pdf_congelado_hash: hashCongelado,
+      versao_texto_hash: hashCongelado,
+      clausula_assinatura: clausulaPadrao,
+      tentativas_utilizadas: cmRec.getInt('codigo_tentativas') || 0,
+      validacao_otp_concluida: !!codigoHashEsperado,
+    }
 
     cmRec.set('status', 'assinado')
+    cmRec.set('aceite_status', 'aceito')
+    cmRec.set('data_aceite', nowIso)
+    cmRec.set('aceite_ip', clientIp)
+    cmRec.set('aceite_user_agent', clientUserAgent)
+    cmRec.set('versao_texto_aceito', clausulaPadrao)
+    cmRec.set('versao_texto_hash', hashCongelado)
+    cmRec.set('pdf_congelado_hash', hashCongelado)
+    cmRec.set('dossie_evidencias_json', dossieEvidencias)
     cmRec.set('assinante_prestador_nome', nomeAssinante || 'Prestador Autorizado')
     cmRec.set('assinante_prestador_doc', docAssinante)
-    cmRec.set('data_assinatura_prestador', new Date().toISOString())
+    cmRec.set('data_assinatura_prestador', nowIso)
     cmRec.set('prestador_ip', clientIp)
-    cmRec.set('prestador_hash', hashAssinatura)
+    cmRec.set('prestador_hash', hashCongelado)
     $app.save(cmRec)
 
     // Auditoria

@@ -2297,6 +2297,52 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
       })
     }
 
+    // Validação de Código OTP de 6 dígitos se exigido ou enviado
+    const codigoEnviado = (body.codigo_otp || body.codigo || '').trim()
+    const codigoHashEsperado = contrato.getString('codigo_verificacao_hash')
+
+    if (codigoHashEsperado) {
+      if (!codigoEnviado) {
+        return e.json(400, {
+          message:
+            'Código de verificação OTP de 6 dígitos é obrigatório para confirmar a assinatura.',
+        })
+      }
+
+      let tentativas = contrato.getInt('codigo_tentativas') || 0
+      if (tentativas >= 5) {
+        return e.json(403, {
+          message:
+            'Limite de 5 tentativas de validação excedido. Solicite um novo código de verificação para continuar.',
+        })
+      }
+
+      const expiraEmStr = contrato.getString('codigo_expiracao')
+      if (expiraEmStr) {
+        const expiraEmDate = new Date(expiraEmStr).getTime()
+        if (Date.now() > expiraEmDate) {
+          return e.json(400, {
+            message:
+              'Código de verificação expirado (validade de 10 minutos). Solicite um novo código.',
+          })
+        }
+      }
+
+      const hashEnviado = $security.sha256(codigoEnviado)
+      if (hashEnviado !== codigoHashEsperado) {
+        tentativas += 1
+        contrato.set('codigo_tentativas', tentativas)
+        $app.save(contrato)
+        return e.json(400, {
+          message:
+            'Código de verificação incorreto. Tentativa ' +
+            tentativas +
+            ' de 5' +
+            (tentativas >= 5 ? ' (bloqueado por segurança).' : '.'),
+        })
+      }
+    }
+
     const clientIp =
       (e.request &&
         typeof e.request.getHeader === 'function' &&
@@ -2305,6 +2351,19 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
       '127.0.0.1'
     const clientUserAgent = (reqInfo.headers && reqInfo.headers['user-agent']) || 'Navegador Web'
     const nowIso = new Date().toISOString()
+
+    let clausulaPadrao =
+      'CLÁUSULA DE ACEITE DE ASSINATURA ELETRÔNICA: As partes declaram e reconhecem expressamente a validade, ' +
+      'integridade e eficácia jurídica desta contratação formalizada por meio eletrônico, nos termos da Medida ' +
+      'Provisória nº 2.200-2/2001 e da Lei Federal nº 14.063/2020.'
+    try {
+      const p = $app.findFirstRecordByData(
+        'parametros',
+        'chave',
+        'clausula_assinatura_eletronica_padrao',
+      )
+      if (p && p.getString('valor')) clausulaPadrao = p.getString('valor')
+    } catch (_) {}
 
     const hashPayload =
       contrato.getString('numero') +
@@ -2315,8 +2374,30 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
       '|' +
       clientIp +
       '|' +
-      nowIso
+      nowIso +
+      '|' +
+      clausulaPadrao
     const clientHash = $security.sha256(hashPayload)
+
+    const emailUtilizado = contrato.getString('codigo_enviado_para') || ''
+
+    const dossieEvidencias = {
+      tipo: 'assinatura_cliente_contrato_otp',
+      documento_tipo: 'Contrato de Serviço',
+      documento_numero: contrato.getString('numero'),
+      documento_id: contrato.id,
+      data_aceite_utc: nowIso,
+      ip_origem: clientIp,
+      user_agent: clientUserAgent,
+      email_utilizado: emailUtilizado,
+      assinante_nome: nomeAssinante,
+      assinante_documento: documentoAssinante,
+      pdf_congelado_hash: clientHash,
+      versao_texto_hash: clientHash,
+      clausula_assinatura: clausulaPadrao,
+      tentativas_utilizadas: contrato.getInt('codigo_tentativas') || 0,
+      validacao_otp_concluida: !!codigoHashEsperado,
+    }
 
     contrato.set('cliente_nome_assinante', nomeAssinante)
     contrato.set('cliente_documento_assinante', documentoAssinante)
@@ -2325,6 +2406,14 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
     contrato.set('cliente_user_agent', clientUserAgent)
     contrato.set('cliente_declaracao', true)
     contrato.set('cliente_hash', clientHash)
+    contrato.set('aceite_status', 'aceito')
+    contrato.set('data_aceite', nowIso)
+    contrato.set('aceite_ip', clientIp)
+    contrato.set('aceite_user_agent', clientUserAgent)
+    contrato.set('versao_texto_aceito', clausulaPadrao)
+    contrato.set('versao_texto_hash', clientHash)
+    contrato.set('pdf_congelado_hash', clientHash)
+    contrato.set('dossie_evidencias_json', dossieEvidencias)
 
     const assinadoBilateralmente = Boolean(contrato.getString('data_assinatura_admin'))
     if (assinadoBilateralmente) {

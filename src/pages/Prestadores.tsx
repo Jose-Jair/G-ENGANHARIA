@@ -278,7 +278,7 @@ export const PrestadoresPage: React.FC = () => {
         prestador: prestadorSelecionado.id,
         minuta_texto: `CONTRATO-MESTRE DE PRESTAÇÃO DE SERVIÇOS TÉCNICOS E TERMO DE CONFIDENCIALIDADE (NDA) firmado com ${prestadorSelecionado.nome}.`,
         clausulas_nda:
-          '1. Confidencialidade irrestrita das informações técnicas, projetos e clientes da G+ Engenharia.\n2. Vedações de contato direto ou aliciamento dos clientes da G+.\n3. Obrigatoriedade de emissão de Ordens de Serviço formais para cada trabalho.',
+          '1. Confidencialidade irrestrita das informações técnicas, projetos e clientes da G+ Engenharia.\n2. Vedações de contato direto ou aliciamento dos clientes da G+.\n3. Obrigatoriedade de emissão de Ordens de Serviço formais para cada trabalho.\n\nCLÁUSULA DE ACEITE DE ASSINATURA ELETRÔNICA:\nAs partes declaram e reconhecem expressamente a validade, integridade e eficácia jurídica desta contratação formalizada por meio eletrônico, nos termos da Medida Provisória nº 2.200-2/2001 e da Lei Federal nº 14.063/2020, admitindo como válidas as assinaturas eletrônicas emitidas mediante verificação de código OTP de 6 dígitos enviado por e-mail, registro de endereço IP, user-agent, carimbo de tempo UTC e hash criptográfico SHA-256 do documento congelado.',
       })
       toast({ title: 'Contrato-Mestre gerado com sucesso!' })
       const lista = await prestadoresService.listContratosMestre(prestadorSelecionado.id)

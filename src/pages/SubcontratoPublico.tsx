@@ -474,8 +474,19 @@ export const SubcontratoPublicoPage: React.FC = () => {
             </Badge>
           </div>
           <CardContent className="p-5">
-            <div className="bg-slate-50/70 border border-slate-200 rounded-lg p-4 font-mono text-[11px] leading-relaxed text-slate-700 whitespace-pre-line max-h-96 overflow-y-auto">
-              {sub.clausulas_texto || 'Cláusulas em processamento pela assessoria da G+.'}
+            <div className="bg-slate-50/70 border border-slate-200 rounded-lg p-4 font-mono text-[11px] leading-relaxed text-slate-700 whitespace-pre-line max-h-96 overflow-y-auto space-y-3">
+              <div>
+                {sub.clausulas_texto || 'Cláusulas em processamento pela assessoria da G+.'}
+              </div>
+              <div className="pt-2 border-t border-slate-300 font-sans text-slate-800">
+                <strong>CLÁUSULA DE ACEITE DE ASSINATURA ELETRÔNICA:</strong> As partes declaram e
+                reconhecem expressamente a validade, integridade e eficácia jurídica desta
+                contratação formalizada por meio eletrônico, nos termos da Medida Provisória nº
+                2.200-2/2001 e da Lei Federal nº 14.063/2020, admitindo como válidas as assinaturas
+                eletrônicas emitidas mediante verificação de código OTP de 6 dígitos enviado por
+                e-mail, registro de endereço IP, user-agent, carimbo de tempo UTC e hash
+                criptográfico SHA-256 do documento congelado.
+              </div>
             </div>
           </CardContent>
         </Card>

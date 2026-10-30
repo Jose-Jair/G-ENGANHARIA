@@ -818,6 +818,63 @@ routerAdd(
         detalhes: detalheCotacaoAuto,
       }
 
+      // REQUISITO 8: SELFCHECK ESTENDIDO — ASSINATURA ELETRÔNICA PADRÃO JURÍDICO (OS, CONTRATOS, OTP)
+      let assinaturaEletronicaOk = true
+      const detalheAssinatura = {}
+
+      try {
+        const colOS = $app.findCollectionByNameOrId('ordens_servico')
+        const colCM = $app.findCollectionByNameOrId('contratos_mestre')
+        const colCS = $app.findCollectionByNameOrId('contratos_servico')
+
+        const camposEsperados = [
+          'codigo_verificacao_hash',
+          'codigo_expiracao',
+          'codigo_tentativas',
+          'codigo_enviado_para',
+          'aceite_status',
+          'pdf_congelado_hash',
+          'versao_texto_aceito',
+          'versao_texto_hash',
+          'dossie_evidencias_json',
+        ]
+
+        function checarCamposColecao(col, nomes) {
+          const schema = col.fields ? col.fields : []
+          return nomes.every((nome) => schema.some((f) => f.name === nome))
+        }
+
+        detalheAssinatura.ordens_servico_campos = checarCamposColecao(colOS, camposEsperados)
+        detalheAssinatura.contratos_mestre_campos = checarCamposColecao(colCM, camposEsperados)
+        detalheAssinatura.contratos_servico_campos = checarCamposColecao(colCS, camposEsperados)
+
+        const paramClausula = $app.findRecordsByFilter(
+          'parametros',
+          "chave = 'clausula_assinatura_eletronica_padrao'",
+          '',
+          1,
+          0,
+        )
+        detalheAssinatura.parametro_clausula_padrao = paramClausula.length > 0
+
+        if (
+          !detalheAssinatura.ordens_servico_campos ||
+          !detalheAssinatura.contratos_mestre_campos ||
+          !detalheAssinatura.contratos_servico_campos ||
+          !detalheAssinatura.parametro_clausula_padrao
+        ) {
+          assinaturaEletronicaOk = false
+        }
+      } catch (eAssin) {
+        assinaturaEletronicaOk = false
+        detalheAssinatura.erro = String(eAssin)
+      }
+
+      resultados.item8_assinatura_eletronica_otp = {
+        todas_conformes: assinaturaEletronicaOk,
+        detalhes: detalheAssinatura,
+      }
+
       resultados.conformidade_geral =
         resultados.item1_api_rules.cotacoes_segura &&
         resultados.item1_api_rules.subcontratos_segura &&
@@ -827,7 +884,8 @@ routerAdd(
         resultados.item4_telefones_json.campos_configurados &&
         prestadoresOk &&
         colecoesNovasOk &&
-        cotacaoAutomaticaOk
+        cotacaoAutomaticaOk &&
+        assinaturaEletronicaOk
 
       return e.json(200, {
         status: 'OK',

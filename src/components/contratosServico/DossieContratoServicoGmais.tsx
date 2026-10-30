@@ -202,13 +202,24 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
             <h2 className="dossie-titulo-clausula text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 [break-after:avoid] [page-break-after:avoid]">
               <span>Cláusula 4ª — Das Cláusulas e Condições Gerais</span>
             </h2>
-            <div className="text-slate-800 whitespace-pre-line leading-relaxed text-justify text-[11px] p-3.5 bg-slate-50 border border-slate-300 rounded">
-              {(
-                contrato.clausulas_texto ||
-                'CLÁUSULA 1ª — As alterações no projeto ou nas premissas solicitadas pela CONTRATANTE incorrerão em custos adicionais correspondentes às horas técnicas de retrabalho necessárias.\n\nCLÁUSULA 2ª — Os documentos e arquivos digitais são de uso exclusivo para o empreendimento objeto deste contrato.\n\nCLÁUSULA 3ª — A rescisão imotivada sujeitará a parte infratora à quitação dos serviços executados, acrescida de multa rescisória compensatória de 20% sobre o saldo remanescente.'
-              )
-                .replace(/\n{3,}/g, '\n\n')
-                .trim()}
+            <div className="text-slate-800 whitespace-pre-line leading-relaxed text-justify text-[11px] p-3.5 bg-slate-50 border border-slate-300 rounded space-y-2">
+              <div>
+                {(
+                  contrato.clausulas_texto ||
+                  'CLÁUSULA 1ª — As alterações no projeto ou nas premissas solicitadas pela CONTRATANTE incorrerão em custos adicionais correspondentes às horas técnicas de retrabalho necessárias.\n\nCLÁUSULA 2ª — Os documentos e arquivos digitais são de uso exclusivo para o empreendimento objeto deste contrato.\n\nCLÁUSULA 3ª — A rescisão imotivada sujeitará a parte infratora à quitação dos serviços executados, acrescida de multa rescisória compensatória de 20% sobre o saldo remanescente.'
+                )
+                  .replace(/\n{3,}/g, '\n\n')
+                  .trim()}
+              </div>
+              <div className="pt-2 border-t border-slate-200 text-slate-700 font-medium">
+                <strong>CLÁUSULA DE ACEITE DE ASSINATURA ELETRÔNICA:</strong> As partes declaram e
+                reconhecem expressamente a validade, integridade e eficácia jurídica desta
+                contratação formalizada por meio eletrônico, nos termos da Medida Provisória nº
+                2.200-2/2001 e da Lei Federal nº 14.063/2020, admitindo como válidas as assinaturas
+                eletrônicas emitidas mediante verificação de código OTP de 6 dígitos enviado por
+                e-mail, registro de endereço IP, user-agent, carimbo de tempo UTC e hash
+                criptográfico SHA-256 do documento congelado.
+              </div>
             </div>
           </section>
 

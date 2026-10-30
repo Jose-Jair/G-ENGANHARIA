@@ -65,8 +65,11 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  MessageSquare,
 } from 'lucide-react'
 import { exportService } from '@/services/exportService'
+import { ModalMensagensOsGestor } from '@/components/prestadores/ModalMensagensOsGestor'
+import { mensagensOsService } from '@/services/mensagensOs'
 
 export const PrestadoresPage: React.FC = () => {
   const { user } = useAuth()
@@ -114,6 +117,13 @@ export const PrestadoresPage: React.FC = () => {
   // Modal Dossiê de Evidências Digitais
   const [modalDossieOpen, setModalDossieOpen] = useState(false)
   const [osDossieSelecionada, setOsDossieSelecionada] = useState<OrdemServicoRecord | null>(null)
+
+  // Modal Canal de Comunicação / Mensagens por OS (Rodada 6)
+  const [modalMensagensOsOpen, setModalMensagensOsOpen] = useState(false)
+  const [osMensagensSelecionada, setOsMensagensSelecionada] = useState<OrdemServicoRecord | null>(
+    null,
+  )
+  const [naoLidasPorOs, setNaoLidasPorOs] = useState<Record<string, number>>({})
 
   const [novoProfNome, setNovoProfNome] = useState('')
   const [novoProfConselho, setNovoProfConselho] = useState('')
@@ -273,6 +283,14 @@ export const PrestadoresPage: React.FC = () => {
     try {
       const lista = await ordensServicoService.listByPrestador(p.id)
       setOrdensServicoPrestador(lista)
+
+      // Carregar contadores de mensagens não lidas por OS
+      try {
+        const contadores = await mensagensOsService.obterContadoresNaoLidas()
+        setNaoLidasPorOs(contadores.por_os || {})
+      } catch {
+        /* ignore */
+      }
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar Ordens de Serviço',
@@ -1343,20 +1361,41 @@ export const PrestadoresPage: React.FC = () => {
                           : 'Prestador externo: código OTP e carimbo temporal'}
                       </div>
 
-                      {canEdit && (
+                      <div className="flex items-center gap-2">
+                        {/* Botão Canal de Mensagens com Badge de Não Lidas */}
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => {
-                            setOsDossieSelecionada(os)
-                            setModalDossieOpen(true)
+                            setOsMensagensSelecionada(os)
+                            setModalMensagensOsOpen(true)
                           }}
                           className="h-7 text-xs text-slate-700 border-slate-300 hover:bg-slate-50 gap-1.5"
                         >
-                          <ShieldCheck className="w-3.5 h-3.5 text-[#D95A2B]" />
-                          Dossiê de Evidências
+                          <MessageSquare className="w-3.5 h-3.5 text-[#D95A2B]" />
+                          <span>Mensagens</span>
+                          {(naoLidasPorOs[os.id] || 0) > 0 && (
+                            <Badge className="bg-[#D95A2B] text-white text-[10px] px-1.5 py-0 h-4">
+                              {naoLidasPorOs[os.id]}
+                            </Badge>
+                          )}
                         </Button>
-                      )}
+
+                        {canEdit && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setOsDossieSelecionada(os)
+                              setModalDossieOpen(true)
+                            }}
+                            className="h-7 text-xs text-slate-700 border-slate-300 hover:bg-slate-50 gap-1.5"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5 text-[#D95A2B]" />
+                            Dossiê de Evidências
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1371,6 +1410,28 @@ export const PrestadoresPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal Canal de Mensagens da OS (Rodada 6) */}
+      <ModalMensagensOsGestor
+        open={modalMensagensOsOpen}
+        onOpenChange={setModalMensagensOsOpen}
+        os={osMensagensSelecionada}
+        usuarioNome={user?.name || 'Coordenação G+'}
+        usuarioId={user?.id}
+        usuarioEmail={user?.email}
+        naoLidasCount={osMensagensSelecionada ? naoLidasPorOs[osMensagensSelecionada.id] || 0 : 0}
+        onMensagensLidas={async () => {
+          if (osMensagensSelecionada) {
+            setNaoLidasPorOs((prev) => ({ ...prev, [osMensagensSelecionada.id]: 0 }))
+          }
+        }}
+        onAbrirDossie={() => {
+          if (osMensagensSelecionada) {
+            setOsDossieSelecionada(osMensagensSelecionada)
+            setModalDossieOpen(true)
+          }
+        }}
+      />
 
       {/* Modal Dossiê de Evidências Digitais */}
       <ModalDossieEvidenciasOS

@@ -5,6 +5,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { AuthProvider } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import AppLayout from './components/AppLayout'
+import NotificacoesPage from './pages/Notificacoes'
 import LoginPage from './pages/Login'
 import IndexPage from './pages/Index'
 import WelcomePage from './pages/Welcome'
@@ -99,6 +100,17 @@ const App = () => (
               }
             />{' '}
             <Route path="/boas-vindas" element={<WelcomePage />} />
+            {/* RODADA 6: Central de Notificações Unificada */}
+            <Route
+              path="/notificacoes"
+              element={
+                <ProtectedRoute
+                  allowedRoles={['admin', 'comercial', 'financeiro', 'gestor', 'executor']}
+                >
+                  <NotificacoesPage />
+                </ProtectedRoute>
+              }
+            />
             {/* MANUAL DE USO DA PLATAFORMA (Acesso a todos os perfis autenticados com login) */}
             <Route
               path="/manual"

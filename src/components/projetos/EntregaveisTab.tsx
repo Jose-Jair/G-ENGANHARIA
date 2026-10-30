@@ -48,8 +48,12 @@ import {
   ChevronUp,
   AlertCircle,
   ShieldAlert,
+  GitCompare,
+  MessageSquare,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { EntregavelVersaoComentarios } from './EntregavelVersaoComentarios'
+import { ModalOQueMudou } from './ModalOQueMudou'
 
 interface EntregaveisTabProps {
   etapas: ProjetoEtapaRecord[]
@@ -131,6 +135,11 @@ export const EntregaveisTab: React.FC<EntregaveisTabProps> = ({
   const [modalSubmeterAberto, setModalSubmeterAberto] = useState(false)
   const [modalAvaliarAberto, setModalAvaliarAberto] = useState(false)
   const [observacoesSubmissao, setObservacoesSubmissao] = useState('')
+  const [modalOQueMudouAberto, setModalOQueMudouAberto] = useState(false)
+  const [entregavelParaOQueMudou, setEntregavelParaOQueMudou] = useState<EntregavelRecord | null>(
+    null,
+  )
+  const [versaoOQueMudouNum, setVersaoOQueMudouNum] = useState<number | undefined>(undefined)
   const [decisaoAvaliacao, setDecisaoAvaliacao] = useState<'aprovado' | 'devolvido'>('aprovado')
   const [motivoDevolucao, setMotivoDevolucao] = useState('')
   const [processandoCiclo, setProcessandoCiclo] = useState(false)
@@ -437,6 +446,21 @@ export const EntregaveisTab: React.FC<EntregaveisTabProps> = ({
 
                     {/* Ações de Transição de Ciclo */}
                     <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEntregavelParaOQueMudou(item)
+                          setVersaoOQueMudouNum(item.versao_atual || undefined)
+                          setModalOQueMudouAberto(true)
+                        }}
+                        className="h-8 text-xs text-blue-700 border-blue-200 hover:bg-blue-50 gap-1.5"
+                        title="Comparar versão atual com a versão anterior"
+                      >
+                        <GitCompare className="w-3.5 h-3.5 text-blue-600" />
+                        <span>O que mudou</span>
+                      </Button>
+
                       {/* Botão Submeter Nova Versão (Prestador ou Gestor) */}
                       {(item.status === 'atribuido' ||
                         item.status === 'em_producao' ||
@@ -535,66 +559,95 @@ export const EntregaveisTab: React.FC<EntregaveisTabProps> = ({
                         {versoes.map((v) => (
                           <div
                             key={v.id}
-                            className="bg-white border rounded p-2.5 text-xs flex flex-col sm:flex-row sm:items-start justify-between gap-2"
+                            className="bg-white border rounded p-2.5 text-xs space-y-2"
                           >
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded text-[10px]">
-                                  v{v.numero_versao}.0
-                                </span>
-                                <Badge
-                                  variant="outline"
-                                  className={`text-[9px] uppercase ${
-                                    v.status === 'aprovado'
-                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                                      : v.status === 'devolvido'
-                                        ? 'bg-rose-50 text-rose-700 border-rose-300'
-                                        : 'bg-amber-50 text-amber-700 border-amber-300'
-                                  }`}
-                                >
-                                  {v.status}
-                                </Badge>
-                                <span className="text-[11px] text-slate-400">
-                                  Enviado em{' '}
-                                  {v.enviado_em
-                                    ? formatDateTimeBr(v.enviado_em)
-                                    : formatDateTimeBr(v.created)}
-                                  {v.expand?.enviado_por?.name &&
-                                    ` por ${v.expand.enviado_por.name}`}
-                                </span>
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded text-[10px]">
+                                    v{v.numero_versao}.0
+                                  </span>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[9px] uppercase ${
+                                      v.status === 'aprovado'
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                        : v.status === 'devolvido'
+                                          ? 'bg-rose-50 text-rose-700 border-rose-300'
+                                          : 'bg-amber-50 text-amber-700 border-amber-300'
+                                    }`}
+                                  >
+                                    {v.status}
+                                  </Badge>
+                                  <span className="text-[11px] text-slate-400">
+                                    Enviado em{' '}
+                                    {v.enviado_em
+                                      ? formatDateTimeBr(v.enviado_em)
+                                      : formatDateTimeBr(v.created)}
+                                    {v.expand?.enviado_por?.name &&
+                                      ` por ${v.expand.enviado_por.name}`}
+                                  </span>
+                                </div>
+
+                                {v.observacoes && (
+                                  <p className="text-[11px] text-slate-600">
+                                    <strong>Nota:</strong> {v.observacoes}
+                                  </p>
+                                )}
+
+                                {v.motivo_devolucao && (
+                                  <p className="text-[11px] text-rose-700">
+                                    <strong>Motivo da devolução:</strong> {v.motivo_devolucao}
+                                  </p>
+                                )}
+
+                                {v.avaliado_por && (
+                                  <p className="text-[10px] text-slate-400">
+                                    Avaliado por {v.expand?.avaliado_por?.name || 'Revisor'} em{' '}
+                                    {formatDateTimeBr(v.avaliado_em || '')}
+                                  </p>
+                                )}
                               </div>
 
-                              {v.observacoes && (
-                                <p className="text-[11px] text-slate-600">
-                                  <strong>Nota:</strong> {v.observacoes}
-                                </p>
-                              )}
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEntregavelParaOQueMudou(item)
+                                    setVersaoOQueMudouNum(v.numero_versao)
+                                    setModalOQueMudouAberto(true)
+                                  }}
+                                  className="h-6 text-[10px] text-blue-700 border-blue-200 hover:bg-blue-50 gap-1"
+                                  title="Ver comparativo desta versão"
+                                >
+                                  <GitCompare className="w-3 h-3 text-blue-600" />
+                                  <span>Diff</span>
+                                </Button>
 
-                              {v.motivo_devolucao && (
-                                <p className="text-[11px] text-rose-700">
-                                  <strong>Motivo da devolução:</strong> {v.motivo_devolucao}
-                                </p>
-                              )}
-
-                              {v.avaliado_por && (
-                                <p className="text-[10px] text-slate-400">
-                                  Avaliado por {v.expand?.avaliado_por?.name || 'Revisor'} em{' '}
-                                  {formatDateTimeBr(v.avaliado_em || '')}
-                                </p>
-                              )}
+                                {v.arquivo && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => openProtectedFile(v, v.arquivo)}
+                                    className="h-6 text-[10px] gap-1 shrink-0"
+                                  >
+                                    <Download className="w-3 h-3" />
+                                    Arquivo da Versão
+                                  </Button>
+                                )}
+                              </div>
                             </div>
 
-                            {v.arquivo && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => openProtectedFile(v, v.arquivo)}
-                                className="h-6 text-[10px] gap-1 shrink-0"
-                              >
-                                <Download className="w-3 h-3" />
-                                Arquivo da Versão
-                              </Button>
-                            )}
+                            {/* COMENTÁRIOS DE REVISÃO DA VERSÃO */}
+                            <EntregavelVersaoComentarios
+                              versaoId={v.id}
+                              numeroVersao={v.numero_versao}
+                              autorTipo="interno"
+                              autorNome={user?.name || 'Revisor G+'}
+                              autorUsuarioId={user?.id}
+                              autorEmail={user?.email}
+                            />
                           </div>
                         ))}
                       </div>
@@ -767,6 +820,15 @@ export const EntregaveisTab: React.FC<EntregaveisTabProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL "O QUE MUDOU" (METADADOS ATUAL × ANTERIOR) */}
+      <ModalOQueMudou
+        open={modalOQueMudouAberto}
+        onOpenChange={setModalOQueMudouAberto}
+        entregavelId={entregavelParaOQueMudou?.id || null}
+        tituloEntregavel={entregavelParaOQueMudou?.nome || entregavelParaOQueMudou?.titulo}
+        versaoAtualNum={versaoOQueMudouNum}
+      />
 
       {/* Modal Criar Entregável */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>

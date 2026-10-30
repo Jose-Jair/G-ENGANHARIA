@@ -70,6 +70,7 @@ export default function AppLayout() {
   const [badgeContratosPendentesCount, setBadgeContratosPendentesCount] = useState<number>(0)
   const [badgeSolicitacoesAlteracaoCount, setBadgeSolicitacoesAlteracaoCount] = useState<number>(0)
   const [badgeMedicoesApresentadasCount, setBadgeMedicoesApresentadasCount] = useState<number>(0)
+  const [badgeNotificacoesBancoCount, setBadgeNotificacoesBancoCount] = useState<number>(0)
   const [modalSenhaOpen, setModalSenhaOpen] = useState(false)
 
   // Carregar contagem de ações do dia + atrasos para a badge de notificações no sininho
@@ -79,6 +80,15 @@ export default function AppLayout() {
     }
 
     try {
+      // Carregar notificações não lidas da coleção notificacoes
+      try {
+        const { notificacoesService } = await import('@/services/notificacoes')
+        const totalNotifs = await notificacoesService.contarNaoLidas()
+        setBadgeNotificacoesBancoCount(totalNotifs)
+      } catch {
+        /* intentionally ignored */
+      }
+
       let diasLim = 5
       try {
         const p = await parametrosService.getByKey('dias_limite_atraso_toque')
@@ -827,35 +837,16 @@ export default function AppLayout() {
               <span>Manual de Uso</span>
             </NavLink>
 
-            {/* Sininho com Badge de Notificações */}
-            {user?.role && user.role !== 'executor' && (
+            {/* Sininho com Badge de Notificações — Leva para a Central de Notificações */}
+            {user?.role && (
               <NavLink
-                to={
-                  badgeMedicoesApresentadasCount > 0 &&
-                  (user.role === 'admin' || user.role === 'gestor')
-                    ? '/projetos'
-                    : badgeContratosPendentesCount > 0 &&
-                        (user.role === 'admin' || user.role === 'gestor')
-                      ? '/projetos?status=contratacao'
-                      : badgeSolicitacoesAlteracaoCount > 0
-                        ? '/acoes-do-dia'
-                        : badgeFinanceiroAlertasCount > 0 &&
-                            (user.role === 'admin' || user.role === 'financeiro')
-                          ? '/financeiro'
-                          : badgeDocumentosVencendoCount > 0 &&
-                              (user.role === 'admin' || user.role === 'gestor')
-                            ? '/projetos'
-                            : badgeParceirosSemDemandaCount > 0
-                              ? '/parceiros'
-                              : isAdmin && badgeCampanhasPendentesCount > 0
-                                ? '/campanhas'
-                                : '/acoes-do-dia'
-                }
+                to="/notificacoes"
                 className="relative p-2 text-slate-600 hover:text-[#D95A2B] hover:bg-slate-100 rounded-full transition-colors"
-                title={`Notificações: ${badgeMedicoesApresentadasCount} medições aguardando aprovação, ${badgeAcoesCount} ações cadência, ${badgeSolicitacoesAlteracaoCount} solicitações de alteração em propostas, ${badgeContratosPendentesCount} contratos pendentes de assinatura, ${badgeCampanhasPendentesCount} campanhas pendentes, ${badgeParceirosSemDemandaCount} parceiros sem demanda (+180d), ${badgeDocumentosVencendoCount} documentos com alerta, ${badgeFinanceiroAtrasadosCount} conta(s) vencida(s) no Financeiro`}
+                title={`Central de Notificações (${badgeNotificacoesBancoCount} nova(s) / alertas operacionais)`}
               >
                 <Bell className="w-5 h-5" />
-                {(badgeAcoesCount > 0 ||
+                {(badgeNotificacoesBancoCount > 0 ||
+                  badgeAcoesCount > 0 ||
                   badgeSolicitacoesAlteracaoCount > 0 ||
                   badgeContratosPendentesCount > 0 ||
                   badgeMedicoesApresentadasCount > 0 ||
@@ -865,6 +856,7 @@ export default function AppLayout() {
                   badgeFinanceiroAtrasadosCount > 0) && (
                   <span
                     className={`absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full text-[10px] font-bold text-white shadow-xs ${
+                      badgeNotificacoesBancoCount > 0 ||
                       badgeCriticosCount > 0 ||
                       badgeSolicitacoesAlteracaoCount > 0 ||
                       badgeMedicoesApresentadasCount > 0 ||
@@ -877,7 +869,8 @@ export default function AppLayout() {
                           : 'bg-[#D95A2B]'
                     }`}
                   >
-                    {badgeAcoesCount +
+                    {badgeNotificacoesBancoCount +
+                      badgeAcoesCount +
                       badgeSolicitacoesAlteracaoCount +
                       badgeContratosPendentesCount +
                       badgeMedicoesApresentadasCount +

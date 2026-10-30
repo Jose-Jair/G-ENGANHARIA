@@ -35,8 +35,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { GPlusLogo } from '@/components/GPlusLogo'
 import { SecaoCotacoesPrestador } from '@/components/projetos/SecaoCotacoesPrestador'
-import { Briefcase } from 'lucide-react'
+import { Briefcase, MessageSquare, GitCompare } from 'lucide-react'
 import { ModalAssinaturaEletronicaOS } from '@/components/prestadores/ModalAssinaturaEletronicaOS'
+import { PainelMensagensOs } from '@/components/prestadores/PainelMensagensOs'
+import { EntregavelVersaoComentarios } from '@/components/projetos/EntregavelVersaoComentarios'
+import { ModalOQueMudou } from '@/components/projetos/ModalOQueMudou'
+import { mensagensOsService } from '@/services/mensagensOs'
 
 export const PortalPrestadorPage: React.FC = () => {
   const { user, logout } = useAuth()
@@ -60,11 +64,26 @@ export const PortalPrestadorPage: React.FC = () => {
   // Modal de Assinatura da OS
   const [modalAssinarOpen, setModalAssinarOpen] = useState(false)
 
+  // Contadores de mensagens não lidas por OS e Modal O que mudou
+  const [naoLidasPorOs, setNaoLidasPorOs] = useState<Record<string, number>>({})
+  const [modalOQueMudouAberto, setModalOQueMudouAberto] = useState(false)
+  const [entregavelParaOQueMudou, setEntregavelParaOQueMudou] =
+    useState<PortalEntregavelRecord | null>(null)
+
   const carregarMinhasOS = async () => {
     setCarregando(true)
     try {
       const lista = await portalPrestadorService.listMinhasOS()
       setOrdensServico(lista)
+
+      // Carregar contadores de mensagens não lidas por OS no Portal
+      try {
+        const contadores = await mensagensOsService.obterContadoresNaoLidas()
+        setNaoLidasPorOs(contadores.por_os || {})
+      } catch {
+        /* ignore */
+      }
+
       if (lista.length > 0 && !osSelecionada) {
         setOsSelecionada(lista[0])
       }
@@ -255,7 +274,15 @@ export const PortalPrestadorPage: React.FC = () => {
                         }`}
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <span className="font-bold text-slate-900 text-sm">{os.numero_os}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900 text-sm">{os.numero_os}</span>
+                            {(naoLidasPorOs[os.os_id] || 0) > 0 && (
+                              <Badge className="bg-[#D95A2B] text-white text-[10px] px-1.5 py-0 h-4 flex items-center gap-1">
+                                <MessageSquare className="w-2.5 h-2.5" />
+                                {naoLidasPorOs[os.os_id]}
+                              </Badge>
+                            )}
+                          </div>
                           {getStatusBadge(os.status)}
                         </div>
 
@@ -366,16 +393,40 @@ export const PortalPrestadorPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Entregáveis e Documentos Técnicos */}
-                      <Tabs defaultValue="entregaveis" className="w-full">
-                        <TabsList className="grid grid-cols-2 text-xs">
+                      {/* Abas: Canal de Mensagens, Entregáveis e Documentos Técnicos */}
+                      <Tabs defaultValue="mensagens" className="w-full">
+                        <TabsList className="grid grid-cols-3 text-xs">
+                          <TabsTrigger value="mensagens" className="flex items-center gap-1.5">
+                            <MessageSquare className="w-3.5 h-3.5 text-[#D95A2B]" />
+                            <span>Mensagens</span>
+                            {(naoLidasPorOs[osSelecionada.os_id] || 0) > 0 && (
+                              <Badge className="bg-[#D95A2B] text-white text-[10px] px-1.5 py-0 h-4">
+                                {naoLidasPorOs[osSelecionada.os_id]}
+                              </Badge>
+                            )}
+                          </TabsTrigger>
                           <TabsTrigger value="entregaveis">
-                            Entregáveis Técnicos ({entregaveis.length})
+                            Entregáveis ({entregaveis.length})
                           </TabsTrigger>
                           <TabsTrigger value="documentos">
-                            Arquivos Técnicos ({documentos.length})
+                            Arquivos ({documentos.length})
                           </TabsTrigger>
                         </TabsList>
+
+                        {/* ABA DE MENSAGENS NO PORTAL DO PRESTADOR */}
+                        <TabsContent value="mensagens" className="pt-3">
+                          <PainelMensagensOs
+                            osId={osSelecionada.os_id}
+                            numeroOs={osSelecionada.numero_os}
+                            autorTipo="prestador"
+                            autorNome={user?.name || user?.email || 'Prestador'}
+                            autorUsuarioId={user?.id}
+                            autorEmail={user?.email}
+                            onMensagensLidas={() => {
+                              setNaoLidasPorOs((prev) => ({ ...prev, [osSelecionada.os_id]: 0 }))
+                            }}
+                          />
+                        </TabsContent>
 
                         <TabsContent value="entregaveis" className="pt-3">
                           {carregandoDetalhes ? (
@@ -391,63 +442,79 @@ export const PortalPrestadorPage: React.FC = () => {
                               {entregaveis.map((ent) => (
                                 <div
                                   key={ent.id}
-                                  className="p-3.5 text-xs bg-slate-50/70 border border-slate-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                  className="p-3.5 text-xs bg-slate-50/70 border border-slate-200 rounded-lg space-y-2"
                                 >
-                                  <div className="space-y-0.5">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-bold text-slate-900">{ent.nome}</span>
-                                      <Badge
-                                        variant="outline"
-                                        className={`text-[10px] ${
-                                          ent.status === 'aprovado'
-                                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div className="space-y-0.5">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-bold text-slate-900">{ent.nome}</span>
+                                        <Badge
+                                          variant="outline"
+                                          className={`text-[10px] ${
+                                            ent.status === 'aprovado'
+                                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                              : ent.status === 'enviado_revisao'
+                                                ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                                : ent.status === 'devolvido'
+                                                  ? 'bg-rose-50 text-rose-800 border-rose-300'
+                                                  : 'bg-white text-slate-700'
+                                          }`}
+                                        >
+                                          {ent.status === 'aprovado'
+                                            ? 'Aprovado'
                                             : ent.status === 'enviado_revisao'
-                                              ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                              ? 'Em Revisão Interna'
                                               : ent.status === 'devolvido'
-                                                ? 'bg-rose-50 text-rose-800 border-rose-300'
-                                                : 'bg-white text-slate-700'
-                                        }`}
-                                      >
-                                        {ent.status === 'aprovado'
-                                          ? 'Aprovado'
-                                          : ent.status === 'enviado_revisao'
-                                            ? 'Em Revisão Interna'
-                                            : ent.status === 'devolvido'
-                                              ? 'Devolvido com Apontamentos'
-                                              : ent.status || 'Atribuído'}
-                                      </Badge>
+                                                ? 'Devolvido com Apontamentos'
+                                                : ent.status || 'Atribuído'}
+                                        </Badge>
+                                      </div>
+                                      {ent.descricao && (
+                                        <p className="text-slate-600 text-[11px] leading-snug">
+                                          {ent.descricao}
+                                        </p>
+                                      )}
+                                      {ent.prazo_entrega && (
+                                        <span className="text-slate-500 text-[10px] block">
+                                          Prazo de entrega:{' '}
+                                          <strong>{formatDateBr(ent.prazo_entrega)}</strong>
+                                        </span>
+                                      )}
                                     </div>
-                                    {ent.descricao && (
-                                      <p className="text-slate-600 text-[11px] leading-snug">
-                                        {ent.descricao}
-                                      </p>
-                                    )}
-                                    {ent.prazo_entrega && (
-                                      <span className="text-slate-500 text-[10px] block">
-                                        Prazo de entrega:{' '}
-                                        <strong>{formatDateBr(ent.prazo_entrega)}</strong>
-                                      </span>
-                                    )}
-                                  </div>
 
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    {(ent.status === 'atribuido' ||
-                                      ent.status === 'em_producao' ||
-                                      ent.status === 'devolvido' ||
-                                      !ent.status) && (
+                                    <div className="flex items-center gap-2 shrink-0">
                                       <Button
+                                        variant="outline"
                                         size="sm"
                                         onClick={() => {
-                                          setEntregavelSelecionadoSubmissao(ent)
-                                          setObsSubmissaoPrestador('')
-                                          setModalSubmeterVersaoOpen(true)
+                                          setEntregavelParaOQueMudou(ent)
+                                          setModalOQueMudouAberto(true)
                                         }}
-                                        className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1"
+                                        className="h-7 text-xs text-blue-700 border-blue-200 hover:bg-blue-50 gap-1"
+                                        title="Comparar com versão anterior"
                                       >
-                                        <FileDown className="w-3.5 h-3.5" />
-                                        Enviar Versão
+                                        <GitCompare className="w-3 h-3 text-blue-600" />
+                                        <span>O que mudou</span>
                                       </Button>
-                                    )}
+
+                                      {(ent.status === 'atribuido' ||
+                                        ent.status === 'em_producao' ||
+                                        ent.status === 'devolvido' ||
+                                        !ent.status) && (
+                                        <Button
+                                          size="sm"
+                                          onClick={() => {
+                                            setEntregavelSelecionadoSubmissao(ent)
+                                            setObsSubmissaoPrestador('')
+                                            setModalSubmeterVersaoOpen(true)
+                                          }}
+                                          className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1"
+                                        >
+                                          <FileDown className="w-3.5 h-3.5" />
+                                          Enviar Versão
+                                        </Button>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               ))}
@@ -583,6 +650,14 @@ export const PortalPrestadorPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal O Que Mudou no Portal do Prestador */}
+      <ModalOQueMudou
+        open={modalOQueMudouAberto}
+        onOpenChange={setModalOQueMudouAberto}
+        entregavelId={entregavelParaOQueMudou?.id || null}
+        tituloEntregavel={entregavelParaOQueMudou?.nome}
+      />
 
       {/* Modal de Assinatura da OS com OTP de 6 dígitos */}
       <ModalAssinaturaEletronicaOS

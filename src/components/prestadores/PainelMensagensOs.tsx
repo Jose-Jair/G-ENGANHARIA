@@ -19,12 +19,15 @@ import {
   RefreshCw,
   AlertCircle,
   ShieldAlert,
+  Sparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { formatDateTimeBr } from '@/lib/formatters'
+import { ModalRascunhoIA } from '@/components/ia/ModalRascunhoIA'
+import { iaOperacaoService } from '@/services/iaOperacao'
 import { openProtectedFile } from '@/lib/pocketbase/files'
 import { mensagensOsService } from '@/services/mensagensOs'
 import type { MensagemOsRecord } from '@/types'
@@ -56,6 +59,16 @@ export const PainelMensagensOs: React.FC<PainelMensagensOsProps> = ({
   const [texto, setTexto] = useState('')
   const [arquivoAnexo, setArquivoAnexo] = useState<File | null>(null)
   const [baixandoAnexoId, setBaixandoAnexoId] = useState<string | null>(null)
+
+  // IA: Redigir com IA
+  const [modalIaAberto, setModalIaAberto] = useState(false)
+  const [finalidadeIa, setFinalidadeIa] = useState<
+    'cobranca_preventiva' | 'cobranca_atraso' | 'resposta_prestador' | 'alinhamento_tecnico'
+  >(autorTipo === 'prestador' ? 'resposta_prestador' : 'cobranca_preventiva')
+  const [contextoExtraIa, setContextoExtraIa] = useState('')
+  const [carregandoIa, setCarregandoIa] = useState(false)
+  const [erroIa, setErroIa] = useState<string | null>(null)
+  const [rascunhoIaTexto, setRascunhoIaTexto] = useState('')
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -175,6 +188,53 @@ export const PainelMensagensOs: React.FC<PainelMensagensOsProps> = ({
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  // IA: Dispara requisição de rascunho de texto para a OS
+  const handleAbrirRedigirIa = async () => {
+    const finInicial = autorTipo === 'prestador' ? 'resposta_prestador' : 'cobranca_preventiva'
+    setFinalidadeIa(finInicial)
+    setContextoExtraIa('')
+    setModalIaAberto(true)
+    await handleGerarTextoIa(finInicial, '')
+  }
+
+  const handleGerarTextoIa = async (
+    finalidade:
+      | 'cobranca_preventiva'
+      | 'cobranca_atraso'
+      | 'resposta_prestador'
+      | 'alinhamento_tecnico',
+    contextoExtra: string,
+  ) => {
+    setCarregandoIa(true)
+    setErroIa(null)
+    setRascunhoIaTexto('')
+    try {
+      const resp = await iaOperacaoService.gerarTextoCanalOs({
+        os_id: osId,
+        finalidade,
+        contexto_extra: contextoExtra.trim() || undefined,
+      })
+      setRascunhoIaTexto(resp.rascunho.mensagem_texto || resp.rascunho.raw_texto || '')
+    } catch (err: any) {
+      const msg = err?.data?.message || err?.message || 'Falha ao redigir mensagem com IA.'
+      setErroIa(msg)
+    } finally {
+      setCarregandoIa(false)
+    }
+  }
+
+  // Aplica o rascunho aprovado diretamente no textarea de edição
+  const handleAprovarRascunhoIa = () => {
+    if (rascunhoIaTexto.trim()) {
+      setTexto(rascunhoIaTexto.trim())
+      toast({
+        title: 'Rascunho inserido no campo de mensagem',
+        description: 'Revise o texto abaixo e clique em Enviar quando estiver pronto.',
+      })
+    }
+    setModalIaAberto(false)
   }
 
   return (
@@ -401,6 +461,18 @@ export const PainelMensagensOs: React.FC<PainelMensagensOsProps> = ({
           type="button"
           variant="outline"
           size="sm"
+          onClick={handleAbrirRedigirIa}
+          className="h-9 px-2.5 border-orange-200 text-[#D95A2B] hover:bg-orange-50 shrink-0 gap-1 text-xs font-medium"
+          title="Redigir rascunho de mensagem ou cobrança assistido por IA"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-[#D95A2B]" />
+          <span className="hidden sm:inline">Redigir com IA</span>
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
           onClick={() => fileInputRef.current?.click()}
           className="h-9 px-2.5 text-slate-600 border-slate-300 hover:bg-slate-50 shrink-0"
           title="Anexar arquivo protegido (PDF, DWG, imagens, etc.)"
@@ -441,6 +513,114 @@ export const PainelMensagensOs: React.FC<PainelMensagensOsProps> = ({
           )}
         </Button>
       </form>
+
+      {/* MODAL RASCUNHO IA PARA CANAL DA OS */}
+      <ModalRascunhoIA
+        open={modalIaAberto}
+        onOpenChange={setModalIaAberto}
+        titulo={
+          autorTipo === 'prestador'
+            ? 'Redigir Resposta Técnica com IA'
+            : 'Redigir Mensagem / Cobrança com IA'
+        }
+        subtitulo={
+          autorTipo === 'prestador'
+            ? 'Rascunho seguro e profissional para prestar contas ou esclarecimentos técnicos.'
+            : 'Rascunho estruturado sem dados sensíveis de contrato, obra ou cliente.'
+        }
+        carregando={carregandoIa}
+        textoRascunho={rascunhoIaTexto}
+        onTextoChange={setRascunhoIaTexto}
+        onAprovar={handleAprovarRascunhoIa}
+        onDescartar={() => setModalIaAberto(false)}
+        erro={erroIa}
+        rotuloAprovar="Inserir no campo de mensagem"
+        rotuloDescartar="Descartar rascunho"
+        badgeRecurso="IA Canal OS"
+      >
+        <div className="space-y-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+          <div className="space-y-1">
+            <span className="text-xs font-semibold text-slate-700 block">
+              Finalidade da Mensagem:
+            </span>
+            {autorTipo === 'prestador' ? (
+              <div className="p-2 bg-purple-50 border border-purple-200 rounded text-xs text-purple-900 font-medium">
+                Resposta Técnica do Prestador (Alinhamento de progresso e entregas)
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFinalidadeIa('cobranca_preventiva')
+                    handleGerarTextoIa('cobranca_preventiva', contextoExtraIa)
+                  }}
+                  className={`p-2 rounded border text-xs text-left transition-colors ${
+                    finalidadeIa === 'cobranca_preventiva'
+                      ? 'bg-orange-50 border-[#D95A2B] text-[#D95A2B] font-bold'
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  Cobrança Preventiva
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFinalidadeIa('cobranca_atraso')
+                    handleGerarTextoIa('cobranca_atraso', contextoExtraIa)
+                  }}
+                  className={`p-2 rounded border text-xs text-left transition-colors ${
+                    finalidadeIa === 'cobranca_atraso'
+                      ? 'bg-rose-50 border-rose-500 text-rose-700 font-bold'
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  Cobrança de Atraso
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFinalidadeIa('alinhamento_tecnico')
+                    handleGerarTextoIa('alinhamento_tecnico', contextoExtraIa)
+                  }}
+                  className={`p-2 rounded border text-xs text-left transition-colors ${
+                    finalidadeIa === 'alinhamento_tecnico'
+                      ? 'bg-blue-50 border-blue-500 text-blue-700 font-bold'
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  Alinhamento Técnico
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[11px] font-medium text-slate-600 block">
+              Contexto Adicional (Opcional — ex: solicitar sondagem, avisar sobre prazo de revisão):
+            </span>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={contextoExtraIa}
+                onChange={(e) => setContextoExtraIa(e.target.value)}
+                placeholder="Ex: Reforçar envio da prancha até quinta-feira"
+                className="text-xs flex-1 px-2.5 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-[#D95A2B]"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleGerarTextoIa(finalidadeIa, contextoExtraIa)}
+                disabled={carregandoIa}
+                className="text-xs h-8 text-[#D95A2B] border-orange-200 hover:bg-orange-50 shrink-0"
+              >
+                Regerar
+              </Button>
+            </div>
+          </div>
+        </div>
+      </ModalRascunhoIA>
     </div>
   )
 }

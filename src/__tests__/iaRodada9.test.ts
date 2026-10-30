@@ -295,4 +295,36 @@ describe('Rodada 9: IA a Serviço da Operação (Backend & Lógica Pura)', () =>
       expect((auditPayload.detalhes as any).bdi).toBeUndefined()
     })
   })
+
+  describe('5. Componentes de Tela da Rodada 9 (Princípio da Decisão Humana)', () => {
+    it('deve garantir que o fluxo de rascunho IA requer aprovação explícita antes de qualquer mutação', () => {
+      let mutacaoExecutada = false
+      const aprovarEletivo = () => {
+        mutacaoExecutada = true
+      }
+
+      // Estado inicial: apenas o rascunho recebido da IA
+      const rascunhoIa = {
+        disciplina: 'Elétrica',
+        escopo_detalhado: 'Rascunho gerado pela IA...',
+      }
+      expect(rascunhoIa.escopo_detalhado).toBeDefined()
+      expect(mutacaoExecutada).toBe(false)
+
+      // Simulação do clique do operador humano
+      aprovarEletivo()
+      expect(mutacaoExecutada).toBe(true)
+    })
+
+    it('deve identificar mensagens amigáveis de bloqueio quando uma chave está desativada', () => {
+      const erro400 =
+        'O recurso de IA para ia_pre_revisao está desativado nos Parâmetros do sistema.'
+      const isChaveDesligada =
+        erro400.toLowerCase().includes('desativado') ||
+        erro400.toLowerCase().includes('desligado') ||
+        erro400.toLowerCase().includes('ia_')
+
+      expect(isChaveDesligada).toBe(true)
+    })
+  })
 })

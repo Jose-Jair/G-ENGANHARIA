@@ -39,7 +39,11 @@ import { geradorPacotesContratoService } from '@/services/geradorPacotesContrato
 import { SugestaoPrestadorItem, CotacaoRecord } from '@/types'
 import { ModalRankingCotacoes } from '@/components/projetos/ModalRankingCotacoes'
 import pb from '@/lib/pocketbase/client'
-import { Award, Users, AlertOctagon } from 'lucide-react'
+import { Award, Users, AlertOctagon, Bot, ListChecks } from 'lucide-react'
+import { ModalRascunhoIA } from '@/components/ia/ModalRascunhoIA'
+import { iaOperacaoService, type IaEscopoPacoteResponse } from '@/services/iaOperacao'
+import { entregaveisService } from '@/services/projetoDetalhes'
+import { catalogoEscoposService } from '@/services/cadeiaContratosProjetos'
 
 interface PacotesTrabalhoTabProps {
   projeto: ProjetoRecord
@@ -72,6 +76,27 @@ export const PacotesTrabalhoTab: React.FC<PacotesTrabalhoTabProps> = ({
   const [carregandoSugestoes, setCarregandoSugestoes] = useState(false)
   const [sugestoes, setSugestoes] = useState<SugestaoPrestadorItem[]>([])
   const [erroSugestoes, setErroSugestoes] = useState<string | null>(null)
+
+  // IA: Justificativa de prestador sob demanda ("Por que este?")
+  const [justificativasPorPrestador, setJustificativasPorPrestador] = useState<
+    Record<
+      string,
+      { texto: string; nivel?: string; pontos_fortes?: string[]; pontos_atencao?: string[] }
+    >
+  >({})
+  const [carregandoJustificativaId, setCarregandoJustificativaId] = useState<string | null>(null)
+  const [erroJustificativaId, setErroJustificativaId] = useState<Record<string, string>>({})
+
+  // IA: Geração de Escopo do Pacote
+  const [modalEscopoIaAberto, setModalEscopoIaAberto] = useState(false)
+  const [pacoteParaEscopoIa, setPacoteParaEscopoIa] = useState<ProjetoEtapaRecord | null>(null)
+  const [carregandoEscopoIa, setCarregandoEscopoIa] = useState(false)
+  const [erroEscopoIa, setErroEscopoIa] = useState<string | null>(null)
+  const [textoEscopoIa, setTextoEscopoIa] = useState('')
+  const [entregaveisSugeridosIa, setEntregaveisSugeridosIa] = useState<
+    Array<{ titulo: string; descricao: string; formato?: string; selecionado?: boolean }>
+  >([])
+  const [aplicandoEscopoIa, setAplicandoEscopoIa] = useState(false)
 
   // Aprovação de sugestão (Criação de OS)
   const [prestadorAprovando, setPrestadorAprovando] = useState<SugestaoPrestadorItem | null>(null)
@@ -161,6 +186,8 @@ export const PacotesTrabalhoTab: React.FC<PacotesTrabalhoTabProps> = ({
     setCarregandoSugestoes(true)
     setErroSugestoes(null)
     setSugestoes([])
+    // Não limpa cache anterior de justificativas mas reseta erros de chamada
+    setErroJustificativaId({})
 
     try {
       const res = await sugestoesPrestadoresService.obterSugestoes({
@@ -172,6 +199,159 @@ export const PacotesTrabalhoTab: React.FC<PacotesTrabalhoTabProps> = ({
       setErroSugestoes(err.message || 'Falha ao buscar ranking de prestadores no servidor.')
     } finally {
       setCarregandoSugestoes(false)
+    }
+  }
+
+  // IA: Buscar justificativa sob demanda para um prestador específico
+  const handleGerarJustificativaPrestador = async (sug: SugestaoPrestadorItem) => {
+    if (justificativasPorPrestador[sug.prestador_id]) {
+      return // já gerada em cache local
+    }
+    setCarregandoJustificativaId(sug.prestador_id)
+    setErroJustificativaId((prev) => {
+      const copy = { ...prev }
+      delete copy[sug.prestador_id]
+      return copy
+    })
+
+    try {
+      const resp = await iaOperacaoService.gerarJustificativaPrestador({
+        prestador_id: sug.prestador_id,
+        disciplina: pacoteSelecionado?.disciplina || 'Engenharia',
+        regiao: sug.uf || undefined,
+      })
+
+      const r = resp.rascunho
+      setJustificativasPorPrestador((prev) => ({
+        ...prev,
+        [sug.prestador_id]: {
+          texto: r.justificativa_texto,
+          nivel: r.nivel_recomendacao,
+          pontos_fortes: r.pontos_fortes || [],
+          pontos_atencao: r.pontos_atencao || [],
+        },
+      }))
+    } catch (err: any) {
+      setErroJustificativaId((prev) => ({
+        ...prev,
+        [sug.prestador_id]:
+          err?.data?.message || err?.message || 'Falha ao consultar justificativa via IA.',
+      }))
+    } finally {
+      setCarregandoJustificativaId(null)
+    }
+  }
+
+  // IA: Abrir fluxo de geração de escopo do pacote
+  const handleAbrirGerarEscopoIa = async (pacote: ProjetoEtapaRecord) => {
+    setPacoteParaEscopoIa(pacote)
+    setModalEscopoIaAberto(true)
+    setCarregandoEscopoIa(true)
+    setErroEscopoIa(null)
+    setTextoEscopoIa('')
+    setEntregaveisSugeridosIa([])
+
+    try {
+      // 1. Tentar localizar escopo padrão do Catálogo de Escopos pela disciplina
+      let catalogoEscopoId: string | undefined = undefined
+      try {
+        const catalogo = await catalogoEscoposService.listAtivos()
+        const discNorm = (pacote.disciplina || '').trim().toLowerCase()
+        const match = catalogo.find(
+          (c) =>
+            c.disciplina?.toLowerCase() === discNorm ||
+            c.nome?.toLowerCase().includes(discNorm) ||
+            discNorm.includes(c.disciplina?.toLowerCase() || ''),
+        )
+        if (match) {
+          catalogoEscopoId = match.id
+        }
+      } catch (catErr) {
+        console.warn('Catálogo de escopos indisponível para contexto IA:', catErr)
+      }
+
+      // 2. Chamar o serviço frontend da Rodada 9
+      const resp: IaEscopoPacoteResponse = await iaOperacaoService.gerarEscopoPacote({
+        disciplina: pacote.disciplina || 'Engenharia',
+        proposta_texto:
+          (projeto.expand as any)?.proposta?.descricao ||
+          contratoServico?.objeto ||
+          projeto.descricao ||
+          '',
+        catalogo_escopo_id: catalogoEscopoId,
+        pacote_id: pacote.id,
+        projeto_codigo: projeto.codigo || (projeto as any).numero,
+      })
+
+      const r = resp.rascunho
+      setTextoEscopoIa(r.escopo_detalhado || r.raw_texto || '')
+      setEntregaveisSugeridosIa(
+        (r.entregaveis_sugeridos || []).map((ent) => ({
+          ...ent,
+          selecionado: true,
+        })),
+      )
+    } catch (err: any) {
+      const msg = err?.data?.message || err?.message || 'Erro ao gerar rascunho de escopo com IA.'
+      setErroEscopoIa(msg)
+    } finally {
+      setCarregandoEscopoIa(false)
+    }
+  }
+
+  // IA: Aprovação explícita e aplicação no registro
+  const handleAprovarAplicarEscopoIa = async () => {
+    if (!pacoteParaEscopoIa) return
+    setAplicandoEscopoIa(true)
+    try {
+      // 1. Atualizar o escopo_detalhado do pacote no PocketBase
+      await pb.collection('projeto_etapas').update(pacoteParaEscopoIa.id, {
+        escopo_detalhado: textoEscopoIa.trim(),
+      })
+
+      // 2. Criar entregáveis sugeridos selecionados que ainda não existam
+      const entregaveisAtuais = entregaveis.filter((e) => e.etapa === pacoteParaEscopoIa.id)
+      const nomesAtuais = new Set(
+        entregaveisAtuais.map((e) => (e.nome || e.titulo || '').trim().toLowerCase()),
+      )
+
+      const paraCriar = entregaveisSugeridosIa.filter(
+        (e) => e.selecionado && !nomesAtuais.has(e.titulo.trim().toLowerCase()),
+      )
+
+      let criadosCount = 0
+      for (const ent of paraCriar) {
+        try {
+          await entregaveisService.create({
+            etapa: pacoteParaEscopoIa.id,
+            nome: ent.titulo,
+            descricao: ent.descricao
+              ? `${ent.descricao}${ent.formato ? ` (Formato sugerido: ${ent.formato})` : ''}`
+              : ent.titulo,
+            status: 'em_producao',
+          })
+          criadosCount++
+        } catch (entErr) {
+          console.warn('Erro ao criar entregável sugerido pela IA:', entErr)
+        }
+      }
+
+      toast({
+        title: 'Escopo e Entregáveis Aplicados com Sucesso!',
+        description: `O escopo técnico do pacote foi atualizado e ${criadosCount} entregável(is) foram incorporados.`,
+      })
+
+      setModalEscopoIaAberto(false)
+      setPacoteParaEscopoIa(null)
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        title: 'Falha ao aplicar escopo',
+        description: err.message || 'Não foi possível gravar o escopo no pacote.',
+        variant: 'destructive',
+      })
+    } finally {
+      setAplicandoEscopoIa(false)
     }
   }
 
@@ -447,6 +627,18 @@ export const PacotesTrabalhoTab: React.FC<PacotesTrabalhoTabProps> = ({
                                   )}
                                 </Button>
                               )}
+
+                            {/* Botão Gerar Escopo com IA */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleAbrirGerarEscopoIa(pacote)}
+                              className="border-[#D95A2B] text-[#D95A2B] hover:bg-orange-50 text-xs gap-1.5 h-8 font-medium shadow-xs"
+                              title="Gera rascunho de escopo técnico e lista de entregáveis a partir da proposta e catálogo"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-[#D95A2B]" />
+                              Gerar escopo com IA
+                            </Button>
 
                             {/* Botão de Ranking de Propostas (Abre modal de scores e escolha) */}
                             <Button
@@ -846,6 +1038,84 @@ export const PacotesTrabalhoTab: React.FC<PacotesTrabalhoTabProps> = ({
                           ))}
                         </div>
                       )}
+
+                      {/* IA: Botão sob demanda "Por que este?" e área de justificativa */}
+                      <div className="mt-2.5 pt-2 border-t border-slate-100">
+                        {justificativasPorPrestador[sug.prestador_id] ? (
+                          <div className="p-2.5 bg-orange-50/70 border border-orange-200 rounded-md text-xs space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-[#D95A2B] flex items-center gap-1.5 text-[11px]">
+                                <Sparkles className="w-3.5 h-3.5 text-[#D95A2B]" />
+                                Justificativa Técnica da IA:
+                              </span>
+                              {justificativasPorPrestador[sug.prestador_id].nivel && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] uppercase bg-white border-orange-300 text-orange-800"
+                                >
+                                  {justificativasPorPrestador[sug.prestador_id].nivel?.replace(
+                                    /_/g,
+                                    ' ',
+                                  )}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-slate-700 leading-relaxed text-[11px]">
+                              {justificativasPorPrestador[sug.prestador_id].texto}
+                            </p>
+                            {justificativasPorPrestador[sug.prestador_id].pontos_fortes &&
+                              justificativasPorPrestador[sug.prestador_id].pontos_fortes!.length >
+                                0 && (
+                                <div className="text-[10px] text-emerald-800 space-y-0.5 pt-1">
+                                  <strong className="block text-emerald-900">Pontos Fortes:</strong>
+                                  {justificativasPorPrestador[sug.prestador_id].pontos_fortes!.map(
+                                    (pf, pfIdx) => (
+                                      <div key={pfIdx} className="flex items-center gap-1">
+                                        <span className="w-1 h-1 rounded-full bg-emerald-600" />
+                                        {pf}
+                                      </div>
+                                    ),
+                                  )}
+                                </div>
+                              )}
+                          </div>
+                        ) : erroJustificativaId[sug.prestador_id] ? (
+                          <div className="p-2 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-900 flex items-center justify-between gap-2">
+                            <span>{erroJustificativaId[sug.prestador_id]}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleGerarJustificativaPrestador(sug)}
+                              className="h-6 text-[10px] text-amber-800 underline p-0"
+                            >
+                              Tentar novamente
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={carregandoJustificativaId === sug.prestador_id}
+                            onClick={() => handleGerarJustificativaPrestador(sug)}
+                            className="h-7 text-xs text-[#D95A2B] hover:text-[#b84820] hover:bg-orange-50 font-medium gap-1 px-2"
+                            title="Explicação sob demanda da compatibilidade técnica"
+                          >
+                            {carregandoJustificativaId === sug.prestador_id ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                Consultando IA...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-3.5 h-3.5 text-[#D95A2B]" />
+                                Por que este?
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex items-center sm:flex-col sm:items-end justify-between gap-2 shrink-0">
@@ -1001,6 +1271,78 @@ export const PacotesTrabalhoTab: React.FC<PacotesTrabalhoTabProps> = ({
           onRefresh()
         }}
       />
+
+      {/* MODAL 4: RASCUNHO DE ESCOPO DO PACOTE VIA IA */}
+      <ModalRascunhoIA
+        open={modalEscopoIaAberto}
+        onOpenChange={setModalEscopoIaAberto}
+        titulo={`Gerar Escopo com IA: ${pacoteParaEscopoIa?.nome || ''}`}
+        subtitulo={`Disciplina: ${pacoteParaEscopoIa?.disciplina || 'Engenharia'} • Projeto: ${projeto.codigo || (projeto as any).numero || ''}`}
+        carregando={carregandoEscopoIa}
+        textoRascunho={textoEscopoIa}
+        onTextoChange={setTextoEscopoIa}
+        onAprovar={handleAprovarAplicarEscopoIa}
+        onDescartar={() => {
+          setModalEscopoIaAberto(false)
+          setPacoteParaEscopoIa(null)
+        }}
+        erro={erroEscopoIa}
+        rotuloAprovar={aplicandoEscopoIa ? 'Aplicando ao Pacote...' : 'Aprovar e aplicar no pacote'}
+        rotuloDescartar="Descartar rascunho"
+        badgeRecurso="IA Escopo Pacote"
+        bloquearAprovacao={aplicandoEscopoIa}
+      >
+        {entregaveisSugeridosIa.length > 0 && (
+          <div className="space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <ListChecks className="w-4 h-4 text-[#D95A2B]" />
+                Entregáveis Sugeridos ({entregaveisSugeridosIa.filter((e) => e.selecionado).length}/
+                {entregaveisSugeridosIa.length})
+              </span>
+              <span className="text-[10px] text-slate-500">
+                Marque os que deseja cadastrar no pacote
+              </span>
+            </div>
+
+            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              {entregaveisSugeridosIa.map((ent, idx) => (
+                <label
+                  key={idx}
+                  className="flex items-start gap-2 p-2 bg-white border rounded text-xs cursor-pointer hover:bg-orange-50/40 transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={ent.selecionado}
+                    onChange={(e) => {
+                      const checked = e.target.checked
+                      setEntregaveisSugeridosIa((prev) =>
+                        prev.map((item, i) =>
+                          i === idx ? { ...item, selecionado: checked } : item,
+                        ),
+                      )
+                    }}
+                    className="mt-0.5 rounded border-slate-300 text-[#D95A2B] focus:ring-[#D95A2B]"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-900">{ent.titulo}</span>
+                      {ent.formato && (
+                        <Badge variant="outline" className="text-[9px] uppercase">
+                          {ent.formato}
+                        </Badge>
+                      )}
+                    </div>
+                    {ent.descricao && (
+                      <p className="text-[11px] text-slate-500 mt-0.5">{ent.descricao}</p>
+                    )}
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+      </ModalRascunhoIA>
     </div>
   )
 }

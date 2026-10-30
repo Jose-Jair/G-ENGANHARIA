@@ -15,8 +15,12 @@ import {
   Sparkles,
   RefreshCw,
   Loader2,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { monitoramentoPrazosService } from '@/services/monitoramentoPrazos'
+import { iaOperacaoService, type IaResumoDiaResponse } from '@/services/iaOperacao'
 import { useToast } from '@/hooks/use-toast'
 
 interface CardResumoDiarioGestorProps {
@@ -32,6 +36,12 @@ export const CardResumoDiarioGestor: React.FC<CardResumoDiarioGestorProps> = ({
 }) => {
   const { toast } = useToast()
   const [executando, setExecutando] = useState(false)
+
+  // IA: Resumo do Dia
+  const [gerandoResumoIa, setGerandoResumoIa] = useState(false)
+  const [resumoIa, setResumoIa] = useState<IaResumoDiaResponse['rascunho'] | null>(null)
+  const [erroResumoIa, setErroResumoIa] = useState<string | null>(null)
+  const [expandirResumoIa, setExpandirResumoIa] = useState(true)
 
   const handleDispararMonitoramento = async () => {
     setExecutando(true)
@@ -50,6 +60,32 @@ export const CardResumoDiarioGestor: React.FC<CardResumoDiarioGestorProps> = ({
       })
     } finally {
       setExecutando(false)
+    }
+  }
+
+  // IA: Geração sob demanda do Resumo do Dia
+  const handleGerarResumoDiaIa = async () => {
+    setGerandoResumoIa(true)
+    setErroResumoIa(null)
+    try {
+      const resp = await iaOperacaoService.gerarResumoDia()
+      setResumoIa(resp.rascunho)
+      setExpandirResumoIa(true)
+      toast({
+        title: 'Resumo do Dia (IA) gerado com sucesso!',
+        description:
+          'Texto executivo compilado a partir do monitoramento de prazos e do fluxo operacional.',
+      })
+    } catch (err: any) {
+      const msg = err?.data?.message || err?.message || 'Falha ao gerar o resumo diário com IA.'
+      setErroResumoIa(msg)
+      toast({
+        title: 'Não foi possível gerar Resumo com IA',
+        description: msg,
+        variant: 'destructive',
+      })
+    } finally {
+      setGerandoResumoIa(false)
     }
   }
 
@@ -79,7 +115,28 @@ export const CardResumoDiarioGestor: React.FC<CardResumoDiarioGestorProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleGerarResumoDiaIa}
+              disabled={gerandoResumoIa || carregando}
+              className="h-7 text-xs bg-[#D95A2B] hover:bg-[#b84820] text-white border-0 gap-1.5 font-medium shadow-xs"
+              title="Gera o texto corrido do Resumo do Dia para o Gestor com IA"
+            >
+              {gerandoResumoIa ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Gerando Resumo...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 text-white" />
+                  <span>Gerar Resumo do Dia (IA)</span>
+                </>
+              )}
+            </Button>
+
             <Button
               size="sm"
               variant="outline"
@@ -110,6 +167,111 @@ export const CardResumoDiarioGestor: React.FC<CardResumoDiarioGestorProps> = ({
       </CardHeader>
 
       <CardContent className="p-4 space-y-4">
+        {/* BLOCO IA: RESUMO DO DIA CORRIDO GERADO SOB DEMANDA */}
+        {erroResumoIa && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-xs flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>{erroResumoIa}</span>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setErroResumoIa(null)}
+              className="h-6 text-[10px] text-amber-800 p-0"
+            >
+              Fechar
+            </Button>
+          </div>
+        )}
+
+        {resumoIa && (
+          <div className="p-4 bg-gradient-to-r from-orange-50/70 via-white to-amber-50/40 border border-orange-200 rounded-xl space-y-2.5 shadow-xs">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className="bg-[#D95A2B] text-white text-[10px] gap-1">
+                  <Sparkles className="w-3 h-3 text-white" />
+                  Resumo Executivo (IA)
+                </Badge>
+                <span className="text-xs font-bold text-slate-900">{resumoIa.titulo_resumo}</span>
+                {resumoIa.status_geral_operacao && (
+                  <Badge
+                    variant="outline"
+                    className={`text-[9px] uppercase ${
+                      resumoIa.status_geral_operacao === 'verde'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                        : resumoIa.status_geral_operacao === 'amarelo'
+                          ? 'bg-amber-50 text-amber-800 border-amber-300'
+                          : 'bg-rose-50 text-rose-800 border-rose-300'
+                    }`}
+                  >
+                    Semáforo Geral: {resumoIa.status_geral_operacao}
+                  </Badge>
+                )}
+              </div>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setExpandirResumoIa(!expandirResumoIa)}
+                className="h-6 text-xs text-slate-500 hover:text-slate-900 p-1 gap-1"
+              >
+                {expandirResumoIa ? (
+                  <ChevronUp className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" />
+                )}
+              </Button>
+            </div>
+
+            {expandirResumoIa && (
+              <div className="space-y-3 pt-1">
+                {/* Texto corrido estruturado */}
+                <div className="p-3 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 leading-relaxed font-sans whitespace-pre-line shadow-2xs">
+                  {resumoIa.texto_corrido}
+                </div>
+
+                {/* Destaques operacionais & financeiros em cards compactos */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                  {resumoIa.destaques_operacionais &&
+                    resumoIa.destaques_operacionais.length > 0 && (
+                      <div className="p-2.5 bg-blue-50/60 border border-blue-200 rounded-lg space-y-1">
+                        <span className="font-bold text-blue-900 text-[11px] block">
+                          Destaques da Operação:
+                        </span>
+                        <ul className="space-y-0.5 text-blue-950 text-[11px]">
+                          {resumoIa.destaques_operacionais.map((d, dIdx) => (
+                            <li key={dIdx} className="flex items-start gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 mt-1 shrink-0" />
+                              <span>{d}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                  {resumoIa.acoes_recomendadas && resumoIa.acoes_recomendadas.length > 0 && (
+                    <div className="p-2.5 bg-emerald-50/60 border border-emerald-200 rounded-lg space-y-1">
+                      <span className="font-bold text-emerald-900 text-[11px] block">
+                        Ações Recomendadas ao Gestor:
+                      </span>
+                      <ul className="space-y-0.5 text-emerald-950 text-[11px]">
+                        {resumoIa.acoes_recomendadas.map((a, aIdx) => (
+                          <li key={aIdx} className="flex items-start gap-1.5">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600 mt-0.5 shrink-0" />
+                            <span>{a}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Métricas do Resumo */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-center">
           <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">

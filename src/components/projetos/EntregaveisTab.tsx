@@ -54,6 +54,10 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { EntregavelVersaoComentarios } from './EntregavelVersaoComentarios'
 import { ModalOQueMudou } from './ModalOQueMudou'
+import { ModalPreRevisaoEntregavel } from '@/components/ia/ModalPreRevisaoEntregavel'
+import { iaOperacaoService, type IaPreRevisaoEntregavelResponse } from '@/services/iaOperacao'
+import { parametrosService } from '@/services/parametros'
+import { Sparkles } from 'lucide-react'
 
 interface EntregaveisTabProps {
   etapas: ProjetoEtapaRecord[]
@@ -143,6 +147,58 @@ export const EntregaveisTab: React.FC<EntregaveisTabProps> = ({
   const [decisaoAvaliacao, setDecisaoAvaliacao] = useState<'aprovado' | 'devolvido'>('aprovado')
   const [motivoDevolucao, setMotivoDevolucao] = useState('')
   const [processandoCiclo, setProcessandoCiclo] = useState(false)
+
+  // IA: Pré-revisão de Entregáveis (visível apenas se ia_pre_revisao ativada)
+  const [iaPreRevisaoAtiva, setIaPreRevisaoAtiva] = useState(false)
+  const [modalPreRevisaoAberto, setModalPreRevisaoAberto] = useState(false)
+  const [entregavelPreRevisando, setEntregavelPreRevisando] = useState<EntregavelRecord | null>(
+    null,
+  )
+  const [carregandoPreRevisao, setCarregandoPreRevisao] = useState(false)
+  const [resultadoPreRevisao, setResultadoPreRevisao] = useState<
+    IaPreRevisaoEntregavelResponse['rascunho'] | null
+  >(null)
+  const [erroPreRevisao, setErroPreRevisao] = useState<string | null>(null)
+
+  // Checar chave ia_pre_revisao ao carregar
+  React.useEffect(() => {
+    let montado = true
+    const verificarChave = async () => {
+      try {
+        const val = await parametrosService.get('ia_pre_revisao', 'false')
+        const ativo = val.trim().toLowerCase() === 'true' || val === '1' || val === 'sim'
+        if (montado) setIaPreRevisaoAtiva(ativo)
+      } catch {
+        if (montado) setIaPreRevisaoAtiva(false)
+      }
+    }
+    verificarChave()
+    return () => {
+      montado = false
+    }
+  }, [])
+
+  // Disparar Pré-Revisão IA informativa
+  const handleAbrirPreRevisaoIa = async (ent: EntregavelRecord) => {
+    setEntregavelPreRevisando(ent)
+    setModalPreRevisaoAberto(true)
+    setCarregandoPreRevisao(true)
+    setErroPreRevisao(null)
+    setResultadoPreRevisao(null)
+
+    try {
+      const resp = await iaOperacaoService.preRevisarEntregavel({
+        entregavel_id: ent.id,
+      })
+      setResultadoPreRevisao(resp.rascunho)
+    } catch (err: any) {
+      const msg =
+        err?.data?.message || err?.message || 'Falha ao executar pré-revisão do entregável com IA.'
+      setErroPreRevisao(msg)
+    } finally {
+      setCarregandoPreRevisao(false)
+    }
+  }
 
   // Histórico de Versões expansível por entregável
   const [versoesExpandidas, setVersoesExpandidas] = useState<
@@ -477,6 +533,22 @@ export const EntregaveisTab: React.FC<EntregaveisTabProps> = ({
                             : 'Enviar p/ Revisão'}
                         </Button>
                       )}
+
+                      {/* Botão Pré-revisão IA (Aparece apenas quando ia_pre_revisao estiver ligada nos parâmetros) */}
+                      {item.status === 'enviado_revisao' &&
+                        isRevisorOuAdmin &&
+                        iaPreRevisaoAtiva && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAbrirPreRevisaoIa(item)}
+                            className="h-8 text-xs border-purple-300 text-purple-700 hover:bg-purple-50 gap-1.5 font-medium"
+                            title="Compara o entregável contra o checklist do Catálogo de Escopos sem alterar o status"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                            Pré-revisão IA
+                          </Button>
+                        )}
 
                       {/* Botão Avaliar / Revisar (Revisor Interno / Gestor / Admin) */}
                       {item.status === 'enviado_revisao' && isRevisorOuAdmin && (
@@ -828,6 +900,21 @@ export const EntregaveisTab: React.FC<EntregaveisTabProps> = ({
         entregavelId={entregavelParaOQueMudou?.id || null}
         tituloEntregavel={entregavelParaOQueMudou?.nome || entregavelParaOQueMudou?.titulo}
         versaoAtualNum={versaoOQueMudouNum}
+      />
+
+      {/* MODAL PRÉ-REVISÃO IA (INFORMATIVO, SEM ALTERAÇÃO DE STATUS) */}
+      <ModalPreRevisaoEntregavel
+        open={modalPreRevisaoAberto}
+        onOpenChange={setModalPreRevisaoAberto}
+        entregavelNome={entregavelPreRevisando?.nome || entregavelPreRevisando?.titulo || ''}
+        versaoNum={entregavelPreRevisando?.versao_atual || 1}
+        carregando={carregandoPreRevisao}
+        resultado={resultadoPreRevisao}
+        erro={erroPreRevisao}
+        onFechar={() => {
+          setModalPreRevisaoAberto(false)
+          setEntregavelPreRevisando(null)
+        }}
       />
 
       {/* Modal Criar Entregável */}

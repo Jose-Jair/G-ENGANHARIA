@@ -1478,7 +1478,37 @@ export interface VisaoGerencialDados {
 // =============================================================================
 
 export type TipoPrestador = 'interno' | 'pf_externo' | 'pj_externo'
-export type StatusPrestador = 'ativo' | 'pendente' | 'suspenso' | 'inativo'
+export type StatusPrestador = 'triagem' | 'ativo' | 'pendente' | 'suspenso' | 'inativo'
+export type OrigemCadastroPrestador = 'publico' | 'convite' | 'interno'
+
+export interface PortfolioItem {
+  id?: string
+  titulo: string
+  descricao?: string
+  cliente_referencia?: string
+  ano?: number | string
+  disciplina?: string
+  link_arquivo?: string
+  link_url?: string
+}
+
+export interface PrecoReferenciaItem {
+  disciplina: string
+  unidade: 'hora' | 'm2' | 'projeto' | 'km' | 'item' | string
+  valor_min?: number
+  valor_max?: number
+  valor_referencia?: number
+  observacoes?: string
+}
+
+export interface DisponibilidadeItem {
+  horas_semana?: number
+  inicio_disponivel?: string
+  bloqueios?: string[]
+  dias_uteis?: boolean
+  finais_semana?: boolean
+  observacoes?: string
+}
 
 export interface PrestadorRecord {
   id: string
@@ -1506,10 +1536,25 @@ export interface PrestadorRecord {
   token_cadastro_expira?: string
   tentativas_token?: number
   executor_legado_id?: string
+
+  // Novos campos Rodada 12 (migração 0099)
+  origem_cadastro?: OrigemCadastroPrestador
+  portfolio_json?: PortfolioItem[] | any
+  softwares?: string
+  preco_referencia_json?: PrecoReferenciaItem[] | any
+  disponibilidade_json?: DisponibilidadeItem | any
+  aceite_termos_em?: string
+  aceite_ip?: string
+  aceite_hash?: string
+  nota_triagem?: number
+  parecer_triagem?: string
+  triado_por?: string
+
   created: string
   updated: string
   expand?: {
     profissionais?: ProfissionalPrestadorRecord[]
+    triado_por?: UserRecord
   }
 }
 
@@ -1905,4 +1950,165 @@ export interface ObterWhatsAppLinkResponse {
   prazo_previsto: string
   mensagem_texto: string
   whatsapp_url: string
+}
+
+// =============================================================================
+// RODADA 12: PRÉ-CADASTRO PÚBLICO, LINKS DE RECRUTAMENTO, TRIAGEM E DOCUMENTOS
+// =============================================================================
+
+export interface LinkRecrutamentoRecord {
+  id: string
+  slug: string
+  titulo?: string
+  disciplina_alvo?: string
+  ativo: boolean
+  expira_em?: string
+  contador_acessos?: number
+  created: string
+  updated: string
+}
+
+export type TipoDocumentoPrestador =
+  | 'rg_cnh'
+  | 'registro_conselho'
+  | 'certidao_regularidade'
+  | 'comprovante_residencia'
+  | 'contrato_social'
+  | 'certidao_tributaria'
+  | 'curriculo_portfolio'
+  | 'outro'
+
+export type StatusVerificacaoDocumento = 'pendente' | 'aprovado' | 'rejeitado'
+
+export interface PrestadorDocumentoRecord {
+  id: string
+  prestador: string
+  tipo: TipoDocumentoPrestador
+  arquivo: string
+  validade?: string
+  verificado_por?: string
+  status_verificacao?: StatusVerificacaoDocumento
+  motivo_rejeicao?: string
+  created: string
+  updated: string
+  expand?: {
+    prestador?: PrestadorRecord
+    verificado_por?: UserRecord
+  }
+}
+
+export interface PreCadastroPublicoPayload {
+  nome: string
+  tipo: 'pf_externo' | 'pj_externo'
+  email: string
+  cpf_cnpj: string
+  telefone?: string
+  conselho?: string
+  conselho_classe?: string
+  numero_registro_conselho?: string
+  numero_registro?: string
+  validade_registro_conselho?: string
+  disciplinas?: string
+  regiao?: string
+  softwares?: string
+  portfolio_json?: PortfolioItem[] | any
+  preco_referencia_json?: PrecoReferenciaItem[] | any
+  disponibilidade_json?: DisponibilidadeItem | any
+  aceite_termos: boolean
+  // Honeypot anti-spam
+  website?: string
+  honeypot?: string
+  hp_campo?: string
+}
+
+export interface PreCadastroPublicoResponse {
+  sucesso: boolean
+  mensagem: string
+  prestador_id?: string
+  status?: string
+  error?: string
+}
+
+export interface AprovarTriagemPayload {
+  parecer?: string
+  nota?: number
+}
+
+export interface AprovarTriagemResponse {
+  sucesso: boolean
+  prestador_id: string
+  status: 'pendente'
+  contrato_mestre_id?: string | null
+  mensagem: string
+}
+
+export interface RecusarTriagemPayload {
+  motivo: string
+  parecer?: string
+  nota?: number
+}
+
+export interface RecusarTriagemResponse {
+  sucesso: boolean
+  prestador_id: string
+  status: 'inativo'
+  mensagem: string
+}
+
+export interface PedirComplementoTriagemPayload {
+  observacoes?: string
+  motivo?: string
+}
+
+export interface PedirComplementoTriagemResponse {
+  sucesso: boolean
+  prestador_id: string
+  token: string
+  token_expira: string
+  link_retorno: string
+  mensagem: string
+}
+
+export interface ObterPrestadorTokenComplementoResponse {
+  valido: boolean
+  expirado?: boolean
+  error?: string
+  prestador?: Partial<PrestadorRecord>
+}
+
+export interface SubmeterComplementoTokenPayload {
+  token: string
+  nome?: string
+  telefone?: string
+  conselho?: string
+  numero_registro_conselho?: string
+  validade_registro_conselho?: string
+  disciplinas?: string
+  regiao?: string
+  softwares?: string
+  portfolio_json?: PortfolioItem[] | any
+  preco_referencia_json?: PrecoReferenciaItem[] | any
+  disponibilidade_json?: DisponibilidadeItem | any
+  dados_bancarios?: string
+}
+
+export interface SubmeterComplementoTokenResponse {
+  sucesso: boolean
+  mensagem: string
+  prestador_id: string
+}
+
+export interface AtualizarMeuPerfilPrestadorPayload {
+  portfolio_json?: PortfolioItem[] | any
+  preco_referencia_json?: PrecoReferenciaItem[] | any
+  disponibilidade_json?: DisponibilidadeItem | any
+  softwares?: string
+  telefone?: string
+  dados_bancarios?: string
+}
+
+export interface AtualizarMeuPerfilPrestadorResponse {
+  sucesso: boolean
+  mensagem: string
+  prestador: Partial<PrestadorRecord>
 }

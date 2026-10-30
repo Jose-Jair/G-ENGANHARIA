@@ -7,6 +7,21 @@ import {
   PortalOsRecord,
   PortalEntregavelRecord,
   PortalDocumentoRecord,
+  LinkRecrutamentoRecord,
+  PrestadorDocumentoRecord,
+  PreCadastroPublicoPayload,
+  PreCadastroPublicoResponse,
+  AprovarTriagemPayload,
+  AprovarTriagemResponse,
+  RecusarTriagemPayload,
+  RecusarTriagemResponse,
+  PedirComplementoTriagemPayload,
+  PedirComplementoTriagemResponse,
+  ObterPrestadorTokenComplementoResponse,
+  SubmeterComplementoTokenPayload,
+  SubmeterComplementoTokenResponse,
+  AtualizarMeuPerfilPrestadorPayload,
+  AtualizarMeuPerfilPrestadorResponse,
 } from '@/types'
 
 export interface CreatePrestadorData {
@@ -23,7 +38,7 @@ export interface CreatePrestadorData {
   regiao?: string
   capacidade_simultanea?: number
   dados_bancarios?: string
-  status?: 'ativo' | 'pendente' | 'suspenso' | 'inativo'
+  status?: 'triagem' | 'ativo' | 'pendente' | 'suspenso' | 'inativo'
 }
 
 export interface CreateProfissionalData {
@@ -81,11 +96,14 @@ export const prestadoresService = {
   async create(data: CreatePrestadorData): Promise<PrestadorRecord> {
     return pb.collection('prestadores').create<PrestadorRecord>({
       ...data,
-      status: data.status || 'ativo',
+      status: (data.status as any) || 'ativo',
     })
   },
 
-  async update(id: string, data: Partial<CreatePrestadorData>): Promise<PrestadorRecord> {
+  async update(
+    id: string,
+    data: Partial<CreatePrestadorData> & Partial<PrestadorRecord>,
+  ): Promise<PrestadorRecord> {
     return pb.collection('prestadores').update<PrestadorRecord>(id, data)
   },
 
@@ -154,6 +172,74 @@ export const prestadoresService = {
     payload: { token?: string; nome: string; documento: string },
   ): Promise<any> {
     return pb.send(`/backend/v1/contratos-mestre/${contratoId}/assinar-prestador`, {
+      method: 'POST',
+      body: payload,
+    })
+  },
+
+  // ===========================================================================
+  // RODADA 12: TRIAGEM DE PRESTADORES (ADMIN / GESTOR)
+  // ===========================================================================
+
+  /**
+   * Aprova triagem do prestador: muda status para "pendente", registra nota/parecer,
+   * gera minuta de contrato-mestre e notifica prestador para envio de documentos.
+   */
+  async aprovarTriagem(
+    prestadorId: string,
+    payload: AprovarTriagemPayload = {},
+  ): Promise<AprovarTriagemResponse> {
+    return pb.send(`/backend/v1/prestadores/${prestadorId}/triagem/aprovar`, {
+      method: 'POST',
+      body: payload,
+    })
+  },
+
+  /**
+   * Recusa triagem do prestador: motivo obrigatório, grava parecer e nota, move para "inativo".
+   */
+  async recusarTriagem(
+    prestadorId: string,
+    payload: RecusarTriagemPayload,
+  ): Promise<RecusarTriagemResponse> {
+    return pb.send(`/backend/v1/prestadores/${prestadorId}/triagem/recusar`, {
+      method: 'POST',
+      body: payload,
+    })
+  },
+
+  /**
+   * Solicita complemento de dados e gera link seguro com token de retorno.
+   */
+  async pedirComplementoTriagem(
+    prestadorId: string,
+    payload: PedirComplementoTriagemPayload = {},
+  ): Promise<PedirComplementoTriagemResponse> {
+    return pb.send(`/backend/v1/prestadores/${prestadorId}/triagem/pedir-complemento`, {
+      method: 'POST',
+      body: payload,
+    })
+  },
+
+  /**
+   * Consulta pública de dados para preenchimento de complemento via token.
+   */
+  async obterPorTokenComplemento(token: string): Promise<ObterPrestadorTokenComplementoResponse> {
+    return pb.send(
+      `/backend/v1/prestadores/obter-por-token-complemento/${encodeURIComponent(token)}`,
+      {
+        method: 'GET',
+      },
+    )
+  },
+
+  /**
+   * Submissão pública dos dados complementados pelo prestador via token.
+   */
+  async submeterComplementoToken(
+    payload: SubmeterComplementoTokenPayload,
+  ): Promise<SubmeterComplementoTokenResponse> {
+    return pb.send('/backend/v1/prestadores/submeter-complemento-token', {
       method: 'POST',
       body: payload,
     })
@@ -262,5 +348,149 @@ export const portalPrestadorService = {
       filter: `os_id = '${osId}'`,
       sort: '-created',
     })
+  },
+
+  /**
+   * Atualização cadastral/técnica pelo próprio prestador autenticado
+   * POST /backend/v1/portal-prestador/meu-perfil (Auditada, sem expor dados confidenciais)
+   */
+  async atualizarMeuPerfil(
+    payload: AtualizarMeuPerfilPrestadorPayload,
+  ): Promise<AtualizarMeuPerfilPrestadorResponse> {
+    return pb.send('/backend/v1/portal-prestador/meu-perfil', {
+      method: 'POST',
+      body: payload,
+    })
+  },
+}
+
+// =============================================================================
+// RECRUTAMENTO PÚBLICO E GESTÃO DE DOCUMENTOS DE PRESTADORES
+// =============================================================================
+
+export const recrutamentoService = {
+  /**
+   * Submissão pública de pré-cadastro através do slug de recrutamento (sem login).
+   * POST /backend/v1/recrutamento/{slug}
+   */
+  async submeterPreCadastro(
+    slug: string,
+    payload: PreCadastroPublicoPayload,
+  ): Promise<PreCadastroPublicoResponse> {
+    return pb.send(`/backend/v1/recrutamento/${encodeURIComponent(slug)}`, {
+      method: 'POST',
+      body: payload,
+    })
+  },
+
+  /**
+   * Listagem de links de recrutamento (Admin / Gestor)
+   */
+  async listLinks(filter?: string): Promise<LinkRecrutamentoRecord[]> {
+    return pb.collection('links_recrutamento').getFullList<LinkRecrutamentoRecord>({
+      filter: filter || '',
+      sort: '-created',
+    })
+  },
+
+  /**
+   * Obter link de recrutamento por id ou slug (Admin / Gestor)
+   */
+  async getLinkBySlug(slug: string): Promise<LinkRecrutamentoRecord | null> {
+    const list = await pb.collection('links_recrutamento').getList<LinkRecrutamentoRecord>(1, 1, {
+      filter: `slug = '${slug.replace(/'/g, "\\'")}'`,
+    })
+    return list.items[0] || null
+  },
+
+  /**
+   * Cria novo link de recrutamento com slug amigável (Admin / Gestor)
+   */
+  async createLink(data: {
+    slug: string
+    titulo?: string
+    disciplina_alvo?: string
+    ativo?: boolean
+    expira_em?: string
+  }): Promise<LinkRecrutamentoRecord> {
+    return pb.collection('links_recrutamento').create<LinkRecrutamentoRecord>({
+      ...data,
+      ativo: data.ativo !== undefined ? data.ativo : true,
+      contador_acessos: 0,
+    })
+  },
+
+  /**
+   * Atualiza link de recrutamento (ativar/desativar, prorrogar expiração)
+   */
+  async updateLink(
+    id: string,
+    data: Partial<LinkRecrutamentoRecord>,
+  ): Promise<LinkRecrutamentoRecord> {
+    return pb.collection('links_recrutamento').update<LinkRecrutamentoRecord>(id, data)
+  },
+
+  /**
+   * Remove link de recrutamento (Admin)
+   */
+  async deleteLink(id: string): Promise<boolean> {
+    return pb.collection('links_recrutamento').delete(id)
+  },
+}
+
+export const prestadoresDocumentosService = {
+  /**
+   * Lista documentos de um prestador.
+   * Isolamento por RLS: Prestador vê apenas os seus; Admin/Gestor veem todos.
+   */
+  async listByPrestador(prestadorId: string): Promise<PrestadorDocumentoRecord[]> {
+    return pb.collection('prestadores_documentos').getFullList<PrestadorDocumentoRecord>({
+      filter: `prestador = '${prestadorId}'`,
+      sort: '-created',
+      expand: 'prestador,verificado_por',
+    })
+  },
+
+  /**
+   * Upload de documento para um prestador (dono logado ou Admin/Gestor).
+   * Aceita FormData para envio do arquivo binário protegido.
+   */
+  async upload(data: {
+    prestador: string
+    tipo: string
+    arquivo: File | Blob
+    validade?: string
+  }): Promise<PrestadorDocumentoRecord> {
+    const formData = new FormData()
+    formData.append('prestador', data.prestador)
+    formData.append('tipo', data.tipo)
+    formData.append('arquivo', data.arquivo)
+    if (data.validade) formData.append('validade', data.validade)
+    formData.append('status_verificacao', 'pendente')
+
+    return pb.collection('prestadores_documentos').create<PrestadorDocumentoRecord>(formData)
+  },
+
+  /**
+   * Verificação/Validação técnica de documento (Admin / Gestor).
+   */
+  async verificarDocumento(
+    docId: string,
+    status: 'aprovado' | 'rejeitado',
+    motivoRejeicao?: string,
+  ): Promise<PrestadorDocumentoRecord> {
+    const userId = pb.authStore.model?.id
+    return pb.collection('prestadores_documentos').update<PrestadorDocumentoRecord>(docId, {
+      status_verificacao: status,
+      motivo_rejeicao: motivoRejeicao || '',
+      verificado_por: userId || undefined,
+    })
+  },
+
+  /**
+   * Remove documento (Admin / Gestor).
+   */
+  async delete(id: string): Promise<boolean> {
+    return pb.collection('prestadores_documentos').delete(id)
   },
 }

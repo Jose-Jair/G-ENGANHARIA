@@ -82,5 +82,24 @@ describe('Endpoint de Autochecagem de Segurança (/backend/v1/seguranca/selfchec
     // Item 12: SMTP Operante (Rodada 11)
     expect(res.resultados.item12_smtp_operante).toBeDefined()
     expect(res.resultados.item12_smtp_operante.detalhes).toBeDefined()
+
+    // Item 13: Recrutamento Público, Triagem e Documentos (Rodada 12)
+    expect(res.resultados.item13_recrutamento_triagem_documentos).toBeDefined()
+    expect(res.resultados.item13_recrutamento_triagem_documentos.todas_conformes).toBe(true)
+    expect(
+      res.resultados.item13_recrutamento_triagem_documentos.detalhes.links_recrutamento_regras,
+    ).toBe(true)
+    expect(
+      res.resultados.item13_recrutamento_triagem_documentos.detalhes.documentos_isolamento_dono,
+    ).toBe(true)
+    expect(
+      res.resultados.item13_recrutamento_triagem_documentos.detalhes.documentos_arquivo_protegido,
+    ).toBe(true)
+    expect(
+      res.resultados.item13_recrutamento_triagem_documentos.detalhes.campos_prestador_adicionados,
+    ).toBe(true)
+    expect(
+      res.resultados.item13_recrutamento_triagem_documentos.detalhes.parametros_administracao,
+    ).toBe(true)
   })
 })

@@ -1680,3 +1680,118 @@ export interface PortalDocumentoRecord {
   created: string
   updated: string
 }
+
+// =============================================================================
+// RODADA 6: CANAL DE COMUNICAÇÃO, VERSIONAMENTO E NOTIFICAÇÕES POR OS
+// =============================================================================
+
+export type AutorTipoMensagem = 'interno' | 'prestador' | 'sistema'
+
+export interface MensagemOsRecord {
+  id: string
+  os: string
+  autor_tipo: AutorTipoMensagem
+  autor_usuario?: string
+  autor_nome: string
+  autor_email?: string
+  texto: string
+  anexo?: string
+  anexo_nome_original?: string
+  anexo_tamanho?: number
+  lida_por_prestador?: boolean
+  lida_por_interno?: boolean
+  data_leitura_prestador?: string
+  data_leitura_interno?: string
+  created: string
+  updated: string
+  expand?: {
+    os?: OrdemServicoRecord
+    autor_usuario?: UserRecord
+  }
+}
+
+export interface EntregavelComentarioRecord {
+  id: string
+  versao: string
+  autor_tipo: AutorTipoMensagem
+  autor_usuario?: string
+  autor_nome: string
+  autor_email?: string
+  texto: string
+  created: string
+  updated: string
+  expand?: {
+    versao?: EntregavelVersaoRecord
+    autor_usuario?: UserRecord
+  }
+}
+
+export type TipoNotificacao =
+  | 'mensagem_os'
+  | 'versao_submetida'
+  | 'versao_avaliada'
+  | 'comentario_versao'
+  | 'sistema'
+
+export interface NotificacaoRecord {
+  id: string
+  destinatario_tipo: 'interno' | 'prestador'
+  destinatario_usuario?: string
+  destinatario_email?: string
+  tipo: TipoNotificacao
+  titulo: string
+  mensagem: string
+  referencia_tipo?: string
+  referencia_id?: string
+  lida: boolean
+  data_leitura?: string
+  email_enviado?: boolean
+  created: string
+  updated: string
+  expand?: {
+    destinatario_usuario?: UserRecord
+  }
+}
+
+export interface ResumoMetadadosVersao {
+  id: string
+  numero_versao: number
+  arquivo_nome: string
+  tem_arquivo: boolean
+  enviado_em: string
+  autor_nome: string
+  autor_email?: string
+  status: string
+  motivo_devolucao?: string
+  observacoes?: string
+  avaliador_nome?: string
+  avaliado_em?: string
+  total_comentarios: number
+  comentarios: Array<{
+    id: string
+    autor_tipo: string
+    autor_nome: string
+    texto: string
+    created: string
+  }>
+}
+
+export interface ComparacaoOQueMudouResponse {
+  entregavel_id: string
+  titulo_entregavel: string
+  versao_atual: number | null
+  versao_anterior: number | null
+  tem_versao_anterior: boolean
+  arquivo_alterado: boolean
+  autor_mudou: boolean
+  status_mudou: boolean
+  novos_comentarios_na_atual: number
+  atual: ResumoMetadadosVersao | null
+  anterior: ResumoMetadadosVersao | null
+}
+
+export interface ContadoresMensagensNaoLidasResponse {
+  sucesso: boolean
+  total_geral: number
+  por_os: Record<string, number>
+}

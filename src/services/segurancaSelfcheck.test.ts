@@ -72,6 +72,8 @@ describe('Endpoint de Autochecagem de Segurança (/backend/v1/seguranca/selfchec
     expect(res.resultados.item1_api_rules).toBeDefined()
     expect(res.resultados.item2_protected_files).toBeDefined()
     expect(res.resultados.item2_protected_files.todos_protegidos).toBe(true)
+    expect(res.resultados.item9_canal_comunicacao_os).toBeDefined()
+    expect(res.resultados.item9_canal_comunicacao_os.todas_conformes).toBe(true)
     expect(res.resultados.conformidade_geral).toBe(true)
   })
 })

@@ -227,6 +227,95 @@ routerAdd(
         $app.save(aRec)
       } catch (_) {}
 
+      // Notificação e E-mail para a equipe de gestão interna
+      try {
+        const notifCol = $app.findCollectionByNameOrId('notificacoes')
+        let gestorEmail = ''
+        let gestorNome = 'Gestor de Projetos'
+        let gestorId = entRec.getString('revisor_interno')
+
+        if (gestorId) {
+          try {
+            const gUser = $app.findRecordById('users', gestorId)
+            if (gUser) {
+              gestorEmail = gUser.getString('email')
+              gestorNome = gUser.getString('name') || gestorNome
+            }
+          } catch (_) {}
+        }
+
+        if (!gestorEmail) {
+          try {
+            const users = $app.findRecordsByFilter(
+              'users',
+              "active = true && (role = 'gestor' || role = 'admin')",
+              'created',
+              1,
+              0,
+            )
+            if (users.length > 0) {
+              gestorId = users[0].id
+              gestorEmail = users[0].getString('email')
+              gestorNome = users[0].getString('name') || gestorNome
+            }
+          } catch (_) {}
+        }
+
+        const nomeEntregavel =
+          entRec.getString('titulo') || entRec.getString('nome') || 'Entregável'
+        const nRec = new Record(notifCol)
+        nRec.set('destinatario_tipo', 'interno')
+        if (gestorId) nRec.set('destinatario_usuario', gestorId)
+        if (gestorEmail) nRec.set('destinatario_email', gestorEmail)
+        nRec.set('tipo', 'versao_submetida')
+        nRec.set('titulo', 'Nova versão enviada: ' + nomeEntregavel + ' (v' + novaVersaoNum + ')')
+        nRec.set(
+          'mensagem',
+          'O prestador enviou a versão ' +
+            novaVersaoNum +
+            ' do entregável "' +
+            nomeEntregavel +
+            '" para revisão técnica.',
+        )
+        nRec.set('referencia_tipo', 'entregaveis')
+        nRec.set('referencia_id', entId)
+        nRec.set('lida', false)
+
+        let emailEnviado = false
+        if (gestorEmail) {
+          try {
+            const senderAddress =
+              ($app.settings().meta && $app.settings().meta.senderAddress) ||
+              'nao-responder@skip.dev'
+            const senderName =
+              ($app.settings().meta && $app.settings().meta.senderName) ||
+              'G+ Engenharia Consultiva'
+            const msg = new MailerMessage({
+              from: { address: senderAddress, name: senderName },
+              to: [{ address: gestorEmail, name: gestorNome }],
+              subject: 'Nova versão para revisão: ' + nomeEntregavel + ' (v' + novaVersaoNum + ')',
+              html:
+                '<p>Olá, <strong>' +
+                gestorNome +
+                '</strong>!</p>' +
+                '<p>A versão <strong>' +
+                novaVersaoNum +
+                '</strong> do entregável <strong>' +
+                nomeEntregavel +
+                '</strong> foi submetida pelo prestador e está aguardando revisão técnica.</p>' +
+                (observacoes ? '<p><strong>Observações:</strong> ' + observacoes + '</p>' : '') +
+                '<p>Acesse o painel do sistema para baixar o arquivo e avaliar.</p>',
+            })
+            $app.newMailClient().send(msg)
+            emailEnviado = true
+          } catch (_) {}
+        }
+        nRec.set('email_enviado', emailEnviado)
+        $app.save(nRec)
+      } catch (eNotif) {
+        console.log('Aviso ao criar notificação de versão submetida: ' + eNotif)
+      }
+
       return e.json(200, {
         sucesso: true,
         entregavel_id: entId,
@@ -339,6 +428,108 @@ routerAdd(
         })
         $app.save(aRec)
       } catch (_) {}
+
+      // Notificação e E-mail para o Prestador (SEM dados confidenciais de cliente/obra/valores)
+      try {
+        let prestadorEmail = ''
+        let prestadorNome = 'Prestador'
+        const prestadorId = entRec.getString('prestador')
+        if (prestadorId) {
+          try {
+            const pRec = $app.findRecordById('prestadores', prestadorId)
+            if (pRec) {
+              prestadorEmail = pRec.getString('email')
+              prestadorNome = pRec.getString('nome') || prestadorNome
+            }
+          } catch (_) {}
+        }
+
+        if (prestadorEmail) {
+          const notifCol = $app.findCollectionByNameOrId('notificacoes')
+          const nomeEnt = entRec.getString('titulo') || entRec.getString('nome') || 'Entregável'
+          const numVersao = entRec.getInt('versao_atual') || 1
+          const decisaoLabel = decisao === 'aprovado' ? 'aprovada' : 'devolvida com apontamentos'
+
+          const nRec = new Record(notifCol)
+          nRec.set('destinatario_tipo', 'prestador')
+          nRec.set('destinatario_email', prestadorEmail)
+          nRec.set('tipo', 'versao_avaliada')
+          nRec.set('titulo', 'Versão ' + numVersao + ' ' + decisaoLabel + ': ' + nomeEnt)
+          nRec.set(
+            'mensagem',
+            decisao === 'aprovado'
+              ? 'Sua versão ' +
+                  numVersao +
+                  ' do entregável "' +
+                  nomeEnt +
+                  '" foi aprovada pela coordenação.'
+              : 'Sua versão ' +
+                  numVersao +
+                  ' do entregável "' +
+                  nomeEnt +
+                  '" foi devolvida para correções. Motivo: ' +
+                  motivoDevolucao,
+          )
+          nRec.set('referencia_tipo', 'entregaveis')
+          nRec.set('referencia_id', entId)
+          nRec.set('lida', false)
+
+          let emailEnviado = false
+          try {
+            const senderAddress =
+              ($app.settings().meta && $app.settings().meta.senderAddress) ||
+              'nao-responder@skip.dev'
+            const senderName =
+              ($app.settings().meta && $app.settings().meta.senderName) ||
+              'G+ Engenharia Consultiva'
+
+            const corpoEmail =
+              decisao === 'aprovado'
+                ? '<p>Olá, <strong>' +
+                  prestadorNome +
+                  '</strong>!</p>' +
+                  '<p>Temos o prazer de informar que sua versão <strong>' +
+                  numVersao +
+                  '</strong> do entregável <strong>' +
+                  nomeEnt +
+                  '</strong> foi <strong>APROVADA</strong> pela coordenação técnica.</p>' +
+                  '<p>Acesse o Portal do Prestador para acompanhar as próximas entregas.</p>'
+                : '<p>Olá, <strong>' +
+                  prestadorNome +
+                  '</strong>!</p>' +
+                  '<p>A coordenação técnica revisou a versão <strong>' +
+                  numVersao +
+                  '</strong> do entregável <strong>' +
+                  nomeEnt +
+                  '</strong> e solicitou ajustes.</p>' +
+                  '<div style="background:#f1f5f9;border-left:4px solid #ef4444;padding:12px 16px;margin:16px 0;">' +
+                  '<strong>Apontamentos / Motivo:</strong><br/>' +
+                  motivoDevolucao +
+                  '</div>' +
+                  '<p>Por favor, providencie as correções e submeta uma nova versão pelo Portal do Prestador.</p>'
+
+            const msg = new MailerMessage({
+              from: { address: senderAddress, name: senderName },
+              to: [{ address: prestadorEmail, name: prestadorNome }],
+              subject:
+                'Parecer da revisão: Entregável ' +
+                nomeEnt +
+                ' (v' +
+                numVersao +
+                ' ' +
+                (decisao === 'aprovado' ? 'Aprovada' : 'Devolvida') +
+                ')',
+              html: corpoEmail,
+            })
+            $app.newMailClient().send(msg)
+            emailEnviado = true
+          } catch (_) {}
+          nRec.set('email_enviado', emailEnviado)
+          $app.save(nRec)
+        }
+      } catch (eNotif) {
+        console.log('Aviso ao notificar prestador sobre avaliação: ' + eNotif)
+      }
 
       return e.json(200, {
         sucesso: true,

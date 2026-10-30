@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T11:47:38.213Z",
+  "generatedAt": "2026-10-30T12:03:46.824Z",
   "collections": [
     {
       "name": "users",
@@ -5742,6 +5742,298 @@
       "indexes": [
         "CREATE INDEX idx_ent_vers_entregavel ON entregaveis_versoes (entregavel)",
         "CREATE INDEX idx_ent_vers_status ON entregaveis_versoes (status)"
+      ]
+    },
+    {
+      "name": "mensagens_os",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && os.prestador.email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && os.prestador.email = @request.auth.email))",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && os.prestador.email = @request.auth.email))",
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "os",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "ordens_servico"
+        },
+        {
+          "name": "autor_tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["interno", "prestador", "sistema"]
+        },
+        {
+          "name": "autor_usuario",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "autor_nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "autor_email",
+          "type": "email",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "texto",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "anexo",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "anexo_nome_original",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "anexo_tamanho",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lida_por_prestador",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lida_por_interno",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_leitura_prestador",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_leitura_interno",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_msg_os_os ON mensagens_os (os)",
+        "CREATE INDEX idx_msg_os_created ON mensagens_os (created)",
+        "CREATE INDEX idx_msg_os_lida_prest ON mensagens_os (os, lida_por_prestador)",
+        "CREATE INDEX idx_msg_os_lida_int ON mensagens_os (os, lida_por_interno)"
+      ]
+    },
+    {
+      "name": "entregavel_comentarios",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && versao.entregavel.prestador.email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && versao.entregavel.prestador.email = @request.auth.email))",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && versao.entregavel.prestador.email = @request.auth.email))",
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "versao",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "entregaveis_versoes"
+        },
+        {
+          "name": "autor_tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["interno", "prestador", "sistema"]
+        },
+        {
+          "name": "autor_usuario",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "autor_nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "autor_email",
+          "type": "email",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "texto",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_ent_com_versao ON entregavel_comentarios (versao)",
+        "CREATE INDEX idx_ent_com_created ON entregavel_comentarios (created)"
+      ]
+    },
+    {
+      "name": "notificacoes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && ((destinatario_tipo = 'interno' && destinatario_usuario = @request.auth.id) || (destinatario_tipo = 'prestador' && destinatario_email = @request.auth.email) || @request.auth.role = 'admin')",
+        "view": "@request.auth.id != '' && ((destinatario_tipo = 'interno' && destinatario_usuario = @request.auth.id) || (destinatario_tipo = 'prestador' && destinatario_email = @request.auth.email) || @request.auth.role = 'admin')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "update": "@request.auth.id != '' && ((destinatario_tipo = 'interno' && destinatario_usuario = @request.auth.id) || (destinatario_tipo = 'prestador' && destinatario_email = @request.auth.email) || @request.auth.role = 'admin')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "destinatario_tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["interno", "prestador"]
+        },
+        {
+          "name": "destinatario_usuario",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "destinatario_email",
+          "type": "email",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "mensagem_os",
+            "versao_submetida",
+            "versao_avaliada",
+            "comentario_versao",
+            "sistema"
+          ]
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "mensagem",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "referencia_tipo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "referencia_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lida",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_leitura",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "email_enviado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_notif_usuario ON notificacoes (destinatario_usuario)",
+        "CREATE INDEX idx_notif_email ON notificacoes (destinatario_email)",
+        "CREATE INDEX idx_notif_lida ON notificacoes (lida)",
+        "CREATE INDEX idx_notif_created ON notificacoes (created)"
       ]
     }
   ]

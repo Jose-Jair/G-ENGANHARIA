@@ -588,6 +588,7 @@ routerAdd(
         { col: 'documentos', field: 'arquivo' },
         { col: 'projetos', field: 'anexo_autorizacao' },
         { col: 'entregaveis_versoes', field: 'arquivo' },
+        { col: 'mensagens_os', field: 'anexo' },
       ]
 
       let todosArquivosProtegidos = true
@@ -875,6 +876,76 @@ routerAdd(
         detalhes: detalheAssinatura,
       }
 
+      // REQUISITO 9: SELFCHECK ESTENDIDO — CANAL DE MENSAGENS E VERSIONAMENTO POR OS (RODADA 6)
+      let comunicacaoOsOk = true
+      const detalheComunicacaoOs = {}
+      try {
+        const msgCol = $app.findCollectionByNameOrId('mensagens_os')
+        const comCol = $app.findCollectionByNameOrId('entregavel_comentarios')
+        const notCol = $app.findCollectionByNameOrId('notificacoes')
+
+        // 1. mensagens_os: imutabilidade estrita (updateRule e deleteRule nulos)
+        const msgImutavel = msgCol.updateRule === null && msgCol.deleteRule === null
+        detalheComunicacaoOs.mensagens_imutabilidade = Boolean(msgImutavel)
+
+        // 2. mensagens_os: isolamento do prestador por os.prestador.email
+        const msgIsolamento =
+          msgCol.listRule &&
+          msgCol.listRule.includes('os.prestador.email = @request.auth.email') &&
+          msgCol.createRule &&
+          msgCol.createRule.includes('os.prestador.email = @request.auth.email')
+        detalheComunicacaoOs.mensagens_isolamento_prestador = Boolean(msgIsolamento)
+
+        // 3. mensagens_os: anexo protegido
+        const anexoF = msgCol.fields.getByName('anexo')
+        const msgAnexoProtegido = Boolean(anexoF && anexoF.protected)
+        detalheComunicacaoOs.mensagens_anexo_protegido = Boolean(msgAnexoProtegido)
+
+        // 4. mensagens_os: sem campos sensíveis de cliente/obra/valores
+        const mFields = msgCol.fields
+        const msgSemSensiveis =
+          !mFields.getByName('cliente') &&
+          !mFields.getByName('obra') &&
+          !mFields.getByName('valor_contrato') &&
+          !mFields.getByName('proposta')
+        detalheComunicacaoOs.mensagens_sem_campos_sensiveis = Boolean(msgSemSensiveis)
+
+        // 5. entregavel_comentarios: imutabilidade e isolamento por versão
+        const comImutavel = comCol.updateRule === null && comCol.deleteRule === null
+        const comIsolamento =
+          comCol.listRule &&
+          comCol.listRule.includes('versao.entregavel.prestador.email = @request.auth.email')
+        detalheComunicacaoOs.comentarios_imutabilidade = Boolean(comImutavel)
+        detalheComunicacaoOs.comentarios_isolamento_prestador = Boolean(comIsolamento)
+
+        // 6. notificacoes: regras de segmentação de perfil
+        const notifSegura =
+          notCol.listRule &&
+          notCol.listRule.includes("destinatario_tipo = 'interno'") &&
+          notCol.listRule.includes("destinatario_tipo = 'prestador'")
+        detalheComunicacaoOs.notificacoes_segmentadas = Boolean(notifSegura)
+
+        if (
+          !msgImutavel ||
+          !msgIsolamento ||
+          !msgAnexoProtegido ||
+          !msgSemSensiveis ||
+          !comImutavel ||
+          !comIsolamento ||
+          !notifSegura
+        ) {
+          comunicacaoOsOk = false
+        }
+      } catch (eComOs) {
+        comunicacaoOsOk = false
+        detalheComunicacaoOs.erro = String(eComOs)
+      }
+
+      resultados.item9_canal_comunicacao_os = {
+        todas_conformes: comunicacaoOsOk,
+        detalhes: detalheComunicacaoOs,
+      }
+
       resultados.conformidade_geral =
         resultados.item1_api_rules.cotacoes_segura &&
         resultados.item1_api_rules.subcontratos_segura &&
@@ -885,7 +956,8 @@ routerAdd(
         prestadoresOk &&
         colecoesNovasOk &&
         cotacaoAutomaticaOk &&
-        assinaturaEletronicaOk
+        assinaturaEletronicaOk &&
+        comunicacaoOsOk
 
       return e.json(200, {
         status: 'OK',

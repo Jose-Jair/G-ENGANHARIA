@@ -286,10 +286,10 @@ export default function AppLayout() {
             Navegação Principal
           </div>
 
-          {/* BLOCO 6: MENU PARA EXECUTOR EXTERNO */}
+          {/* MENU PARA PRESTADOR / EXECUTOR EXTERNO */}
           {user?.role === 'executor' ? (
             <NavLink
-              to="/portal-executor"
+              to="/portal-prestador"
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive
@@ -300,7 +300,7 @@ export default function AppLayout() {
             >
               <HardHat className="w-4 h-4 text-orange-300" />
               <div className="flex items-center justify-between flex-1">
-                <span>Portal do Executor</span>
+                <span>Portal do Prestador</span>
                 <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-400/30 px-1.5 py-0.2 rounded font-bold uppercase">
                   Meu Acesso
                 </span>
@@ -342,10 +342,10 @@ export default function AppLayout() {
             </NavLink>
           )}
 
-          {/* Atalho ao Portal do Executor para Administradores e Gestores (Supervisão) */}
+          {/* Atalho ao Portal do Prestador para Administradores e Gestores (Supervisão) */}
           {(user?.role === 'admin' || user?.role === 'gestor') && (
             <NavLink
-              to="/portal-executor"
+              to="/portal-prestador"
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive
@@ -356,7 +356,7 @@ export default function AppLayout() {
             >
               <HardHat className="w-4 h-4 text-amber-400" />
               <div className="flex items-center justify-between flex-1">
-                <span>Portal do Executor</span>
+                <span>Portal do Prestador</span>
                 <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
                   Visão
                 </span>
@@ -535,10 +535,10 @@ export default function AppLayout() {
                 </div>
               </NavLink>
 
-              {/* Executores: Admin, Gestor, Comercial (Financeiro sem acesso) */}
+              {/* Prestadores de Serviço (Conceito Único): Admin, Gestor, Comercial */}
               {user.role !== 'financeiro' && (
                 <NavLink
-                  to="/executores"
+                  to="/prestadores"
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       isActive
@@ -547,9 +547,9 @@ export default function AppLayout() {
                     }`
                   }
                 >
-                  <HardHat className="w-4 h-4 text-amber-400" />
+                  <Users className="w-4 h-4 text-amber-400" />
                   <div className="flex items-center justify-between flex-1">
-                    <span>Executores</span>
+                    <span>Prestadores</span>
                     {user.role === 'comercial' && (
                       <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
                         Leitura

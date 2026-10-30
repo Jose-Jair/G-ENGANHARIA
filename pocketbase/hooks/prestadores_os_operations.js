@@ -11,6 +11,9 @@
 // 5. Sincronização automática para as Coleções-Projeção do Portal (portal_os, portal_entregaveis, portal_documentos):
 //    - Contém ESTRITAMENTE: codigo_projeto, disciplina, escopo_tecnico, entregaveis, prazos, arquivos, valor_os
 //    - NUNCA expõe: cliente, nome da obra/empresa, proposta, valor global do contrato, BDI ou outros prestadores
+// 6. Transições de ciclo da OS:
+//    - minuta -> aguardando_assinatura -> assinada -> em_execucao -> concluida -> avaliada -> encerrada
+//    - OS interna não possui retenção técnica nem contas a pagar
 
 // Geração sequencial e tokens no create
 onRecordCreate((e) => {
@@ -161,12 +164,16 @@ onRecordValidate((e) => {
       }
     }
 
-    // Validação de encerramento da OS
+    // Validação de ciclo de vida e encerramento da OS
     const statusNovo = rec.getString('status')
+    const orig = rec.original()
+    const statusAntigo = orig ? orig.getString('status') : ''
+
+    // Se está encerrando a OS
     if (statusNovo === 'encerrada') {
       const isExterno = rec.getString('tipo_prestador') === 'externo'
 
-      // 1. Checklist de encerramento obrigatório
+      // 1. Checklist de encerramento obrigatório (se houver checklist cadastrado ou padrão)
       const checklist = rec.get('checklist_encerramento_json')
       if (Array.isArray(checklist) && checklist.length > 0) {
         const pendentes = checklist.filter((item) => !item.concluido)

@@ -36,6 +36,7 @@ import {
   Loader2,
   Building2,
   UserCheck,
+  Users,
   FolderKanban,
   FileSignature,
 } from 'lucide-react'
@@ -43,6 +44,7 @@ import {
 import { ContratoServicoRecord } from '@/types'
 import { EtapasTab } from './EtapasTab'
 import { EntregaveisTab } from './EntregaveisTab'
+import { EquipeInternaTab } from './EquipeInternaTab'
 import { DocumentosTab } from './DocumentosTab'
 import { RiscosTab } from './RiscosTab'
 import { ContratoTab } from './ContratoTab'
@@ -642,8 +644,15 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                         </span>
                       )}
                     </TabsTrigger>
-                  </TabsList>
 
+                    <TabsTrigger
+                      value="equipe-interna"
+                      className="text-xs flex items-center gap-1.5"
+                    >
+                      <Users className="w-3.5 h-3.5 text-sky-600" />
+                      Equipe Interna
+                    </TabsTrigger>
+                  </TabsList>
                   <TabsContent value="contrato">
                     <ContratoTab
                       projeto={projeto}
@@ -656,7 +665,6 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                       }}
                     />
                   </TabsContent>
-
                   <TabsContent value="etapas">
                     <EtapasTab
                       projetoId={projeto.id}
@@ -678,7 +686,6 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                       }}
                     />
                   </TabsContent>
-
                   <TabsContent value="entregaveis">
                     <EntregaveisTab
                       etapas={etapas}
@@ -687,7 +694,6 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                       onRefresh={carregarDadosCompletos}
                     />
                   </TabsContent>
-
                   <TabsContent value="documentos">
                     <DocumentosTab
                       projetoId={projeto.id}
@@ -697,7 +703,6 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                       onRefresh={carregarDadosCompletos}
                     />
                   </TabsContent>
-
                   <TabsContent value="riscos">
                     <RiscosTab
                       projetoId={projeto.id}
@@ -706,7 +711,6 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                       onRefresh={carregarDadosCompletos}
                     />
                   </TabsContent>
-
                   <TabsContent value="medicoes">
                     <MedicoesTab
                       projetoId={projeto.id}
@@ -716,6 +720,9 @@ export const ModalDetalheProjeto: React.FC<ModalDetalheProjetoProps> = ({
                       onRefresh={carregarDadosCompletos}
                     />
                   </TabsContent>
+                  <TabsContent value="equipe-interna">
+                    <EquipeInternaTab projetoId={projeto.id} canEdit={canEdit} />
+                  </TabsContent>{' '}
                 </Tabs>
               </div>
             </div>

@@ -28,6 +28,8 @@ import { ComplementoDadosClientePage } from './pages/ComplementoDadosCliente'
 import { ProjetosPage } from './pages/Projetos'
 import { GrupoProjetosPage } from './pages/GrupoProjetos'
 import { ExecutoresPage } from './pages/Executores'
+import { PrestadoresPage } from './pages/Prestadores'
+import { PortalPrestadorPage } from './pages/PortalPrestador'
 import { CotacaoPublicaPage } from './pages/CotacaoPublica'
 import { SubcontratoPublicoPage } from './pages/SubcontratoPublico'
 import { CadastroExecutorPublicoPage } from './pages/CadastroExecutorPublico'
@@ -142,12 +144,23 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            {/* ETAPA 8: Módulo Executores (Admin e Gestor gravam; Comercial leitura; Financeiro sem acesso) */}
+            {/* NOVO CONCEITO ÚNICO: Módulo Prestadores de Serviço */}
             <Route
-              path="/executores"
+              path="/prestadores"
               element={
                 <ProtectedRoute allowedRoles={['admin', 'gestor', 'comercial']}>
-                  <ExecutoresPage />
+                  <PrestadoresPage />
+                </ProtectedRoute>
+              }
+            />
+            {/* Redirecionamento legado: /executores -> /prestadores */}
+            <Route path="/executores" element={<Navigate to="/prestadores" replace />} />
+            {/* NOVO: Portal do Prestador (Acesso do Prestador Externo e Supervisão) */}
+            <Route
+              path="/portal-prestador"
+              element={
+                <ProtectedRoute allowedRoles={['executor', 'admin', 'gestor']}>
+                  <PortalPrestadorPage />
                 </ProtectedRoute>
               }
             />

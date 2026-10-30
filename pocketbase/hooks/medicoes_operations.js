@@ -418,6 +418,42 @@ routerAdd(
         console.log('Aviso ao atualizar subcontrato na aprovação da medição: ' + errSubTrans)
       }
 
+      // Transição automática em Ordem de Serviço vinculada ao subcontrato ou associada
+      try {
+        const osRecs = $app.findRecordsByFilter(
+          'ordens_servico',
+          "subcontrato_legado = '" + subcontratoId + "'",
+          '-created',
+          1,
+          0,
+        )
+        if (osRecs.length > 0) {
+          const osRec = osRecs[0]
+          let mudouOs = false
+          if (osRec.getString('status') === 'assinada') {
+            osRec.set('status', 'em_execucao')
+            mudouOs = true
+          }
+          if (valorRetencaoTecnica > 0 && osRec.getString('tipo_prestador') === 'externo') {
+            const retAtualOs = osRec.getFloat('retencao_tecnica_acumulada') || 0
+            const novaRetAcumuladaOs = Math.round((retAtualOs + valorRetencaoTecnica) * 100) / 100
+            osRec.set('retencao_tecnica_acumulada', novaRetAcumuladaOs)
+            const retLiberadaOs = osRec.getFloat('retencao_tecnica_liberada') || 0
+            if (retLiberadaOs <= 0) {
+              osRec.set('status_retencao', 'acumulando')
+            } else if (retLiberadaOs < novaRetAcumuladaOs) {
+              osRec.set('status_retencao', 'parcialmente_liberada')
+            }
+            mudouOs = true
+          }
+          if (mudouOs) {
+            $app.save(osRec)
+          }
+        }
+      } catch (errOsTrans) {
+        console.log('Aviso ao sincronizar transição na OS: ' + errOsTrans)
+      }
+
       let contaCriada = null
       if (contasExistentes.length > 0) {
         contaCriada = contasExistentes[0]

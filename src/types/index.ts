@@ -1324,3 +1324,219 @@ export interface VisaoGerencialDados {
   }
   bloco3_alertas_atraso: VisaoGerencialAlertasAtraso
 }
+
+// =============================================================================
+// PRESTADORES, PROFISSIONAIS, CONTRATOS MESTRE, ORDENS DE SERVIÇO E PORTAL
+// =============================================================================
+
+export type TipoPrestador = 'interno' | 'pf_externo' | 'pj_externo'
+export type StatusPrestador = 'ativo' | 'pendente' | 'suspenso' | 'inativo'
+
+export interface PrestadorRecord {
+  id: string
+  tipo: TipoPrestador
+  nome: string
+  cpf_cnpj?: string
+  email: string
+  telefone?: string
+  telefones?: TelefoneItem[]
+  conselho?: string
+  conselho_classe?: string
+  numero_registro_conselho?: string
+  validade_registro_conselho?: string
+  disciplinas?: string
+  regiao?: string
+  capacidade_simultanea?: number
+  dados_bancarios?: string
+  nda_contrato?: string
+  documento_termo?: string
+  status: StatusPrestador
+  motivo_suspensao?: string
+  nota_geral?: number
+  total_avaliacoes?: number
+  token_cadastro?: string
+  token_cadastro_expira?: string
+  tentativas_token?: number
+  executor_legado_id?: string
+  created: string
+  updated: string
+  expand?: {
+    profissionais?: ProfissionalPrestadorRecord[]
+  }
+}
+
+export interface ProfissionalPrestadorRecord {
+  id: string
+  prestador: string
+  nome: string
+  conselho?: string
+  numero?: string
+  validade?: string
+  email?: string
+  telefone?: string
+  cargo_funcao?: string
+  ativo?: boolean
+  created: string
+  updated: string
+  expand?: {
+    prestador?: PrestadorRecord
+  }
+}
+
+export type StatusContratoMestre =
+  | 'minuta'
+  | 'aguardando_assinatura_gmais'
+  | 'aguardando_assinatura_prestador'
+  | 'assinado'
+  | 'cancelado'
+
+export interface ContratoMestreRecord {
+  id: string
+  numero: string
+  prestador: string
+  status: StatusContratoMestre
+  minuta_texto?: string
+  clausulas_nda?: string
+  token_assinatura?: string
+  assinante_gmais?: string
+  data_assinatura_gmais?: string
+  gmais_ip?: string
+  gmais_hash?: string
+  assinante_prestador_nome?: string
+  assinante_prestador_doc?: string
+  data_assinatura_prestador?: string
+  prestador_ip?: string
+  prestador_hash?: string
+  arquivo_pdf?: string
+  data_emissao?: string
+  token_expiracao?: string
+  tentativas_token?: number
+  created: string
+  updated: string
+  expand?: {
+    prestador?: PrestadorRecord
+    assinante_gmais?: UserRecord
+  }
+}
+
+export type StatusOrdemServico =
+  | 'minuta'
+  | 'aguardando_assinatura'
+  | 'assinada'
+  | 'em_execucao'
+  | 'concluida'
+  | 'avaliada'
+  | 'encerrada'
+  | 'cancelada'
+
+export type StatusRetencaoOS =
+  | 'sem_retencao'
+  | 'acumulando'
+  | 'parcialmente_liberada'
+  | 'totalmente_liberada'
+
+export interface OrdemServicoRecord {
+  id: string
+  numero: string
+  tipo_prestador: 'interno' | 'externo'
+  projeto: string
+  prestador: string
+  contrato_mestre?: string
+  subcontrato_legado?: string
+  disciplina?: string
+  escopo_tecnico?: string
+  entregaveis_texto?: string
+  prazo_dias?: number
+  data_inicio?: string
+  data_previsao_fim?: string
+  data_conclusao?: string
+  valor_os?: number
+  status: StatusOrdemServico
+  percentual_retencao_tecnica?: number
+  retencao_tecnica_acumulada?: number
+  retencao_tecnica_liberada?: number
+  status_retencao?: StatusRetencaoOS
+  checklist_encerramento_json?: Array<{
+    id: string
+    descricao: string
+    concluido: boolean
+    obrigatorio?: boolean
+    data_conclusao?: string
+    responsavel?: string
+  }>
+  aceite_cliente?: boolean
+  data_aceite_cliente?: string
+  token_assinatura?: string
+  assinante_prestador_nome?: string
+  assinante_prestador_doc?: string
+  data_assinatura_prestador?: string
+  prestador_ip?: string
+  prestador_hash?: string
+  clausulas_texto?: string
+  parcelas_json?: Array<{
+    numero: number
+    descricao: string
+    valor: number
+    percentual?: number
+    vencimento?: string
+  }>
+  emitido_por?: string
+  token_expiracao?: string
+  tentativas_token?: number
+  created: string
+  updated: string
+  expand?: {
+    projeto?: ProjetoRecord
+    prestador?: PrestadorRecord
+    contrato_mestre?: ContratoMestreRecord
+    emitido_por?: UserRecord
+  }
+}
+
+// Projeções isoladas para o Portal do Prestador
+export interface PortalOsRecord {
+  id: string
+  os_id: string
+  prestador_email: string
+  prestador_id?: string
+  codigo_projeto: string
+  numero_os: string
+  disciplina?: string
+  escopo_tecnico?: string
+  entregaveis_resumo?: string
+  prazo_dias?: number
+  data_inicio?: string
+  data_previsao_fim?: string
+  status: string
+  valor_os?: number
+  token_assinatura?: string
+  created: string
+  updated: string
+}
+
+export interface PortalEntregavelRecord {
+  id: string
+  os_id: string
+  prestador_email: string
+  codigo_projeto: string
+  nome: string
+  descricao?: string
+  status?: string
+  versao?: string
+  prazo_entrega?: string
+  arquivo?: string
+  created: string
+  updated: string
+}
+
+export interface PortalDocumentoRecord {
+  id: string
+  os_id: string
+  prestador_email: string
+  codigo_projeto: string
+  titulo: string
+  categoria?: string
+  arquivo?: string
+  created: string
+  updated: string
+}

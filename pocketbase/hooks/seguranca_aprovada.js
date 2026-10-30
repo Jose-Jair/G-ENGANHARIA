@@ -85,6 +85,24 @@ onRecordCreate((e) => {
     }
   }
 
+  if (colName === 'ordens_servico') {
+    if (!rec.getString('token_assinatura')) {
+      rec.set('token_assinatura', $security.randomString(32))
+      const expira = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      rec.set('token_expiracao', expira)
+      rec.set('tentativas_token', 0)
+    }
+  }
+
+  if (colName === 'contratos_mestre') {
+    if (!rec.getString('token_assinatura')) {
+      rec.set('token_assinatura', $security.randomString(32))
+      const expira = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      rec.set('token_expiracao', expira)
+      rec.set('tentativas_token', 0)
+    }
+  }
+
   if (colName === 'cotacoes') {
     if (!rec.getString('token')) {
       rec.set('token', $security.randomString(32))
@@ -595,6 +613,8 @@ routerAdd(
         { col: 'subcontratos', exp: 'token_expiracao', tent: 'tentativas_token' },
         { col: 'cotacoes', exp: 'token_expiracao', tent: 'tentativas_token' },
         { col: 'executores', exp: 'token_cadastro_expira', tent: 'tentativas_token' },
+        { col: 'ordens_servico', exp: 'token_expiracao', tent: 'tentativas_token' },
+        { col: 'contratos_mestre', exp: 'token_expiracao', tent: 'tentativas_token' },
       ]
       let camposTokenOk = true
       for (let i = 0; i < colTokens.length; i++) {
@@ -640,9 +660,16 @@ routerAdd(
         const cmRuleSegura =
           cmCol.listRule && !cmCol.listRule.includes('executor') && !cmCol.listRule.includes('true')
 
-        // Validar que portal_os filtra por prestador_email = @request.auth.email
+        const pentCol = $app.findCollectionByNameOrId('portal_entregaveis')
+        const pdocCol = $app.findCollectionByNameOrId('portal_documentos')
+
+        // Validar que portal_os, portal_entregaveis e portal_documentos filtram por prestador_email
         const posRuleSegura =
           posCol.listRule && posCol.listRule.includes('prestador_email = @request.auth.email')
+        const pentRuleSegura =
+          pentCol.listRule && pentCol.listRule.includes('prestador_email = @request.auth.email')
+        const pdocRuleSegura =
+          pdocCol.listRule && pdocCol.listRule.includes('prestador_email = @request.auth.email')
 
         // Validar que portal_os NÃO tem campos de cliente, obra, proposta, bdi
         const camposPos = posCol.fields
@@ -654,10 +681,14 @@ routerAdd(
           !camposPos.getByName('outros_prestadores')
 
         resultados.item5_modulo_prestadores = {
-          colecoes_criadas: Boolean(prestCol && profCol && cmCol && osCol && posCol),
+          colecoes_criadas: Boolean(
+            prestCol && profCol && cmCol && osCol && posCol && pentCol && pdocCol,
+          ),
           os_regra_segura_sem_executor: Boolean(osRuleSegura),
           contrato_mestre_regra_segura_sem_executor: Boolean(cmRuleSegura),
           portal_os_isolado_por_email: Boolean(posRuleSegura),
+          portal_entregaveis_isolado_por_email: Boolean(pentRuleSegura),
+          portal_documentos_isolado_por_email: Boolean(pdocRuleSegura),
           portal_os_sem_campos_sensiveis: Boolean(posSemCamposSensiveis),
         }
 
@@ -666,6 +697,8 @@ routerAdd(
           !osRuleSegura ||
           !cmRuleSegura ||
           !posRuleSegura ||
+          !pentRuleSegura ||
+          !pdocRuleSegura ||
           !posSemCamposSensiveis
         ) {
           prestadoresOk = false

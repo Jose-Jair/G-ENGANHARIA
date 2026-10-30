@@ -546,6 +546,31 @@ export default function AppLayout() {
                 </div>
               </NavLink>
 
+              {/* Contratos de Serviço (G+ com Clientes) */}
+              <NavLink
+                to="/contratos-servico"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                  }`
+                }
+              >
+                <FileCheck className="w-4 h-4 text-emerald-400" />
+                <div className="flex items-center justify-between flex-1">
+                  <span>Contratos de Serviço</span>
+                  {badgeContratosPendentesCount > 0 && (
+                    <span
+                      className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 shadow-xs"
+                      title={`${badgeContratosPendentesCount} contrato(s) de serviço aguardando assinatura`}
+                    >
+                      {badgeContratosPendentesCount}
+                    </span>
+                  )}
+                </div>
+              </NavLink>
+
               {/* Prestadores de Serviço (Conceito Único): Admin, Gestor, Comercial */}
               {user.role !== 'financeiro' && (
                 <NavLink

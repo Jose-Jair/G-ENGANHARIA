@@ -29,6 +29,7 @@ import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatte
 import { useToast } from '@/hooks/use-toast'
 import { ModalDetalhesContratoServico } from '@/components/contratosServico/ModalDetalhesContratoServico'
 import { DossieContratoServicoGmais } from '@/components/contratosServico/DossieContratoServicoGmais'
+import { TrilhaDoNegocio } from '@/components/comum/TrilhaDoNegocio'
 import { useAuth } from '@/contexts/AuthContext'
 
 export function ContratosServicoPage() {
@@ -125,11 +126,12 @@ export function ContratosServicoPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <FileText className="w-6 h-6 text-[#D95A2B]" />
-            Contratos de Serviço (GMAIS)
+            Contratos de Serviço
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Gestão dos instrumentos jurídicos vinculados às propostas aceitas • Assinatura Admin
-            preliminar → Assinatura Cliente com validade jurídica.
+            Contratos de Serviço da G+ com clientes • Gestão dos instrumentos jurídicos vinculados
+            às propostas aceitas • Assinatura Admin preliminar → Assinatura Cliente com validade
+            jurídica.
           </p>
         </div>
 

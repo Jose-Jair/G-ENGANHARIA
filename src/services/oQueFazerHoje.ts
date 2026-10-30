@@ -95,6 +95,50 @@ export interface OQueFazerHojeResponse {
   entregaveis_atrasados: EntregavelAtrasadoUnificada[]
 }
 
+export interface ItemOQueFazerHoje {
+  id: string
+  empresa_id: string
+  empresa_nome: string
+  cnpj: string
+  curva: 'A' | 'B' | 'C'
+  etapa_funil_atual?: string
+  coluna_5?: ColunaFunil5
+  is_parceira?: boolean
+  numero_toque?: number
+  tipo: 'toque' | 'acao_avulsa'
+  descricao: string
+  canal?: string
+  data_prevista?: string
+  status_calculado: 'para_hoje' | 'em_atraso'
+  dias_atraso: number
+  is_critico?: boolean
+  nao_contatar?: boolean
+  motivo_bloqueio?: string
+}
+
+export interface AcaoNutricaoOQueFazerHoje {
+  id: string
+  empresa_id: string
+  empresa_nome: string
+  cnpj: string
+  curva: 'A' | 'B' | 'C'
+  tipo_acao: string
+  motivo: string
+  dias_decorridos_toque5?: number
+  nao_contatar?: boolean
+  motivo_bloqueio?: string
+}
+
+export interface ResumoOQueFazerHojeEstruturado {
+  para_hoje: ItemOQueFazerHoje[]
+  em_atraso: ItemOQueFazerHoje[]
+  sugestoes_nutricao: AcaoNutricaoOQueFazerHoje[]
+  empresas_estagnadas: EmpresaEstagnadaUnificada[]
+  propostas_pendentes: PropostaPendenteUnificada[]
+  entregaveis_atrasados: EntregavelAtrasadoUnificada[]
+  resumo_geral: OQueFazerHojeResponse['resumo_geral']
+}
+
 export const oQueFazerHojeService = {
   /**
    * Consulta o endpoint consolidado do servidor "O que fazer hoje"
@@ -105,5 +149,84 @@ export const oQueFazerHojeService = {
     return await pb.send<OQueFazerHojeResponse>('/backend/v1/funil/o-que-fazer-hoje', {
       method: 'GET',
     })
+  },
+
+  /**
+   * Retorna os dados estruturados para exibição no BlocoOQueFazerHoje
+   */
+  async obter(): Promise<ResumoOQueFazerHojeEstruturado> {
+    const raw = await this.getOQueFazerHoje()
+    const acoes = raw.acoes_do_dia || []
+
+    const paraHoje: ItemOQueFazerHoje[] = acoes
+      .filter((a) => a.status_calculado === 'para_hoje')
+      .map((a) => ({
+        id: a.id,
+        empresa_id: a.empresa_id,
+        empresa_nome: a.empresa_nome,
+        cnpj: a.cnpj,
+        curva: a.curva,
+        etapa_funil_atual: a.etapa_funil_atual,
+        coluna_5: a.coluna_5,
+        is_parceira: a.is_parceira,
+        numero_toque: a.numero_toque,
+        tipo: 'toque',
+        descricao: a.observacao || `Toque ${a.numero_toque} da cadência comercial`,
+        canal: a.canal,
+        data_prevista: a.data_prevista,
+        status_calculado: 'para_hoje',
+        dias_atraso: a.dias_atraso || 0,
+        is_critico: a.is_critico,
+        nao_contatar: false,
+      }))
+
+    const emAtraso: ItemOQueFazerHoje[] = acoes
+      .filter((a) => a.status_calculado === 'em_atraso')
+      .map((a) => ({
+        id: a.id,
+        empresa_id: a.empresa_id,
+        empresa_nome: a.empresa_nome,
+        cnpj: a.cnpj,
+        curva: a.curva,
+        etapa_funil_atual: a.etapa_funil_atual,
+        coluna_5: a.coluna_5,
+        is_parceira: a.is_parceira,
+        numero_toque: a.numero_toque,
+        tipo: 'toque',
+        descricao: a.observacao || `Toque ${a.numero_toque} atrasado`,
+        canal: a.canal,
+        data_prevista: a.data_prevista,
+        status_calculado: 'em_atraso',
+        dias_atraso: a.dias_atraso || 0,
+        is_critico: a.is_critico,
+        nao_contatar: false,
+      }))
+
+    const sugestoesNutricao: AcaoNutricaoOQueFazerHoje[] = (raw.sugestoes_nutricao || []).map(
+      (s) => ({
+        id: s.toque5_id || s.empresa_id,
+        empresa_id: s.empresa_id,
+        empresa_nome: s.empresa_nome,
+        cnpj: s.cnpj,
+        curva: s.curva,
+        tipo_acao: 'Nutrição Mensal',
+        motivo: `Toque 5 concluído há ${s.dias_decorridos_toque5} dias sem resposta (carência: ${s.carencia_limite_dias}d). Enviar conteúdo ou case.`,
+        dias_decorridos_toque5: s.dias_decorridos_toque5,
+        nao_contatar: s.bloqueada_nao_contatar,
+        motivo_bloqueio: s.bloqueada_nao_contatar
+          ? 'Empresa cadastrada na lista Não Contatar'
+          : undefined,
+      }),
+    )
+
+    return {
+      para_hoje: paraHoje,
+      em_atraso: emAtraso,
+      sugestoes_nutricao: sugestoesNutricao,
+      empresas_estagnadas: raw.empresas_estagnadas || [],
+      propostas_pendentes: raw.propostas_pendentes || [],
+      entregaveis_atrasados: raw.entregaveis_atrasados || [],
+      resumo_geral: raw.resumo_geral,
+    }
   },
 }

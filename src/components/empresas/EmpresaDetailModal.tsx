@@ -908,7 +908,7 @@ export function EmpresaDetailModal({
                       value="contratos"
                       className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 rounded-none bg-transparent shadow-none text-xs font-semibold px-3 py-2.5"
                     >
-                      <FileText className="w-3.5 h-3.5 mr-1.5" /> Contratos Públicos (
+                      <FileText className="w-3.5 h-3.5 mr-1.5" /> Contratos do Parceiro (
                       {contratos.length})
                     </TabsTrigger>
 

@@ -372,7 +372,7 @@ export function ParceiroDetailModal({
               <Card className="border-slate-200">
                 <CardHeader className="p-4 pb-2">
                   <CardTitle className="text-xs font-semibold text-slate-700 uppercase">
-                    Contratos Públicos Ativos ({empContratos.length})
+                    Contratos do Parceiro (Públicos) Ativos ({empContratos.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 pt-1 space-y-2 text-xs">

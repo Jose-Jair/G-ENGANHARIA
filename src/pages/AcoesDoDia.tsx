@@ -60,6 +60,7 @@ import { EventoCobrancaRecord, ResumoDiarioGestorRecord } from '@/types'
 import { CardResumoDiarioGestor } from '@/components/monitoramento/CardResumoDiarioGestor'
 import { CardCobrancaPrazo } from '@/components/monitoramento/CardCobrancaPrazo'
 import { BlocoOQueFazerHoje } from '@/components/funil/BlocoOQueFazerHoje'
+import { TrilhaDoNegocio } from '@/components/comum/TrilhaDoNegocio'
 
 export default function AcoesDoDiaPage() {
   const { user, isAdmin } = useAuth()
@@ -401,6 +402,9 @@ export default function AcoesDoDiaPage() {
 
   return (
     <div className="space-y-6">
+      {/* TRILHA DO NEGÓCIO FIXA (PERFIS INTERNOS) */}
+      <TrilhaDoNegocio etapaAtual="lead" />
+
       {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-4">
         <div>

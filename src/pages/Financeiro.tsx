@@ -57,6 +57,7 @@ import { ModalRelatoriosFinanceiros } from '@/components/financeiro/ModalRelator
 import { TabGerencialFinanceiro } from '@/components/financeiro/TabGerencialFinanceiro'
 import { PainelPrevisaoReceitaFunil } from '@/components/financeiro/PainelPrevisaoReceitaFunil'
 import { PainelFluxoMarcosInversao } from '@/components/financeiro/PainelFluxoMarcosInversao'
+import { TrilhaDoNegocio } from '@/components/comum/TrilhaDoNegocio'
 
 import { useSearchParams } from 'react-router-dom'
 
@@ -235,6 +236,9 @@ export function FinanceiroPage() {
 
   return (
     <div className="space-y-6">
+      {/* TRILHA DO NEGÓCIO FIXA (PERFIS INTERNOS) */}
+      <TrilhaDoNegocio etapaAtual="contrato" />
+
       {/* Cabeçalho da Página */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

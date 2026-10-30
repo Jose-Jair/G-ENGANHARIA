@@ -70,6 +70,7 @@ import {
 import { exportService } from '@/services/exportService'
 import { ModalMensagensOsGestor } from '@/components/prestadores/ModalMensagensOsGestor'
 import { mensagensOsService } from '@/services/mensagensOs'
+import { TrilhaDoNegocio } from '@/components/comum/TrilhaDoNegocio'
 
 export const PrestadoresPage: React.FC = () => {
   const { user } = useAuth()
@@ -503,6 +504,9 @@ export const PrestadoresPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* TRILHA DO NEGÓCIO FIXA (PERFIS INTERNOS) */}
+      <TrilhaDoNegocio etapaAtual="os" />
+
       {/* Cabeçalho */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

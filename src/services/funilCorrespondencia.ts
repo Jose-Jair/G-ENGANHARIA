@@ -35,6 +35,11 @@ export interface ColunaFunilConfig {
   border: string
   bgHeader: string
   badgeColor: string
+  // Aliases para compatibilidade com Funil.tsx
+  borda: string
+  corFundo: string
+  corTexto: string
+  descricao: string
 }
 
 export const COLUNAS_FUNIL_5_CONFIG: ColunaFunilConfig[] = [
@@ -47,6 +52,10 @@ export const COLUNAS_FUNIL_5_CONFIG: ColunaFunilConfig[] = [
     border: 'border-slate-300',
     bgHeader: 'bg-slate-100 text-slate-800',
     badgeColor: 'bg-slate-600',
+    borda: 'border-slate-300',
+    corFundo: 'bg-slate-100',
+    corTexto: 'text-slate-800',
+    descricao: 'Leads mapeados e dados básicos',
   },
   {
     id: 'qualificada',
@@ -57,6 +66,10 @@ export const COLUNAS_FUNIL_5_CONFIG: ColunaFunilConfig[] = [
     border: 'border-blue-300',
     bgHeader: 'bg-blue-50 text-blue-800',
     badgeColor: 'bg-blue-600',
+    borda: 'border-blue-300',
+    corFundo: 'bg-blue-50',
+    corTexto: 'text-blue-800',
+    descricao: 'Decisor validado e em cadência',
   },
   {
     id: 'em_proposta',
@@ -67,6 +80,10 @@ export const COLUNAS_FUNIL_5_CONFIG: ColunaFunilConfig[] = [
     border: 'border-orange-300',
     bgHeader: 'bg-orange-50 text-orange-800',
     badgeColor: 'bg-[#D95A2B]',
+    borda: 'border-orange-300',
+    corFundo: 'bg-orange-50',
+    corTexto: 'text-orange-800',
+    descricao: 'Proposta elaborada ou enviada',
   },
   {
     id: 'negociacao',
@@ -77,6 +94,10 @@ export const COLUNAS_FUNIL_5_CONFIG: ColunaFunilConfig[] = [
     border: 'border-purple-300',
     bgHeader: 'bg-purple-50 text-purple-800',
     badgeColor: 'bg-purple-600',
+    borda: 'border-purple-300',
+    corFundo: 'bg-purple-50',
+    corTexto: 'text-purple-800',
+    descricao: 'Em conversa e alinhamento de termos',
   },
   {
     id: 'ganha_perdida',
@@ -87,6 +108,10 @@ export const COLUNAS_FUNIL_5_CONFIG: ColunaFunilConfig[] = [
     border: 'border-emerald-300',
     bgHeader: 'bg-emerald-50 text-emerald-800',
     badgeColor: 'bg-emerald-600',
+    borda: 'border-emerald-300',
+    corFundo: 'bg-emerald-50',
+    corTexto: 'text-emerald-800',
+    descricao: 'Parceiras consolidadas ou desfechos',
   },
 ]
 

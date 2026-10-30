@@ -33,6 +33,7 @@ import { ProximaAcaoModal } from '@/components/funil/ProximaAcaoModal'
 import { FunilEmpresaTimeline } from '@/components/funil/FunilEmpresaTimeline'
 import { EmpresaDetailModal } from '@/components/empresas/EmpresaDetailModal'
 import { FunilSaudeTab } from '@/components/funil/FunilSaudeTab'
+import { TrilhaDoNegocio } from '@/components/comum/TrilhaDoNegocio'
 import {
   Kanban,
   Filter,
@@ -652,6 +653,8 @@ export default function FunilPage() {
 
   return (
     <div className="space-y-5">
+      {/* TRILHA DO NEGÓCIO FIXA (PERFIS INTERNOS) */}
+      <TrilhaDoNegocio etapaAtual="lead" />
       {/* Topo do Módulo do Funil */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

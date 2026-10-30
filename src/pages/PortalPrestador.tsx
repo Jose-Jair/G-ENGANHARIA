@@ -35,9 +35,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { GPlusLogo } from '@/components/GPlusLogo'
 import { SecaoCotacoesPrestador } from '@/components/projetos/SecaoCotacoesPrestador'
-import { Briefcase, MessageSquare, GitCompare } from 'lucide-react'
+import { Briefcase, MessageSquare, GitCompare, UserCheck } from 'lucide-react'
 import { ModalAssinaturaEletronicaOS } from '@/components/prestadores/ModalAssinaturaEletronicaOS'
 import { PainelMensagensOs } from '@/components/prestadores/PainelMensagensOs'
+import { PortalMeuCadastro } from '@/components/prestadores/PortalMeuCadastro'
+import { prestadoresService } from '@/services/prestadores'
+import { PrestadorRecord } from '@/types'
 import { EntregavelVersaoComentarios } from '@/components/projetos/EntregavelVersaoComentarios'
 import { ModalOQueMudou } from '@/components/projetos/ModalOQueMudou'
 import { mensagensOsService } from '@/services/mensagensOs'
@@ -46,6 +49,7 @@ export const PortalPrestadorPage: React.FC = () => {
   const { user, logout } = useAuth()
   const { toast } = useToast()
 
+  const [meuPrestador, setMeuPrestador] = useState<PrestadorRecord | null>(null)
   const [ordensServico, setOrdensServico] = useState<PortalOsRecord[]>([])
   const [carregando, setCarregando] = useState(true)
   const [osSelecionada, setOsSelecionada] = useState<PortalOsRecord | null>(null)
@@ -73,6 +77,14 @@ export const PortalPrestadorPage: React.FC = () => {
   const carregarMinhasOS = async () => {
     setCarregando(true)
     try {
+      // Buscar dados do prestador logado
+      try {
+        const prestadorData = await prestadoresService.getMeuPerfilPrestador()
+        setMeuPrestador(prestadorData)
+      } catch {
+        /* intentionally ignored */
+      }
+
       const lista = await portalPrestadorService.listMinhasOS()
       setOrdensServico(lista)
 
@@ -211,9 +223,9 @@ export const PortalPrestadorPage: React.FC = () => {
           </Badge>
         </div>
 
-        {/* Abas Principais: Cotações vs Ordens de Serviço */}
+        {/* Abas Principais: Cotações vs Ordens de Serviço vs Meu Cadastro (Rodada 12) */}
         <Tabs defaultValue="cotacoes" className="w-full space-y-4">
-          <TabsList className="grid grid-cols-2 max-w-md text-xs bg-slate-200/70 p-1">
+          <TabsList className="grid grid-cols-3 max-w-lg text-xs bg-slate-200/70 p-1">
             <TabsTrigger
               value="cotacoes"
               className="gap-2 text-xs font-semibold data-[state=active]:bg-white"
@@ -228,11 +240,38 @@ export const PortalPrestadorPage: React.FC = () => {
               <Layers className="w-3.5 h-3.5 text-blue-600" />
               Ordens de Serviço ({ordensServico.length})
             </TabsTrigger>
+            <TabsTrigger
+              value="meu_cadastro"
+              className="gap-2 text-xs font-bold text-[#D95A2B] data-[state=active]:bg-white"
+            >
+              <UserCheck className="w-3.5 h-3.5 text-[#D95A2B]" />
+              Meu Cadastro
+            </TabsTrigger>
           </TabsList>
 
           {/* ABA 1: COTAÇÕES */}
           <TabsContent value="cotacoes" className="space-y-4">
             <SecaoCotacoesPrestador onCotacaoRespondida={carregarMinhasOS} />
+          </TabsContent>
+
+          {/* ABA 3: MEU CADASTRO (RODADA 12) */}
+          <TabsContent value="meu_cadastro" className="space-y-4">
+            {meuPrestador ? (
+              <PortalMeuCadastro
+                prestador={meuPrestador}
+                onAtualizado={() => {
+                  prestadoresService
+                    .getMeuPerfilPrestador()
+                    .then(setMeuPrestador)
+                    .catch(() => {})
+                }}
+              />
+            ) : (
+              <div className="p-8 text-center bg-white rounded-xl border border-slate-200">
+                <Loader2 className="w-6 h-6 animate-spin text-[#D95A2B] mx-auto mb-2" />
+                <p className="text-xs text-slate-500">Carregando dados do seu cadastro...</p>
+              </div>
+            )}
           </TabsContent>
 
           {/* ABA 2: ORDENS DE SERVIÇO */}

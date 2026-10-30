@@ -18,6 +18,7 @@ import { areasAtuacaoService } from '@/services/areasAtuacao'
 import { GestaoAreasModalidades } from '@/components/administracao/GestaoAreasModalidades'
 import { GestaoModeloProposta } from '@/components/administracao/GestaoModeloProposta'
 import { GestaoCatalogoEscopos } from '@/components/administracao/GestaoCatalogoEscopos'
+import { GestaoLinksRecrutamento } from '@/components/administracao/GestaoLinksRecrutamento'
 import { PainelLimpezaDadosNegocio } from '@/components/administracao/PainelLimpezaDadosNegocio'
 import { PainelSmtpSeguranca } from '@/components/administracao/PainelSmtpSeguranca'
 import { AreaAtuacaoRecord } from '@/types'
@@ -66,6 +67,7 @@ import {
   FileText,
   BookOpen,
   Mail,
+  Link as LinkIcon,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { formatDateBr, formatDateTimeBr } from '@/lib/formatters'
@@ -652,10 +654,17 @@ export default function AdministracaoPage() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 bg-slate-200/80 p-1 h-auto gap-1">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 lg:grid-cols-11 bg-slate-200/80 p-1 h-auto gap-1">
           <TabsTrigger value="usuarios" className="gap-1.5 text-xs font-medium">
             <Users className="w-4 h-4" />
             <span>Usuários ({usersList.length})</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="links_recrutamento"
+            className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white"
+          >
+            <LinkIcon className="w-4 h-4 text-[#D95A2B]" />
+            <span>Recrutamento</span>
           </TabsTrigger>
           <TabsTrigger
             value="modelo_proposta"
@@ -706,6 +715,11 @@ export default function AdministracaoPage() {
             <span>SMTP & Selfcheck</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* ABA LINKS DE RECRUTAMENTO (RODADA 12) */}
+        <TabsContent value="links_recrutamento" className="space-y-4">
+          <GestaoLinksRecrutamento />
+        </TabsContent>
 
         {/* ABA MODELO DA PROPOSTA GMAIS */}
         <TabsContent value="modelo_proposta" className="space-y-4">

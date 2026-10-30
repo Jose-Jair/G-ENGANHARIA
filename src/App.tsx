@@ -35,6 +35,7 @@ import { MonitoramentoPrazosPage } from './pages/MonitoramentoPrazos'
 import { CotacaoPublicaPage } from './pages/CotacaoPublica'
 import { SubcontratoPublicoPage } from './pages/SubcontratoPublico'
 import { CadastroExecutorPublicoPage } from './pages/CadastroExecutorPublico'
+import { PreCadastroPublicoPage } from './pages/PreCadastroPublico'
 import { FinanceiroPage } from './pages/Financeiro'
 import { ManualUsoPage } from './pages/ManualUso'
 import { PortalExecutorPage } from './pages/PortalExecutor'
@@ -89,6 +90,9 @@ const App = () => (
 
           {/* Rota pública de cadastro/credenciamento de executor por convite com token - sem login */}
           <Route path="/cadastro-executor" element={<CadastroExecutorPublicoPage />} />
+
+          {/* ROTA PÚBLICA DE RECRUTAMENTO E PRÉ-CADASTRO G+ (RODADA 12) - SEM LOGIN */}
+          <Route path="/pre-cadastro/:slug" element={<PreCadastroPublicoPage />} />
 
           {/* Authenticated routes wrapped with AppLayout */}
           <Route

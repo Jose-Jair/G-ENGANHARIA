@@ -69,6 +69,7 @@ import {
 } from 'lucide-react'
 import { exportService } from '@/services/exportService'
 import { ModalMensagensOsGestor } from '@/components/prestadores/ModalMensagensOsGestor'
+import { FilaTriagemPrestadores } from '@/components/prestadores/FilaTriagemPrestadores'
 import { mensagensOsService } from '@/services/mensagensOs'
 import { TrilhaDoNegocio } from '@/components/comum/TrilhaDoNegocio'
 
@@ -83,6 +84,7 @@ export const PrestadoresPage: React.FC = () => {
   const [busca, setBusca] = useState('')
   const [filtroTipo, setFiltroTipo] = useState<string>('todos')
   const [filtroStatus, setFiltroStatus] = useState<string>('todos')
+  const [abaAtiva, setAbaAtiva] = useState<string>('ativos')
 
   // Modais de Prestador
   const [modalNovoOpen, setModalNovoOpen] = useState(false)
@@ -144,6 +146,7 @@ export const PrestadoresPage: React.FC = () => {
 
   const canEdit = !!(user && (user.role === 'admin' || user.role === 'gestor'))
   const isAdmin = !!(user && user.role === 'admin')
+  const podeAcessarTriagem = !!(user && (user.role === 'admin' || user.role === 'gestor'))
 
   const carregarPrestadores = async () => {
     setCarregando(true)
@@ -573,312 +576,346 @@ export const PrestadoresPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Cards de Métricas */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 uppercase">Total Cadastrado</span>
-            <Users className="w-4 h-4 text-slate-400" />
+      {/* ABAS: CADASTRO GERAL vs TRIAGEM DE CANDIDATOS (RODADA 12) */}
+      <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="space-y-4">
+        <TabsList className="bg-slate-200/80 p-1">
+          <TabsTrigger value="ativos" className="text-xs font-semibold gap-1.5">
+            <Users className="w-4 h-4" />
+            <span>Prestadores Homologados ({prestadores.length})</span>
+          </TabsTrigger>
+
+          {podeAcessarTriagem && (
+            <TabsTrigger
+              value="triagem"
+              className="text-xs font-bold gap-1.5 text-[#D95A2B] data-[state=active]:bg-white"
+            >
+              <Inbox className="w-4 h-4 text-[#D95A2B]" />
+              <span>Fila de Triagem Técnica</span>
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        {/* CONTEÚDO DA ABA TRIAGEM (SÓ ADMIN / GESTOR) */}
+        {podeAcessarTriagem && (
+          <TabsContent value="triagem" className="space-y-4">
+            <FilaTriagemPrestadores onTriagemAtualizada={carregarPrestadores} />
+          </TabsContent>
+        )}
+
+        {/* CONTEÚDO DA ABA ATIVOS / GERAL */}
+        <TabsContent value="ativos" className="space-y-6">
+          {/* Cards de Métricas */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500 uppercase">
+                  Total Cadastrado
+                </span>
+                <Users className="w-4 h-4 text-slate-400" />
+              </div>
+              <div className="text-2xl font-bold text-slate-900 mt-2">{prestadores.length}</div>
+              <span className="text-[11px] text-slate-400">Prestadores mapeados</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500 uppercase">Equipe Interna</span>
+                <User className="w-4 h-4 text-sky-600" />
+              </div>
+              <div className="text-2xl font-bold text-sky-700 mt-2">
+                {prestadores.filter((p) => p.tipo === 'interno').length}
+              </div>
+              <span className="text-[11px] text-slate-400">Engenharia própria</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500 uppercase">
+                  Externos Ativos
+                </span>
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div className="text-2xl font-bold text-emerald-700 mt-2">
+                {prestadores.filter((p) => p.tipo !== 'interno' && p.status === 'ativo').length}
+              </div>
+              <span className="text-[11px] text-slate-400">PF e PJ homologados</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500 uppercase">Suspensos</span>
+                <AlertTriangle className="w-4 h-4 text-rose-500" />
+              </div>
+              <div className="text-2xl font-bold text-rose-600 mt-2">
+                {prestadores.filter((p) => p.status === 'suspenso').length}
+              </div>
+              <span className="text-[11px] text-slate-400">Com bloqueio de OS</span>
+            </div>
           </div>
-          <div className="text-2xl font-bold text-slate-900 mt-2">{prestadores.length}</div>
-          <span className="text-[11px] text-slate-400">Prestadores mapeados</span>
-        </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 uppercase">Equipe Interna</span>
-            <User className="w-4 h-4 text-sky-600" />
+          {/* Barra de Filtros */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap gap-3 items-center">
+            <div className="relative flex-1 min-w-[240px]">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Input
+                placeholder="Buscar por nome, CPF/CNPJ, e-mail ou disciplina..."
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                className="pl-9 text-xs"
+              />
+            </div>
+
+            <div className="w-40">
+              <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+                <SelectTrigger className="text-xs">
+                  <SelectValue placeholder="Tipo de prestador" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os tipos</SelectItem>
+                  <SelectItem value="interno">Equipe Interna</SelectItem>
+                  <SelectItem value="pf_externo">PF Externo</SelectItem>
+                  <SelectItem value="pj_externo">PJ Externo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-36">
+              <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+                <SelectTrigger className="text-xs">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os status</SelectItem>
+                  <SelectItem value="ativo">Ativo</SelectItem>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="suspenso">Suspenso</SelectItem>
+                  <SelectItem value="inativo">Inativo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="text-2xl font-bold text-sky-700 mt-2">
-            {prestadores.filter((p) => p.tipo === 'interno').length}
-          </div>
-          <span className="text-[11px] text-slate-400">Engenharia própria</span>
-        </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 uppercase">Externos Ativos</span>
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          </div>
-          <div className="text-2xl font-bold text-emerald-700 mt-2">
-            {prestadores.filter((p) => p.tipo !== 'interno' && p.status === 'ativo').length}
-          </div>
-          <span className="text-[11px] text-slate-400">PF e PJ homologados</span>
-        </div>
+          {/* Grid de Prestadores */}
+          {carregando ? (
+            <div className="flex justify-center p-12">
+              <Loader2 className="w-8 h-8 animate-spin text-[#D95A2B]" />
+            </div>
+          ) : prestadoresFiltrados.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-xl border border-slate-200">
+              <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-600 font-medium">Nenhum prestador encontrado</p>
+              <p className="text-xs text-slate-400 mt-1">
+                Ajuste os filtros ou cadastre um novo prestador.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {prestadoresFiltrados.map((p) => {
+                const isInterno = p.tipo === 'interno'
+                const isPj = p.tipo === 'pj_externo'
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 uppercase">Suspensos</span>
-            <AlertTriangle className="w-4 h-4 text-rose-500" />
-          </div>
-          <div className="text-2xl font-bold text-rose-600 mt-2">
-            {prestadores.filter((p) => p.status === 'suspenso').length}
-          </div>
-          <span className="text-[11px] text-slate-400">Com bloqueio de OS</span>
-        </div>
-      </div>
+                return (
+                  <div
+                    key={p.id}
+                    className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-colors"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-slate-900 text-sm leading-tight">
+                            {p.nome}
+                          </span>
+                          {p.cpf_cnpj && (
+                            <span className="text-[11px] text-slate-400 font-mono mt-0.5">
+                              {p.cpf_cnpj}
+                            </span>
+                          )}
+                        </div>
+                        {getStatusBadge(p.status)}
+                      </div>
 
-      {/* Barra de Filtros */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[240px]">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <Input
-            placeholder="Buscar por nome, CPF/CNPJ, e-mail ou disciplina..."
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            className="pl-9 text-xs"
-          />
-        </div>
+                      <div className="mb-4">{getTipoBadge(p.tipo)}</div>
 
-        <div className="w-40">
-          <Select value={filtroTipo} onValueChange={setFiltroTipo}>
-            <SelectTrigger className="text-xs">
-              <SelectValue placeholder="Tipo de prestador" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os tipos</SelectItem>
-              <SelectItem value="interno">Equipe Interna</SelectItem>
-              <SelectItem value="pf_externo">PF Externo</SelectItem>
-              <SelectItem value="pj_externo">PJ Externo</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+                      {/* Desempenho e Tendência */}
+                      <div className="mb-3 p-2 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                          <span className="font-semibold text-slate-800">
+                            {p.nota_geral ? p.nota_geral.toFixed(1) : '5.0'}
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            ({p.total_avaliacoes || 0} avaliações)
+                          </span>
+                        </div>
 
-        <div className="w-36">
-          <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-            <SelectTrigger className="text-xs">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os status</SelectItem>
-              <SelectItem value="ativo">Ativo</SelectItem>
-              <SelectItem value="pendente">Pendente</SelectItem>
-              <SelectItem value="suspenso">Suspenso</SelectItem>
-              <SelectItem value="inativo">Inativo</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+                        {/* Selo de Tendência na Ficha do Prestador */}
+                        {p.total_avaliacoes && p.total_avaliacoes >= 2 ? (
+                          (p.nota_geral || 5) >= 4.5 ? (
+                            <Badge
+                              variant="outline"
+                              className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] gap-1 py-0 h-5"
+                              title="Tendência: Melhorou / Alto desempenho"
+                            >
+                              <TrendingUp className="w-3 h-3 text-emerald-600" />
+                              Melhorou
+                            </Badge>
+                          ) : (p.nota_geral || 5) < 3.5 ? (
+                            <Badge
+                              variant="outline"
+                              className="bg-rose-50 text-rose-700 border-rose-300 text-[10px] gap-1 py-0 h-5"
+                              title="Tendência: Piorou / Sob atenção técnica"
+                            >
+                              <TrendingDown className="w-3 h-3 text-rose-600" />
+                              Piorou
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="bg-slate-100 text-slate-700 border-slate-300 text-[10px] gap-1 py-0 h-5"
+                              title="Tendência: Desempenho Estável"
+                            >
+                              <Minus className="w-3 h-3 text-slate-500" />
+                              Estável
+                            </Badge>
+                          )
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="bg-slate-50 text-slate-500 border-slate-200 text-[10px] gap-1 py-0 h-5"
+                            title="Tendência: Estável / Inicial"
+                          >
+                            <Minus className="w-3 h-3 text-slate-400" />
+                            Estável
+                          </Badge>
+                        )}
+                      </div>
 
-      {/* Grid de Prestadores */}
-      {carregando ? (
-        <div className="flex justify-center p-12">
-          <Loader2 className="w-8 h-8 animate-spin text-[#D95A2B]" />
-        </div>
-      ) : prestadoresFiltrados.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-xl border border-slate-200">
-          <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-600 font-medium">Nenhum prestador encontrado</p>
-          <p className="text-xs text-slate-400 mt-1">
-            Ajuste os filtros ou cadastre um novo prestador.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {prestadoresFiltrados.map((p) => {
-            const isInterno = p.tipo === 'interno'
-            const isPj = p.tipo === 'pj_externo'
+                      <div className="space-y-1.5 text-xs text-slate-600 mb-4">
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{p.email}</span>
+                        </div>
+                        {p.telefone && (
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span>{p.telefone}</span>
+                          </div>
+                        )}
+                        {p.conselho && (
+                          <div className="flex items-center gap-2">
+                            <Briefcase className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span>
+                              {p.conselho}{' '}
+                              {p.numero_registro_conselho && `• ${p.numero_registro_conselho}`}
+                            </span>
+                          </div>
+                        )}
+                        {p.disciplinas && (
+                          <div className="flex items-center gap-2">
+                            <Layers className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate">{p.disciplinas}</span>
+                          </div>
+                        )}
+                      </div>
 
-            return (
-              <div
-                key={p.id}
-                className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-colors"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-slate-900 text-sm leading-tight">
-                        {p.nome}
-                      </span>
-                      {p.cpf_cnpj && (
-                        <span className="text-[11px] text-slate-400 font-mono mt-0.5">
-                          {p.cpf_cnpj}
-                        </span>
+                      {p.status === 'suspenso' && p.motivo_suspensao && (
+                        <div className="mb-3 p-2 bg-rose-50 border border-rose-200 rounded text-[11px] text-rose-700">
+                          <strong>Motivo da suspensão:</strong> {p.motivo_suspensao}
+                        </div>
                       )}
                     </div>
-                    {getStatusBadge(p.status)}
-                  </div>
 
-                  <div className="mb-4">{getTipoBadge(p.tipo)}</div>
+                    <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        {/* Botão de Profissionais para PJ */}
+                        {isPj && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => abrirProfissionais(p)}
+                            className="text-[11px] h-7 px-2"
+                            title="Profissionais vinculados a esta PJ"
+                          >
+                            <Users className="w-3 h-3 mr-1 text-purple-600" />
+                            Equipe PJ
+                          </Button>
+                        )}
 
-                  {/* Desempenho e Tendência */}
-                  <div className="mb-3 p-2 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-                      <span className="font-semibold text-slate-800">
-                        {p.nota_geral ? p.nota_geral.toFixed(1) : '5.0'}
-                      </span>
-                      <span className="text-[11px] text-slate-400">
-                        ({p.total_avaliacoes || 0} avaliações)
-                      </span>
-                    </div>
+                        {/* Botão Contrato-Mestre para Externos */}
+                        {!isInterno && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => abrirContratoMestre(p)}
+                            className="text-[11px] h-7 px-2"
+                            title="Contrato-Mestre e Termo de Confidencialidade (NDA)"
+                          >
+                            <FileCheck className="w-3 h-3 mr-1 text-[#D95A2B]" />
+                            Contrato-Mestre
+                          </Button>
+                        )}
 
-                    {/* Selo de Tendência na Ficha do Prestador */}
-                    {p.total_avaliacoes && p.total_avaliacoes >= 2 ? (
-                      (p.nota_geral || 5) >= 4.5 ? (
-                        <Badge
+                        {/* Botão Ordens de Serviço (Visão do Gestor com Estados de Aceite) */}
+                        <Button
+                          size="sm"
                           variant="outline"
-                          className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] gap-1 py-0 h-5"
-                          title="Tendência: Melhorou / Alto desempenho"
+                          onClick={() => abrirOrdensServico(p)}
+                          className="text-[11px] h-7 px-2 text-slate-700 hover:text-slate-900 border-slate-300"
+                          title="Ordens de Serviço e Status de Aceite Jurídico"
                         >
-                          <TrendingUp className="w-3 h-3 text-emerald-600" />
-                          Melhorou
-                        </Badge>
-                      ) : (p.nota_geral || 5) < 3.5 ? (
-                        <Badge
-                          variant="outline"
-                          className="bg-rose-50 text-rose-700 border-rose-300 text-[10px] gap-1 py-0 h-5"
-                          title="Tendência: Piorou / Sob atenção técnica"
-                        >
-                          <TrendingDown className="w-3 h-3 text-rose-600" />
-                          Piorou
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="bg-slate-100 text-slate-700 border-slate-300 text-[10px] gap-1 py-0 h-5"
-                          title="Tendência: Desempenho Estável"
-                        >
-                          <Minus className="w-3 h-3 text-slate-500" />
-                          Estável
-                        </Badge>
-                      )
-                    ) : (
-                      <Badge
-                        variant="outline"
-                        className="bg-slate-50 text-slate-500 border-slate-200 text-[10px] gap-1 py-0 h-5"
-                        title="Tendência: Estável / Inicial"
-                      >
-                        <Minus className="w-3 h-3 text-slate-400" />
-                        Estável
-                      </Badge>
-                    )}
-                  </div>
+                          <Briefcase className="w-3 h-3 mr-1 text-blue-600" />
+                          Ordens de Serviço
+                        </Button>
+                      </div>
 
-                  <div className="space-y-1.5 text-xs text-slate-600 mb-4">
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate">{p.email}</span>
+                      <div className="flex items-center gap-1">
+                        {canEdit && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => abrirModalEditar(p)}
+                            className="h-7 w-7 text-slate-500 hover:text-slate-800"
+                            title="Editar prestador"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+
+                        {canEdit && p.status === 'ativo' && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => {
+                              setPrestadorSelecionado(p)
+                              setModalSuspenderOpen(true)
+                            }}
+                            className="h-7 w-7 text-rose-600 hover:text-rose-800"
+                            title="Suspender prestador"
+                          >
+                            <Ban className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+
+                        {canEdit && p.status === 'suspenso' && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleReativarPrestador(p)}
+                            className="h-7 w-7 text-emerald-600 hover:text-emerald-800"
+                            title="Reativar prestador"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    {p.telefone && (
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>{p.telefone}</span>
-                      </div>
-                    )}
-                    {p.conselho && (
-                      <div className="flex items-center gap-2">
-                        <Briefcase className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>
-                          {p.conselho}{' '}
-                          {p.numero_registro_conselho && `• ${p.numero_registro_conselho}`}
-                        </span>
-                      </div>
-                    )}
-                    {p.disciplinas && (
-                      <div className="flex items-center gap-2">
-                        <Layers className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="truncate">{p.disciplinas}</span>
-                      </div>
-                    )}
                   </div>
-
-                  {p.status === 'suspenso' && p.motivo_suspensao && (
-                    <div className="mb-3 p-2 bg-rose-50 border border-rose-200 rounded text-[11px] text-rose-700">
-                      <strong>Motivo da suspensão:</strong> {p.motivo_suspensao}
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    {/* Botão de Profissionais para PJ */}
-                    {isPj && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => abrirProfissionais(p)}
-                        className="text-[11px] h-7 px-2"
-                        title="Profissionais vinculados a esta PJ"
-                      >
-                        <Users className="w-3 h-3 mr-1 text-purple-600" />
-                        Equipe PJ
-                      </Button>
-                    )}
-
-                    {/* Botão Contrato-Mestre para Externos */}
-                    {!isInterno && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => abrirContratoMestre(p)}
-                        className="text-[11px] h-7 px-2"
-                        title="Contrato-Mestre e Termo de Confidencialidade (NDA)"
-                      >
-                        <FileCheck className="w-3 h-3 mr-1 text-[#D95A2B]" />
-                        Contrato-Mestre
-                      </Button>
-                    )}
-
-                    {/* Botão Ordens de Serviço (Visão do Gestor com Estados de Aceite) */}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => abrirOrdensServico(p)}
-                      className="text-[11px] h-7 px-2 text-slate-700 hover:text-slate-900 border-slate-300"
-                      title="Ordens de Serviço e Status de Aceite Jurídico"
-                    >
-                      <Briefcase className="w-3 h-3 mr-1 text-blue-600" />
-                      Ordens de Serviço
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    {canEdit && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => abrirModalEditar(p)}
-                        className="h-7 w-7 text-slate-500 hover:text-slate-800"
-                        title="Editar prestador"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-
-                    {canEdit && p.status === 'ativo' && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => {
-                          setPrestadorSelecionado(p)
-                          setModalSuspenderOpen(true)
-                        }}
-                        className="h-7 w-7 text-rose-600 hover:text-rose-800"
-                        title="Suspender prestador"
-                      >
-                        <Ban className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-
-                    {canEdit && p.status === 'suspenso' && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handleReativarPrestador(p)}
-                        className="h-7 w-7 text-emerald-600 hover:text-emerald-800"
-                        title="Reativar prestador"
-                      >
-                        <CheckCircle className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+                )
+              })}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Modal Criar/Editar Prestador */}
       <Dialog open={modalNovoOpen} onOpenChange={setModalNovoOpen}>

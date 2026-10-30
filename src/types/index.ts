@@ -1010,16 +1010,23 @@ export interface RiscoRecord {
 export interface CotacaoRecord {
   id: string
   etapa?: string
+  pacote?: string
+  prestador?: string
   projeto?: string
   grupo?: string
-  executor: string
+  executor?: string
+  disciplina?: string
   escopo?: string
+  automatica?: boolean
+  lembrete_enviado?: boolean
+  data_limite_resposta?: string
   prazo_resposta?: string
   data_limite?: string
   preco_ofertado?: number
   prazo_ofertado?: string
   observacoes?: string
-  status?: StatusCotacao
+  motivo_encerramento?: string
+  status?: StatusCotacao | 'convite_enviado' | 'respondida' | 'escolhida' | 'expirada' | 'encerrada'
   escolhida?: boolean
   token?: string
   data_resposta?: string
@@ -1029,11 +1036,44 @@ export interface CotacaoRecord {
   updated: string
   expand?: {
     etapa?: ProjetoEtapaRecord
+    pacote?: ProjetoEtapaRecord
+    prestador?: PrestadorRecord
     projeto?: ProjetoRecord
     grupo?: GrupoProjetosRecord
     executor?: ExecutorRecord
     registrado_por?: UserRecord
   }
+}
+
+export interface ItemRankingCotacao {
+  cotacao_id: string
+  prestador_id: string
+  prestador_nome: string
+  prestador_tipo: string
+  status: string
+  preco_ofertado: number
+  prazo_ofertado: string
+  data_resposta?: string
+  observacoes?: string
+  escolhida: boolean
+  nota_geral: number
+  tendencia: 'melhorou' | 'estavel' | 'piorou'
+  capacidade_maxima: number
+  carga_atual: number
+  capacidade_livre: number
+  ultrapassa_referencia: boolean
+  score_final: number
+  respondida: boolean
+}
+
+export interface RankingCotacoesPacoteResponse {
+  pacote_id: string
+  pacote_nome: string
+  disciplina: string
+  valor_interno_referencia: number
+  valor_vendido: number
+  total: number
+  ranking: ItemRankingCotacao[]
 }
 
 export type StatusSubcontrato =

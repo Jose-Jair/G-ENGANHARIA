@@ -755,6 +755,69 @@ routerAdd(
         detalhes: detalheColecoesNovas,
       }
 
+      // REQUISITO 7: SELFCHECK ESTENDIDO ÀS REGRAS NOVAS DE COTAÇÃO AUTOMÁTICA
+      // Valida:
+      // - coleção cotacoes tem campos novos (pacote, prestador, automatica, lembrete_enviado, data_limite_resposta)
+      // - parâmetros de cotação configurados na Administração (prazo_resposta_cotacao_dias, antecedencia_lembrete_cotacao_dias, max_convidados_cotacao)
+      // - coleção cotacoes não expõe campos sensíveis (cliente, obra, valor_contrato) para executor externo
+      let cotacaoAutomaticaOk = true
+      const detalheCotacaoAuto = {}
+      try {
+        const cotCol = $app.findCollectionByNameOrId('cotacoes')
+        const temPacote = Boolean(cotCol.fields.getByName('pacote'))
+        const temPrestador = Boolean(cotCol.fields.getByName('prestador'))
+        const temAuto = Boolean(cotCol.fields.getByName('automatica'))
+        const temLembrete = Boolean(cotCol.fields.getByName('lembrete_enviado'))
+        const temDtLimite = Boolean(cotCol.fields.getByName('data_limite_resposta'))
+
+        detalheCotacaoAuto.campos_novos = Boolean(
+          temPacote && temPrestador && temAuto && temLembrete && temDtLimite,
+        )
+
+        // API rule de cotacoes isola executor por prestador.email
+        const ruleIsolaPrestador =
+          cotCol.listRule && cotCol.listRule.includes('prestador.email = @request.auth.email')
+        detalheCotacaoAuto.rls_prestador_email = Boolean(ruleIsolaPrestador)
+
+        // Campos sensíveis ausentes na coleção cotacoes
+        const cFields = cotCol.fields
+        const cotSemSensiveis =
+          !cFields.getByName('cliente') &&
+          !cFields.getByName('obra') &&
+          !cFields.getByName('valor_contrato') &&
+          !cFields.getByName('proposta_comercial')
+        detalheCotacaoAuto.sem_campos_sensiveis = Boolean(cotSemSensiveis)
+
+        // Parâmetros da Administração
+        const p1 = Boolean(
+          $app.findFirstRecordByData('parametros', 'chave', 'prazo_resposta_cotacao_dias'),
+        )
+        const p2 = Boolean(
+          $app.findFirstRecordByData('parametros', 'chave', 'antecedencia_lembrete_cotacao_dias'),
+        )
+        const p3 = Boolean(
+          $app.findFirstRecordByData('parametros', 'chave', 'max_convidados_cotacao'),
+        )
+        detalheCotacaoAuto.parametros_administracao = Boolean(p1 && p2 && p3)
+
+        if (
+          !detalheCotacaoAuto.campos_novos ||
+          !ruleIsolaPrestador ||
+          !cotSemSensiveis ||
+          !detalheCotacaoAuto.parametros_administracao
+        ) {
+          cotacaoAutomaticaOk = false
+        }
+      } catch (eAuto) {
+        cotacaoAutomaticaOk = false
+        detalheCotacaoAuto.erro = String(eAuto)
+      }
+
+      resultados.item7_cotacao_automatica = {
+        todas_conformes: cotacaoAutomaticaOk,
+        detalhes: detalheCotacaoAuto,
+      }
+
       resultados.conformidade_geral =
         resultados.item1_api_rules.cotacoes_segura &&
         resultados.item1_api_rules.subcontratos_segura &&
@@ -763,7 +826,8 @@ routerAdd(
         resultados.item3_token_security.campos_configurados &&
         resultados.item4_telefones_json.campos_configurados &&
         prestadoresOk &&
-        colecoesNovasOk
+        colecoesNovasOk &&
+        cotacaoAutomaticaOk
 
       return e.json(200, {
         status: 'OK',

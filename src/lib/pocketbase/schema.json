@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T02:20:47.668Z",
+  "generatedAt": "2026-10-30T02:43:21.334Z",
   "collections": [
     {
       "name": "users",
@@ -2281,10 +2281,10 @@
       "name": "cotacoes",
       "type": "base",
       "apiRules": {
-        "list": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && executor.email = @request.auth.email))) || (token != '' && (@request.query.token = token || token = @request.headers.x_token_cotacao))",
-        "view": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && executor.email = @request.auth.email))) || (token != '' && (@request.query.token = token || token = @request.headers.x_token_cotacao))",
+        "list": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))) || (token != '' && (@request.query.token = token || token = @request.headers.x_token_cotacao))",
+        "view": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))) || (token != '' && (@request.query.token = token || token = @request.headers.x_token_cotacao))",
         "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
-        "update": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && executor.email = @request.auth.email))) || (token != '' && (@request.query.token = token || token = @request.headers.x_token_cotacao))",
+        "update": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))) || (token != '' && (@request.query.token = token || token = @request.headers.x_token_cotacao))",
         "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
       },
       "fields": [
@@ -2414,12 +2414,54 @@
           "type": "number",
           "required": false,
           "system": false
+        },
+        {
+          "name": "pacote",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "projeto_etapas"
+        },
+        {
+          "name": "prestador",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "prestadores"
+        },
+        {
+          "name": "automatica",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lembrete_enviado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_limite_resposta",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "motivo_encerramento",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
         "CREATE INDEX idx_cotacoes_etapa ON cotacoes (etapa)",
         "CREATE INDEX `idx_cotacoes_projeto` ON `cotacoes` (projeto)",
-        "CREATE INDEX `idx_cotacoes_grupo` ON `cotacoes` (grupo)"
+        "CREATE INDEX `idx_cotacoes_grupo` ON `cotacoes` (grupo)",
+        "CREATE INDEX `idx_cotacoes_pacote` ON `cotacoes` (pacote)",
+        "CREATE INDEX `idx_cotacoes_prestador` ON `cotacoes` (prestador)",
+        "CREATE INDEX `idx_cotacoes_automatica` ON `cotacoes` (automatica)",
+        "CREATE INDEX `idx_cotacoes_dt_limite` ON `cotacoes` (data_limite_resposta)"
       ]
     },
     {

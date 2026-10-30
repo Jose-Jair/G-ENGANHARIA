@@ -55,6 +55,8 @@ import { ModalNovaConta } from '@/components/financeiro/ModalNovaConta'
 import { ModalDetalhesConta } from '@/components/financeiro/ModalDetalhesConta'
 import { ModalRelatoriosFinanceiros } from '@/components/financeiro/ModalRelatoriosFinanceiros'
 import { TabGerencialFinanceiro } from '@/components/financeiro/TabGerencialFinanceiro'
+import { PainelPrevisaoReceitaFunil } from '@/components/financeiro/PainelPrevisaoReceitaFunil'
+import { PainelFluxoMarcosInversao } from '@/components/financeiro/PainelFluxoMarcosInversao'
 
 import { useSearchParams } from 'react-router-dom'
 
@@ -69,14 +71,21 @@ export function FinanceiroPage() {
   const [executores, setExecutores] = useState<ExecutorRecord[]>([])
   const [medicoesAprovadas, setMedicoesAprovadas] = useState<DocumentoRecord[]>([])
 
-  const [activeTab, setActiveTab] = useState<'receber' | 'pagar' | 'fluxo_caixa' | 'gerencial'>(
-    () => {
-      const tab = searchParams.get('tab')
-      if (tab === 'pagar' || tab === 'fluxo_caixa' || tab === 'receber' || tab === 'gerencial')
-        return tab
-      return 'receber'
-    },
-  )
+  const [activeTab, setActiveTab] = useState<
+    'receber' | 'pagar' | 'fluxo_caixa' | 'gerencial' | 'previsao_funil' | 'marcos_inversao'
+  >(() => {
+    const tab = searchParams.get('tab')
+    if (
+      tab === 'pagar' ||
+      tab === 'fluxo_caixa' ||
+      tab === 'receber' ||
+      tab === 'gerencial' ||
+      tab === 'previsao_funil' ||
+      tab === 'marcos_inversao'
+    )
+      return tab
+    return 'receber'
+  })
   const [termoBusca, setTermoBusca] = useState(() => searchParams.get('busca') || '')
   const [filtroStatus, setFiltroStatus] = useState<string>(
     () => searchParams.get('status') || 'todos',
@@ -552,6 +561,14 @@ export function FinanceiroPage() {
             <TabsTrigger value="gerencial" className="text-xs font-semibold gap-2">
               <PieChart className="w-3.5 h-3.5 text-[#D95A2B]" />
               Gerencial
+            </TabsTrigger>
+            <TabsTrigger value="previsao_funil" className="text-xs font-semibold gap-2">
+              <TrendingUp className="w-3.5 h-3.5 text-indigo-600" />
+              Previsão Funil
+            </TabsTrigger>
+            <TabsTrigger value="marcos_inversao" className="text-xs font-semibold gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+              Inversão de Fluxo
             </TabsTrigger>
           </TabsList>
 
@@ -1088,6 +1105,16 @@ export function FinanceiroPage() {
             onHorizonteChange={(h) => setGerencialHorizonte(h)}
             onAbrirConta={handleAbrirContaGerencial}
           />
+        </TabsContent>
+
+        {/* ABA 5: PREVISÃO DE RECEITA PONDERADA (FUNIL COMERCIAL) */}
+        <TabsContent value="previsao_funil" className="space-y-4">
+          <PainelPrevisaoReceitaFunil />
+        </TabsContent>
+
+        {/* ABA 6: FLUXO PROJETADO COM ALERTAS DE INVERSÃO DE CAIXA */}
+        <TabsContent value="marcos_inversao" className="space-y-4">
+          <PainelFluxoMarcosInversao />
         </TabsContent>
       </Tabs>
 

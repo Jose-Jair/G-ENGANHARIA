@@ -3,7 +3,7 @@
 // Coleção: notificacoes
 // =============================================================================
 
-import { pb } from '@/lib/pocketbase/client'
+import pb from '@/lib/pocketbase/client'
 import type { NotificacaoRecord } from '@/types'
 
 export interface NotificacoesFiltros {

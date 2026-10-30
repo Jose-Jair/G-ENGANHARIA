@@ -31,7 +31,9 @@ import {
   Clock,
   PieChart,
   Wallet,
+  HeartPulse,
 } from 'lucide-react'
+import { ModalSaudeFinanceiraProjeto } from '@/components/financeiro/ModalSaudeFinanceiraProjeto'
 
 interface TabGerencialProps {
   dados: VisaoGerencialDados | null
@@ -72,6 +74,11 @@ export function TabGerencialFinanceiro({
 }: TabGerencialProps) {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const [projetoSaudeModal, setProjetoSaudeModal] = useState<{
+    id: string
+    codigo: string
+    nome: string
+  } | null>(null)
 
   const fluxo = dados?.bloco1_fluxo_caixa
   const margem = dados?.bloco2_margem_projetos
@@ -437,18 +444,36 @@ export function TabGerencialFinanceiro({
                         </span>
                       </td>
                       <td className="p-3 text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs px-2"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleAbrirProjeto(p.id)
-                          }}
+                        <div
+                          className="flex items-center justify-end gap-1.5"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <Eye className="w-3.5 h-3.5 mr-1" />
-                          Ficha
-                        </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs px-2 text-[#D95A2B] border-orange-200 hover:bg-orange-50"
+                            onClick={() =>
+                              setProjetoSaudeModal({
+                                id: p.id,
+                                codigo: p.codigo,
+                                nome: p.clienteNome,
+                              })
+                            }
+                            title="Ver painel Saúde Financeira em tempo real"
+                          >
+                            <HeartPulse className="w-3.5 h-3.5 mr-1" />
+                            Saúde
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs px-2"
+                            onClick={() => handleAbrirProjeto(p.id)}
+                          >
+                            <Eye className="w-3.5 h-3.5 mr-1" />
+                            Ficha
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -615,6 +640,18 @@ export function TabGerencialFinanceiro({
           </div>
         </CardContent>
       </Card>
+      {/* Modal de Saúde Financeira do Projeto selecionado */}
+      {projetoSaudeModal && (
+        <ModalSaudeFinanceiraProjeto
+          open={!!projetoSaudeModal}
+          onOpenChange={(op) => {
+            if (!op) setProjetoSaudeModal(null)
+          }}
+          projetoId={projetoSaudeModal.id}
+          projetoCodigo={projetoSaudeModal.codigo}
+          projetoNome={projetoSaudeModal.nome}
+        />
+      )}
     </div>
   )
 }

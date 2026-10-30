@@ -25,6 +25,7 @@ import {
   TabelaMonitoramentoOs,
   ItemMonitoramentoOs,
 } from '@/components/monitoramento/TabelaMonitoramentoOs'
+import { ModalSaudeFinanceiraProjeto } from '@/components/financeiro/ModalSaudeFinanceiraProjeto'
 import {
   FiltrosMonitoramento,
   FiltrosMonitoramentoState,
@@ -67,6 +68,13 @@ export const MonitoramentoPrazosPage: React.FC = () => {
     statusSemaforo: 'todos',
     tipoPrestador: 'todos',
   })
+
+  // Modal Saúde Financeira por Projeto
+  const [projetoSaudeModal, setProjetoSaudeModal] = useState<{
+    id: string
+    codigo: string
+    nome: string
+  } | null>(null)
 
   // Carregar dados agregados do cliente
   const carregarDados = async () => {
@@ -593,7 +601,31 @@ export const MonitoramentoPrazosPage: React.FC = () => {
         <TabelaMonitoramentoOs
           itens={itensOsFiltrados}
           onAbrirWhatsApp={handleAbrirWhatsAppOs}
-          onNavegarProjeto={(prjId) => navigate(`/projetos?id=${prjId}`)}
+          onNavegarProjeto={(prjId) => {
+            const prj = projetos.find((p) => p.id === prjId)
+            if (prj) {
+              setProjetoSaudeModal({
+                id: prj.id,
+                codigo: prj.codigo,
+                nome: prj.nome,
+              })
+            } else {
+              navigate(`/projetos?id=${prjId}`)
+            }
+          }}
+        />
+      )}
+
+      {/* Modal de Saúde Financeira por Projeto */}
+      {projetoSaudeModal && (
+        <ModalSaudeFinanceiraProjeto
+          open={!!projetoSaudeModal}
+          onOpenChange={(op) => {
+            if (!op) setProjetoSaudeModal(null)
+          }}
+          projetoId={projetoSaudeModal.id}
+          projetoCodigo={projetoSaudeModal.codigo}
+          projetoNome={projetoSaudeModal.nome}
         />
       )}
     </div>

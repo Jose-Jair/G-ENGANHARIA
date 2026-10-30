@@ -16,9 +16,11 @@ import {
   FileSignature,
   MessageSquare,
   Sparkles,
+  CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { geradorPacotesContratoService } from '@/services/geradorPacotesContrato'
+import { financeiroService } from '@/services/financeiro'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -66,6 +68,41 @@ export function ContratoTab({
   const [clausulasTexto, setClausulasTexto] = useState('')
   const [uploadingPdf, setUploadingPdf] = useState(false)
   const [gerandoPacotes, setGerandoPacotes] = useState(false)
+  const [conferindoContas, setConferindoContas] = useState(false)
+  const [relatorioConferencia, setRelatorioConferencia] = useState<{
+    success: boolean
+    contrato_id: string
+    contrato_numero: string
+    relatorio: {
+      total_criadas: number
+      total_ja_existiam: number
+      criadas: any[]
+      ja_existiam: any[]
+    }
+    mensagem: string
+  } | null>(null)
+
+  const handleConferirContasReceber = async () => {
+    if (!contrato) return
+    setConferindoContas(true)
+    try {
+      const res = await financeiroService.conferirContasReceberContrato(contrato.id)
+      setRelatorioConferencia(res)
+      toast({
+        title: 'Conferência de Contas a Receber Concluída!',
+        description: `${res.relatorio.total_criadas} nova(s) conta(s) gerada(s). ${res.relatorio.total_ja_existiam} já existia(m).`,
+      })
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        title: 'Erro na conferência de contas',
+        description: err.message || 'Falha ao processar parcelas do contrato.',
+        variant: 'destructive',
+      })
+    } finally {
+      setConferindoContas(false)
+    }
+  }
 
   const handleGerarPacotes = async () => {
     if (!contrato) return
@@ -331,6 +368,24 @@ export function ContratoTab({
                 </Button>
               )}
 
+              {assinado && canEdit && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleConferirContasReceber}
+                  disabled={conferindoContas}
+                  className="h-8 text-xs border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 gap-1.5 font-semibold shadow-xs"
+                  title="Conferir e sincronizar as parcelas deste contrato com o contas a receber (idempotente)"
+                >
+                  {conferindoContas ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  )}
+                  Conferir Contas a Receber
+                </Button>
+              )}
+
               <Button
                 variant="outline"
                 size="sm"
@@ -401,6 +456,82 @@ export function ContratoTab({
         </CardHeader>
 
         <CardContent className="p-4 space-y-4">
+          {/* Relatório de Conferência Contrato -> Contas a Receber (Rodada 8) */}
+          {relatorioConferencia && (
+            <div className="p-4 rounded-xl border border-emerald-300 bg-emerald-50/70 space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <strong className="block text-sm text-emerald-950 font-bold">
+                      Relatório de Conferência Contrato → Contas a Receber
+                    </strong>
+                    <span className="text-emerald-800">{relatorioConferencia.mensagem}</span>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setRelatorioConferencia(null)}
+                  className="h-6 text-[10px] text-emerald-800 hover:bg-emerald-100"
+                >
+                  Fechar
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-emerald-200">
+                <div className="p-2 rounded bg-white border border-emerald-200 text-center">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                    Total Auditado
+                  </span>
+                  <span className="font-mono text-base font-bold text-slate-900">
+                    {relatorioConferencia.relatorio.total_criadas +
+                      relatorioConferencia.relatorio.total_ja_existiam}
+                  </span>
+                </div>
+                <div className="p-2 rounded bg-white border border-emerald-200 text-center">
+                  <span className="text-[10px] uppercase font-bold text-emerald-600 block">
+                    Novas Contas Criadas
+                  </span>
+                  <span className="font-mono text-base font-bold text-emerald-700">
+                    {relatorioConferencia.relatorio.total_criadas}
+                  </span>
+                </div>
+                <div className="p-2 rounded bg-white border border-emerald-200 text-center">
+                  <span className="text-[10px] uppercase font-bold text-blue-600 block">
+                    Contas Já Existentes
+                  </span>
+                  <span className="font-mono text-base font-bold text-blue-700">
+                    {relatorioConferencia.relatorio.total_ja_existiam}
+                  </span>
+                </div>
+              </div>
+
+              {relatorioConferencia.relatorio.criadas.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-900 block">
+                    Contas geradas nesta execução:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {relatorioConferencia.relatorio.criadas.map((c) => (
+                      <div
+                        key={c.id}
+                        className="p-2 rounded bg-white border border-emerald-200 flex items-center justify-between text-[11px]"
+                      >
+                        <span className="font-medium text-slate-800 truncate mr-2">
+                          {c.descricao}
+                        </span>
+                        <span className="font-mono font-bold text-emerald-700 shrink-0">
+                          {formatCurrencyBr(c.valor)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Grid de Partes e Resumo Comercial */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200 text-xs">
             <div>

@@ -5,7 +5,7 @@
 // Anexos protegidos (download seguro via file token).
 // =============================================================================
 
-import { pb } from '@/lib/pocketbase/client'
+import pb from '@/lib/pocketbase/client'
 import type { MensagemOsRecord, ContadoresMensagensNaoLidasResponse } from '@/types'
 
 export interface EnviarMensagemOsPayload {

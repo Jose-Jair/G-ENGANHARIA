@@ -4,7 +4,7 @@
 // Endpoint: /backend/v1/entregaveis/{id}/o-que-mudou
 // =============================================================================
 
-import { pb } from '@/lib/pocketbase/client'
+import pb from '@/lib/pocketbase/client'
 import type { EntregavelComentarioRecord, ComparacaoOQueMudouResponse } from '@/types'
 
 export interface CriarComentarioVersaoPayload {

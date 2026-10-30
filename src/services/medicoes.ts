@@ -153,9 +153,10 @@ export const medicoesService = {
   },
 
   /**
-   * Obter URL de anexo da medição
+   * Obter URL de anexo da medição (com token de proteção se logado)
    */
-  getAnexoUrl(medicao: MedicaoRecord, fileName: string): string {
-    return pb.files.getURL(medicao, fileName)
+  async getAnexoUrl(medicao: MedicaoRecord, fileName: string): Promise<string> {
+    const { getProtectedFileUrl } = await import('@/lib/pocketbase/files')
+    return getProtectedFileUrl(medicao, fileName)
   },
 }

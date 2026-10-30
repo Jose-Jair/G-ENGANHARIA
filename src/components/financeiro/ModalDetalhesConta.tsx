@@ -3,6 +3,7 @@ import { ContaRecord } from '@/types'
 import { financeiroService } from '@/services/financeiro'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
+import { openProtectedFile } from '@/lib/pocketbase/files'
 import pb from '@/lib/pocketbase/client'
 import {
   Dialog,
@@ -192,9 +193,7 @@ export function ModalDetalhesConta({
     }
   }
 
-  const comprovanteUrl = conta.anexo_comprovante
-    ? pb.files.getURL(conta, conta.anexo_comprovante)
-    : null
+  const hasComprovante = Boolean(conta.anexo_comprovante)
 
   const isContaPaga = conta.status === 'paga' || conta.status === 'realizada'
   const isContaCancelada = conta.status === 'cancelada'
@@ -368,17 +367,16 @@ export function ModalDetalhesConta({
                   </div>
                 )}
 
-                {comprovanteUrl && (
+                {hasComprovante && (
                   <div className="pt-2">
-                    <a
-                      href={comprovanteUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100"
+                    <button
+                      type="button"
+                      onClick={() => openProtectedFile(conta, conta.anexo_comprovante)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5" />
                       Visualizar Comprovante de Pagamento
-                    </a>
+                    </button>
                   </div>
                 )}
               </div>

@@ -5,6 +5,7 @@ import { parametrosService } from '@/services/parametros'
 import { formatDateBr } from '@/lib/formatters'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
+import { openProtectedFile } from '@/lib/pocketbase/files'
 import pb from '@/lib/pocketbase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -600,7 +601,7 @@ export const ExecutoresPage: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {executoresFiltrados.map((ex) => {
-                const ndaUrl = ex.nda_contrato ? pb.files.getURL(ex, ex.nda_contrato) : null
+                const hasNda = Boolean(ex.nda_contrato)
 
                 return (
                   <div
@@ -903,16 +904,16 @@ export const ExecutoresPage: React.FC = () => {
                             Avaliações de Execução ({countAvaliacoesExecucao(ex.id)})
                           </button>
                         )}
-                        {ndaUrl && (
-                          <a
-                            href={ndaUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-[11px] text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium"
+                        {hasNda && (
+                          <button
+                            type="button"
+                            onClick={() => openProtectedFile(ex, ex.nda_contrato)}
+                            className="text-[11px] text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium cursor-pointer"
+                            title="Baixar NDA assinado"
                           >
                             <FileCheck className="w-3.5 h-3.5" />
                             NDA
-                          </a>
+                          </button>
                         )}
                       </div>
                       {canEdit && (

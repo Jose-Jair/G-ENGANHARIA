@@ -29,6 +29,7 @@ import { DossieContratoServicoGmais } from '@/components/contratosServico/Dossie
 import { ModalEnviarContratoWhatsApp } from '@/components/contratosServico/ModalEnviarContratoWhatsApp'
 import { ModalEnviarComplementoWhatsApp } from '@/components/contratosServico/ModalEnviarComplementoWhatsApp'
 import { useToast } from '@/hooks/use-toast'
+import { openProtectedFile } from '@/lib/pocketbase/files'
 import { useTempoRealContratos } from '@/hooks/useTempoRealContratos'
 
 interface ContratoTabProps {
@@ -542,10 +543,15 @@ export function ContratoTab({
             </span>
             <div className="flex items-center justify-between gap-3">
               {contrato.arquivo_pdf_assinado ? (
-                <div className="flex items-center gap-2 text-emerald-700 font-medium">
+                <button
+                  type="button"
+                  onClick={() => openProtectedFile(contrato, contrato.arquivo_pdf_assinado)}
+                  className="flex items-center gap-2 text-emerald-700 font-medium hover:underline cursor-pointer"
+                  title="Clique para baixar o PDF assinado"
+                >
                   <FileText className="w-4 h-4" />
-                  <span>PDF assinado anexado ao registro</span>
-                </div>
+                  <span>PDF assinado anexado ao registro (Baixar)</span>
+                </button>
               ) : (
                 <span className="text-slate-500 text-[11px]">Nenhum PDF externo anexado.</span>
               )}

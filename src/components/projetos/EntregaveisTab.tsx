@@ -3,7 +3,7 @@ import { EntregavelRecord, ProjetoEtapaRecord, StatusEntregavel } from '@/types'
 import { entregaveisService, CreateEntregavelData } from '@/services/projetoDetalhes'
 import { formatDateBr } from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
-import pb from '@/lib/pocketbase/client'
+import { openProtectedFile } from '@/lib/pocketbase/files'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -242,8 +242,7 @@ export const EntregaveisTab: React.FC<EntregaveisTabProps> = ({
               STATUS_ENTREGAVEL_MAP[item.status] || STATUS_ENTREGAVEL_MAP.elaborando
             const StatusIcon = metaStatus.icon
             const etapaRel = etapas.find((e) => e.id === item.etapa)
-
-            const fileUrl = item.arquivo ? pb.files.getURL(item, item.arquivo) : null
+            const hasArquivo = Boolean(item.arquivo)
 
             return (
               <div
@@ -286,16 +285,15 @@ export const EntregaveisTab: React.FC<EntregaveisTabProps> = ({
                         : `Criado em: ${formatDateBr(item.created)}`}
                     </span>
 
-                    {fileUrl && (
-                      <a
-                        href={fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium"
+                    {hasArquivo && (
+                      <button
+                        type="button"
+                        onClick={() => openProtectedFile(item, item.arquivo)}
+                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
                       >
                         <Download className="w-3 h-3" />
                         Baixar Arquivo
-                      </a>
+                      </button>
                     )}
                   </div>
                 </div>

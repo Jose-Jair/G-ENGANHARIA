@@ -4,7 +4,7 @@ import { DocumentoComAlerta } from '@/services/projetos'
 import { documentosService, CreateDocumentoData } from '@/services/projetoDetalhes'
 import { formatDateBr } from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
-import pb from '@/lib/pocketbase/client'
+import { openProtectedFile } from '@/lib/pocketbase/files'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -193,7 +193,7 @@ export const DocumentosTab: React.FC<DocumentosTabProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {documentos.map((doc) => {
-                const fileUrl = doc.arquivo ? pb.files.getURL(doc, doc.arquivo) : null
+                const hasArquivo = Boolean(doc.arquivo)
 
                 return (
                   <tr key={doc.id} className="hover:bg-slate-50/60 transition-colors">
@@ -263,16 +263,15 @@ export const DocumentosTab: React.FC<DocumentosTabProps> = ({
                     </td>
                     <td className="p-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {fileUrl && (
-                          <a
-                            href={fileUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="p-1 text-blue-600 hover:text-blue-800"
-                            title="Baixar arquivo"
+                        {hasArquivo && (
+                          <button
+                            type="button"
+                            onClick={() => openProtectedFile(doc, doc.arquivo)}
+                            className="p-1 text-blue-600 hover:text-blue-800 cursor-pointer"
+                            title="Baixar arquivo seguro"
                           >
                             <Download className="w-4 h-4" />
-                          </a>
+                          </button>
                         )}
                         {canEdit && (
                           <Button

@@ -296,9 +296,10 @@ export function ModalEnviarPropostaCliente({
         const waUrl = buildWaMeUrl(destinatarioTelefone, mensagemTexto)
         window.open(waUrl, '_blank', 'noopener,noreferrer')
 
+        const dddDesc = canonical.length >= 5 ? ` (${canonical.slice(3, 5)})` : ''
         toast({
           title: 'Envio via WhatsApp iniciado',
-          description: `A conversa com +55 (${telNormalizado.slice(2, 4)}) foi aberta e a ação foi auditada.`,
+          description: `A conversa com +55${dddDesc} foi aberta e a ação foi auditada.`,
         })
 
         if (onEnvioConcluido) onEnvioConcluido()

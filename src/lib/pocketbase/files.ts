@@ -1,4 +1,4 @@
-import { pb } from '@/lib/pocketbase/client'
+import pb from '@/lib/pocketbase/client'
 
 /**
  * Módulo seguro de geração e download de arquivos protegidos via PocketBase File Token.

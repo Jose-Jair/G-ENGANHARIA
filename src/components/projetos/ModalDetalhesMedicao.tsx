@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { MedicaoRecord } from '@/types'
+import { openProtectedFile } from '@/lib/pocketbase/files'
 import { medicoesService } from '@/services/medicoes'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
 import { toast } from '@/hooks/use-toast'
@@ -379,7 +380,6 @@ export function ModalDetalhesMedicao({
             ) : (
               <div className="space-y-1 max-h-32 overflow-y-auto">
                 {medicao.anexos.map((fileName, idx) => {
-                  const url = medicoesService.getAnexoUrl(medicao, fileName)
                   return (
                     <div
                       key={idx}
@@ -393,13 +393,11 @@ export function ModalDetalhesMedicao({
                         type="button"
                         variant="outline"
                         size="sm"
-                        asChild
-                        className="h-6 text-[10px] px-2 text-slate-700"
+                        onClick={() => openProtectedFile(medicao, fileName)}
+                        className="h-6 text-[10px] px-2 text-slate-700 cursor-pointer"
                       >
-                        <a href={url} target="_blank" rel="noopener noreferrer">
-                          <Download className="w-3 h-3 mr-1" />
-                          Baixar
-                        </a>
+                        <Download className="w-3 h-3 mr-1" />
+                        Baixar
                       </Button>
                     </div>
                   )

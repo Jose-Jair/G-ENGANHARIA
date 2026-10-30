@@ -208,9 +208,10 @@ export function ModalEnviarContratoWhatsApp({
     const waUrl = buildWaMeUrl(telefone, mensagem)
     window.open(waUrl, '_blank', 'noopener,noreferrer')
 
+    const dddDesc = canonical.length >= 5 ? ` (${canonical.slice(3, 5)})` : ''
     toast({
       title: 'WhatsApp aberto!',
-      description: `Conversa iniciada com +55 (${telNormalizado.slice(2, 4)}).`,
+      description: `Conversa iniciada com +55${dddDesc}.`,
     })
 
     if (onEnvioConcluido) {

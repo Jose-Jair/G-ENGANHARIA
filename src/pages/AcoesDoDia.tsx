@@ -34,6 +34,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
   AlertTriangle,
+  AlertOctagon,
   Clock,
   Mail,
   MessageSquare,
@@ -74,6 +75,8 @@ export default function AcoesDoDiaPage() {
     ExecutorComMetricas[]
   >([])
   const [entregaveisAtrasados, setEntregaveisAtrasados] = useState<any[]>([])
+  const [cotacoesVencidas, setCotacoesVencidas] = useState<any[]>([])
+  const [pacotesSemElegiveis, setPacotesSemElegiveis] = useState<any[]>([])
 
   // Filtros de tela
   const [busca, setBusca] = useState('')
@@ -179,6 +182,30 @@ export default function AcoesDoDiaPage() {
           sort: 'prazo',
         })
         setEntregaveisAtrasados(entsVencidos)
+      } catch {
+        /* ignore */
+      }
+
+      // 8. Cotação Automática: Cotações vencidas sem resposta (status=expirada ou status=convite_enviado com prazo expirado)
+      try {
+        const agoraIso = new Date().toISOString()
+        const cots = await pb.collection('cotacoes').getFullList({
+          filter: `(status = 'expirada' || (status = 'convite_enviado' && data_limite_resposta != '' && data_limite_resposta < '${agoraIso}'))`,
+          expand: 'pacote,etapa,prestador,projeto',
+          sort: '-created',
+        })
+        setCotacoesVencidas(cots)
+      } catch {
+        /* ignore */
+      }
+
+      // 9. Cotação Automática: Pacotes externos sem prestadores elegíveis (audit_logs com acao='COTACAO_AUTOMATICA_SEM_ELEGIVEIS')
+      try {
+        const logsSemElegiveis = await pb.collection('audit_logs').getFullList({
+          filter: "acao = 'COTACAO_AUTOMATICA_SEM_ELEGIVEIS'",
+          sort: '-created',
+        })
+        setPacotesSemElegiveis(logsSemElegiveis)
       } catch {
         /* ignore */
       }
@@ -476,6 +503,153 @@ export default function AcoesDoDiaPage() {
           </Button>
         </div>
       </div>
+
+      {/* Seção Cotações Automáticas — Alertas: Vencidas sem Resposta e Sem Elegíveis */}
+      {cotacoesVencidas.length > 0 && (
+        <div className="p-4 rounded-xl border border-rose-300 bg-rose-50/95 text-rose-950 flex items-start gap-3 shadow-xs">
+          <AlertOctagon className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+          <div className="flex-1 text-xs">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+              <strong className="text-sm font-bold text-rose-900 block">
+                Cotações automáticas expiradas sem resposta ({cotacoesVencidas.length})
+              </strong>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate('/projetos')}
+                className="h-6 text-[11px] border-rose-400 text-rose-900 hover:bg-rose-100"
+              >
+                Abrir Projetos e Pacotes &rarr;
+              </Button>
+            </div>
+            <p className="text-rose-800 leading-relaxed">
+              O prazo limite para envio de proposta pelos prestadores convidados expirou. Verifique
+              o pacote de trabalho para convidar novos parceiros ou redefinir a estratégia de
+              contratação:
+            </p>
+            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              {cotacoesVencidas.map((cot) => {
+                const pacoteId =
+                  cot.pacote || cot.etapa || cot.expand?.pacote?.id || cot.expand?.etapa?.id
+                const projetoId =
+                  cot.projeto || cot.expand?.pacote?.projeto || cot.expand?.projeto?.id
+                const projetoCodigo =
+                  cot.expand?.projeto?.codigo ||
+                  cot.expand?.pacote?.expand?.projeto?.codigo ||
+                  'PRJ'
+                const pacoteNome =
+                  cot.expand?.pacote?.nome || cot.expand?.etapa?.nome || 'Pacote de Trabalho'
+                const prestadorNome = cot.expand?.prestador?.nome || 'Prestador Convidado'
+
+                return (
+                  <div
+                    key={cot.id}
+                    onClick={() => {
+                      if (projetoId) {
+                        navigate(`/projetos?id=${projetoId}`)
+                      } else {
+                        navigate('/projetos')
+                      }
+                    }}
+                    className="p-2.5 rounded-lg border border-rose-200 bg-white hover:border-rose-400 hover:shadow-xs transition-all flex flex-col justify-between gap-1 shadow-2xs cursor-pointer"
+                    title="Clique para abrir o projeto correspondente"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-bold text-slate-800 line-clamp-1 hover:text-rose-700">
+                          {pacoteNome}
+                        </span>
+                        <span className="text-[10px] text-blue-600 underline font-medium">
+                          {projetoCodigo}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-600 block truncate mt-0.5">
+                        Prestador: <strong>{prestadorNome}</strong>
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] mt-1 pt-1 border-t border-rose-100">
+                      <span className="text-rose-700 font-bold">
+                        Venceu em:{' '}
+                        {cot.data_limite_resposta
+                          ? formatDateBr(cot.data_limite_resposta)
+                          : cot.data_limite
+                            ? formatDateBr(cot.data_limite)
+                            : 'Prazo esgotado'}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] capitalize border-rose-300 bg-rose-50 text-rose-800"
+                      >
+                        Expirada
+                      </Badge>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pacotesSemElegiveis.length > 0 && (
+        <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/95 text-amber-950 flex items-start gap-3 shadow-xs">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex-1 text-xs">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+              <strong className="text-sm font-bold text-amber-900 block">
+                Pacotes externos sem prestadores elegíveis ({pacotesSemElegiveis.length})
+              </strong>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate('/prestadores')}
+                className="h-6 text-[11px] border-amber-400 text-amber-900 hover:bg-amber-100"
+              >
+                Cadastrar / Regularizar Prestadores &rarr;
+              </Button>
+            </div>
+            <p className="text-amber-800 leading-relaxed">
+              O sistema disparou cotação automática para pacotes marcados como EXTERNOS, porém
+              nenhum prestador homologado cumpriu todos os critérios (disciplina compatível,
+              conselho de classe válido, capacidade simultânea livre e Contrato-Mestre assinado):
+            </p>
+            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              {pacotesSemElegiveis.map((log) => {
+                const det = log.detalhes || {}
+                return (
+                  <div
+                    key={log.id}
+                    onClick={() => navigate('/projetos')}
+                    className="p-2.5 rounded-lg border border-amber-200 bg-white hover:border-amber-400 hover:shadow-xs transition-all flex flex-col justify-between gap-1 shadow-2xs cursor-pointer"
+                    title="Clique para ir à tela de projetos"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-bold text-slate-800 line-clamp-1">
+                          {det.pacote_nome || 'Pacote Externo'}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] bg-amber-50 text-amber-800 border-amber-300"
+                        >
+                          {det.disciplina || 'Engenharia'}
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-slate-600 line-clamp-2 mt-1">
+                        {det.aviso || 'Nenhum prestador cumpriu os 4 critérios de elegibilidade.'}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] mt-1 pt-1 border-t border-amber-100 text-slate-500">
+                      <span>Data: {formatDateBr(log.created)}</span>
+                      <span className="text-blue-600 font-medium">Ver pacotes &rarr;</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Requisito 8: Alerta de Entregáveis em Atraso */}
       {entregaveisAtrasados.length > 0 && (

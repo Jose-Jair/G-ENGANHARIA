@@ -36,7 +36,10 @@ import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
 import { sugestoesPrestadoresService } from '@/services/cadeiaContratosProjetos'
 import { geradorPacotesContratoService } from '@/services/geradorPacotesContrato'
-import { SugestaoPrestadorItem } from '@/types'
+import { SugestaoPrestadorItem, CotacaoRecord } from '@/types'
+import { ModalRankingCotacoes } from '@/components/projetos/ModalRankingCotacoes'
+import { pb } from '@/lib/pocketbase/client'
+import { Award, Users, AlertOctagon } from 'lucide-react'
 
 interface PacotesTrabalhoTabProps {
   projeto: ProjetoRecord
@@ -80,6 +83,70 @@ export const PacotesTrabalhoTab: React.FC<PacotesTrabalhoTabProps> = ({
 
   // Botão gerar pacotes de contrato já assinado
   const [gerandoPacotes, setGerandoPacotes] = useState(false)
+
+  // Cotação Automática & Ranking
+  const [modalRankingAberto, setModalRankingAberto] = useState(false)
+  const [pacoteRanking, setPacoteRanking] = useState<ProjetoEtapaRecord | null>(null)
+  const [cotacoesPorPacote, setCotacoesPorPacote] = useState<Record<string, CotacaoRecord[]>>({})
+  const [marcandoExternoId, setMarcandoExternoId] = useState<string | null>(null)
+
+  // Carregar cotações de todos os pacotes
+  const carregarCotacoesPacotes = async () => {
+    if (pacotes.length === 0) return
+    try {
+      const pacoteIds = pacotes.map((p) => p.id)
+      const filter = pacoteIds.map((id) => `pacote = '${id}' || etapa = '${id}'`).join(' || ')
+      const records = await pb.collection('cotacoes').getFullList<CotacaoRecord>({
+        filter,
+        sort: '-created',
+        expand: 'prestador',
+      })
+
+      const map: Record<string, CotacaoRecord[]> = {}
+      for (const c of records) {
+        const pId = c.pacote || c.etapa
+        if (pId) {
+          if (!map[pId]) map[pId] = []
+          map[pId].push(c)
+        }
+      }
+      setCotacoesPorPacote(map)
+    } catch (err) {
+      console.warn('Erro ao carregar cotações dos pacotes:', err)
+    }
+  }
+
+  useEffect(() => {
+    carregarCotacoesPacotes()
+  }, [pacotes.map((p) => p.id).join(',')])
+
+  const handleMarcarExterno = async (pacote: ProjetoEtapaRecord) => {
+    setMarcandoExternoId(pacote.id)
+    try {
+      await pb.collection('projeto_etapas').update(pacote.id, {
+        tipo_execucao: 'terceirizada',
+      })
+      toast({
+        title: 'Cotação Automática Disparada!',
+        description: `O pacote "${pacote.nome}" foi definido como EXTERNO. Prestadores elegíveis foram convidados automaticamente pelo servidor.`,
+      })
+      await carregarCotacoesPacotes()
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao marcar pacote como externo',
+        description: err?.message || 'Falha ao atualizar modo de execução no servidor.',
+        variant: 'destructive',
+      })
+    } finally {
+      setMarcandoExternoId(null)
+    }
+  }
+
+  const abrirRankingParaPacote = (pacote: ProjetoEtapaRecord) => {
+    setPacoteRanking(pacote)
+    setModalRankingAberto(true)
+  }
 
   // Selecionar primeiro pacote caso nenhum esteja selecionado
   useEffect(() => {
@@ -355,14 +422,53 @@ export const PacotesTrabalhoTab: React.FC<PacotesTrabalhoTabProps> = ({
                         </div>
 
                         {canEdit && (
-                          <Button
-                            size="sm"
-                            onClick={() => abrirSugestoesParaPacote(pacote)}
-                            className="bg-[#D95A2B] hover:bg-[#c44e24] text-white text-xs gap-1.5 h-8 font-medium shadow-sm shrink-0"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 text-orange-200" />
-                            Sugestões de Prestadores
-                          </Button>
+                          <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                            {/* Botão de Marcar como Externo quando ainda não é terceirizada/externo */}
+                            {pacote.tipo_execucao !== 'terceirizada' &&
+                              !pacote.ordem_servico_ativa && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleMarcarExterno(pacote)}
+                                  disabled={marcandoExternoId === pacote.id}
+                                  className="border-[#D95A2B] text-[#D95A2B] hover:bg-orange-50 text-xs gap-1.5 h-8 font-medium shadow-xs"
+                                  title="Dispara a concorrência automática para prestadores homologados"
+                                >
+                                  {marcandoExternoId === pacote.id ? (
+                                    <>
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      Disparando cotações...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Users className="w-3.5 h-3.5" />
+                                      Marcar EXTERNO & Cotar
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+
+                            {/* Botão de Ranking de Propostas (Abre modal de scores e escolha) */}
+                            <Button
+                              size="sm"
+                              onClick={() => abrirRankingParaPacote(pacote)}
+                              className="bg-[#1E2A4A] hover:bg-[#151e36] text-white text-xs gap-1.5 h-8 font-medium shadow-xs"
+                            >
+                              <Award className="w-3.5 h-3.5 text-orange-400" />
+                              Ranking de Propostas
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => abrirSugestoesParaPacote(pacote)}
+                              className="text-slate-600 hover:text-slate-900 text-xs gap-1 h-8"
+                              title="Ver prestadores sugeridos por ranking simples"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-[#D95A2B]" />
+                              Sugestões
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </CardHeader>
@@ -395,6 +501,151 @@ export const PacotesTrabalhoTab: React.FC<PacotesTrabalhoTabProps> = ({
                           </span>
                         </div>
                       </div>
+
+                      {/* PAINEL DE COTAÇÃO AUTOMÁTICA DO PACOTE */}
+                      {(() => {
+                        const cotsDoPacote = cotacoesPorPacote[pacote.id] || []
+                        const isExterno =
+                          pacote.tipo_execucao === 'terceirizada' || cotsDoPacote.length > 0
+                        const respondidas = cotsDoPacote.filter(
+                          (c) =>
+                            c.status === 'respondida' || (c.preco_ofertado && c.preco_ofertado > 0),
+                        )
+                        const expiradas = cotsDoPacote.filter((c) => c.status === 'expirada')
+                        const convidadas = cotsDoPacote.filter(
+                          (c) => c.status === 'convite_enviado',
+                        )
+                        const escolhida = cotsDoPacote.find(
+                          (c) => c.escolhida || c.status === 'escolhida',
+                        )
+                        const dataLimiteIso =
+                          cotsDoPacote[0]?.data_limite_resposta || cotsDoPacote[0]?.data_limite
+
+                        if (!isExterno && cotsDoPacote.length === 0) {
+                          return null
+                        }
+
+                        return (
+                          <div className="mt-3 p-3 rounded-lg border border-orange-200 bg-orange-50/40 space-y-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge className="bg-[#D95A2B] text-white text-[10px] font-semibold gap-1">
+                                  <Users className="w-3 h-3" />
+                                  Cotação Automática Aberta
+                                </Badge>
+
+                                {escolhida ? (
+                                  <Badge className="bg-emerald-600 text-white text-[10px] gap-1">
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    Encerrada (Proposta Escolhida)
+                                  </Badge>
+                                ) : convidadas.length > 0 ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] gap-1"
+                                  >
+                                    <Clock className="w-3 h-3 text-amber-600" />
+                                    Aguardando Respostas ({respondidas.length}/{cotsDoPacote.length}
+                                    )
+                                  </Badge>
+                                ) : expiradas.length === cotsDoPacote.length &&
+                                  cotsDoPacote.length > 0 ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-rose-50 text-rose-800 border-rose-300 text-[10px] gap-1"
+                                  >
+                                    <AlertOctagon className="w-3 h-3 text-rose-600" />
+                                    Encerrada por Expiração
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-slate-100 text-slate-700 text-[10px]"
+                                  >
+                                    Status: {cotsDoPacote[0]?.status || 'Ativa'}
+                                  </Badge>
+                                )}
+
+                                {dataLimiteIso && (
+                                  <span className="text-[11px] text-slate-600 flex items-center gap-1 font-medium">
+                                    <Clock className="w-3 h-3 text-slate-400" />
+                                    Data-limite: <strong>{formatDateBr(dataLimiteIso)}</strong>
+                                  </span>
+                                )}
+                              </div>
+
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => abrirRankingParaPacote(pacote)}
+                                className="h-7 text-xs bg-white text-slate-800 hover:text-[#D95A2B] border-orange-200 hover:border-orange-300 gap-1"
+                              >
+                                <Award className="w-3 h-3 text-[#D95A2B]" />
+                                Ver Ranking ({cotsDoPacote.length})
+                              </Button>
+                            </div>
+
+                            {/* Detalhe dos prestadores convidados */}
+                            {cotsDoPacote.length === 0 ? (
+                              <div className="p-2 bg-amber-50 rounded border border-amber-200 text-[11px] text-amber-900 flex items-center gap-1.5">
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span>
+                                  Pacote marcado como EXTERNO, mas não foram encontrados prestadores
+                                  elegíveis. O aviso foi encaminhado à{' '}
+                                  <strong>Central de Ações do Dia</strong>.
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+                                <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider shrink-0">
+                                  Convidados:
+                                </span>
+                                {cotsDoPacote.map((c) => {
+                                  const nomePrest =
+                                    c.expand?.prestador?.nome || 'Prestador Convidado'
+                                  const foiRespondida =
+                                    c.status === 'respondida' ||
+                                    (c.preco_ofertado && c.preco_ofertado > 0)
+                                  const foiEscolhida = c.escolhida || c.status === 'escolhida'
+                                  const foiExpirada = c.status === 'expirada'
+
+                                  return (
+                                    <span
+                                      key={c.id}
+                                      className={`text-[10px] px-2 py-0.5 rounded border font-medium flex items-center gap-1 shrink-0 ${
+                                        foiEscolhida
+                                          ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                                          : foiRespondida
+                                            ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                            : foiExpirada
+                                              ? 'bg-rose-50 text-rose-800 border-rose-200 line-through'
+                                              : 'bg-white text-slate-700 border-slate-200'
+                                      }`}
+                                    >
+                                      {nomePrest}
+                                      {foiEscolhida && (
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                      )}
+                                      {foiRespondida && !foiEscolhida && (
+                                        <span className="text-blue-700 font-bold">
+                                          ({formatCurrencyBr(c.preco_ofertado || 0)})
+                                        </span>
+                                      )}
+                                    </span>
+                                  )
+                                })}
+                              </div>
+                            )}
+
+                            {expiradas.length > 0 && !escolhida && (
+                              <p className="text-[10px] text-rose-700 italic pt-0.5">
+                                Aviso: {expiradas.length} convite(s) expirado(s) sem envio de
+                                proposta.
+                              </p>
+                            )}
+                          </div>
+                        )
+                      })()}
 
                       {entsDoPacote.length > 0 && (
                         <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between">
@@ -739,6 +990,17 @@ export const PacotesTrabalhoTab: React.FC<PacotesTrabalhoTabProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL 3: RANKING DE COTAÇÕES ALGORÍTMICO */}
+      <ModalRankingCotacoes
+        open={modalRankingAberto}
+        onOpenChange={setModalRankingAberto}
+        pacote={pacoteRanking}
+        onSuccess={() => {
+          carregarCotacoesPacotes()
+          onRefresh()
+        }}
+      />
     </div>
   )
 }

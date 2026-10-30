@@ -1074,30 +1074,62 @@ export default function AdministracaoPage() {
                         </td>
                       </tr>
                     ) : (
-                      parametrosList.map((param) => (
-                        <tr key={param.id} className="hover:bg-slate-50/80">
-                          <td className="py-3 px-4 font-mono font-semibold text-blue-900">
-                            {param.chave}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="px-2 py-1 bg-slate-100 border border-slate-300 rounded font-mono text-slate-800 font-medium">
-                              {param.valor}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-slate-600 max-w-md">{param.descricao}</td>
-                          <td className="py-3 px-4 text-right">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEditParam(param)}
-                              className="h-7 text-xs gap-1"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                              Editar
-                            </Button>
-                          </td>
-                        </tr>
-                      ))
+                      parametrosList.map((param) => {
+                        // Mapeamento amigável para os parâmetros da cotação automática e do sistema
+                        const rotulosAmigaveis: Record<string, { titulo: string; badge?: string }> =
+                          {
+                            prazo_resposta_cotacao_dias: {
+                              titulo: 'Prazo de resposta da cotação (dias)',
+                              badge: 'Cotação Automática',
+                            },
+                            antecedencia_lembrete_cotacao_dias: {
+                              titulo: 'Lembrete automático (dias antes do vencimento)',
+                              badge: 'Cotação Automática',
+                            },
+                            max_convidados_cotacao: {
+                              titulo: 'Máximo de convidados por cotação',
+                              badge: 'Cotação Automática',
+                            },
+                          }
+                        const infoAmigavel = rotulosAmigaveis[param.chave]
+
+                        return (
+                          <tr key={param.id} className="hover:bg-slate-50/80">
+                            <td className="py-3 px-4">
+                              <div className="font-semibold text-slate-900 text-xs">
+                                {infoAmigavel?.titulo || param.chave}
+                              </div>
+                              <div className="font-mono text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+                                <span>{param.chave}</span>
+                                {infoAmigavel?.badge && (
+                                  <span className="px-1.5 py-0.2 bg-orange-50 text-[#D95A2B] border border-orange-200 rounded text-[9px] font-sans font-semibold">
+                                    {infoAmigavel.badge}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="px-2 py-1 bg-slate-100 border border-slate-300 rounded font-mono text-slate-800 font-bold text-xs">
+                                {param.valor}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-slate-600 max-w-md text-xs">
+                              {param.descricao}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditParam(param)}
+                                className="h-7 text-xs gap-1"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                                Editar
+                              </Button>
+                            </td>
+                          </tr>
+                        )
+                      })
                     )}
                   </tbody>
                 </table>
@@ -1513,11 +1545,20 @@ export default function AdministracaoPage() {
           {editingParam && (
             <div className="space-y-3">
               <div className="space-y-1">
-                <Label className="text-xs">Chave</Label>
+                <Label className="text-xs">Parâmetro</Label>
+                <div className="text-xs font-semibold text-slate-900 pb-0.5">
+                  {editingParam.chave === 'prazo_resposta_cotacao_dias'
+                    ? 'Prazo de resposta da cotação (dias)'
+                    : editingParam.chave === 'antecedencia_lembrete_cotacao_dias'
+                      ? 'Lembrete automático (dias antes do vencimento)'
+                      : editingParam.chave === 'max_convidados_cotacao'
+                        ? 'Máximo de convidados por cotação'
+                        : editingParam.chave}
+                </div>
                 <Input
                   value={editingParam.chave}
                   disabled
-                  className="text-xs font-mono bg-slate-100 h-9"
+                  className="text-xs font-mono bg-slate-100 h-8 text-slate-500"
                 />
               </div>
 

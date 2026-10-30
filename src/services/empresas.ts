@@ -45,6 +45,10 @@ export interface CreateEmpresaData {
   proxima_acao_desc?: string
   observacoes?: string
   pre_cadastro?: boolean
+  tipo_cliente?: 'pj' | 'pf'
+  cliente_pf_ref?: string
+  is_parceira?: boolean
+  data_selo_parceira?: string
 }
 
 export const empresasService = {

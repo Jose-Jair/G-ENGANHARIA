@@ -146,18 +146,100 @@ export const clientesPfService = {
       })
     }
 
+    // Sincronização não-destrutiva com o Fluxo Unificado de Clientes (coleção empresas com tipo_cliente='pf')
+    try {
+      const espelhoExistente = await pb.collection('empresas').getList(1, 1, {
+        filter: `cliente_pf_ref = '${record.id}' || cnpj = '${rawClean}'`,
+      })
+      if (espelhoExistente.items.length === 0) {
+        await pb.collection('empresas').create({
+          razao_social: record.nome,
+          nome_fantasia: record.nome,
+          cnpj: rawClean || `PF-${record.id}`,
+          email: record.email || '',
+          telefone: telefonePrincipal || '',
+          telefones: record.telefones || [],
+          cep: record.cep || '',
+          logradouro: record.logradouro || '',
+          numero: record.numero || '',
+          complemento: record.complemento || '',
+          bairro: record.bairro || '',
+          municipio: record.municipio || '',
+          uf: record.uf || '',
+          tipo_cliente: 'pf',
+          cliente_pf_ref: record.id,
+          etapa_funil: 'qualificada',
+          curva: 'C',
+          score: 50,
+          status: 'ativa',
+          pre_cadastro: Boolean(record.pre_cadastro),
+          observacoes: record.observacoes
+            ? `[Cliente PF]: ${record.observacoes}`
+            : '[Cliente PF Unificado]',
+        })
+      } else {
+        const item = espelhoExistente.items[0]
+        await pb.collection('empresas').update(item.id, {
+          tipo_cliente: 'pf',
+          cliente_pf_ref: record.id,
+          razao_social: record.nome,
+          nome_fantasia: record.nome,
+          email: record.email || item.email,
+          telefone: telefonePrincipal || item.telefone,
+        })
+      }
+    } catch (eEspelho) {
+      console.warn(
+        '[clientesPfService] Aviso ao sincronizar espelho unificado em empresas:',
+        eEspelho,
+      )
+    }
+
     return record
   },
 
   /**
-   * Atualiza dados de cliente PF
+   * Atualiza dados de cliente PF e sincroniza espelho no fluxo unificado
    */
   async update(id: string, dados: UpdateClientePfData): Promise<ClientePfRecord> {
     const payload: Record<string, unknown> = { ...dados }
     if (dados.telefones && dados.telefones.length > 0 && !dados.telefone) {
       payload.telefone = dados.telefones[0].numero
     }
-    return await pb.collection('clientes_pf').update<ClientePfRecord>(id, payload)
+    const updated = await pb.collection('clientes_pf').update<ClientePfRecord>(id, payload)
+
+    // Sincroniza atualização no espelho de empresas
+    try {
+      const espelhos = await pb.collection('empresas').getList(1, 1, {
+        filter: `cliente_pf_ref = '${id}'`,
+      })
+      if (espelhos.items.length > 0) {
+        const espelho = espelhos.items[0]
+        const updateEspelhoPayload: Record<string, unknown> = {}
+        if (dados.nome) {
+          updateEspelhoPayload.razao_social = dados.nome
+          updateEspelhoPayload.nome_fantasia = dados.nome
+        }
+        if (dados.email !== undefined) updateEspelhoPayload.email = dados.email
+        if (dados.telefone !== undefined) updateEspelhoPayload.telefone = dados.telefone
+        if (dados.telefones) updateEspelhoPayload.telefones = dados.telefones
+        if (dados.cep !== undefined) updateEspelhoPayload.cep = dados.cep
+        if (dados.logradouro !== undefined) updateEspelhoPayload.logradouro = dados.logradouro
+        if (dados.numero !== undefined) updateEspelhoPayload.numero = dados.numero
+        if (dados.complemento !== undefined) updateEspelhoPayload.complemento = dados.complemento
+        if (dados.bairro !== undefined) updateEspelhoPayload.bairro = dados.bairro
+        if (dados.municipio !== undefined) updateEspelhoPayload.municipio = dados.municipio
+        if (dados.uf !== undefined) updateEspelhoPayload.uf = dados.uf
+        if (dados.pre_cadastro !== undefined) updateEspelhoPayload.pre_cadastro = dados.pre_cadastro
+        if (Object.keys(updateEspelhoPayload).length > 0) {
+          await pb.collection('empresas').update(espelho.id, updateEspelhoPayload)
+        }
+      }
+    } catch (eSync) {
+      console.warn('[clientesPfService] Aviso ao sincronizar atualização no espelho:', eSync)
+    }
+
+    return updated
   },
 
   /**

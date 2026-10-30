@@ -26,7 +26,8 @@ import { ModalCriarClientePf } from '@/components/clientesPf/ModalCriarClientePf
 import { ClientePfDetailModal } from '@/components/clientesPf/ClientePfDetailModal'
 import { ModalExcluirAnonimizarClientePf } from '@/components/clientesPf/ModalExcluirAnonimizarClientePf'
 import { parceirosService } from '@/services/parceiros'
-import { Trash2 } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Building2, Trash2 } from 'lucide-react'
 
 export function ClientesPfPage() {
   const { user } = useAuth()
@@ -34,6 +35,7 @@ export function ClientesPfPage() {
   const isComercial = user?.role === 'comercial'
   const podeVerPreCadastros = isAdmin || isComercial
 
+  const navigate = useNavigate()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [clientes, setClientes] = useState<ClientePfComMetricas[]>([])
@@ -142,6 +144,17 @@ export function ClientesPfPage() {
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
+            asChild
+            className="text-xs gap-1.5 shrink-0 text-slate-700 hover:text-blue-700 hover:border-blue-300"
+          >
+            <Link to="/empresas">
+              <Building2 className="w-4 h-4 text-slate-500" />
+              Ver no Fluxo Unificado
+            </Link>
+          </Button>
+
+          <Button
+            variant="outline"
             onClick={async () => {
               if (clientesFiltrados.length === 0) {
                 toast({
@@ -205,13 +218,39 @@ export function ClientesPfPage() {
           {canWrite && (
             <Button
               onClick={() => setShowCreateModal(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-xs gap-1.5 shrink-0"
+              className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs gap-1.5 shrink-0 shadow-sm"
             >
               <Plus className="w-4 h-4" />
               Novo Cliente PF
             </Button>
           )}
         </div>
+      </div>
+
+      {/* Banner Informativo do Fluxo Unificado de Clientes */}
+      <div className="bg-orange-50/70 border border-orange-200 rounded-lg p-3 text-xs text-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Building2 className="w-4 h-4 text-[#D95A2B] shrink-0" />
+          <span>
+            <strong>Fluxo Unificado de Clientes:</strong> Clientes PF cadastrados aqui ou em
+            propostas são automaticamente integrados ao fluxo unificado de clientes em{' '}
+            <Link
+              to="/empresas"
+              className="text-[#D95A2B] font-semibold underline hover:text-[#C44E22]"
+            >
+              Empresas & Clientes
+            </Link>
+            , permitindo busca por CPF, classificação e histórico sem quebra de registros.
+          </span>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => navigate('/empresas')}
+          className="h-7 text-xs border-orange-300 text-[#D95A2B] hover:bg-orange-100 shrink-0"
+        >
+          Acessar Fluxo Unificado →
+        </Button>
       </div>
 
       {/* Cards de Métricas Principais (B) */}

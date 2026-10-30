@@ -1735,12 +1735,20 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
 
           const novaEtapa = new Record(etapasCol)
           novaEtapa.set('projeto', prjParaItem.id)
-          novaEtapa.set('nome', 'Etapa: ' + (areaNome || item.descricao))
+          novaEtapa.set('nome', 'Pacote: ' + (areaNome || item.descricao))
           novaEtapa.set('disciplina', item.disciplina || 'Geral')
           novaEtapa.set('ordem', 1)
           novaEtapa.set('tipo_execucao', 'direta')
-          novaEtapa.set('status', 'nao_iniciada')
+          novaEtapa.set('status', 'atribuido')
           novaEtapa.set('custo_estimado', item.custo || 0)
+          novaEtapa.set('is_pacote_trabalho', true)
+          novaEtapa.set('is_marco', false)
+          novaEtapa.set('valor_interno_referencia', item.custo || 0)
+          novaEtapa.set('valor_vendido', item.valor || 0)
+          novaEtapa.set('escopo_detalhado', item.descricao || '')
+          if (item.id) {
+            novaEtapa.set('proposta_item_origem', item.id)
+          }
 
           let desc = 'Subserviços contemplados: '
           if (Array.isArray(item.subservicos) && item.subservicos.length > 0) {
@@ -1755,6 +1763,12 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
             novaEtapa.set('area', item.area)
           }
 
+          // Prazo de referência do pacote (baseado no prazo do contrato ou 30 dias)
+          const prazoDiasContrato = rec.getInt('prazo_dias') || 30
+          const dtPrazoPacote = new Date()
+          dtPrazoPacote.setDate(dtPrazoPacote.getDate() + prazoDiasContrato)
+          novaEtapa.set('prazo', dtPrazoPacote.toISOString().substring(0, 10) + ' 12:00:00.000Z')
+
           $app.save(novaEtapa)
 
           if (item.record) {
@@ -1764,31 +1778,86 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
             } catch (_) {}
           }
 
-          if (item.area) {
+          // Buscar entregáveis baseados no catálogo de escopos da disciplina
+          let entregaveisDoEscopo = []
+          try {
+            const escoposFiltro = $app.findRecordsByFilter(
+              'catalogo_escopos',
+              "disciplina = '" +
+                (item.disciplina || '').replace(/'/g, "''") +
+                "' || nome = '" +
+                (areaNome || '').replace(/'/g, "''") +
+                "'",
+              '',
+              1,
+              0,
+            )
+            if (escoposFiltro.length > 0) {
+              const escopoRec = escoposFiltro[0]
+              const pdr = escopoRec.get('entregaveis_padrao')
+              if (Array.isArray(pdr)) {
+                entregaveisDoEscopo = pdr
+              }
+            }
+          } catch (_) {}
+
+          if (entregaveisDoEscopo.length === 0 && item.area) {
             try {
-              const entregaveisPadrao = $app.findRecordsByFilter(
+              const entregaveisAreaDb = $app.findRecordsByFilter(
                 'entregaveis_padrao',
                 "area = '" + item.area + "' && ativo = true",
                 'ordem',
                 30,
                 0,
               )
-              for (let ep = 0; ep < entregaveisPadrao.length; ep++) {
-                try {
-                  const novoEntregavel = new Record(entregaveisCol)
-                  novoEntregavel.set('etapa', novaEtapa.id)
-                  novoEntregavel.set('nome', entregaveisPadrao[ep].getString('nome'))
-                  novoEntregavel.set('versao', 'v1.0')
-                  novoEntregavel.set('status', 'pendente')
-                  novoEntregavel.set(
-                    'descricao',
-                    entregaveisPadrao[ep].getString('descricao') ||
-                      'Entregável técnico padrão da disciplina ' + item.disciplina,
-                  )
-                  $app.save(novoEntregavel)
-                } catch (_) {}
+              for (let ep = 0; ep < entregaveisAreaDb.length; ep++) {
+                entregaveisDoEscopo.push({
+                  nome: entregaveisAreaDb[ep].getString('nome'),
+                  descricao: entregaveisAreaDb[ep].getString('descricao'),
+                })
               }
             } catch (_) {}
+          }
+
+          if (entregaveisDoEscopo.length === 0) {
+            entregaveisDoEscopo = [
+              {
+                nome: 'Relatório e Memorial de ' + (item.disciplina || 'Engenharia'),
+                descricao: 'Memorial técnico descritivo e memória de cálculo',
+              },
+              {
+                nome: 'Pranchas e Desenhos Técnicos',
+                descricao: 'Plantas, cortes, detalhes e arquivos executivos',
+              },
+              {
+                nome: 'Anotação de Responsabilidade Técnica (ART/RRT)',
+                descricao: 'Registro de responsabilidade técnica perante o conselho de classe',
+              },
+            ]
+          }
+
+          for (let ep = 0; ep < entregaveisDoEscopo.length; ep++) {
+            try {
+              const entNome = entregaveisDoEscopo[ep].nome || 'Entregável ' + (ep + 1)
+              const entDesc =
+                entregaveisDoEscopo[ep].descricao ||
+                'Entregável técnico da disciplina ' + item.disciplina
+              const novoEntregavel = new Record(entregaveisCol)
+              novoEntregavel.set('etapa', novaEtapa.id)
+              novoEntregavel.set('nome', entNome)
+              novoEntregavel.set('titulo', entNome)
+              novoEntregavel.set('versao', 'v1.0')
+              novoEntregavel.set('versao_atual', 1)
+              novoEntregavel.set('status', 'atribuido')
+              novoEntregavel.set('descricao', entDesc)
+              novoEntregavel.set(
+                'prazo',
+                dtPrazoPacote.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+              )
+              $app.save(novoEntregavel)
+            } catch (errNovoEnt) {
+              console.log('Erro ao criar entregável para etapa: ' + errNovoEnt)
+            }
           }
         }
       } catch (errEtapaPrj) {
@@ -1904,6 +1973,52 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
               })
               $app.save(aRec)
             } catch (_) {}
+
+            // REQUISITO 2: Gerar um MARCO por cada parcela no projeto principal (idempotente)
+            if (projetoRefId) {
+              try {
+                const marcosExistentes = $app.findRecordsByFilter(
+                  'projeto_etapas',
+                  "projeto = '" + projetoRefId + "' && parcela_origem = '" + parc.id + "'",
+                  '',
+                  1,
+                  0,
+                )
+                if (marcosExistentes.length === 0) {
+                  const marcoEtapa = new Record(etapasCol)
+                  marcoEtapa.set('projeto', projetoRefId)
+                  marcoEtapa.set(
+                    'nome',
+                    'Marco Financeiro: Parcela ' + ordem + ' (' + descParc + ')',
+                  )
+                  marcoEtapa.set('disciplina', 'Marco Financeiro')
+                  marcoEtapa.set('ordem', 100 + ordem)
+                  marcoEtapa.set('tipo_execucao', 'direta')
+                  marcoEtapa.set('status', 'nao_iniciada')
+                  marcoEtapa.set('is_marco', true)
+                  marcoEtapa.set('is_pacote_trabalho', false)
+                  marcoEtapa.set('valor_vendido', valorParc)
+                  marcoEtapa.set('valor_interno_referencia', valorParc)
+                  marcoEtapa.set('parcela_origem', parc.id)
+                  marcoEtapa.set(
+                    'prazo',
+                    dataVenc.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+                  )
+                  marcoEtapa.set(
+                    'descricao',
+                    'Marco vinculado à parcela ' +
+                      ordem +
+                      ' do Contrato ' +
+                      contratoNumero +
+                      '. Gatilho: ' +
+                      gatilho,
+                  )
+                  $app.save(marcoEtapa)
+                }
+              } catch (eMarco) {
+                console.log('Erro ao criar marco da parcela ' + ordem + ': ' + eMarco)
+              }
+            }
           }
         } else {
           const novaConta = new Record(contasCol)
@@ -2721,12 +2836,20 @@ routerAdd(
 
             const novaEtapa = new Record(etapasCol)
             novaEtapa.set('projeto', prjParaItem.id)
-            novaEtapa.set('nome', 'Etapa: ' + (areaNome || item.descricao))
+            novaEtapa.set('nome', 'Pacote: ' + (areaNome || item.descricao))
             novaEtapa.set('disciplina', item.disciplina || 'Geral')
             novaEtapa.set('ordem', 1)
             novaEtapa.set('tipo_execucao', 'direta')
-            novaEtapa.set('status', 'nao_iniciada')
+            novaEtapa.set('status', 'atribuido')
             novaEtapa.set('custo_estimado', item.custo || 0)
+            novaEtapa.set('is_pacote_trabalho', true)
+            novaEtapa.set('is_marco', false)
+            novaEtapa.set('valor_interno_referencia', item.custo || 0)
+            novaEtapa.set('valor_vendido', item.valor || 0)
+            novaEtapa.set('escopo_detalhado', item.descricao || '')
+            if (item.id) {
+              novaEtapa.set('proposta_item_origem', item.id)
+            }
 
             let desc = 'Subserviços contemplados: '
             if (Array.isArray(item.subservicos) && item.subservicos.length > 0) {
@@ -2741,6 +2864,11 @@ routerAdd(
               novaEtapa.set('area', item.area)
             }
 
+            const prazoDiasContrato = rec.getInt('prazo_dias') || 30
+            const dtPrazoPacote = new Date()
+            dtPrazoPacote.setDate(dtPrazoPacote.getDate() + prazoDiasContrato)
+            novaEtapa.set('prazo', dtPrazoPacote.toISOString().substring(0, 10) + ' 12:00:00.000Z')
+
             $app.save(novaEtapa)
 
             if (item.record) {
@@ -2750,31 +2878,85 @@ routerAdd(
               } catch (_) {}
             }
 
-            if (item.area) {
+            let entregaveisDoEscopo = []
+            try {
+              const escoposFiltro = $app.findRecordsByFilter(
+                'catalogo_escopos',
+                "disciplina = '" +
+                  (item.disciplina || '').replace(/'/g, "''") +
+                  "' || nome = '" +
+                  (areaNome || '').replace(/'/g, "''") +
+                  "'",
+                '',
+                1,
+                0,
+              )
+              if (escoposFiltro.length > 0) {
+                const escopoRec = escoposFiltro[0]
+                const pdr = escopoRec.get('entregaveis_padrao')
+                if (Array.isArray(pdr)) {
+                  entregaveisDoEscopo = pdr
+                }
+              }
+            } catch (_) {}
+
+            if (entregaveisDoEscopo.length === 0 && item.area) {
               try {
-                const entregaveisPadrao = $app.findRecordsByFilter(
+                const entregaveisAreaDb = $app.findRecordsByFilter(
                   'entregaveis_padrao',
                   "area = '" + item.area + "' && ativo = true",
                   'ordem',
                   30,
                   0,
                 )
-                for (let ep = 0; ep < entregaveisPadrao.length; ep++) {
-                  try {
-                    const novoEntregavel = new Record(entregaveisCol)
-                    novoEntregavel.set('etapa', novaEtapa.id)
-                    novoEntregavel.set('nome', entregaveisPadrao[ep].getString('nome'))
-                    novoEntregavel.set('versao', 'v1.0')
-                    novoEntregavel.set('status', 'pendente')
-                    novoEntregavel.set(
-                      'descricao',
-                      entregaveisPadrao[ep].getString('descricao') ||
-                        'Entregável técnico padrão da disciplina ' + item.disciplina,
-                    )
-                    $app.save(novoEntregavel)
-                  } catch (_) {}
+                for (let ep = 0; ep < entregaveisAreaDb.length; ep++) {
+                  entregaveisDoEscopo.push({
+                    nome: entregaveisAreaDb[ep].getString('nome'),
+                    descricao: entregaveisAreaDb[ep].getString('descricao'),
+                  })
                 }
               } catch (_) {}
+            }
+
+            if (entregaveisDoEscopo.length === 0) {
+              entregaveisDoEscopo = [
+                {
+                  nome: 'Relatório e Memorial de ' + (item.disciplina || 'Engenharia'),
+                  descricao: 'Memorial técnico descritivo e memória de cálculo',
+                },
+                {
+                  nome: 'Pranchas e Desenhos Técnicos',
+                  descricao: 'Plantas, cortes, detalhes e arquivos executivos',
+                },
+                {
+                  nome: 'Anotação de Responsabilidade Técnica (ART/RRT)',
+                  descricao: 'Registro de responsabilidade técnica perante o conselho de classe',
+                },
+              ]
+            }
+
+            for (let ep = 0; ep < entregaveisDoEscopo.length; ep++) {
+              try {
+                const entNome = entregaveisDoEscopo[ep].nome || 'Entregável ' + (ep + 1)
+                const entDesc =
+                  entregaveisDoEscopo[ep].descricao ||
+                  'Entregável técnico da disciplina ' + item.disciplina
+                const novoEntregavel = new Record(entregaveisCol)
+                novoEntregavel.set('etapa', novaEtapa.id)
+                novoEntregavel.set('nome', entNome)
+                novoEntregavel.set('titulo', entNome)
+                novoEntregavel.set('versao', 'v1.0')
+                novoEntregavel.set('versao_atual', 1)
+                novoEntregavel.set('status', 'atribuido')
+                novoEntregavel.set('descricao', entDesc)
+                novoEntregavel.set(
+                  'prazo',
+                  dtPrazoPacote.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+                )
+                $app.save(novoEntregavel)
+              } catch (errNovoEnt) {
+                console.log('Erro ao criar entregável para etapa: ' + errNovoEnt)
+              }
             }
           }
         } catch (errEtapaPrj) {
@@ -2894,6 +3076,52 @@ routerAdd(
                 })
                 $app.save(aRec)
               } catch (_) {}
+
+              // REQUISITO 2: Gerar um MARCO por cada parcela no projeto principal (idempotente)
+              if (projetoRefId) {
+                try {
+                  const marcosExistentes = $app.findRecordsByFilter(
+                    'projeto_etapas',
+                    "projeto = '" + projetoRefId + "' && parcela_origem = '" + parc.id + "'",
+                    '',
+                    1,
+                    0,
+                  )
+                  if (marcosExistentes.length === 0) {
+                    const marcoEtapa = new Record(etapasCol)
+                    marcoEtapa.set('projeto', projetoRefId)
+                    marcoEtapa.set(
+                      'nome',
+                      'Marco Financeiro: Parcela ' + ordem + ' (' + descParc + ')',
+                    )
+                    marcoEtapa.set('disciplina', 'Marco Financeiro')
+                    marcoEtapa.set('ordem', 100 + ordem)
+                    marcoEtapa.set('tipo_execucao', 'direta')
+                    marcoEtapa.set('status', 'nao_iniciada')
+                    marcoEtapa.set('is_marco', true)
+                    marcoEtapa.set('is_pacote_trabalho', false)
+                    marcoEtapa.set('valor_vendido', valorParc)
+                    marcoEtapa.set('valor_interno_referencia', valorParc)
+                    marcoEtapa.set('parcela_origem', parc.id)
+                    marcoEtapa.set(
+                      'prazo',
+                      dataVenc.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+                    )
+                    marcoEtapa.set(
+                      'descricao',
+                      'Marco vinculado à parcela ' +
+                        ordem +
+                        ' do Contrato ' +
+                        contratoNumero +
+                        '. Gatilho: ' +
+                        gatilho,
+                    )
+                    $app.save(marcoEtapa)
+                  }
+                } catch (eMarco) {
+                  console.log('Erro ao criar marco da parcela ' + ordem + ': ' + eMarco)
+                }
+              }
             }
           } else {
             const novaConta = new Record(contasCol)

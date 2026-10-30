@@ -169,6 +169,125 @@ onRecordValidate((e) => {
     const orig = rec.original()
     const statusAntigo = orig ? orig.getString('status') : ''
 
+    // REQUISITO 4: TRAVA NO SERVIDOR (create e update)
+    // A soma dos valores das ordens de serviço EXTERNAS de uma disciplina no projeto não pode ultrapassar
+    // o valor vendido dessa disciplina (valor do item/disciplina na proposta/contrato) — bloquear com erro claro e auditado.
+    const tipoPrestadorAtual = rec.getString('tipo_prestador')
+    const projetoIdOS = rec.getString('projeto')
+    const disciplinaOS = rec.getString('disciplina')
+    const valorOSAtual = rec.getFloat('valor_os') || 0
+
+    if (tipoPrestadorAtual === 'externo' && projetoIdOS && disciplinaOS && valorOSAtual > 0) {
+      try {
+        let tetoVendidoDisciplina = 0
+
+        // 1. Verificar em projeto_etapas se há pacote desta disciplina com valor_vendido
+        const pacotesDisc = $app.findRecordsByFilter(
+          'projeto_etapas',
+          "projeto = '" +
+            projetoIdOS +
+            "' && disciplina = '" +
+            disciplinaOS.replace(/'/g, "''") +
+            "'",
+          '-valor_vendido',
+          10,
+          0,
+        )
+
+        for (let p = 0; p < pacotesDisc.length; p++) {
+          const valVend = pacotesDisc[p].getFloat('valor_vendido') || 0
+          if (valVend > 0) {
+            tetoVendidoDisciplina += valVend
+          }
+        }
+
+        // 2. Se não encontrou em pacotes, tentar buscar na proposta associada ao projeto
+        if (tetoVendidoDisciplina <= 0) {
+          try {
+            const prjRec = $app.findRecordById('projetos', projetoIdOS)
+            const propIdPrj = prjRec.getString('proposta')
+            if (propIdPrj) {
+              const itensProp = $app.findRecordsByFilter(
+                'proposta_itens',
+                "proposta = '" +
+                  propIdPrj +
+                  "' && disciplina = '" +
+                  disciplinaOS.replace(/'/g, "''") +
+                  "'",
+                '',
+                10,
+                0,
+              )
+              for (let it = 0; it < itensProp.length; it++) {
+                tetoVendidoDisciplina += itensProp[it].getFloat('valor') || 0
+              }
+            }
+          } catch (_) {}
+        }
+
+        // Se determinamos um teto vendido positivo, validar a soma
+        if (tetoVendidoDisciplina > 0) {
+          // Buscar todas as outras OS externas ativas da mesma disciplina no projeto
+          const outrasOS = $app.findRecordsByFilter(
+            'ordens_servico',
+            "projeto = '" +
+              projetoIdOS +
+              "' && disciplina = '" +
+              disciplinaOS.replace(/'/g, "''") +
+              "' && tipo_prestador = 'externo' && status != 'cancelada'",
+            '',
+            50,
+            0,
+          )
+
+          let somaOutras = 0
+          for (let o = 0; o < outrasOS.length; o++) {
+            if (outrasOS[o].id !== rec.id) {
+              somaOutras += outrasOS[o].getFloat('valor_os') || 0
+            }
+          }
+
+          const somaTotal = somaOutras + valorOSAtual
+          if (somaTotal > tetoVendidoDisciplina + 0.01) {
+            // Auditar tentativa de estouro
+            try {
+              const auditCol = $app.findCollectionByNameOrId('audit_logs')
+              const aRec = new Record(auditCol)
+              aRec.set('user', null)
+              aRec.set('user_email', 'SISTEMA')
+              aRec.set('acao', 'BLOQUEIO_TETO_OS_EXTERNA')
+              aRec.set('entidade', 'ordens_servico')
+              aRec.set('registro_id', rec.id || 'NOVA')
+              aRec.set('detalhes', {
+                projeto_id: projetoIdOS,
+                disciplina: disciplinaOS,
+                valor_os: valorOSAtual,
+                soma_outras_os: somaOutras,
+                soma_total: somaTotal,
+                teto_vendido: tetoVendidoDisciplina,
+                excesso: Math.round((somaTotal - tetoVendidoDisciplina) * 100) / 100,
+              })
+              $app.save(aRec)
+            } catch (_) {}
+
+            throw new BadRequestError(
+              'BLOQUEIO DE TETO: A soma das Ordens de Serviço externas da disciplina "' +
+                disciplinaOS +
+                '" (R$ ' +
+                somaTotal.toFixed(2) +
+                ') ultrapassa o valor vendido contratado para esta disciplina (R$ ' +
+                tetoVendidoDisciplina.toFixed(2) +
+                '). Reduza o valor da OS ou aditive a disciplina.',
+            )
+          }
+        }
+      } catch (errTeto) {
+        if (errTeto && errTeto.message && errTeto.message.startsWith('BLOQUEIO')) {
+          throw errTeto
+        }
+      }
+    }
+
     // Se está encerrando a OS
     if (statusNovo === 'encerrada') {
       const isExterno = rec.getString('tipo_prestador') === 'externo'

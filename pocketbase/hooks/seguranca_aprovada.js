@@ -587,6 +587,7 @@ routerAdd(
         { col: 'entregaveis', field: 'arquivo' },
         { col: 'documentos', field: 'arquivo' },
         { col: 'projetos', field: 'anexo_autorizacao' },
+        { col: 'entregaveis_versoes', field: 'arquivo' },
       ]
 
       let todosArquivosProtegidos = true
@@ -708,6 +709,52 @@ routerAdd(
         resultados.item5_modulo_prestadores = { erro: String(eModP) }
       }
 
+      // REQUISITO 9: SELFCHECK ESTENDIDO
+      // Passa a verificar também as regras das coleções novas (catalogo_escopos, entregaveis_versoes)
+      // e as projeções de entregáveis (campos sensíveis ausentes)
+      let colecoesNovasOk = true
+      const detalheColecoesNovas = {}
+      try {
+        const escoposCol = $app.findCollectionByNameOrId('catalogo_escopos')
+        const versoesCol = $app.findCollectionByNameOrId('entregaveis_versoes')
+        const entCol = $app.findCollectionByNameOrId('entregaveis')
+
+        // catalogo_escopos: escrita só admin, sem acesso público
+        const escoposSeguro =
+          escoposCol.createRule &&
+          escoposCol.createRule.includes("@request.auth.role = 'admin'") &&
+          !escoposCol.listRule.includes('true')
+        detalheColecoesNovas.catalogo_escopos_regras = Boolean(escoposSeguro)
+
+        // entregaveis_versoes: executor só vê entregáveis de seu email
+        const versoesSeguro =
+          versoesCol.listRule &&
+          versoesCol.listRule.includes('@request.auth.role =') &&
+          versoesCol.listRule.includes('entregavel.prestador.email = @request.auth.email')
+        detalheColecoesNovas.entregaveis_versoes_regras = Boolean(versoesSeguro)
+
+        // Projeção/entregaveis do portal: garantir que campos sensíveis de proposta/cliente/bdi NÃO existem no entregável
+        const camposEnt = entCol.fields
+        const entSemSensiveis =
+          !camposEnt.getByName('cliente') &&
+          !camposEnt.getByName('proposta') &&
+          !camposEnt.getByName('bdi') &&
+          !camposEnt.getByName('valor_contrato')
+        detalheColecoesNovas.entregaveis_sem_campos_sensiveis = Boolean(entSemSensiveis)
+
+        if (!escoposSeguro || !versoesSeguro || !entSemSensiveis) {
+          colecoesNovasOk = false
+        }
+      } catch (eNovas) {
+        colecoesNovasOk = false
+        detalheColecoesNovas.erro = String(eNovas)
+      }
+
+      resultados.item6_colecoes_novas_cadeia_projetos = {
+        todas_conformes: colecoesNovasOk,
+        detalhes: detalheColecoesNovas,
+      }
+
       resultados.conformidade_geral =
         resultados.item1_api_rules.cotacoes_segura &&
         resultados.item1_api_rules.subcontratos_segura &&
@@ -715,7 +762,8 @@ routerAdd(
         resultados.item2_protected_files.todos_protegidos &&
         resultados.item3_token_security.campos_configurados &&
         resultados.item4_telefones_json.campos_configurados &&
-        prestadoresOk
+        prestadoresOk &&
+        colecoesNovasOk
 
       return e.json(200, {
         status: 'OK',

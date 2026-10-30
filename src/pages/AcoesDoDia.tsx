@@ -12,6 +12,7 @@ import {
   CurvaABC,
   PropostaRecord,
 } from '@/types'
+import pb from '@/lib/pocketbase/client'
 import { propostasService } from '@/services/propostas'
 import { executoresService, ExecutorComMetricas } from '@/services/executores'
 import { toquesService } from '@/services/toques'
@@ -72,6 +73,7 @@ export default function AcoesDoDiaPage() {
   const [executoresAlertaVencimento, setExecutoresAlertaVencimento] = useState<
     ExecutorComMetricas[]
   >([])
+  const [entregaveisAtrasados, setEntregaveisAtrasados] = useState<any[]>([])
 
   // Filtros de tela
   const [busca, setBusca] = useState('')
@@ -164,6 +166,19 @@ export default function AcoesDoDiaPage() {
         const execs = await executoresService.listComMetricas()
         const comAlerta = execs.filter((ex) => ex.isRegistroVencido || ex.isRegistroVencendoBreve)
         setExecutoresAlertaVencimento(comAlerta)
+      } catch {
+        /* ignore */
+      }
+
+      // 7. Requisito 8: Carregar Entregáveis com prazo vencido e status não aprovado
+      try {
+        const hojeIso = new Date().toISOString()
+        const entsVencidos = await pb.collection('entregaveis').getFullList({
+          filter: `status != 'aprovado' && prazo != '' && prazo < '${hojeIso}'`,
+          expand: 'prestador,etapa,ordem_servico',
+          sort: 'prazo',
+        })
+        setEntregaveisAtrasados(entsVencidos)
       } catch {
         /* ignore */
       }
@@ -461,6 +476,63 @@ export default function AcoesDoDiaPage() {
           </Button>
         </div>
       </div>
+
+      {/* Requisito 8: Alerta de Entregáveis em Atraso */}
+      {entregaveisAtrasados.length > 0 && (
+        <div className="p-4 rounded-xl border border-rose-300 bg-rose-50/90 text-rose-950 flex items-start gap-3 shadow-xs">
+          <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+          <div className="flex-1 text-xs">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+              <strong className="text-sm font-bold text-rose-900 block">
+                Alerta de Engenharia: {entregaveisAtrasados.length}{' '}
+                {entregaveisAtrasados.length === 1
+                  ? 'entregável com prazo de produção vencido'
+                  : 'entregáveis com prazo de produção vencido'}
+              </strong>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate('/projetos')}
+                className="h-6 text-[11px] border-rose-400 text-rose-900 hover:bg-rose-100"
+              >
+                Abrir Projetos e Entregáveis &rarr;
+              </Button>
+            </div>
+            <p className="text-rose-800 leading-relaxed">
+              Estes itens impactam diretamente a pontualidade e a nota de tendência dos prestadores
+              no ranqueamento inteligente:
+            </p>
+            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              {entregaveisAtrasados.map((ent) => (
+                <div
+                  key={ent.id}
+                  className="p-2.5 rounded-lg border border-rose-200 bg-white/90 flex flex-col justify-between gap-1 shadow-2xs"
+                >
+                  <div>
+                    <span className="font-bold text-slate-800 line-clamp-1">
+                      {ent.titulo || ent.nome}
+                    </span>
+                    <span className="text-[11px] text-slate-500 block">
+                      Prestador: {ent.expand?.prestador?.nome || 'Não atribuído'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] mt-1 pt-1 border-t border-rose-100">
+                    <span className="text-rose-700 font-bold">
+                      Prazo: {formatDateBr(ent.prazo)}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] capitalize border-rose-300 text-rose-800"
+                    >
+                      {ent.status}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Alerta de Executores com Conselho Vencendo (30 dias) ou Vencido */}
       {executoresAlertaVencimento.length > 0 && (

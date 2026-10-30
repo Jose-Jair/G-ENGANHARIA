@@ -350,6 +350,137 @@ routerAdd(
         })
       }
 
+      // REQUISITO 7: TRAVA DA MEDIÇÃO
+      // No hook de medições existente, a liberação/aprovação da medição exige que os entregáveis vinculados
+      // à OS/disciplina correspondente estejam APROVADOS (nenhum pendente/em revisão/devolvido) — bloquear com erro claro e auditado.
+      try {
+        let entregaveisParaChecar = []
+
+        // 1. Se houver etapa vinculada à medição
+        const etapaIdMedicao = medicao.getString('etapa')
+        if (etapaIdMedicao) {
+          entregaveisParaChecar = $app.findRecordsByFilter(
+            'entregaveis',
+            "etapa = '" + etapaIdMedicao + "'",
+            '',
+            100,
+            0,
+          )
+        }
+
+        // 2. Se não houver por etapa, checar se a medição está vinculada a OS ou subcontrato
+        if (entregaveisParaChecar.length === 0) {
+          const osMedicao = medicao.getString('ordem_servico')
+          if (osMedicao) {
+            entregaveisParaChecar = $app.findRecordsByFilter(
+              'entregaveis',
+              "ordem_servico = '" + osMedicao + "'",
+              '',
+              100,
+              0,
+            )
+          } else if (subcontratoId) {
+            // Buscar OS correspondente ao subcontrato
+            const osSub = $app.findRecordsByFilter(
+              'ordens_servico',
+              "subcontrato_legado = '" + subcontratoId + "'",
+              '',
+              1,
+              0,
+            )
+            if (osSub.length > 0) {
+              entregaveisParaChecar = $app.findRecordsByFilter(
+                'entregaveis',
+                "ordem_servico = '" + osSub[0].id + "'",
+                '',
+                100,
+                0,
+              )
+            }
+          }
+        }
+
+        // 3. Se ainda assim houver projeto, checar entregáveis do projeto associados à mesma disciplina
+        if (entregaveisParaChecar.length === 0 && projetoId) {
+          // Buscar entregáveis vinculados às etapas da disciplina
+          const discMed = medicao.getString('disciplina')
+          if (discMed) {
+            const etapasDisc = $app.findRecordsByFilter(
+              'projeto_etapas',
+              "projeto = '" + projetoId + "' && disciplina = '" + discMed.replace(/'/g, "''") + "'",
+              '',
+              20,
+              0,
+            )
+            for (let ed = 0; ed < etapasDisc.length; ed++) {
+              const ents = $app.findRecordsByFilter(
+                'entregaveis',
+                "etapa = '" + etapasDisc[ed].id + "'",
+                '',
+                50,
+                0,
+              )
+              for (let x = 0; x < ents.length; x++) {
+                entregaveisParaChecar.push(ents[x])
+              }
+            }
+          }
+        }
+
+        // Se há entregáveis mapeados para o escopo desta medição, nenhum pode estar pendente/em revisão/devolvido
+        if (entregaveisParaChecar.length > 0) {
+          const pendentes = []
+          for (let ep = 0; ep < entregaveisParaChecar.length; ep++) {
+            const entItem = entregaveisParaChecar[ep]
+            const stEnt = entItem.getString('status')
+            if (stEnt !== 'aprovado') {
+              pendentes.push({
+                id: entItem.id,
+                titulo: entItem.getString('titulo') || entItem.getString('nome'),
+                status: stEnt,
+              })
+            }
+          }
+
+          if (pendentes.length > 0) {
+            // Auditar bloqueio de medição por entregáveis pendentes
+            try {
+              const auditCol = $app.findCollectionByNameOrId('audit_logs')
+              const aRec = new Record(auditCol)
+              aRec.set('user', userId)
+              aRec.set('user_email', userEmail)
+              aRec.set('acao', 'BLOQUEIO_MEDICAO_ENTREGAVEIS_PENDENTES')
+              aRec.set('entidade', 'medicoes')
+              aRec.set('registro_id', medicaoId)
+              aRec.set('detalhes', {
+                mensagem:
+                  'Tentativa de aprovação da Medição ' +
+                  medicaoNumero +
+                  ' bloqueada: ' +
+                  pendentes.length +
+                  ' entregável(is) não aprovado(s).',
+                medicao_id: medicaoId,
+                medicao_numero: medicaoNumero,
+                total_entregaveis: entregaveisParaChecar.length,
+                total_pendentes: pendentes.length,
+                pendentes: pendentes,
+              })
+              $app.save(aRec)
+            } catch (_) {}
+
+            return e.json(400, {
+              error:
+                'BLOQUEIO DE MEDIÇÃO: A liberação desta medição exige que todos os entregáveis técnicos vinculados estejam com status APROVADO. Há ' +
+                pendentes.length +
+                ' entregável(is) pendente(s) ou em revisão.',
+              pendentes: pendentes,
+            })
+          }
+        }
+      } catch (errTravaMed) {
+        console.log('Erro ao validar trava de entregáveis na medição: ' + errTravaMed)
+      }
+
       const nowIso = new Date().toISOString()
       medicao.set('status', 'aprovada')
       medicao.set('aprovada_por', userId)

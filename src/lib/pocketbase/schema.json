@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T01:41:05.313Z",
+  "generatedAt": "2026-10-30T02:08:23.993Z",
   "collections": [
     {
       "name": "users",
@@ -1954,6 +1954,57 @@
           "required": false,
           "system": false,
           "collectionRef": "areas_atuacao"
+        },
+        {
+          "name": "is_pacote_trabalho",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_marco",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_interno_referencia",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_vendido",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "escopo_detalhado",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "proposta_item_origem",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "proposta_itens"
+        },
+        {
+          "name": "parcela_origem",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "proposta_parcelas"
+        },
+        {
+          "name": "ordem_servico_ativa",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "ordens_servico"
         }
       ],
       "indexes": ["CREATE INDEX idx_projeto_etapas_projeto ON projeto_etapas (projeto)"]
@@ -1962,10 +2013,10 @@
       "name": "entregaveis",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || @request.auth.role = 'comercial' || (@request.auth.role = 'executor' && ((@collection.subcontratos.projeto ?= etapa.projeto && @collection.subcontratos.executor.email ?= @request.auth.email) || (@collection.cotacoes.projeto ?= etapa.projeto && @collection.cotacoes.executor.email ?= @request.auth.email))))",
-        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || @request.auth.role = 'comercial' || (@request.auth.role = 'executor' && ((@collection.subcontratos.projeto ?= etapa.projeto && @collection.subcontratos.executor.email ?= @request.auth.email) || (@collection.cotacoes.projeto ?= etapa.projeto && @collection.cotacoes.executor.email ?= @request.auth.email))))",
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || @request.auth.role = 'comercial' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || @request.auth.role = 'comercial' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
         "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
-        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
         "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')"
       },
       "fields": [
@@ -2028,6 +2079,51 @@
         },
         {
           "name": "observacoes_revisao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prestador",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "prestadores"
+        },
+        {
+          "name": "ordem_servico",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "ordens_servico"
+        },
+        {
+          "name": "prazo",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "revisor_interno",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "versao_atual",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "motivo_devolucao",
           "type": "text",
           "required": false,
           "system": false
@@ -5219,6 +5315,162 @@
       "indexes": [
         "CREATE INDEX idx_pdoc_os_id ON portal_documentos (os_id)",
         "CREATE INDEX idx_pdoc_email ON portal_documentos (prestador_email)"
+      ]
+    },
+    {
+      "name": "catalogo_escopos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')",
+        "create": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "update": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "disciplina",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "entregaveis_padrao",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "checklist_revisao",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_catalogo_escopos_disc ON catalogo_escopos (disciplina)",
+        "CREATE INDEX idx_catalogo_escopos_ativo ON catalogo_escopos (ativo)"
+      ]
+    },
+    {
+      "name": "entregaveis_versoes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || @request.auth.role = 'comercial' || (@request.auth.role = 'executor' && entregavel.prestador.email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || @request.auth.role = 'comercial' || (@request.auth.role = 'executor' && entregavel.prestador.email = @request.auth.email))",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && entregavel.prestador.email = @request.auth.email))",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "entregavel",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "entregaveis"
+        },
+        {
+          "name": "numero_versao",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "arquivo",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "enviado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "enviado_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["submetido", "em_revisao", "aprovado", "devolvido"]
+        },
+        {
+          "name": "motivo_devolucao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "avaliado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "avaliado_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_ent_vers_entregavel ON entregaveis_versoes (entregavel)",
+        "CREATE INDEX idx_ent_vers_status ON entregaveis_versoes (status)"
       ]
     }
   ]

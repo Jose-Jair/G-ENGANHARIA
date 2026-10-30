@@ -1,6 +1,14 @@
 import React, { useState } from 'react'
 import { TelefoneItem } from '@/types'
 import { formatPhoneBr, cleanPhoneForWa, isValidPhoneBr } from '@/lib/cnpj'
+import {
+  formatPhoneProgressive,
+  isValidPhone,
+  toCanonicalPhone,
+  formatPhoneDisplay,
+  isMobilePhone,
+  getWaDigitsOnly,
+} from '@/lib/phone'
 import { openWhatsAppWithFallback } from '@/lib/whatsapp'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -30,11 +38,11 @@ export const ListaTelefones: React.FC<ListaTelefonesProps> = ({
   const [numeroInvalido, setNumeroInvalido] = useState(false)
 
   const handleInputChange = (val: string) => {
-    // Aplica formatação automática com DDI +55 em tempo real
-    const formatado = formatPhoneBr(val, true)
+    // Aplica formatação progressiva com máscara apenas para exibição
+    const formatado = formatPhoneProgressive(val)
     setInputNumero(formatado)
     if (formatado) {
-      setNumeroInvalido(!isValidPhoneBr(formatado))
+      setNumeroInvalido(!isValidPhone(formatado))
     } else {
       setNumeroInvalido(false)
     }
@@ -42,22 +50,24 @@ export const ListaTelefones: React.FC<ListaTelefonesProps> = ({
 
   const handleAdicionar = () => {
     if (readOnly || !onChange) return
-    if (!inputNumero.trim() || !isValidPhoneBr(inputNumero)) {
+    if (!inputNumero.trim() || !isValidPhone(inputNumero)) {
       setNumeroInvalido(true)
       return
     }
 
-    const raw = inputNumero.replace(/\D/g, '')
-    const rawSemDdi = raw.startsWith('55') && raw.length > 11 ? raw.slice(2) : raw
-    const formatado = formatPhoneBr(rawSemDdi, true)
+    const canonical = toCanonicalPhone(inputNumero)
+    if (!canonical) {
+      setNumeroInvalido(true)
+      return
+    }
 
     // Identificar tipo: celular (9 dígitos no número) vs fixo (8 dígitos no número)
-    const ehCelular = rawSemDdi.length >= 11
+    const ehCelular = isMobilePhone(canonical)
     const tipo = isWaAtivo ? 'whatsapp' : ehCelular ? 'celular' : 'fixo'
 
     const novoItem: TelefoneItem = {
       id: `tel_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      numero: formatado,
+      numero: canonical, // Canônico E.164: +55DDNNNNNNNNN
       whatsapp: isWaAtivo,
       tipo,
       ramalOuDescricao: inputDesc.trim() || undefined,
@@ -184,7 +194,8 @@ export const ListaTelefones: React.FC<ListaTelefonesProps> = ({
         <div className="flex flex-wrap gap-2 pt-1">
           {telefones.map((tel) => {
             const hasWa = tel.whatsapp ?? tel.tipo === 'whatsapp'
-            const clean = cleanPhoneForWa(tel.numero)
+            const clean = getWaDigitsOnly(tel.numero) || cleanPhoneForWa(tel.numero)
+            const displayNumero = formatPhoneDisplay(tel.numero, true) || tel.numero
             return (
               <div
                 key={tel.id}
@@ -204,7 +215,7 @@ export const ListaTelefones: React.FC<ListaTelefonesProps> = ({
                   <Phone className="w-3.5 h-3.5 text-slate-400" />
                 )}
 
-                {/* Número formatado clicável para chamada telefônica ou whatsapp */}
+                {/* Número com máscara apenas de exibição, clicável para chamada telefônica ou whatsapp */}
                 <button
                   type="button"
                   onClick={() => {
@@ -223,7 +234,7 @@ export const ListaTelefones: React.FC<ListaTelefonesProps> = ({
                       : 'Clique para ligar'
                   }
                 >
-                  {tel.numero}
+                  {displayNumero}
                 </button>
 
                 {tel.ramalOuDescricao && (

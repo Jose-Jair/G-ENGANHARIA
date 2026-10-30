@@ -13,7 +13,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MessageSquare, Copy, ExternalLink, AlertCircle, Building2, User, Send } from 'lucide-react'
 import { ContratoServicoRecord, ContatoRecord } from '@/types'
-import { formatPhoneBr, cleanPhoneForWa, isValidPhoneBr } from '@/lib/cnpj'
+import {
+  formatPhoneDisplay,
+  formatPhoneProgressive,
+  isValidPhone,
+  toCanonicalPhone,
+  getWaDigitsOnly,
+  buildWaMeUrl,
+} from '@/lib/phone'
 import { contatosService } from '@/services/contatos'
 import { auditService } from '@/services/audit'
 import { useToast } from '@/hooks/use-toast'
@@ -85,7 +92,7 @@ export function ModalEnviarContratoWhatsApp({
           }
 
           setNomeDestinatario(finalNome)
-          setTelefone(finalTel ? formatPhoneBr(finalTel, true) : '')
+          setTelefone(finalTel ? formatPhoneDisplay(finalTel, true) : '')
           setMensagem(buildMensagem(finalNome))
         })
         .catch(() => {
@@ -95,7 +102,7 @@ export function ModalEnviarContratoWhatsApp({
           const tel = wpp || emp.telefone || ''
 
           setNomeDestinatario(nome)
-          setTelefone(tel ? formatPhoneBr(tel, true) : '')
+          setTelefone(tel ? formatPhoneDisplay(tel, true) : '')
           setMensagem(buildMensagem(nome))
         })
     } else if (pf) {
@@ -107,7 +114,7 @@ export function ModalEnviarContratoWhatsApp({
       const tel = wpp || pf.telefone || ''
 
       setNomeDestinatario(nome)
-      setTelefone(tel ? formatPhoneBr(tel, true) : '')
+      setTelefone(tel ? formatPhoneDisplay(tel, true) : '')
       setMensagem(buildMensagem(nome))
     } else {
       setNomeDestinatario('Cliente')
@@ -136,24 +143,24 @@ export function ModalEnviarContratoWhatsApp({
       const tel = wpp || emp?.telefone || ''
 
       setNomeDestinatario(nome)
-      setTelefone(tel ? formatPhoneBr(tel, true) : '')
+      setTelefone(tel ? formatPhoneDisplay(tel, true) : '')
       setMensagem(buildMsg(nome))
     } else {
       const c = contatosPj.find((item) => item.id === contatoId)
       if (c) {
         setNomeDestinatario(c.nome)
         const tel = c.whatsapp || c.telefone || ''
-        setTelefone(tel ? formatPhoneBr(tel, true) : '')
+        setTelefone(tel ? formatPhoneDisplay(tel, true) : '')
         setMensagem(buildMsg(c.nome))
       }
     }
   }
 
   const handleTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatado = formatPhoneBr(e.target.value, true)
+    const formatado = formatPhoneProgressive(e.target.value)
     setTelefone(formatado)
-    if (formatado && !isValidPhoneBr(formatado)) {
-      setTelefoneError('Número inválido: informe DDD (2 dígitos) e número com 8 ou 9 dígitos.')
+    if (formatado && !isValidPhone(formatado)) {
+      setTelefoneError('Número inválido: informe DDD oficial e número válido.')
     } else {
       setTelefoneError(null)
     }
@@ -162,7 +169,7 @@ export function ModalEnviarContratoWhatsApp({
   const handleEnviarWhatsApp = async () => {
     if (!contrato) return
 
-    if (!telefone || !isValidPhoneBr(telefone)) {
+    if (!telefone || !isValidPhone(telefone)) {
       setTelefoneError('Número de WhatsApp inválido. Formato exigido: +55 (XX) XXXXX-XXXX.')
       toast({
         title: 'Telefone inválido',
@@ -172,8 +179,9 @@ export function ModalEnviarContratoWhatsApp({
       return
     }
 
-    const telNormalizado = cleanPhoneForWa(telefone)
-    if (!telNormalizado || telNormalizado.length < 12) {
+    const canonical = toCanonicalPhone(telefone)
+    const waDigits = getWaDigitsOnly(telefone)
+    if (!canonical || !waDigits || waDigits.length < 12) {
       toast({
         title: 'Telefone incompleto',
         description: 'O número não possui todos os dígitos necessários com DDI e DDD.',
@@ -190,15 +198,14 @@ export function ModalEnviarContratoWhatsApp({
         details: {
           contrato_numero: contrato.numero,
           destinatario_nome: nomeDestinatario.trim(),
-          destinatario_telefone: telNormalizado,
+          destinatario_telefone: canonical,
         },
       })
     } catch (e) {
       console.warn('Falha ao auditar envio de WhatsApp do contrato:', e)
     }
 
-    const textoEncoded = encodeURIComponent(mensagem)
-    const waUrl = `https://wa.me/${telNormalizado}?text=${textoEncoded}`
+    const waUrl = buildWaMeUrl(telefone, mensagem)
     window.open(waUrl, '_blank', 'noopener,noreferrer')
 
     toast({

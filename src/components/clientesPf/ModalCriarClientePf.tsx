@@ -140,14 +140,11 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
     ].filter(Boolean)
     const enderecoTexto = partesEndereco.join(', ')
 
-    const primeiroTel = telefones[0]?.numero || ''
-
     setSalvando(true)
     try {
       await clientesPfService.create({
         ...formData,
         cpf: formatCpf(formData.cpf),
-        telefone: primeiroTel,
         telefones,
         cep: endereco.cep?.trim() || undefined,
         logradouro: endereco.logradouro?.trim() || undefined,

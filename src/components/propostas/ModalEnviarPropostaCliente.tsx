@@ -27,7 +27,15 @@ import {
 } from 'lucide-react'
 import { PropostaRecord, ContatoRecord } from '@/types'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
-import { formatPhoneBr, cleanPhoneForWa, isValidPhoneBr, isValidEmail } from '@/lib/cnpj'
+import { isValidEmail } from '@/lib/cnpj'
+import {
+  formatPhoneDisplay,
+  formatPhoneProgressive,
+  isValidPhone,
+  toCanonicalPhone,
+  getWaDigitsOnly,
+  buildWaMeUrl,
+} from '@/lib/phone'
 import { propostasService } from '@/services/propostas'
 import { parametrosService } from '@/services/parametros'
 import { contatosService } from '@/services/contatos'
@@ -110,7 +118,7 @@ export function ModalEnviarPropostaCliente({
           }
 
           setDestinatarioNome(finalNome)
-          setDestinatarioTelefone(finalTel ? formatPhoneBr(finalTel, true) : '')
+          setDestinatarioTelefone(finalTel ? formatPhoneDisplay(finalTel, true) : '')
           setDestinatarioEmail(finalEmail)
           carregarTextoPadrao(canal, finalNome)
         })
@@ -123,7 +131,7 @@ export function ModalEnviarPropostaCliente({
           telInicial = wpp || emp.telefone || ''
 
           setDestinatarioNome(nomeInicial)
-          setDestinatarioTelefone(telInicial ? formatPhoneBr(telInicial, true) : '')
+          setDestinatarioTelefone(telInicial ? formatPhoneDisplay(telInicial, true) : '')
           setDestinatarioEmail(emailInicial)
           carregarTextoPadrao(canal, nomeInicial)
         })
@@ -139,7 +147,7 @@ export function ModalEnviarPropostaCliente({
       telInicial = wpp || pf.telefone || ''
 
       setDestinatarioNome(nomeInicial)
-      setDestinatarioTelefone(telInicial ? formatPhoneBr(telInicial, true) : '')
+      setDestinatarioTelefone(telInicial ? formatPhoneDisplay(telInicial, true) : '')
       setDestinatarioEmail(emailInicial)
       carregarTextoPadrao(canal, nomeInicial)
     } else {
@@ -163,7 +171,7 @@ export function ModalEnviarPropostaCliente({
       const tel = wpp || emp?.telefone || ''
 
       setDestinatarioNome(nome)
-      setDestinatarioTelefone(tel ? formatPhoneBr(tel, true) : '')
+      setDestinatarioTelefone(tel ? formatPhoneDisplay(tel, true) : '')
       setDestinatarioEmail(email)
       carregarTextoPadrao(canal, nome)
     } else {
@@ -171,7 +179,7 @@ export function ModalEnviarPropostaCliente({
       if (contato) {
         setDestinatarioNome(contato.nome)
         const tel = contato.whatsapp || contato.telefone || ''
-        setDestinatarioTelefone(tel ? formatPhoneBr(tel, true) : '')
+        setDestinatarioTelefone(tel ? formatPhoneDisplay(tel, true) : '')
         setDestinatarioEmail(contato.email || emp?.email || '')
         carregarTextoPadrao(canal, contato.nome)
       }
@@ -228,10 +236,10 @@ export function ModalEnviarPropostaCliente({
   }
 
   const handleTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatado = formatPhoneBr(e.target.value, true)
+    const formatado = formatPhoneProgressive(e.target.value)
     setDestinatarioTelefone(formatado)
-    if (formatado && !isValidPhoneBr(formatado)) {
-      setTelefoneError('Número inválido: informe DDD (2 dígitos) e número com 8 ou 9 dígitos.')
+    if (formatado && !isValidPhone(formatado)) {
+      setTelefoneError('Número inválido: informe DDD oficial e número válido.')
     } else {
       setTelefoneError(null)
     }
@@ -253,7 +261,7 @@ export function ModalEnviarPropostaCliente({
     setLoading(true)
     try {
       if (canal === 'whatsapp') {
-        if (!destinatarioTelefone || !isValidPhoneBr(destinatarioTelefone)) {
+        if (!destinatarioTelefone || !isValidPhone(destinatarioTelefone)) {
           setTelefoneError('Número de WhatsApp inválido. Formato exigido: +55 (XX) XXXXX-XXXX.')
           toast({
             title: 'Telefone inválido',
@@ -265,8 +273,9 @@ export function ModalEnviarPropostaCliente({
           return
         }
 
-        const telNormalizado = cleanPhoneForWa(destinatarioTelefone)
-        if (!telNormalizado || telNormalizado.length < 12) {
+        const canonical = toCanonicalPhone(destinatarioTelefone)
+        const waDigits = getWaDigitsOnly(destinatarioTelefone)
+        if (!canonical || !waDigits || waDigits.length < 12) {
           toast({
             title: 'Telefone incompleto',
             description: 'O número não contém todos os dígitos necessários com DDI e DDD.',
@@ -276,16 +285,15 @@ export function ModalEnviarPropostaCliente({
           return
         }
 
-        // Auditar o envio via endpoint de auditoria do backend
+        // Auditar o envio via endpoint de auditoria do backend com canônico E.164
         await propostasService.registrarEnvioWhatsApp({
           propostaId: proposta.id,
-          destinatarioTelefone: telNormalizado,
+          destinatarioTelefone: canonical,
           destinatarioNome: destinatarioNome.trim(),
         })
 
-        // Gerar o link oficial wa.me garantido com apenas dígitos e DDI 55
-        const textoEncoded = encodeURIComponent(mensagemTexto)
-        const waUrl = `https://wa.me/${telNormalizado}?text=${textoEncoded}`
+        // Gerar o link oficial wa.me garantido estritamente com apenas dígitos e DDI 55
+        const waUrl = buildWaMeUrl(destinatarioTelefone, mensagemTexto)
         window.open(waUrl, '_blank', 'noopener,noreferrer')
 
         toast({

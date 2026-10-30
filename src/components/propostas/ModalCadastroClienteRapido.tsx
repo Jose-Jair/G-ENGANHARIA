@@ -194,14 +194,11 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
         }
       }
 
-      const primeiroTel = telefonesPj[0]?.numero || ''
-
       const created = await empresasService.create({
         razao_social: empresaForm.razao_social.trim(),
         nome_fantasia: empresaForm.nome_fantasia.trim() || undefined,
         cnpj: formatCnpj(clean) || undefined,
         email: empresaForm.email.trim() || undefined,
-        telefone: primeiroTel || undefined,
         telefones: telefonesPj,
         cep: enderecoPj.cep?.trim() || undefined,
         logradouro: enderecoPj.logradouro?.trim() || undefined,
@@ -270,8 +267,6 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
 
     setSubmitting(true)
     try {
-      const primeiroTel = telefonesPf[0]?.numero || ''
-
       // Monta string de endereço compatível com o legado para visualizações antigas
       const partesEndereco = [
         enderecoPf.logradouro,
@@ -287,7 +282,6 @@ export const ModalCadastroClienteRapido: React.FC<ModalCadastroClienteRapidoProp
         nome: clientePfForm.nome.trim(),
         cpf: formatCpf(clean) || '',
         email: clientePfForm.email.trim() || undefined,
-        telefone: primeiroTel || undefined,
         telefones: telefonesPf,
         cep: enderecoPf.cep?.trim() || undefined,
         logradouro: enderecoPf.logradouro?.trim() || undefined,

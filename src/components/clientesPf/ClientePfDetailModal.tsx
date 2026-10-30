@@ -40,7 +40,8 @@ import {
   X,
 } from 'lucide-react'
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
-import { formatCpf, formatPhoneBr, cleanPhoneForWa } from '@/lib/cnpj'
+import { formatCpf, cleanPhoneForWa } from '@/lib/cnpj'
+import { formatPhoneDisplay, getWaDigitsOnly } from '@/lib/phone'
 import { openWhatsAppWithFallback } from '@/lib/whatsapp'
 import { auditService } from '@/services/audit'
 import { clientesPfService, UpdateClientePfData } from '@/services/clientesPf'
@@ -179,9 +180,7 @@ export function ClientePfDetailModal({
 
     setSalvando(true)
     try {
-      const primeiroTel = telefones[0]?.numero || ''
-
-      // Monta texto de endereço mantendo compatibilidade
+      // Monta string de endereço compatível com o legado
       const partes = [
         endereco.logradouro,
         endereco.numero ? `nº ${endereco.numero}` : '',
@@ -195,7 +194,6 @@ export function ClientePfDetailModal({
       const payload: UpdateClientePfData = {
         nome: nome.trim(),
         email: email.trim() || undefined,
-        telefone: primeiroTel || undefined,
         telefones,
         cep: endereco.cep?.trim() || undefined,
         logradouro: endereco.logradouro?.trim() || undefined,
@@ -496,7 +494,8 @@ export function ClientePfDetailModal({
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {telefonesExibicao.map((t) => {
                           const hasWa = t.whatsapp ?? t.tipo === 'whatsapp'
-                          const clean = cleanPhoneForWa(t.numero)
+                          const clean = getWaDigitsOnly(t.numero) || cleanPhoneForWa(t.numero)
+                          const displayNumero = formatPhoneDisplay(t.numero, true) || t.numero
                           return (
                             <div
                               key={t.id}
@@ -543,7 +542,7 @@ export function ClientePfDetailModal({
                                       : 'Ligar para o telefone'
                                   }
                                 >
-                                  {formatPhoneBr(t.numero)}
+                                  {displayNumero}
                                 </button>
                               </div>
 

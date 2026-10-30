@@ -1,4 +1,5 @@
 import { cleanPhoneForWa } from '@/lib/cnpj'
+import { buildWaMeUrl, getWaDigitsOnly } from '@/lib/phone'
 
 export interface OpenWhatsAppOptions {
   phone: string | undefined | null
@@ -16,12 +17,12 @@ export function openWhatsAppWithFallback({
   text,
   fallbackDelayMs = 1500,
 }: OpenWhatsAppOptions): void {
-  const clean = cleanPhoneForWa(phone)
-  if (!clean) return
+  const digits = getWaDigitsOnly(phone) || cleanPhoneForWa(phone)
+  if (!digits) return
 
   const encodedText = text ? encodeURIComponent(text) : ''
-  const nativeUrl = `whatsapp://send?phone=${clean}${encodedText ? `&text=${encodedText}` : ''}`
-  const webUrl = `https://wa.me/${clean}${encodedText ? `?text=${encodedText}` : ''}`
+  const nativeUrl = `whatsapp://send?phone=${digits}${encodedText ? `&text=${encodedText}` : ''}`
+  const webUrl = buildWaMeUrl(digits, text)
 
   let appOpened = false
 

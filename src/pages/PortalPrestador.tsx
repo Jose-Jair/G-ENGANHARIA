@@ -31,12 +31,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { GPlusLogo } from '@/components/GPlusLogo'
 import { SecaoCotacoesPrestador } from '@/components/projetos/SecaoCotacoesPrestador'
 import { Briefcase } from 'lucide-react'
+import { ModalAssinaturaEletronicaOS } from '@/components/prestadores/ModalAssinaturaEletronicaOS'
 
 export const PortalPrestadorPage: React.FC = () => {
   const { user, logout } = useAuth()
@@ -59,10 +59,6 @@ export const PortalPrestadorPage: React.FC = () => {
 
   // Modal de Assinatura da OS
   const [modalAssinarOpen, setModalAssinarOpen] = useState(false)
-  const [concordou, setConcordou] = useState(false)
-  const [nomeAssinante, setNomeAssinante] = useState(user?.name || '')
-  const [docAssinante, setDocAssinante] = useState(user?.cpf_cnpj || '')
-  const [assinando, setAssinando] = useState(false)
 
   const carregarMinhasOS = async () => {
     setCarregando(true)
@@ -105,34 +101,12 @@ export const PortalPrestadorPage: React.FC = () => {
     }
   }, [osSelecionada])
 
-  const handleAssinarOS = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!osSelecionada || !concordou) return
-
-    setAssinando(true)
-    try {
-      await ordensServicoService.assinarPrestador(osSelecionada.os_id, {
-        token: osSelecionada.token_assinatura,
-        declaracao: concordou,
-        nome: nomeAssinante.trim(),
-        documento: docAssinante.trim(),
-      })
-
-      toast({
-        title: 'Ordem de Serviço assinada com sucesso!',
-        description: 'Seu aceite eletrônico foi registrado na plataforma G+.',
-      })
-      setModalAssinarOpen(false)
-      carregarMinhasOS()
-    } catch (err: any) {
-      toast({
-        title: 'Erro ao assinar OS',
-        description: err.message || 'Falha ao processar assinatura.',
-        variant: 'destructive',
-      })
-    } finally {
-      setAssinando(false)
-    }
+  const handleSucessoAssinatura = () => {
+    toast({
+      title: 'Ordem de Serviço assinada com sucesso!',
+      description: 'Seu aceite eletrônico foi registrado com validade jurídica na plataforma G+.',
+    })
+    carregarMinhasOS()
   }
 
   const getStatusBadge = (status: string) => {
@@ -341,16 +315,16 @@ export const PortalPrestadorPage: React.FC = () => {
                           </p>
                         </div>
 
-                        {osSelecionada.status === 'aguardando_assinatura' && (
+                        {(osSelecionada.status === 'aguardando_assinatura' ||
+                          osSelecionada.status === 'minuta') && (
                           <Button
                             onClick={() => {
-                              setConcordou(false)
                               setModalAssinarOpen(true)
                             }}
                             className="bg-[#D95A2B] hover:bg-[#b84820] text-white text-xs shadow-xs"
                           >
                             <ShieldCheck className="w-4 h-4 mr-1.5" />
-                            Assinar Eletronicamente
+                            Assinar Eletronicamente (OTP)
                           </Button>
                         )}
                       </div>
@@ -610,99 +584,15 @@ export const PortalPrestadorPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Assinatura da OS */}
-      <Dialog open={modalAssinarOpen} onOpenChange={setModalAssinarOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-[#D95A2B]" />
-              Assinatura Eletrônica da Ordem de Serviço
-            </DialogTitle>
-            <DialogDescription>
-              Ao assinar, você confirma o recebimento das diretrizes técnicas e concorda com o
-              escopo, prazos e valor desta OS.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleAssinarOS} className="space-y-4 text-xs">
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
-              <div>
-                <span className="text-slate-400">Ordem de Serviço:</span>{' '}
-                <strong className="text-slate-800">{osSelecionada?.numero_os}</strong>
-              </div>
-              <div>
-                <span className="text-slate-400">Projeto:</span>{' '}
-                <strong className="text-slate-800 font-mono">
-                  {osSelecionada?.codigo_projeto}
-                </strong>
-              </div>
-              <div>
-                <span className="text-slate-400">Valor da OS:</span>{' '}
-                <strong className="text-emerald-700">
-                  {formatCurrencyBr(osSelecionada?.valor_os || 0)}
-                </strong>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <Label className="text-xs">Nome Completo do Assinante *</Label>
-                <Input
-                  required
-                  value={nomeAssinante}
-                  onChange={(e) => setNomeAssinante(e.target.value)}
-                  className="text-xs mt-1"
-                />
-              </div>
-
-              <div>
-                <Label className="text-xs">CPF / CNPJ do Assinante *</Label>
-                <Input
-                  required
-                  value={docAssinante}
-                  onChange={(e) => setDocAssinante(e.target.value)}
-                  className="text-xs mt-1"
-                />
-              </div>
-
-              <div className="flex items-start gap-2 pt-2">
-                <Checkbox
-                  id="concordo"
-                  checked={concordou}
-                  onCheckedChange={(checked) => setConcordou(!!checked)}
-                />
-                <label
-                  htmlFor="concordo"
-                  className="text-[11px] text-slate-600 leading-snug cursor-pointer select-none"
-                >
-                  Declaro que li e concordo integralmente com o escopo técnico, valor e prazos
-                  descritos nesta Ordem de Serviço, bem como com os termos de confidencialidade
-                  estabelecidos no Contrato-Mestre.
-                </label>
-              </div>
-            </div>
-
-            <DialogFooter className="pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setModalAssinarOpen(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                size="sm"
-                disabled={!concordou || assinando}
-                className="bg-[#D95A2B] hover:bg-[#b84820] text-white"
-              >
-                {assinando ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar Assinatura'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Modal de Assinatura da OS com OTP de 6 dígitos */}
+      <ModalAssinaturaEletronicaOS
+        open={modalAssinarOpen}
+        onOpenChange={setModalAssinarOpen}
+        os={osSelecionada}
+        usuarioNome={user?.name || ''}
+        usuarioDoc={user?.cpf_cnpj || ''}
+        onSucesso={handleSucessoAssinatura}
+      />
     </div>
   )
 }

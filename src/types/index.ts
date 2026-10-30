@@ -1594,6 +1594,19 @@ export interface OrdemServicoRecord {
   aceite_cliente?: boolean
   data_aceite_cliente?: string
   token_assinatura?: string
+  aceite_status?: 'pendente' | 'aguardando_codigo' | 'aceito' | 'recusado'
+  data_aceite?: string
+  aceite_ip?: string
+  aceite_user_agent?: string
+  codigo_verificacao_hash?: string
+  codigo_expiracao?: string
+  codigo_tentativas?: number
+  codigo_enviado_para?: string
+  pdf_congelado_hash?: string
+  versao_texto_hash?: string
+  versao_texto_aceito?: string
+  dossie_evidencias_json?: any
+  confirmacao_email_enviada?: boolean
   assinante_prestador_nome?: string
   assinante_prestador_doc?: string
   data_assinatura_prestador?: string

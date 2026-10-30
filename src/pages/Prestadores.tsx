@@ -5,14 +5,17 @@ import {
   StatusPrestador,
   ProfissionalPrestadorRecord,
   ContratoMestreRecord,
+  OrdemServicoRecord,
 } from '@/types'
 import {
   prestadoresService,
+  ordensServicoService,
   CreatePrestadorData,
   CreateProfissionalData,
   CreateContratoMestreData,
 } from '@/services/prestadores'
-import { formatDateBr } from '@/lib/formatters'
+import { formatDateBr, formatCurrencyBr } from '@/lib/formatters'
+import { ModalDossieEvidenciasOS } from '@/components/prestadores/ModalDossieEvidenciasOS'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import { openProtectedFile } from '@/lib/pocketbase/files'
@@ -102,6 +105,16 @@ export const PrestadoresPage: React.FC = () => {
   const [prestadorSelecionado, setPrestadorSelecionado] = useState<PrestadorRecord | null>(null)
   const [profissionais, setProfissionais] = useState<ProfissionalPrestadorRecord[]>([])
   const [carregandoProf, setCarregandoProf] = useState(false)
+
+  // Modal de Ordens de Serviço do Prestador (Visão do Gestor)
+  const [modalOrdensServicoOpen, setModalOrdensServicoOpen] = useState(false)
+  const [ordensServicoPrestador, setOrdensServicoPrestador] = useState<OrdemServicoRecord[]>([])
+  const [carregandoOs, setCarregandoOs] = useState(false)
+
+  // Modal Dossiê de Evidências Digitais
+  const [modalDossieOpen, setModalDossieOpen] = useState(false)
+  const [osDossieSelecionada, setOsDossieSelecionada] = useState<OrdemServicoRecord | null>(null)
+
   const [novoProfNome, setNovoProfNome] = useState('')
   const [novoProfConselho, setNovoProfConselho] = useState('')
   const [novoProfNumero, setNovoProfNumero] = useState('')
@@ -253,6 +266,24 @@ export const PrestadoresPage: React.FC = () => {
     }
   }
 
+  const abrirOrdensServico = async (p: PrestadorRecord) => {
+    setPrestadorSelecionado(p)
+    setModalOrdensServicoOpen(true)
+    setCarregandoOs(true)
+    try {
+      const lista = await ordensServicoService.listByPrestador(p.id)
+      setOrdensServicoPrestador(lista)
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao carregar Ordens de Serviço',
+        description: err.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setCarregandoOs(false)
+    }
+  }
+
   const abrirContratoMestre = async (p: PrestadorRecord) => {
     setPrestadorSelecionado(p)
     setModalContratoMestreOpen(true)
@@ -262,7 +293,7 @@ export const PrestadoresPage: React.FC = () => {
       setContratosMestre(lista)
     } catch (err: any) {
       toast({
-        title: 'Erro ao carregar contrato-mestre',
+        title: 'Erro ao carregar Contrato-Mestre',
         description: err.message,
         variant: 'destructive',
       })
@@ -270,7 +301,6 @@ export const PrestadoresPage: React.FC = () => {
       setCarregandoCm(false)
     }
   }
-
   const handleGerarContratoMestre = async () => {
     if (!prestadorSelecionado) return
     try {
@@ -388,6 +418,56 @@ export const PrestadoresPage: React.FC = () => {
           </Badge>
         )
     }
+  }
+
+  const getAceiteStatusBadge = (os: OrdemServicoRecord) => {
+    if (os.tipo_prestador === 'interno') {
+      if (os.aceite_status === 'aceito') {
+        return (
+          <Badge className="bg-emerald-600 text-white text-[10px] gap-1">
+            <CheckCircle className="w-3 h-3" />
+            Aceite Simples (Interno)
+          </Badge>
+        )
+      }
+      return (
+        <Badge variant="secondary" className="text-[10px] text-amber-700 bg-amber-50">
+          Aceite Simples Pendente
+        </Badge>
+      )
+    }
+
+    // OS Externa
+    if (os.aceite_status === 'aceito') {
+      return (
+        <Badge className="bg-emerald-600 text-white text-[10px] gap-1">
+          <ShieldCheck className="w-3 h-3" />
+          Assinada (OTP 6 dígitos)
+        </Badge>
+      )
+    }
+    if (os.aceite_status === 'aguardando_codigo') {
+      return (
+        <Badge
+          variant="outline"
+          className="text-[10px] text-amber-700 border-amber-300 bg-amber-50"
+        >
+          Aguardando Código OTP
+        </Badge>
+      )
+    }
+    if (os.aceite_status === 'recusado') {
+      return (
+        <Badge variant="destructive" className="text-[10px]">
+          Recusada
+        </Badge>
+      )
+    }
+    return (
+      <Badge variant="secondary" className="text-[10px] text-slate-600 bg-slate-100">
+        Pendente de Aceite
+      </Badge>
+    )
   }
 
   const getStatusBadge = (status: StatusPrestador) => {
@@ -717,6 +797,18 @@ export const PrestadoresPage: React.FC = () => {
                         Contrato-Mestre
                       </Button>
                     )}
+
+                    {/* Botão Ordens de Serviço (Visão do Gestor com Estados de Aceite) */}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => abrirOrdensServico(p)}
+                      className="text-[11px] h-7 px-2 text-slate-700 hover:text-slate-900 border-slate-300"
+                      title="Ordens de Serviço e Status de Aceite Jurídico"
+                    >
+                      <Briefcase className="w-3 h-3 mr-1 text-blue-600" />
+                      Ordens de Serviço
+                    </Button>
                   </div>
 
                   <div className="flex items-center gap-1">
@@ -1176,6 +1268,117 @@ export const PrestadoresPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Ordens de Serviço e Estados de Aceite (Visão do Gestor) */}
+      <Dialog open={modalOrdensServicoOpen} onOpenChange={setModalOrdensServicoOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Briefcase className="w-5 h-5 text-blue-600" />
+              Ordens de Serviço: {prestadorSelecionado?.nome}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Controle de status operacional, estados de aceite jurídico e dossiê de evidências
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-1">
+            {carregandoOs ? (
+              <div className="flex justify-center p-8">
+                <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+              </div>
+            ) : ordensServicoPrestador.length === 0 ? (
+              <div className="text-center py-8 bg-slate-50 rounded-lg text-xs text-slate-500">
+                Nenhuma Ordem de Serviço emitida para este prestador.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {ordensServicoPrestador.map((os) => (
+                  <div
+                    key={os.id}
+                    className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-2 hover:border-slate-300 transition-colors"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-sm text-slate-900">
+                          {os.numero}
+                        </span>
+                        <Badge variant="outline" className="text-[10px] font-mono">
+                          {os.status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">{getAceiteStatusBadge(os)}</div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-slate-600 pt-1 border-t border-slate-100">
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Disciplina</span>
+                        <strong className="text-slate-800">{os.disciplina || 'Geral'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Valor da OS</span>
+                        <strong className="text-emerald-700">
+                          {formatCurrencyBr(os.valor_os || 0)}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Data do Aceite</span>
+                        <span className="text-slate-700">
+                          {os.data_aceite ? formatDateBr(os.data_aceite) : 'Pendente'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {os.escopo_tecnico && (
+                      <p className="text-[11px] text-slate-500 line-clamp-2 bg-slate-50 p-2 rounded">
+                        {os.escopo_tecnico}
+                      </p>
+                    )}
+
+                    {/* Ações da OS: Dossiê de Evidências */}
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                      <div className="text-[10px] text-slate-400">
+                        {os.tipo_prestador === 'interno'
+                          ? 'Equipe interna: aceite simples no sistema'
+                          : 'Prestador externo: código OTP e carimbo temporal'}
+                      </div>
+
+                      {canEdit && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setOsDossieSelecionada(os)
+                            setModalDossieOpen(true)
+                          }}
+                          className="h-7 text-xs text-slate-700 border-slate-300 hover:bg-slate-50 gap-1.5"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-[#D95A2B]" />
+                          Dossiê de Evidências
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="pt-2 border-t">
+            <Button variant="outline" size="sm" onClick={() => setModalOrdensServicoOpen(false)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Dossiê de Evidências Digitais */}
+      <ModalDossieEvidenciasOS
+        open={modalDossieOpen}
+        onOpenChange={setModalDossieOpen}
+        osId={osDossieSelecionada?.id || null}
+        numeroOS={osDossieSelecionada?.numero}
+      />
     </div>
   )
 }

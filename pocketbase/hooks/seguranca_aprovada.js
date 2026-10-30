@@ -1150,6 +1150,89 @@ routerAdd(
         detalhes: detalheSmtp,
       }
 
+      // REQUISITO 13 (RODADA 12): SELFCHECK ESTENDIDO — PRÉ-CADASTRO PÚBLICO, TRIAGEM E DOCUMENTOS
+      let recrutamentoTriagemOk = true
+      const detalheRecrutamento = {}
+      try {
+        const linksCol = $app.findCollectionByNameOrId('links_recrutamento')
+        const pdocsCol = $app.findCollectionByNameOrId('prestadores_documentos')
+        const prestCol = $app.findCollectionByNameOrId('prestadores')
+
+        // 1. links_recrutamento: leitura/escrita restrita a Admin/Gestor (sem acesso público aberto via API)
+        const linksRestrito =
+          linksCol.listRule &&
+          linksCol.listRule.includes("@request.auth.role = 'admin'") &&
+          linksCol.listRule.includes("@request.auth.role = 'gestor'") &&
+          !linksCol.listRule.includes('true')
+        detalheRecrutamento.links_recrutamento_regras = Boolean(linksRestrito)
+
+        // 2. prestadores_documentos: leitura SOMENTE pelo dono (prestador logado) e por Admin/Gestor
+        const pdocsIsolamentoDono =
+          pdocsCol.listRule &&
+          pdocsCol.listRule.includes("@request.auth.role = 'admin'") &&
+          pdocsCol.listRule.includes("@request.auth.role = 'gestor'") &&
+          pdocsCol.listRule.includes('prestador.email = @request.auth.email')
+        detalheRecrutamento.documentos_isolamento_dono = Boolean(pdocsIsolamentoDono)
+
+        // 3. prestadores_documentos: arquivo com flag protected
+        const arquivoField = pdocsCol.fields.getByName('arquivo')
+        const arquivoProtegido = Boolean(arquivoField && arquivoField.protected)
+        detalheRecrutamento.documentos_arquivo_protegido = arquivoProtegido
+
+        // 4. prestadores: novos campos presentes
+        const camposPrestadoresNovos = [
+          'origem_cadastro',
+          'portfolio_json',
+          'softwares',
+          'preco_referencia_json',
+          'disponibilidade_json',
+          'aceite_termos_em',
+          'aceite_ip',
+          'aceite_hash',
+          'nota_triagem',
+          'parecer_triagem',
+          'triado_por',
+        ]
+        const todosCamposPrestador = camposPrestadoresNovos.every((c) =>
+          Boolean(prestCol.fields.getByName(c)),
+        )
+        detalheRecrutamento.campos_prestador_adicionados = todosCamposPrestador
+
+        // 5. Parâmetros de triagem na Administração
+        const pRate = Boolean(
+          $app.findFirstRecordByData('parametros', 'chave', 'recrutamento_rate_limit_ip_hora'),
+        )
+        const pVal = Boolean(
+          $app.findFirstRecordByData('parametros', 'chave', 'recrutamento_validade_link_dias'),
+        )
+        const pCompl = Boolean(
+          $app.findFirstRecordByData(
+            'parametros',
+            'chave',
+            'dias_expiracao_link_complemento_prestador',
+          ),
+        )
+        detalheRecrutamento.parametros_administracao = Boolean(pRate && pVal && pCompl)
+
+        if (
+          !linksRestrito ||
+          !pdocsIsolamentoDono ||
+          !arquivoProtegido ||
+          !todosCamposPrestador ||
+          !detalheRecrutamento.parametros_administracao
+        ) {
+          recrutamentoTriagemOk = false
+        }
+      } catch (eRecr) {
+        recrutamentoTriagemOk = false
+        detalheRecrutamento.erro = String(eRecr)
+      }
+
+      resultados.item13_recrutamento_triagem_documentos = {
+        todas_conformes: recrutamentoTriagemOk,
+        detalhes: detalheRecrutamento,
+      }
+
       resultados.conformidade_geral =
         resultados.item1_api_rules.cotacoes_segura &&
         resultados.item1_api_rules.subcontratos_segura &&
@@ -1164,7 +1247,8 @@ routerAdd(
         comunicacaoOsOk &&
         monitoramentoOk &&
         iaOperacaoOk &&
-        smtpOk
+        smtpOk &&
+        recrutamentoTriagemOk
 
       return e.json(200, {
         status: 'OK',

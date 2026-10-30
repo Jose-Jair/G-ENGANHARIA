@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T22:43:28.458Z",
+  "generatedAt": "2026-10-30T23:00:14.884Z",
   "collections": [
     {
       "name": "users",
@@ -4640,7 +4640,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["ativo", "pendente", "suspenso", "inativo"]
+          "selectValues": ["triagem", "ativo", "pendente", "suspenso", "inativo"]
         },
         {
           "name": "motivo_suspensao",
@@ -4697,6 +4697,74 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "origem_cadastro",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["publico", "convite", "interno"]
+        },
+        {
+          "name": "portfolio_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "softwares",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "preco_referencia_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "disponibilidade_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aceite_termos_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aceite_ip",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aceite_hash",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nota_triagem",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "parecer_triagem",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "triado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
         }
       ],
       "indexes": [
@@ -6324,6 +6392,156 @@
       "indexes": [
         "CREATE UNIQUE INDEX idx_resumo_data ON resumos_diarios_gestor (data_referencia)",
         "CREATE INDEX idx_resumo_created ON resumos_diarios_gestor (created)"
+      ]
+    },
+    {
+      "name": "links_recrutamento",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "slug",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "disciplina_alvo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "expira_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contador_acessos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_links_recrutamento_slug ON links_recrutamento (slug)"]
+    },
+    {
+      "name": "prestadores_documentos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')"
+      },
+      "fields": [
+        {
+          "name": "prestador",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "prestadores"
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "rg_cnh",
+            "registro_conselho",
+            "certidao_regularidade",
+            "comprovante_residencia",
+            "contrato_social",
+            "certidao_tributaria",
+            "curriculo_portfolio",
+            "outro"
+          ]
+        },
+        {
+          "name": "arquivo",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validade",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "verificado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "status_verificacao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["pendente", "aprovado", "rejeitado"]
+        },
+        {
+          "name": "motivo_rejeicao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pdocs_prestador ON prestadores_documentos (prestador)",
+        "CREATE INDEX idx_pdocs_tipo ON prestadores_documentos (tipo)"
       ]
     }
   ]

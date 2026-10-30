@@ -83,6 +83,37 @@ routerAdd(
 
       $app.save(novoExecutor)
 
+      // RODADA 12: Também registrar/atualizar em prestadores com origem_cadastro = 'convite'
+      try {
+        const prestadoresCol = $app.findCollectionByNameOrId('prestadores')
+        const prestExistentes = $app.findRecordsByFilter(
+          'prestadores',
+          "email = '" + email.replace(/'/g, "\\'") + "'",
+          '',
+          1,
+          0,
+        )
+        let prestRec
+        if (prestExistentes.length > 0) {
+          prestRec = prestExistentes[0]
+        } else {
+          prestRec = new Record(prestadoresCol)
+          prestRec.set('tipo', 'pf_externo')
+          prestRec.set('nome', nome)
+          prestRec.set('email', email)
+          prestRec.set('status', 'pendente')
+          prestRec.set('nota_geral', 0)
+          prestRec.set('total_avaliacoes', 0)
+        }
+        prestRec.set('origem_cadastro', 'convite')
+        prestRec.set('token_cadastro', token)
+        prestRec.set('token_cadastro_expira', expiraData)
+        prestRec.set('executor_legado_id', novoExecutor.id)
+        $app.save(prestRec)
+      } catch (errPConvite) {
+        console.log('Aviso ao sincronizar prestador com origem convite: ' + errPConvite)
+      }
+
       const appUrl =
         $os.getenv('SITE_URL') ||
         $os.getenv('PB_INSTANCE_URL') ||
@@ -373,6 +404,40 @@ routerAdd('POST', '/backend/v1/executores/submeter-cadastro-token', (e) => {
 
     $app.save(executor)
 
+    // RODADA 12: Atualizar também o registro correspondente em prestadores se existir
+    try {
+      const emailEx = executor.getString('email')
+      const prests = $app.findRecordsByFilter(
+        'prestadores',
+        "executor_legado_id = '" +
+          executor.id +
+          "' || email = '" +
+          emailEx.replace(/'/g, "\\'") +
+          "'",
+        '',
+        1,
+        0,
+      )
+      if (prests.length > 0) {
+        const pRec = prests[0]
+        pRec.set('cpf_cnpj', cpfCnpj)
+        if (telefone) pRec.set('telefone', telefone)
+        if (body.nome && (body.nome || '').trim()) pRec.set('nome', body.nome.trim())
+        pRec.set('conselho', conselhoClasse)
+        pRec.set('conselho_classe', conselhoClasse)
+        pRec.set('numero_registro_conselho', numeroRegistro)
+        if (validadeRegistro) pRec.set('validade_registro_conselho', validadeRegistro)
+        pRec.set('disciplinas', disciplinas)
+        if (regiao) pRec.set('regiao', regiao)
+        pRec.set('capacidade_simultanea', capacidade)
+        if (dadosBancariosStr) pRec.set('dados_bancarios', dadosBancariosStr)
+        if (!pRec.getString('origem_cadastro')) pRec.set('origem_cadastro', 'convite')
+        $app.save(pRec)
+      }
+    } catch (eSyncP) {
+      console.log('Aviso ao sincronizar dados do executor com prestador: ' + eSyncP)
+    }
+
     const clientIp =
       (e.request &&
         typeof e.request.getHeader === 'function' &&
@@ -502,8 +567,30 @@ routerAdd(
 
       const statusAnterior = executor.getString('status')
       executor.set('status', 'ativo')
-
       $app.save(executor)
+
+      // RODADA 12: Também ativar prestador correspondente se existir
+      try {
+        const emailEx = executor.getString('email')
+        const prests = $app.findRecordsByFilter(
+          'prestadores',
+          "executor_legado_id = '" +
+            executor.id +
+            "' || email = '" +
+            emailEx.replace(/'/g, "\\'") +
+            "'",
+          '',
+          1,
+          0,
+        )
+        if (prests.length > 0) {
+          const pRec = prests[0]
+          pRec.set('status', 'ativo')
+          $app.save(pRec)
+        }
+      } catch (eAtivP) {
+        console.log('Aviso ao sincronizar ativação com prestador: ' + eAtivP)
+      }
 
       const clientIp =
         (e.request &&

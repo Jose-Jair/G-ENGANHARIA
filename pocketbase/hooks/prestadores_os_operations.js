@@ -771,11 +771,31 @@ routerAdd('POST', '/backend/v1/contratos-mestre/{id}/assinar-prestador', (e) => 
     const authUser = reqInfo.auth
 
     let autorizado = false
+    const prestadorId = cmRec.getString('prestador')
+    let prestador = null
+    if (prestadorId) {
+      try {
+        prestador = $app.findRecordById('prestadores', prestadorId)
+      } catch (_) {}
+    }
+
+    // Bloqueio jurídico RODADA 12: Prestador em status 'triagem' ou 'suspenso' NÃO pode assinar Contrato-Mestre
+    if (prestador) {
+      const pStatus = prestador.getString('status')
+      if (pStatus === 'suspenso') {
+        return e.json(400, { error: 'Prestador suspenso não pode assinar Contrato-Mestre.' })
+      }
+      if (pStatus === 'triagem') {
+        return e.json(400, {
+          error:
+            'Prestador em triagem não pode assinar Contrato-Mestre antes da aprovação da triagem pela G+ Engenharia.',
+        })
+      }
+    }
+
     if (token && tokenEsperado && token === tokenEsperado) {
       autorizado = true
     } else if (authUser) {
-      const prestadorId = cmRec.getString('prestador')
-      const prestador = $app.findRecordById('prestadores', prestadorId)
       if (
         prestador &&
         (prestador.getString('email') === authUser.getString('email') ||

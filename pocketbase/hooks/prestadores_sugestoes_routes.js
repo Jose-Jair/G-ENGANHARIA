@@ -30,6 +30,7 @@ routerAdd(
       }
 
       // Buscar todos os prestadores ativos e não suspensos
+      // NOTA RODADA 12: Prestadores em status 'triagem', 'pendente', 'suspenso' ou 'inativo' NUNCA entram em sugestão/cotação
       const prestadores = $app.findRecordsByFilter(
         'prestadores',
         "status = 'ativo'",
@@ -81,6 +82,20 @@ routerAdd(
 
         if (!compativel) {
           continue // Apenas prestadores com disciplina compatível
+        }
+
+        // 2.1 CONTRATO-MESTRE ASSINADO: obrigatório para prestadores externos
+        if (p.getString('tipo') !== 'interno') {
+          const cmAssinados = $app.findRecordsByFilter(
+            'contratos_mestre',
+            "prestador = '" + p.id + "' && status = 'assinado'",
+            '',
+            1,
+            0,
+          )
+          if (cmAssinados.length === 0) {
+            continue // Sem contrato-mestre assinado não entra em sugestão de contratação
+          }
         }
 
         // 3. Capacidade simultânea livre (capacidade_simultanea menos OS ativas)
@@ -240,6 +255,22 @@ routerAdd(
       const prestador = $app.findRecordById('prestadores', prestadorId)
       if (!prestador) {
         return e.json(404, { error: 'Prestador não encontrado.' })
+      }
+
+      // RODADA 12: Validação estrita de status do prestador — triagem ou pendente não podem ter OS gerada nem entrar em cotação
+      const statusPrestador = prestador.getString('status')
+      if (
+        statusPrestador === 'triagem' ||
+        statusPrestador === 'pendente' ||
+        statusPrestador === 'suspenso' ||
+        statusPrestador === 'inativo'
+      ) {
+        return e.json(400, {
+          error:
+            'Prestador inelegível para contratação. Status atual: "' +
+            statusPrestador +
+            '". Necessário status "ativo" e contrato-mestre assinado.',
+        })
       }
 
       const projeto = $app.findRecordById('projetos', projetoId)

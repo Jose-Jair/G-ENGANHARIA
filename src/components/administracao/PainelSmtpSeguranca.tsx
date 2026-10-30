@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   Server,
 } from 'lucide-react'
-import { pb } from '@/lib/pocketbase/client'
+import pb from '@/lib/pocketbase/client'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
 

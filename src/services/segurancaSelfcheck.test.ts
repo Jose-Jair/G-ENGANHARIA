@@ -83,4 +83,4 @@ describe('Endpoint de Autochecagem de Segurança (/backend/v1/seguranca/selfchec
     expect(res.resultados.item12_smtp_operante).toBeDefined()
     expect(res.resultados.item12_smtp_operante.detalhes).toBeDefined()
   })
-})})
+})

@@ -65,6 +65,7 @@ import {
   Layers,
   FileText,
   BookOpen,
+  Mail,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { formatDateBr, formatDateTimeBr } from '@/lib/formatters'

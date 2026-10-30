@@ -56,6 +56,235 @@ interface CapituloManual {
 // Lista de capítulos do manual de uso da plataforma GESTÃO G+
 const CAPITULOS_MANUAL: CapituloManual[] = [
   {
+    id: 'funil-enxuto-5-colunas',
+    titulo: 'Funil Comercial Enxuto (5 Colunas)',
+    subtitulo:
+      'Nova esteira de intermediação: Prospecção → Qualificação → Proposta → Negociação → Fechada',
+    icone: Kanban,
+    corIcone: 'text-sky-600',
+    perfisPermitidos: ['admin', 'comercial', 'gestor'],
+    descricao:
+      'A esteira comercial do GESTÃO G+ opera de forma objetiva em 5 macroetapas contínuas: 1. Prospecção (captação ativa e oportunidades PNCP), 2. Qualificação (validação de interesse e decisores), 3. Proposta (elaboração técnica com margem e cascata), 4. Negociação (ajustes, alçada e contrapropostas) e 5. Fechada (aceite formal que promove o parceiro e abre a contratação do projeto). A transição entre colunas é intuitiva e recalcula os indicadores em tempo real.',
+    passos: [
+      {
+        titulo: '1. Navegação visual no Funil Enxuto',
+        descricao:
+          'Acesse o menu Funil para acompanhar os cards distribuídos nas 5 colunas. Cada card exibe a Razão Social, classificação Curva ABC (Pareto), tempo de permanência na etapa e data do último toque registrado.',
+        dica: 'Empresas sem movimentação recente são sinalizadas com indicador de atenção para evitar estagnação comercial.',
+      },
+      {
+        titulo: '2. Movimentação e Avanço de Etapa',
+        descricao:
+          'Arraste o card ou utilize as ações internas do modal da empresa para avançar entre as 5 etapas. Cada avanço sincroniza automaticamente o status no banco de dados e agenda o próximo passo na cadência.',
+      },
+      {
+        titulo: '3. Promoção Automática no Fechamento',
+        descricao:
+          'Ao mover uma oportunidade para a 5ª coluna ("Fechada / Ganha"), o sistema promove o cliente a Parceiro Demandante formal e dispara o fluxo de contratação do projeto na engenharia.',
+      },
+    ],
+    regrasAutomaticas: [
+      'Cálculo automático de permanência em dias em cada uma das 5 colunas.',
+      'Sincronização imediata de permissões: Comercial e Admin operam; Gestor e Financeiro consultam.',
+      'Auditoria de cada transição de etapa com registro de usuário, timestamp e justificativa.',
+    ],
+  },
+  {
+    id: 'selo-parceira',
+    titulo: 'Selo Parceira & Classificação de Relacionamento',
+    subtitulo: 'Distinção formal de empresas com contratos assinados e projetos entregues',
+    icone: Award,
+    corIcone: 'text-emerald-600',
+    perfisPermitidos: ['admin', 'comercial', 'financeiro', 'gestor'],
+    descricao:
+      'O Selo Parceira é a chancela oficial concedida a empresas clientes que já formalizaram contratos de prestação de serviços técnicos e concluíram ciclos de projetos com a G+ Engenharia. A distinção confere prioridade operacional, prazos diferenciados e integração direta na carteira ativa de parceiros.',
+    passos: [
+      {
+        titulo: '1. Atribuição do Selo Parceira',
+        descricao:
+          'O selo é atribuído automaticamente quando uma proposta é aceita e o Contrato de Serviços tem assinatura bilateral confirmada, ou pode ser atribuído manualmente pelo Admin no cadastro da empresa.',
+      },
+      {
+        titulo: '2. Identificação Visual na Plataforma',
+        descricao:
+          'Empresas portadoras do Selo Parceira exibem uma insígnia verde com ícone de handshake no funil, nas listagens de empresas, no cabeçalho das propostas e na seleção de clientes de projetos.',
+        dica: 'Utilize o filtro rápido de "Apenas Parceiras" para focar ações de pós-venda e retenção.',
+      },
+      {
+        titulo: '3. Monitoramento de Recorrência',
+        descricao:
+          'Parceiras sem novas demandas há mais de 180 dias acionam um alerta preventivo no sininho superior para reativação comercial estratégica.',
+      },
+    ],
+    regrasAutomaticas: [
+      'Selo gravado de forma estruturada no campo booleano ou status parceira do cadastro.',
+      'Preservação do histórico e auditoria de concessão ou revogação do selo.',
+    ],
+  },
+  {
+    id: 'o-que-fazer-hoje',
+    titulo: 'Bloco "O Que Fazer Hoje"',
+    subtitulo: 'Priorização diária inteligente de toques, cobranças e tarefas críticas',
+    icone: CalendarCheck,
+    corIcone: 'text-amber-600',
+    perfisPermitidos: ['admin', 'comercial', 'gestor'],
+    descricao:
+      'Painel inteligente de ações prioritárias consolidado no início da jornada diária. O bloco reúne tarefas vencendo no dia, toques de cadência pendentes, contratos aguardando assinatura, cobranças de prazos e revisões com SLA próximo do limite, ordenando por gravidade e impacto financeiro.',
+    passos: [
+      {
+        titulo: '1. Consulta Matinal do Bloco',
+        descricao:
+          'Ao acessar a aplicação ou o painel de Ações do Dia, o bloco "O Que Fazer Hoje" lista em ordem de urgência as tarefas distribuídas nas categorias: Ações Comerciais, Prazos Operacionais e Contratos Críticos.',
+      },
+      {
+        titulo: '2. Execução Direta com 1 Clique',
+        descricao:
+          'Cada item possui botão de ação direta: disparar mensagem no WhatsApp oficial, abrir modal de envio de contrato, registrar toque ou aprovar medição.',
+        dica: 'Ao concluir uma tarefa, o item é baixado imediatamente da lista sem necessidade de recarregar a tela.',
+      },
+      {
+        titulo: '3. Indicadores de Meta Diária',
+        descricao:
+          'A barra de progresso no topo do bloco exibe a porcentagem de tarefas concluídas no dia, estimulando a regularização contínua das pendências.',
+      },
+    ],
+    regrasAutomaticas: [
+      'Geração dinâmica baseada nas regras de cadência (D0 a D30) e nos prazos contratuais de projetos.',
+      'Alerta sonoro/visual no sininho superior quando itens críticos ultrapassam o prazo limite.',
+    ],
+  },
+  {
+    id: 'trilha-do-negocio',
+    titulo: 'Trilha do Negócio & Linha do Tempo',
+    subtitulo:
+      'Rastreabilidade visual da esteira completa: Lead → Proposta → Contrato → OS → Pagamento',
+    icone: Layers,
+    corIcone: 'text-[#D95A2B]',
+    perfisPermitidos: ['admin', 'comercial', 'financeiro', 'gestor'],
+    descricao:
+      'Componente visual presente nas principais fichas operacionais que demonstra em qual estágio exato a demanda se encontra dentro do ciclo de vida da G+ Engenharia. Oferece clareza imediata sobre quem é o responsável pela próxima ação, prazos acordados e pendências impeditivas.',
+    passos: [
+      {
+        titulo: '1. Visualização das Etapas da Trilha',
+        descricao:
+          'A trilha é segmentada em marcos sequenciais: 1. Prospecção/Cadastro, 2. Proposta Técnica (PROP), 3. Contrato de Serviço (CTR), 4. Projeto & Ordens de Serviço (OS), 5. Medições e Faturamento (NF/Contas).',
+      },
+      {
+        titulo: '2. Identificação de Gargalos',
+        descricao:
+          'Etapas concluídas exibem check verde e data de conclusão; a etapa corrente destaca-se com borda laranja pulsante e badge de responsável; etapas futuras permanecem em tom neutro.',
+      },
+      {
+        titulo: '3. Acesso aos Documentos de Cada Marco',
+        descricao:
+          'Clique em qualquer marco passado da trilha para inspecionar os registros vinculados (proposta aceita, contrato assinado, ordem de serviço emitida ou fatura baixada).',
+      },
+    ],
+    regrasAutomaticas: [
+      'Atualização automática de status baseada em eventos do servidor (aceite digital, assinatura de contrato, homologação de medição).',
+      'Ocultação estrita para prestadores externos (resguardo de dados estratégicos e comerciais).',
+    ],
+  },
+  {
+    id: 'monitoramento-prazos-os',
+    titulo: 'Monitoramento & Cobrança de Prazos de OS',
+    subtitulo: 'Acompanhamento preventivo, semáforo diário, SLA de revisão e escalonamento',
+    icone: Briefcase,
+    corIcone: 'text-indigo-600',
+    perfisPermitidos: ['admin', 'gestor'],
+    descricao:
+      'Módulo especializado para gestão preventiva do cumprimento de prazos das Ordens de Serviço (OS) com os prestadores credenciados. Monitora entregáveis, versões submetidas, SLAs de revisão técnica pela G+ Engenharia e dispara lembretes idempotentes com canal de escalonamento.',
+    passos: [
+      {
+        titulo: '1. Painel de Monitoramento de Prazos (/monitoramento)',
+        descricao:
+          'Consulte a matriz de OS ativas filtradas por status de prazo: No Prazo (Verde), Alerta Preventivo (Amarelo, D-3), Vencendo Hoje (Laranja) e Em Atraso (Vermelho).',
+      },
+      {
+        titulo: '2. SLA de Revisão de Entregáveis',
+        descricao:
+          'Quando o prestador envia uma nova versão de prancha ou memorial, o relógio de SLA interno da G+ Engenharia (padrão 48h, parametrizável na Administração) é iniciado para garantir retorno ágil.',
+        dica: 'O gestor pode aprovar a versão, solicitar correções pontuais ou reprovar com justificativa técnica.',
+      },
+      {
+        titulo: '3. Cobranças Automáticas e Idempotentes',
+        descricao:
+          'O robô de monitoramento avalia diariamente as OS e dispara eventos de cobrança registrados na coleção eventos_cobranca, prevenindo duplicações através de chave de idempotência.',
+      },
+    ],
+    regrasAutomaticas: [
+      'Imutabilidade dos eventos de cobrança gerados pelo robô (delete e update bloqueados).',
+      'Isolamento estrito: cada prestador só acessa os eventos e cobranças referentes às suas próprias ordens de serviço.',
+      'Parâmetros de monitoramento (dias de lembrete, aviso, cobrança e escalonamento) configuráveis exclusivamente pelo Admin na Administração.',
+    ],
+  },
+  {
+    id: 'ia-operacao',
+    titulo: 'Inteligência Artificial a Serviço da Operação',
+    subtitulo: '5 parâmetros de controle na Administração e recusa segura quando desativada',
+    icone: Sparkles,
+    corIcone: 'text-[#D95A2B]',
+    perfisPermitidos: ['admin', 'comercial', 'gestor'],
+    descricao:
+      'Recursos inteligentes integrados às rotinas diárias da G+ Engenharia para acelerar redação de escopos, justificar seleção de prestadores, sugerir mensagens operacionais no canal de OS, gerar resumo do dia para gestores e apoiar a pré-revisão técnica de entregáveis. Todos os recursos são governados por 5 interruptores na Administração com política de recusa segura (graceful failure).',
+    passos: [
+      {
+        titulo: '1. Controle Central dos 5 Parâmetros na Administração (Admin)',
+        descricao:
+          'Em Administração > IA & Parâmetros, o Administrador controla os 5 interruptores individuais: 1. ia_escopo (redação de escopos), 2. ia_justificativa_prestador (motivação de escolha), 3. ia_texto_canal (redação de comunicados), 4. ia_resumo_dia (síntese executiva diária) e 5. ia_pre_revisao (análise prévia de conformidade técnica).',
+      },
+      {
+        titulo: '2. Política de Recusa Segura (Gatekeeper)',
+        descricao:
+          'Se uma chave de IA estiver desligada ("false"), o backend recusa a requisição de forma limpa e informativa, informando que a funcionalidade está desabilitada nas configurações sem gerar erros 500 nem quebrar o formulário.',
+        dica: 'A IA atua estritamente como copiloto consultivo: nenhuma decisão contratual ou financeira é tomada sem validação e clique explícito de um usuário humano.',
+      },
+      {
+        titulo: '3. Pré-Revisão Inteligente de Entregáveis',
+        descricao:
+          'Ao receber arquivos de prestadores, o gestor pode solicitar a pré-revisão técnica. A IA analisa o conteúdo frente ao escopo contratado e lista conformidades e possíveis omissões para conferência do engenheiro responsável.',
+      },
+    ],
+    regrasAutomaticas: [
+      'Validação prévia das 5 chaves de parâmetros no banco antes de qualquer processamento.',
+      'Auditoria de cada interação assistida por IA na trilha audit_logs.',
+      'Ausência total de dados confidenciais de margens ou custos globais nos prompts operacionais.',
+    ],
+  },
+  {
+    id: 'limpeza-dados-negocio',
+    titulo: 'Limpeza de Negócio & Saneamento de Testes (Admin)',
+    subtitulo: 'Painel seguro de reset de dados de homologação sem apagar tabelas ou configurações',
+    icone: Shield,
+    corIcone: 'text-rose-600',
+    perfisPermitidos: ['admin'],
+    descricao:
+      'Ferramenta exclusiva de nível executivo em Administração > "Limpeza de Dados de Negócio" para saneamento pontual de dados mockados, transações simuladas e registros temporários de teste, preservando integralmente o catálogo oficial, os usuários com login, os parâmetros do sistema e a estrutura de coleções.',
+    passos: [
+      {
+        titulo: '1. Acesso Restrito ao Painel de Limpeza',
+        descricao:
+          'Apenas o usuário Administrador autenticado possui permissão para acessar a aba de Limpeza na Administração. Perfis Comercial, Financeiro, Gestor e Executor não veem o painel nem têm autorização no endpoint.',
+      },
+      {
+        titulo: '2. Exibição Transparente de Contagens',
+        descricao:
+          'O painel lista previamente a contagem exata de registros em cada coleção que será higienizada (propostas de teste, projetos pilotos, contas simuladas, notificações antigas).',
+      },
+      {
+        titulo: '3. Confirmação Rigorosa com Frase de Segurança',
+        descricao:
+          'Para evitar acidentes, a operação exige a digitação exata de uma frase de confirmação ("CONFIRMAR LIMPEZA DE DADOS DE NEGOCIO"). O botão permanece desabilitado até a conferência do texto.',
+        dica: 'Cadastros e parâmetros oficiais configurados nas migrações são preservados permanentemente.',
+      },
+    ],
+    regrasAutomaticas: [
+      'Bloqueio irrestrito no servidor: recusa de chamadas anônimas ou de perfis não-Admin.',
+      'Gravação de evento detalhado na Auditoria Imutável (LIMPEZA_DADOS_NEGOCIO) contendo a contagem de registros removidos e a identidade do Administrador.',
+      'Migrações de limpeza são estruturadas como no-op idempotentes para não impactar novas implantações.',
+    ],
+  },
+  {
     id: 'visao-geral',
     titulo: 'Visão Geral & Fluxo Integrado',
     subtitulo: 'Ciclo completo: Prospect → Cadência → Proposta → Projeto → Finanças',

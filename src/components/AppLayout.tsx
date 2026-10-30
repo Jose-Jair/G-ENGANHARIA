@@ -511,7 +511,7 @@ export default function AppLayout() {
                 </>
               )}
 
-              {/* ETAPA 8: PROJETOS E EXECUTORES */}
+              {/* ETAPA 8: PROJETOS E PRESTADORES */}
               <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 Operação de Engenharia
               </div>
@@ -778,8 +778,8 @@ export default function AppLayout() {
           {user?.role === 'executor' && (
             <div className="mt-6 p-3 rounded-lg bg-black/20 border border-white/10 text-xs text-slate-300">
               <span className="font-semibold text-white block mb-1">Acesso Restrito:</span>
-              Como executor externo, suas ordens de serviço e demandas de engenharia serão
-              disponibilizadas pelo Gestor de Projetos.
+              Como prestador externo, suas ordens de serviço e demandas de engenharia são
+              disponibilizadas pelo Gestor de Projetos no Portal do Prestador.
             </div>
           )}
         </div>

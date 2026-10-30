@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -40,6 +40,21 @@ import { ManualUsoPage } from './pages/ManualUso'
 import { PortalExecutorPage } from './pages/PortalExecutor'
 import NotFound from './pages/NotFound'
 
+function RedirecionarContrato() {
+  const { token } = useParams<{ token: string }>()
+  return <Navigate to={`/contrato-servico/${token || ''}`} replace />
+}
+
+function RedirecionarCotacao() {
+  const { token } = useParams<{ token: string }>()
+  return (
+    <Navigate
+      to={`/portal-prestador${token ? `?token=${encodeURIComponent(token)}` : ''}`}
+      replace
+    />
+  )
+}
+
 const App = () => (
   <BrowserRouter>
     <TooltipProvider>
@@ -62,10 +77,12 @@ const App = () => (
 
           {/* Rota pública de assinatura eletrônica do Contrato de Serviços GMAIS */}
           <Route path="/contrato-servico/:token" element={<ContratoServicoPublicoPage />} />
-          <Route path="/contrato/:token" element={<ContratoServicoPublicoPage />} />
+          {/* Redirecionamento legado preservando token: /contrato/:token -> /contrato-servico/:token */}
+          <Route path="/contrato/:token" element={<RedirecionarContrato />} />
 
-          {/* Rota pública de resposta de cotação do executor (Etapa 8) - sem login */}
-          <Route path="/cotacao/:token" element={<CotacaoPublicaPage />} />
+          {/* Redirecionamento legado preservando token: /cotacao/:token -> /portal-prestador */}
+          <Route path="/cotacao/:token" element={<RedirecionarCotacao />} />
+          <Route path="/cotacao-legada/:token" element={<CotacaoPublicaPage />} />
 
           {/* Rota pública de assinatura eletrônica do Termo de Subcontratação (Bloco 5) - sem login */}
           <Route path="/subcontrato/:token" element={<SubcontratoPublicoPage />} />

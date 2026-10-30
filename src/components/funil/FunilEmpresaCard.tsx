@@ -163,10 +163,10 @@ export const FunilEmpresaCard: React.FC<FunilEmpresaCardProps> = ({
         </div>
       )}
 
-      {/* Topo do Card: Nome e Curva */}
+      {/* Topo do Card: Nome, Selo Parceira e Curva */}
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap">
             <GripVertical className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-400 shrink-0" />
             <h4
               onClick={() => onOpenDetalhes(empresa)}
@@ -175,6 +175,14 @@ export const FunilEmpresaCard: React.FC<FunilEmpresaCardProps> = ({
             >
               {empresa.nome_fantasia || empresa.razao_social}
             </h4>
+            {(empresa.is_parceira || empresa.etapa_funil === 'parceira') && (
+              <span
+                className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs"
+                title="Empresa com selo de Parceira Demandante homologada"
+              >
+                Parceira
+              </span>
+            )}
           </div>
           {empresa.nome_fantasia && (
             <p className="text-[10px] text-slate-400 truncate pl-4.5">{empresa.razao_social}</p>

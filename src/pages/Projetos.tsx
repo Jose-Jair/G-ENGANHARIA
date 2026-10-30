@@ -39,6 +39,7 @@ import { ModalCriarProjeto } from '@/components/projetos/ModalCriarProjeto'
 import { ModalSaudeProjeto } from '@/components/projetos/ModalSaudeProjeto'
 import { ModalDossieProjeto } from '@/components/projetos/ModalDossieProjeto'
 import { ModalDefinirModoExecucao } from '@/components/projetos/ModalDefinirModoExecucao'
+import { TrilhaDoNegocio } from '@/components/comum/TrilhaDoNegocio'
 import { CardProjeto, ProjetoComEtapasCalculadas } from '@/components/projetos/CardProjeto'
 import { TabelaProjetosDensa } from '@/components/projetos/TabelaProjetosDensa'
 import { KanbanProjetos } from '@/components/projetos/KanbanProjetos'
@@ -394,6 +395,9 @@ export const ProjetosPage: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      {/* TRILHA DO NEGÓCIO (FIXA PARA PERFIS INTERNOS) */}
+      <TrilhaDoNegocio etapaAtual="projeto" />
+
       {/* 1. Cabeçalho da Página com Identidade G+ (#1E2A4A / #D95A2B) */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>

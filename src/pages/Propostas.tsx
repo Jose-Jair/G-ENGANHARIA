@@ -43,6 +43,7 @@ import { ModalEditorProposta } from '@/components/propostas/ModalEditorProposta'
 import { ModalDetalheProposta } from '@/components/propostas/ModalDetalheProposta'
 import { ModalAprovacaoInterna } from '@/components/propostas/ModalAprovacaoInterna'
 import { DossiePropostaGmais } from '@/components/propostas/DossiePropostaGmais'
+import { TrilhaDoNegocio } from '@/components/comum/TrilhaDoNegocio'
 import { Printer } from 'lucide-react'
 
 export const PropostasPage: React.FC = () => {
@@ -264,6 +265,9 @@ export const PropostasPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* TRILHA DO NEGÓCIO (FIXA PARA PERFIS INTERNOS) */}
+      <TrilhaDoNegocio etapaAtual="proposta" />
+
       {/* CABEÇALHO */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

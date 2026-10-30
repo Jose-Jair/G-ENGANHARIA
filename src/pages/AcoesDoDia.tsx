@@ -59,6 +59,7 @@ import { monitoramentoPrazosService } from '@/services/monitoramentoPrazos'
 import { EventoCobrancaRecord, ResumoDiarioGestorRecord } from '@/types'
 import { CardResumoDiarioGestor } from '@/components/monitoramento/CardResumoDiarioGestor'
 import { CardCobrancaPrazo } from '@/components/monitoramento/CardCobrancaPrazo'
+import { BlocoOQueFazerHoje } from '@/components/funil/BlocoOQueFazerHoje'
 
 export default function AcoesDoDiaPage() {
   const { user, isAdmin } = useAuth()
@@ -530,6 +531,20 @@ export default function AcoesDoDiaPage() {
           </Button>
         </div>
       </div>
+
+      {/* BLOCO UNIFICADO 'O QUE FAZER HOJE' (ENDPOINT CONSOLIDADO RODADA 10) */}
+      <BlocoOQueFazerHoje
+        onRecarregarPai={carregarDados}
+        onOpenEmpresaDetalhes={(empId) => {
+          const emp = empresasMap[empId]
+          if (emp) {
+            setEmpresaDetalhe(emp)
+            setModalEmpresaOpen(true)
+          } else {
+            navigate('/empresas')
+          }
+        }}
+      />
 
       {/* RODADA 7: RESUMO DIÁRIO DO GESTOR DE PROJETOS */}
       <CardResumoDiarioGestor

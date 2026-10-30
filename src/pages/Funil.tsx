@@ -7,6 +7,7 @@ import {
   ContratoRecord,
   UserRecord,
   EtapaFunil,
+  ColunaFunil5,
   CurvaABC,
   StatusEmpresa,
   ReativacaoSugeridaRecord,
@@ -17,6 +18,12 @@ import { usersService } from '@/services/users'
 import { parametrosService } from '@/services/parametros'
 import { reativacoesService } from '@/services/reativacoes'
 import { scoreCurvaService } from '@/services/scoreCurva'
+import {
+  COLUNAS_FUNIL_5_CONFIG,
+  mapearEtapaParaColuna5,
+  isEmpresaParceira,
+  MAPA_ETAPAS_9_PARA_5,
+} from '@/services/funilCorrespondencia'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
 import { formatCnpj } from '@/lib/cnpj'
 import { useToast } from '@/hooks/use-toast'
@@ -48,52 +55,33 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 
-// As 9 colunas oficiais do Funil de Intermediação de Engenharia
-const KANBAN_COLUMNS: { id: EtapaFunil; title: string; color: string; border: string }[] = [
-  {
-    id: 'identificada',
-    title: 'Identificada',
-    color: 'bg-slate-100/90 text-slate-800',
-    border: 'border-slate-300',
-  },
-  {
-    id: 'qualificada',
-    title: 'Qualificada',
-    color: 'bg-blue-50 text-blue-800',
-    border: 'border-blue-200',
-  },
-  {
-    id: 'em_cadencia',
-    title: 'Em Cadência',
-    color: 'bg-indigo-50 text-indigo-800',
-    border: 'border-indigo-200',
-  },
-  {
-    id: 'em_conversa',
-    title: 'Em Conversa',
-    color: 'bg-cyan-50 text-cyan-800',
-    border: 'border-cyan-200',
-  },
-  {
-    id: 'com_proposta_elaborada',
-    title: 'Proposta Elaborada',
-    color: 'bg-amber-50 text-amber-800',
-    border: 'border-amber-200',
-  },
-  {
-    id: 'proposta_enviada',
-    title: 'Proposta Enviada / Negociação',
-    color: 'bg-orange-50 text-orange-800',
-    border: 'border-orange-200',
-  },
-  {
-    id: 'nutricao_mensal',
-    title: 'Nutrição Mensal',
-    color: 'bg-violet-50 text-violet-800',
-    border: 'border-violet-200',
-  },
-  { id: 'inativa', title: 'Inativa', color: 'bg-rose-50 text-rose-800', border: 'border-rose-200' },
-]
+// Rótulos amigáveis das 9 etapas legadas gravadas no banco
+const ROTULOS_ETAPAS_ANTIGAS: Record<EtapaFunil, string> = {
+  identificada: 'Identificada',
+  qualificada: 'Qualificada',
+  em_cadencia: 'Em Cadência',
+  com_proposta_elaborada: 'Proposta Elaborada',
+  proposta_enviada: 'Proposta Enviada',
+  em_conversa: 'Em Conversa',
+  parceira: 'Parceira',
+  nutricao_mensal: 'Nutrição Mensal',
+  inativa: 'Inativa',
+}
+
+// Verifica se a etapa antiga NÃO corresponde 1:1 ao nome/id da coluna das 5
+function getEtapaAntigaNaoCorrespondente(etapaAntiga?: string | null): string | null {
+  if (!etapaAntiga) return null
+  const col = mapearEtapaParaColuna5(etapaAntiga)
+  // Casos que não correspondem 1:1 ao ID da coluna:
+  // em_cadencia -> qualificada
+  // com_proposta_elaborada | proposta_enviada -> em_proposta
+  // em_conversa -> negociacao
+  // parceira | nutricao_mensal | inativa -> ganha_perdida
+  if (etapaAntiga !== col) {
+    return ROTULOS_ETAPAS_ANTIGAS[etapaAntiga as EtapaFunil] || etapaAntiga
+  }
+  return null
+}
 
 export default function FunilPage() {
   const { user, isAdmin, isComercial } = useAuth()
@@ -199,11 +187,21 @@ export default function FunilPage() {
           { header: 'CNPJ', accessor: (e) => formatCnpj(e.cnpj) },
           { header: 'UF', accessor: (e) => e.uf || '' },
           {
-            header: 'Etapa do Funil',
+            header: 'Coluna do Funil (5)',
             accessor: (e) => {
-              const col = KANBAN_COLUMNS.find((c) => c.id === e.etapa_funil)
-              return col ? col.title : e.etapa_funil
+              const col5 = mapearEtapaParaColuna5(e.etapa_funil)
+              const cfg = COLUNAS_FUNIL_5_CONFIG.find((c) => c.id === col5)
+              return cfg ? cfg.titulo : col5
             },
+          },
+          {
+            header: 'Etapa Gravada no Banco (9)',
+            accessor: (e) =>
+              ROTULOS_ETAPAS_ANTIGAS[e.etapa_funil as EtapaFunil] || e.etapa_funil || '',
+          },
+          {
+            header: 'Selo Parceira',
+            accessor: (e) => (isEmpresaParceira(e) ? 'Sim' : 'Não'),
           },
           { header: 'Curva ABC', accessor: (e) => e.curva || 'C' },
           {
@@ -336,9 +334,12 @@ export default function FunilPage() {
         if (!matchNome && !matchRazao && !matchMun && !matchCnpj) return false
       }
 
-      // Filtro Etapa
-      if (filtroEtapa !== 'todas' && emp.etapa_funil !== filtroEtapa) {
-        return false
+      // Filtro Etapa (aceita filtro por coluna das 5 ou pela etapa legada)
+      if (filtroEtapa !== 'todas') {
+        const col5 = mapearEtapaParaColuna5(emp.etapa_funil)
+        if (col5 !== filtroEtapa && emp.etapa_funil !== filtroEtapa) {
+          return false
+        }
       }
 
       // Filtro Curva
@@ -384,20 +385,21 @@ export default function FunilPage() {
     }, 0)
   }, [empresasFiltradas, contratosPorEmpresa])
 
-  // Agrupamento por coluna com ordenação estrita: Curva A -> B -> C, depois por maior valor
+  // Agrupamento por coluna com ordenação estrita nas 5 colunas do Funil Enxuto:
+  // Mapeia 9 etapas antigas gravadas para 5 colunas oficiais (não-destrutivo)
   const colunasComEmpresas = useMemo(() => {
-    const mapa = new Map<EtapaFunil, EmpresaRecord[]>()
-    KANBAN_COLUMNS.forEach((col) => mapa.set(col.id, []))
+    const mapa = new Map<ColunaFunil5, EmpresaRecord[]>()
+    COLUNAS_FUNIL_5_CONFIG.forEach((col) => mapa.set(col.id, []))
 
     empresasFiltradas.forEach((emp) => {
-      const etapa = (emp.etapa_funil || 'identificada') as EtapaFunil
-      const lista = mapa.get(etapa) || []
+      const col5 = mapearEtapaParaColuna5(emp.etapa_funil)
+      const lista = mapa.get(col5) || []
       lista.push(emp)
-      mapa.set(etapa, lista)
+      mapa.set(col5, lista)
     })
 
     // Ordenar cada coluna: A -> B -> C, depois por maior valor
-    mapa.forEach((lista, etapa) => {
+    mapa.forEach((lista) => {
       lista.sort((a, b) => {
         const pesoCurva = { A: 3, B: 2, C: 1 }
         const curvaA = pesoCurva[a.curva || 'C'] || 1
@@ -414,7 +416,13 @@ export default function FunilPage() {
   }, [empresasFiltradas, contratosPorEmpresa])
 
   // ==========================================
-  // DRAG & DROP HANDLERS
+  // DRAG & DROP HANDLERS (5 COLUNAS ENXUTAS)
+  // Mapeamento padrão ao soltar na coluna:
+  // - identificada -> 'identificada'
+  // - qualificada  -> 'qualificada'
+  // - em_proposta  -> 'com_proposta_elaborada'
+  // - negociacao   -> 'em_conversa'
+  // - ganha_perdida-> 'inativa' (se não parceira) ou preserva selo
   // ==========================================
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedEmpresaId(id)
@@ -430,7 +438,7 @@ export default function FunilPage() {
     e.preventDefault()
   }
 
-  const handleDrop = async (e: React.DragEvent, targetEtapa: EtapaFunil) => {
+  const handleDrop = async (e: React.DragEvent, targetColuna: ColunaFunil5) => {
     e.preventDefault()
     setDragOverColumn(null)
     const empresaId = draggedEmpresaId || e.dataTransfer.getData('text/plain')
@@ -440,47 +448,56 @@ export default function FunilPage() {
     if (!empresa) return
 
     const etapaOrigem = empresa.etapa_funil || 'identificada'
-    if (etapaOrigem === targetEtapa) return
+    const colunaOrigem = mapearEtapaParaColuna5(etapaOrigem)
+    if (colunaOrigem === targetColuna) return
 
-    // REGRA C: Se o destino for "inativa", apenas Admin pode mover e exige motivo!
-    if (targetEtapa === 'inativa') {
-      if (!isAdmin) {
-        toast({
-          title: 'Operação não permitida',
-          description:
-            'Apenas Administradores têm permissão para mover empresas para a etapa Inativa.',
-          variant: 'destructive',
-        })
+    // Mapeamento de coluna das 5 para a etapa correspondente do backend:
+    let targetEtapaBackend: EtapaFunil = 'identificada'
+    if (targetColuna === 'identificada') targetEtapaBackend = 'identificada'
+    else if (targetColuna === 'qualificada') targetEtapaBackend = 'qualificada'
+    else if (targetColuna === 'em_proposta') targetEtapaBackend = 'com_proposta_elaborada'
+    else if (targetColuna === 'negociacao') targetEtapaBackend = 'em_conversa'
+    else if (targetColuna === 'ganha_perdida') {
+      // Se tiver selo ou for parceira
+      if (isEmpresaParceira(empresa)) {
+        targetEtapaBackend = 'parceira'
+      } else {
+        // Exige motivo de inativação se for descartada para Ganha/Perdida
+        if (!isAdmin) {
+          toast({
+            title: 'Operação não permitida',
+            description:
+              'Apenas Administradores têm permissão para inativar ou mover empresas para Ganha/Perdida.',
+            variant: 'destructive',
+          })
+          return
+        }
+        setEmpresaInativar(empresa)
         return
       }
-      // Abre modal de inativação com motivo obrigatório
-      setEmpresaInativar(empresa)
-      return
     }
 
-    // Se estiver saindo de inativa (reativação pelo drag and drop)
     const isReactivating = etapaOrigem === 'inativa'
     const newStatus = isReactivating ? 'ativa' : empresa.status
 
     try {
-      // Atualização otimista no estado local
       setEmpresas((prev) =>
         prev.map((item) =>
           item.id === empresaId
-            ? { ...item, etapa_funil: targetEtapa, status: newStatus as any }
+            ? { ...item, etapa_funil: targetEtapaBackend, status: newStatus as any }
             : item,
         ),
       )
 
       await empresasService.update(empresaId, {
-        etapa_funil: targetEtapa,
+        etapa_funil: targetEtapaBackend,
         status: newStatus as any,
         etapa_anterior: isReactivating ? undefined : etapaOrigem,
       })
 
       toast({
         title: 'Etapa atualizada',
-        description: `Empresa movida de "${etapaOrigem}" para "${targetEtapa}". Auditoria registrada.`,
+        description: `Empresa movida para a coluna "${targetColuna}". Auditoria registrada.`,
       })
     } catch (err: unknown) {
       toast({
@@ -643,14 +660,23 @@ export default function FunilPage() {
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">
               Funil de Intermediação Comercial
             </h1>
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
-              8 Etapas Operacionais
+            <Badge
+              variant="outline"
+              className="bg-orange-50 text-[#D95A2B] border-orange-200 text-xs font-semibold"
+            >
+              5 Colunas do Funil
+            </Badge>
+            <Badge
+              variant="outline"
+              className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs"
+            >
+              Mapeamento 9 → 5 Ativo
             </Badge>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Gestão de oportunidades com órgãos públicos e parceiros demandantes de engenharia.
-            Parceiros nascem exclusivamente da conversão da proposta. Priorização por Curva ABC (A
-            &gt; B &gt; C) e valores contratuais.
+            Gestão de oportunidades em 5 colunas unificadas. Mapeamento 9→5 preserva as etapas
+            originais gravadas no banco; etapa legada indicada visualmente quando não corresponder
+            1:1. Selo Parceira atribuído como marcação especial sem coluna própria.
           </p>
         </div>
 
@@ -899,20 +925,26 @@ export default function FunilPage() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1 text-xs">
-          {/* Filtro Etapa */}
+          {/* Filtro Etapa / Coluna */}
           <div>
             <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
-              Etapa
+              Coluna do Funil
             </label>
             <select
               className="w-full h-8 px-2 text-xs border border-slate-200 rounded bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
               value={filtroEtapa}
               onChange={(e) => setFiltroEtapa(e.target.value)}
             >
-              <option value="todas">Todas as Etapas ({KANBAN_COLUMNS.length})</option>
-              {KANBAN_COLUMNS.map((col) => (
+              <option value="todas">Todas as Colunas (5)</option>
+              {COLUNAS_FUNIL_5_CONFIG.map((col) => (
                 <option key={col.id} value={col.id}>
-                  {col.title}
+                  {col.titulo}
+                </option>
+              ))}
+              <option disabled>────────── Etapas legadas</option>
+              {Object.entries(ROTULOS_ETAPAS_ANTIGAS).map(([id, label]) => (
+                <option key={id} value={id}>
+                  Legada: {label}
                 </option>
               ))}
             </select>
@@ -1012,7 +1044,7 @@ export default function FunilPage() {
             </div>
           ) : (
             <div className="flex gap-3 overflow-x-auto pb-4 pt-1 items-start min-h-[600px] scrollbar-thin">
-              {KANBAN_COLUMNS.map((col) => {
+              {COLUNAS_FUNIL_5_CONFIG.map((col) => {
                 const empresasDaColuna = colunasComEmpresas.get(col.id) || []
                 const totalColuna = empresasDaColuna.reduce(
                   (acc, emp) => acc + (contratosPorEmpresa.get(emp.id)?.total || 0),
@@ -1030,11 +1062,16 @@ export default function FunilPage() {
                       isOver ? 'ring-2 ring-blue-500 bg-blue-50/50' : 'border-slate-200'
                     }`}
                   >
-                    {/* Cabeçalho da Coluna */}
-                    <div className={`p-3 rounded-t-xl border-b ${col.border} ${col.color}`}>
+                    {/* Cabeçalho da Coluna das 5 */}
+                    <div
+                      className={`p-3 rounded-t-xl border-b ${col.borda} ${col.corFundo} ${col.corTexto}`}
+                    >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-xs uppercase tracking-wide truncate">
-                          {col.title}
+                        <span
+                          className="font-bold text-xs uppercase tracking-wide truncate"
+                          title={col.descricao}
+                        >
+                          {col.titulo}
                         </span>
                         <Badge
                           variant="outline"
@@ -1044,10 +1081,8 @@ export default function FunilPage() {
                         </Badge>
                       </div>
                       <div className="flex items-center justify-between text-[10px]">
-                        <span className="text-slate-500">Total ativo:</span>
-                        <span className="font-mono font-bold text-slate-800">
-                          {formatCurrencyBr(totalColuna)}
-                        </span>
+                        <span className="opacity-80">Total ativo:</span>
+                        <span className="font-mono font-bold">{formatCurrencyBr(totalColuna)}</span>
                       </div>
                     </div>
 
@@ -1061,8 +1096,11 @@ export default function FunilPage() {
                         empresasDaColuna.map((emp) => {
                           const totalAtivo = contratosPorEmpresa.get(emp.id)?.total || 0
                           const hasReat = reativacoesPendentes.some((r) => r.empresa === emp.id)
+                          const etapaAntigaNaoCorrespondente = getEtapaAntigaNaoCorrespondente(
+                            emp.etapa_funil,
+                          )
 
-                          // Cálculo de fim de funil (>7 dias em proposta_enviada sem proposta aceita)
+                          // Fim de funil (>7 dias em proposta enviada sem proposta aceita)
                           let isSugeridoNutricao = false
                           let diasNaEtapa = 0
                           if (
@@ -1095,9 +1133,20 @@ export default function FunilPage() {
                                 }}
                                 onDragStart={handleDragStart}
                                 canDrag={true}
-                              />{' '}
-                              {/* Ação especial na coluna Inativa: Restaurar etapa anterior */}
-                              {col.id === 'inativa' && emp.etapa_anterior && (
+                              />
+                              {/* Sub-rótulo visível para etapa antiga não correspondente 1:1 */}
+                              {etapaAntigaNaoCorrespondente && (
+                                <div className="mt-1 px-2 py-0.5 rounded bg-slate-200/80 border border-slate-300 text-[10px] text-slate-700 flex items-center justify-between">
+                                  <span className="text-[9px] uppercase font-bold text-slate-500">
+                                    Etapa gravada:
+                                  </span>
+                                  <span className="font-semibold">
+                                    {etapaAntigaNaoCorrespondente}
+                                  </span>
+                                </div>
+                              )}
+                              {/* Ação especial se estiver inativa: Restaurar etapa anterior */}
+                              {emp.etapa_funil === 'inativa' && emp.etapa_anterior && (
                                 <button
                                   onClick={() => handleRestaurarEmpresa(emp)}
                                   className="mt-1 w-full text-center text-[10px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 py-1 rounded border border-blue-200 transition-colors"
@@ -1105,8 +1154,8 @@ export default function FunilPage() {
                                   Restaurar para "{emp.etapa_anterior}"
                                 </button>
                               )}
-                              {/* Ação especial na coluna Nutrição Mensal: Reativar retorno ao funil para Em Conversa */}
-                              {col.id === 'nutricao_mensal' && (
+                              {/* Ação especial na etapa nutrição mensal: Retornar para Em Conversa */}
+                              {emp.etapa_funil === 'nutricao_mensal' && (
                                 <button
                                   onClick={async () => {
                                     if (

@@ -764,6 +764,14 @@ export function EmpresaDetailModal({
                   <DialogTitle className="text-xl font-bold text-slate-900">
                     {empresa ? razaoSocial || 'Detalhes da Empresa' : 'Cadastrar Nova Empresa'}
                   </DialogTitle>
+                  {empresa && (empresa.is_parceira || empresa.etapa_funil === 'parceira') && (
+                    <Badge
+                      className="bg-emerald-600 text-white font-bold text-xs shadow-xs"
+                      title="Selo oficial: Parceira Demandante homologada"
+                    >
+                      Selo Parceira
+                    </Badge>
+                  )}
                   {empresa && (
                     <Badge
                       variant="outline"

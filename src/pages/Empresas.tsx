@@ -1270,6 +1270,14 @@ export default function EmpresasPage() {
                           <div className="font-semibold text-slate-900 text-sm">
                             {emp.nome_fantasia || emp.razao_social}
                           </div>
+                          {(emp.is_parceira || emp.etapa_funil === 'parceira') && (
+                            <Badge
+                              className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-800 border-emerald-300 font-bold"
+                              title="Empresa com selo de Parceira Demandante homologada"
+                            >
+                              Parceira
+                            </Badge>
+                          )}
                           {emp.pre_cadastro && (
                             <Badge
                               variant="outline"

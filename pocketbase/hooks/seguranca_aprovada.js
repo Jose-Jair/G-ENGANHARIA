@@ -946,6 +946,88 @@ routerAdd(
         detalhes: detalheComunicacaoOs,
       }
 
+      // REQUISITO 10: SELFCHECK ESTENDIDO — MONITORAMENTO E COBRANÇA AUTOMÁTICA DE PRAZOS (RODADA 7)
+      let monitoramentoOk = true
+      const detalheMonitoramento = {}
+      try {
+        const evtCol = $app.findCollectionByNameOrId('eventos_cobranca')
+        const resCol = $app.findCollectionByNameOrId('resumos_diarios_gestor')
+
+        // 1. eventos_cobranca: imutabilidade estrita via API (updateRule e deleteRule nulos)
+        const evtImutavel = evtCol.updateRule === null && evtCol.deleteRule === null
+        detalheMonitoramento.eventos_imutabilidade_api = Boolean(evtImutavel)
+
+        // 2. eventos_cobranca: isolamento do prestador no listRule (não vê de outros)
+        const evtIsolamento =
+          evtCol.listRule &&
+          evtCol.listRule.includes("destinatario_tipo = 'prestador'") &&
+          evtCol.listRule.includes('destinatario_email = @request.auth.email')
+        detalheMonitoramento.eventos_isolamento_prestador = Boolean(evtIsolamento)
+
+        // 3. eventos_cobranca: presença do campo e índice de chave_idempotencia
+        const temIdempField = Boolean(evtCol.fields.getByName('chave_idempotencia'))
+        const temIdempIndex = evtCol.indexes.some(
+          (idx) =>
+            idx.toLowerCase().includes('chave_idempotencia') ||
+            idx.toLowerCase().includes('idx_evt_cobranca_idemp'),
+        )
+        detalheMonitoramento.eventos_idempotencia_configurada = Boolean(
+          temIdempField && temIdempIndex,
+        )
+
+        // 4. resumos_diarios_gestor: leitura restrita a Admin, Gestor e Financeiro
+        const resAcessoRestrito =
+          resCol.listRule &&
+          resCol.listRule.includes("@request.auth.role = 'admin'") &&
+          resCol.listRule.includes("@request.auth.role = 'gestor'") &&
+          !resCol.listRule.includes("@request.auth.role = 'executor'")
+        detalheMonitoramento.resumo_diario_restrito_gestao = Boolean(resAcessoRestrito)
+
+        // 5. Parâmetros de monitoramento presentes na coleção 'parametros'
+        const paramsObrigatorios = [
+          'monitoramento_prazo_dias_lembrete',
+          'monitoramento_prazo_dias_aviso',
+          'monitoramento_prazo_dias_cobranca',
+          'monitoramento_prazo_dias_escalonamento',
+          'monitoramento_revisao_sla_horas',
+          'monitoramento_cron_horario',
+        ]
+        let todosParamsExistem = true
+        for (let pIdx = 0; pIdx < paramsObrigatorios.length; pIdx++) {
+          const recs = $app.findRecordsByFilter(
+            'parametros',
+            "chave = '" + paramsObrigatorios[pIdx] + "'",
+            '',
+            1,
+            0,
+          )
+          if (recs.length === 0) {
+            todosParamsExistem = false
+            break
+          }
+        }
+        detalheMonitoramento.parametros_prazos_configurados = Boolean(todosParamsExistem)
+
+        if (
+          !evtImutavel ||
+          !evtIsolamento ||
+          !temIdempField ||
+          !temIdempIndex ||
+          !resAcessoRestrito ||
+          !todosParamsExistem
+        ) {
+          monitoramentoOk = false
+        }
+      } catch (eMon) {
+        monitoramentoOk = false
+        detalheMonitoramento.erro = String(eMon)
+      }
+
+      resultados.item10_monitoramento_cobranca_prazos = {
+        todas_conformes: monitoramentoOk,
+        detalhes: detalheMonitoramento,
+      }
+
       resultados.conformidade_geral =
         resultados.item1_api_rules.cotacoes_segura &&
         resultados.item1_api_rules.subcontratos_segura &&
@@ -957,7 +1039,8 @@ routerAdd(
         colecoesNovasOk &&
         cotacaoAutomaticaOk &&
         assinaturaEletronicaOk &&
-        comunicacaoOsOk
+        comunicacaoOsOk &&
+        monitoramentoOk
 
       return e.json(200, {
         status: 'OK',

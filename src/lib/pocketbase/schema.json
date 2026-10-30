@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T12:22:53.524Z",
+  "generatedAt": "2026-10-30T12:43:27.445Z",
   "collections": [
     {
       "name": "users",
@@ -6034,6 +6034,249 @@
         "CREATE INDEX idx_notif_email ON notificacoes (destinatario_email)",
         "CREATE INDEX idx_notif_lida ON notificacoes (lida)",
         "CREATE INDEX idx_notif_created ON notificacoes (created)"
+      ]
+    },
+    {
+      "name": "eventos_cobranca",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && destinatario_tipo = 'prestador' && destinatario_email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && destinatario_tipo = 'prestador' && destinatario_email = @request.auth.email))",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "referencia_tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ordens_servico", "entregaveis"]
+        },
+        {
+          "name": "referencia_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "ordem_servico",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "ordens_servico"
+        },
+        {
+          "name": "entregavel",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "entregaveis"
+        },
+        {
+          "name": "degrau",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["d_menos_3", "d_zero", "d_mais_1", "d_mais_3", "revisor_sla"]
+        },
+        {
+          "name": "dias_configurados",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "destinatario_tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["prestador", "revisor_interno", "gestor"]
+        },
+        {
+          "name": "destinatario_usuario",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "destinatario_prestador",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "prestadores"
+        },
+        {
+          "name": "destinatario_email",
+          "type": "email",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "destinatario_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "destinatario_telefone",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["processado", "pendente", "falha"]
+        },
+        {
+          "name": "email_enviado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notificacao_enviada",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "whatsapp_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mensagem_texto",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "detalhes_auditoria",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "chave_idempotencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_evt_cobranca_idemp ON eventos_cobranca (chave_idempotencia)",
+        "CREATE INDEX idx_evt_cobranca_ref ON eventos_cobranca (referencia_tipo, referencia_id)",
+        "CREATE INDEX idx_evt_cobranca_os ON eventos_cobranca (ordem_servico)",
+        "CREATE INDEX idx_evt_cobranca_ent ON eventos_cobranca (entregavel)",
+        "CREATE INDEX idx_evt_cobranca_degrau ON eventos_cobranca (degrau)",
+        "CREATE INDEX idx_evt_cobranca_dest_email ON eventos_cobranca (destinatario_email)",
+        "CREATE INDEX idx_evt_cobranca_created ON eventos_cobranca (created)"
+      ]
+    },
+    {
+      "name": "resumos_diarios_gestor",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "data_referencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "total_os_monitoradas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_os_atrasadas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_entregaveis_atrasados",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_revisoes_estagnadas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_escalonamentos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "itens_atencao_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "gerado_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lido_por_gestor",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_resumo_data ON resumos_diarios_gestor (data_referencia)",
+        "CREATE INDEX idx_resumo_created ON resumos_diarios_gestor (created)"
       ]
     }
   ]

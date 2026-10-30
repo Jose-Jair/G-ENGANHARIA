@@ -1795,3 +1795,93 @@ export interface ContadoresMensagensNaoLidasResponse {
   total_geral: number
   por_os: Record<string, number>
 }
+
+// =============================================================================
+// RODADA 7 — MONITORAMENTO E COBRANÇA AUTOMÁTICA DE PRAZOS
+// =============================================================================
+
+export type DegrauCobranca = 'd_menos_3' | 'd_zero' | 'd_mais_1' | 'd_mais_3' | 'revisor_sla'
+
+export type DestinatarioTipoCobranca = 'prestador' | 'revisor_interno' | 'gestor'
+
+export interface EventoCobrancaRecord {
+  id: string
+  referencia_tipo: 'ordens_servico' | 'entregaveis'
+  referencia_id: string
+  ordem_servico?: string
+  entregavel?: string
+  degrau: DegrauCobranca
+  dias_configurados?: number
+  destinatario_tipo: DestinatarioTipoCobranca
+  destinatario_usuario?: string
+  destinatario_prestador?: string
+  destinatario_email?: string
+  destinatario_nome?: string
+  destinatario_telefone?: string
+  status: 'processado' | 'pendente' | 'falha'
+  email_enviado: boolean
+  notificacao_enviada: boolean
+  whatsapp_url?: string
+  mensagem_texto: string
+  detalhes_auditoria?: any
+  chave_idempotencia: string
+  created: string
+  updated: string
+  expand?: {
+    ordem_servico?: OrdemServicoRecord
+    entregavel?: EntregavelRecord
+    destinatario_usuario?: UserRecord
+    destinatario_prestador?: PrestadorRecord
+  }
+}
+
+export interface ItemAtencaoResumo {
+  tipo: 'os_escalonada' | 'revisao_estagnada'
+  id: string
+  numero?: string
+  nome?: string
+  disciplina?: string
+  prestador_nome?: string
+  prestador_telefone?: string
+  dias_atraso?: number
+  horas_em_revisao?: number
+  sla_horas?: number
+  prazo_previsto?: string
+}
+
+export interface ResumoDiarioGestorRecord {
+  id: string
+  data_referencia: string
+  total_os_monitoradas: number
+  total_os_atrasadas: number
+  total_entregaveis_atrasados: number
+  total_revisoes_estagnadas: number
+  total_escalonamentos: number
+  itens_atencao_json: ItemAtencaoResumo[]
+  gerado_em: string
+  lido_por_gestor: boolean
+  created: string
+  updated: string
+}
+
+export interface ExecutarMonitoramentoResponse {
+  sucesso: boolean
+  data_referencia: string
+  total_os_monitoradas: number
+  total_os_atrasadas: number
+  total_entregaveis_atrasados: number
+  total_revisoes_estagnadas: number
+  total_escalonamentos: number
+  novos_eventos_criados: number
+  origem: string
+}
+
+export interface ObterWhatsAppLinkResponse {
+  os_id: string
+  numero: string
+  prestador_nome: string
+  prestador_telefone: string
+  prazo_previsto: string
+  mensagem_texto: string
+  whatsapp_url: string
+}

@@ -682,6 +682,23 @@ routerAdd(
           !camposPos.getByName('obra') &&
           !camposPos.getByName('outros_prestadores')
 
+        // RODADA 8 — SEGMENTAÇÃO FINANCEIRA DO PORTAL DO PRESTADOR:
+        // Garantir que a coleção 'contas' tem API rules restritas exclusivamente a admin e financeiro
+        // e que portal_os NÃO contém dados de margem, faturamento de cliente, propostas ou contas a receber
+        const contasCol = $app.findCollectionByNameOrId('contas')
+        const contasRuleSegura =
+          contasCol.listRule &&
+          !contasCol.listRule.includes('executor') &&
+          !contasCol.listRule.includes('true') &&
+          (contasCol.listRule.includes("@request.auth.role = 'admin'") ||
+            contasCol.listRule.includes("@request.auth.role = 'financeiro'"))
+
+        const posSemDadosFinanceirosProposta =
+          !camposPos.getByName('margem') &&
+          !camposPos.getByName('valor_vendido') &&
+          !camposPos.getByName('contas_receber') &&
+          !camposPos.getByName('lucro')
+
         resultados.item5_modulo_prestadores = {
           colecoes_criadas: Boolean(
             prestCol && profCol && cmCol && osCol && posCol && pentCol && pdocCol,
@@ -692,6 +709,12 @@ routerAdd(
           portal_entregaveis_isolado_por_email: Boolean(pentRuleSegura),
           portal_documentos_isolado_por_email: Boolean(pdocRuleSegura),
           portal_os_sem_campos_sensiveis: Boolean(posSemCamposSensiveis),
+          contas_financeiro_isolado_sem_prestador: Boolean(contasRuleSegura),
+          portal_os_sem_dados_financeiros_cliente: Boolean(posSemDadosFinanceirosProposta),
+        }
+
+        if (!contasRuleSegura || !posSemDadosFinanceirosProposta) {
+          prestadoresOk = false
         }
 
         if (

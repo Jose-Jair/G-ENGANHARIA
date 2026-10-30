@@ -1114,6 +1114,18 @@ export default function AdministracaoPage() {
                               titulo: 'Monitoramento: Horário do Resumo Diário (HH:MM)',
                               badge: 'Monitoramento Prazos',
                             },
+                            funil_probabilidade_por_etapa: {
+                              titulo: 'Probabilidade por Etapa do Funil (JSON %)',
+                              badge: 'Financeiro & Funil',
+                            },
+                            financeiro_margem_minima_alerta: {
+                              titulo: 'Margem mínima de lucro por projeto (% alerta)',
+                              badge: 'Saúde Financeira',
+                            },
+                            financeiro_antecedencia_alerta_inversao_dias: {
+                              titulo: 'Antecedência de alerta de inversão de fluxo (dias)',
+                              badge: 'Fluxo Projetado',
+                            },
                           }
                         const infoAmigavel = rotulosAmigaveis[param.chave]
 

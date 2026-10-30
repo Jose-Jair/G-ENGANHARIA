@@ -518,4 +518,111 @@ export const financeiroService = {
       return 0
     }
   },
+
+  /**
+   * RODADA 8: Conferência Contrato -> Contas a Receber (Idempotente)
+   * Dispara a amarração e sincronização de parcelas do contrato gerando apenas o que faltar
+   */
+  async conferirContasReceberContrato(contratoId: string): Promise<{
+    success: boolean
+    contrato_id: string
+    contrato_numero: string
+    relatorio: {
+      total_criadas: number
+      total_ja_existiam: number
+      criadas: any[]
+      ja_existiam: any[]
+    }
+    mensagem: string
+  }> {
+    return await pb.send(`/backend/v1/contratos-servico/conferir-contas-receber/${contratoId}`, {
+      method: 'POST',
+    })
+  },
+
+  /**
+   * RODADA 8: Previsão de Receita Ponderada do Funil (perfil Financeiro / Admin)
+   */
+  async getPrevisaoReceitaFunil(): Promise<{
+    success: boolean
+    parametros_probabilidades: Record<string, number>
+    totalizador: {
+      total_empresas: number
+      valor_bruto_total: number
+      previsao_receita_ponderada_total: number
+      fator_conversao_medio_perc: number
+    }
+    etapas: Array<{
+      etapa: string
+      probabilidade_perc: number
+      total_empresas: number
+      valor_bruto_potencial: number
+      valor_ponderado: number
+      empresas_detalhe: any[]
+    }>
+  }> {
+    return await pb.send('/backend/v1/financeiro/previsao-receita-funil', { method: 'GET' })
+  },
+
+  /**
+   * RODADA 8: Saúde Financeira Consolidada por Projeto (Margem em tempo real, custos, teto, exposição)
+   */
+  async getSaudeFinanceiraProjeto(projetoId: string): Promise<{
+    success: boolean
+    projeto_id: string
+    projeto_codigo: string
+    projeto_nome: string
+    proposta_numero: string | null
+    teto_vendido: number
+    custos: {
+      soma_os_externas: number
+      outros_custos_lancados: number
+      custo_total_comprometido: number
+      custos_pagos: number
+      custos_em_aberto: number
+      total_os_externas_count: number
+      detalhes_os: any[]
+    }
+    receitas: {
+      total_receber_contratado: number
+      total_recebido: number
+      total_receber_aberto: number
+    }
+    margem: {
+      prevista_proposta_perc: number
+      real_valor: number
+      real_perc: number
+      minima_toleravel_perc: number
+      status: 'saudavel' | 'atencao' | 'critico'
+    }
+    exposicao_financeira: number
+    alertas: Array<{
+      tipo: string
+      nivel: 'critico' | 'atencao' | 'info'
+      mensagem: string
+    }>
+  }> {
+    return await pb.send(`/backend/v1/projetos/${projetoId}/saude-financeira`, { method: 'GET' })
+  },
+
+  /**
+   * RODADA 8: Fluxo de Caixa Projetado por Marco com Alerta de Inversão de Fluxo
+   */
+  async getFluxoMarcosInversao(): Promise<{
+    success: boolean
+    antecedencia_dias_configurada: number
+    total_alertas_inversao: number
+    alertas: Array<{
+      projeto_id: string
+      projeto_codigo: string
+      projeto_nome: string
+      conta_pagar: any
+      conta_receber: any
+      dias_inversao: number
+      tipo_inversao: string
+      mensagem: string
+    }>
+  }> {
+    return await pb.send('/backend/v1/financeiro/fluxo-marcos-inversao', { method: 'GET' })
+  },
 }

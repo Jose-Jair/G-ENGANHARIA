@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T12:43:27.445Z",
+  "generatedAt": "2026-10-30T13:11:57.072Z",
   "collections": [
     {
       "name": "users",
@@ -2717,12 +2717,33 @@
           "required": false,
           "system": false,
           "collectionRef": "ordens_servico"
+        },
+        {
+          "name": "chave_idempotencia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "parcela_origem",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "proposta_parcelas"
+        },
+        {
+          "name": "marco_origem",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "projeto_etapas"
         }
       ],
       "indexes": [
         "CREATE INDEX idx_contas_tipo ON contas (tipo)",
         "CREATE INDEX idx_contas_status ON contas (status)",
-        "CREATE INDEX idx_contas_vencimento ON contas (vencimento)"
+        "CREATE INDEX idx_contas_vencimento ON contas (vencimento)",
+        "CREATE INDEX `idx_contas_chave_idemp` ON `contas` (chave_idempotencia)"
       ]
     },
     {

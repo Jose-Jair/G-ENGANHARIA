@@ -59,12 +59,29 @@ onRecordValidate((e) => {
     }
   }
 
-  // Regra C: Bloqueio no servidor: não gera conta a pagar de subcontratação sem medição aprovada
-  // Se for conta a pagar vinculada a executor
-  if (tipo === 'pagar' && executorId) {
+  // Regra C: Bloqueio no servidor (RODADA 8):
+  // 1. OS interna NUNCA gera conta a pagar (trava no servidor).
+  // 2. Conta a pagar vinculada a prestador/executor/OS externa requer medição APROVADA
+  //    e entregável técnico aprovado com retenção técnica devidamente descontada.
+  const osIdConta = rec.getString('ordem_servico')
+  if (tipo === 'pagar' && osIdConta) {
+    try {
+      const osVinculada = $app.findRecordById('ordens_servico', osIdConta)
+      if (osVinculada && osVinculada.getString('tipo_prestador') === 'interno') {
+        throw new BadRequestError(
+          'BLOQUEIO ESTREITO NO SERVIDOR: Ordem de Serviço interna NUNCA gera conta a pagar no Financeiro.',
+        )
+      }
+    } catch (errOsInt) {
+      if (errOsInt && errOsInt.message && errOsInt.message.startsWith('BLOQUEIO')) {
+        throw errOsInt
+      }
+    }
+  }
+
+  if (tipo === 'pagar' && (executorId || osIdConta)) {
     const medicaoOrigem = rec.getString('medicao_aprovada_origem')
     if (!medicaoOrigem) {
-      // Verificar se existe no projeto algum documento do tipo 'medicao'
       let temMedicao = false
       if (projetoId) {
         try {
@@ -84,8 +101,58 @@ onRecordValidate((e) => {
 
       if (!temMedicao) {
         throw new BadRequestError(
-          'BLOQUEIO: Não é permitido gerar conta a pagar de subcontratação sem medição aprovada vinculada ao projeto/etapa.',
+          'BLOQUEIO: Não é permitido gerar conta a pagar de subcontratação/prestador sem medição aprovada contra entregável aprovado.',
         )
+      }
+    } else {
+      // Validar que a medição informada realmente está 'aprovada', 'faturada' ou 'paga'
+      try {
+        let medRecord = null
+        try {
+          medRecord = $app.findRecordById('medicoes', medicaoOrigem)
+        } catch (_) {
+          const medsPorNum = $app.findRecordsByFilter(
+            'medicoes',
+            "numero = '" + medicaoOrigem + "'",
+            '',
+            1,
+            0,
+          )
+          if (medsPorNum.length > 0) medRecord = medsPorNum[0]
+        }
+
+        if (medRecord) {
+          const stMed = medRecord.getString('status')
+          if (stMed !== 'aprovada' && stMed !== 'faturada' && stMed !== 'paga') {
+            throw new BadRequestError(
+              'BLOQUEIO: A medição de origem (' +
+                medicaoOrigem +
+                ') deve estar APROVADA para gerar conta a pagar. Status atual: ' +
+                stMed,
+            )
+          }
+
+          // Garantir que a retenção técnica foi descontada
+          const retencaoTecMed = medRecord.getFloat('valor_retencao_tecnica') || 0
+          const retencaoImpMed = medRecord.getFloat('retencao_impostos') || 0
+          const valorBrutoMed = medRecord.getFloat('valor_bruto') || 0
+          const valorLiqCalculado =
+            Math.round((valorBrutoMed - retencaoTecMed - retencaoImpMed) * 100) / 100
+
+          if (
+            !rec.getFloat('valor_liquido') ||
+            rec.getFloat('valor_liquido') === rec.getFloat('valor')
+          ) {
+            if (retencaoTecMed > 0 || retencaoImpMed > 0) {
+              rec.set('valor_liquido', valorLiqCalculado)
+              rec.set('retencao_impostos', retencaoImpMed + retencaoTecMed)
+            }
+          }
+        }
+      } catch (errMedCheck) {
+        if (errMedCheck && errMedCheck.message && errMedCheck.message.startsWith('BLOQUEIO')) {
+          throw errMedCheck
+        }
       }
     }
   }

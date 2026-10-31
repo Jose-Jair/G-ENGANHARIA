@@ -34,14 +34,17 @@ import {
   ChevronDown,
   ChevronUp,
   MessageSquareWarning,
+  Sparkles,
 } from 'lucide-react'
-import { PropostaRecord, ProjetoRecord } from '@/types'
+import { PropostaRecord, ProjetoRecord, PropostaItemRecord } from '@/types'
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
 import { conversaoProjetoPacoteService } from '@/services/conversaoProjetoPacote'
 import { propostasService } from '@/services/propostas'
+import { preCotacaoService } from '@/services/preCotacao'
 import { restoreBodyPointerEvents } from '@/lib/utils'
 import { ModalEnviarPropostaCliente } from './ModalEnviarPropostaCliente'
+import { ModalGestaoPreCotacao } from './ModalGestaoPreCotacao'
 import { DossiePropostaGmais } from './DossiePropostaGmais'
 import { ModalDetalhesContratoServico } from '@/components/contratosServico/ModalDetalhesContratoServico'
 import { contratosServicoService } from '@/services/contratosServico'
@@ -85,13 +88,16 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
   const [contratoVinculado, setContratoVinculado] = useState<ContratoServicoRecord | null>(null)
   const [projetosGerados, setProjetosGerados] = useState<ProjetoRecord[]>([])
   const [percentualConvertido, setPercentualConvertido] = useState<number>(0)
-  useEffect(() => {
-    if (open && proposta?.id) {
-      conversaoProjetoPacoteService.listProjetosDaProposta(proposta.id).then((prjs) => {
-        setProjetosGerados(prjs)
-      })
-      contratosServicoService.getByProposta(proposta.id).then(setContratoVinculado)
+  const [itensBanco, setItensBanco] = useState<PropostaItemRecord[]>([])
+  const [itemSelecionadoPreCotacao, setItemSelecionadoPreCotacao] =
+    useState<PropostaItemRecord | null>(null)
+  const [modalPreCotacaoOpen, setModalPreCotacaoOpen] = useState(false)
+  const [preCotandoTodos, setPreCotandoTodos] = useState(false)
+
+  const recarregarItens = () => {
+    if (proposta?.id) {
       propostasService.listItens(proposta.id).then((itens) => {
+        setItensBanco(itens)
         if (itens.length > 0) {
           const conv = itens.filter((i) => i.status_conversao === 'convertido').length
           setPercentualConvertido(Math.round((conv / itens.length) * 100))
@@ -99,6 +105,16 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
           setPercentualConvertido(100)
         }
       })
+    }
+  }
+
+  useEffect(() => {
+    if (open && proposta?.id) {
+      conversaoProjetoPacoteService.listProjetosDaProposta(proposta.id).then((prjs) => {
+        setProjetosGerados(prjs)
+      })
+      contratosServicoService.getByProposta(proposta.id).then(setContratoVinculado)
+      recarregarItens()
     }
   }, [open, proposta?.id, proposta?.status])
 
@@ -596,61 +612,154 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                 </div>
               </div>
 
-              {/* Planilha de Itens de Serviço */}
-              <div className="space-y-1">
-                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                  4. Planilha Orçamentária de Serviços
-                </h4>
+              {/* Planilha de Itens de Serviço & Pré-Cotação Vinculante */}
+              <div className="space-y-1.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <span>4. Planilha Orçamentária de Serviços</span>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      (Cotações preliminares vinculantes)
+                    </span>
+                  </h4>
+
+                  {canEdit && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={preCotandoTodos}
+                      onClick={async () => {
+                        const itensParaCota =
+                          itensBanco.length > 0 ? itensBanco : proposta.itens_json || []
+                        if (itensParaCota.length === 0) {
+                          toast({
+                            title: 'Nenhum item',
+                            description: 'Não há itens na proposta para pré-cotar.',
+                            variant: 'destructive',
+                          })
+                          return
+                        }
+                        setPreCotandoTodos(true)
+                        try {
+                          const res = await preCotacaoService.abrirTodos(proposta.id, itensParaCota)
+                          toast({
+                            title: 'Pré-cotação em lote finalizada',
+                            description: `${res.sucessos.length} itens abertos, ${res.semElegiveis.length} sem elegíveis (mantido catálogo), ${res.erros.length} erros.`,
+                          })
+                          recarregarItens()
+                        } catch (err: any) {
+                          toast({
+                            title: 'Erro na cotação em lote',
+                            description: err.message,
+                            variant: 'destructive',
+                          })
+                        } finally {
+                          setPreCotandoTodos(false)
+                        }
+                      }}
+                      className="h-7 text-xs bg-orange-50 border-orange-200 text-[#D95A2B] hover:bg-orange-100 font-semibold gap-1"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      {preCotandoTodos ? 'Pré-cotando itens...' : 'Pré-cotar Todos os Itens'}
+                    </Button>
+                  )}
+                </div>
+
                 <div className="border rounded-lg overflow-hidden overflow-x-auto">
-                  <table className="w-full min-w-[580px] text-left text-xs">
+                  <table className="w-full min-w-[720px] text-left text-xs">
                     <thead className="bg-slate-100 text-slate-700 font-semibold border-b">
                       <tr>
                         <th className="py-2 px-3">Item / Serviço</th>
                         <th className="py-2 px-3">Disciplina</th>
+                        <th className="py-2 px-3 text-center">Origem / Selo</th>
                         <th className="py-2 px-3 text-center">Unid.</th>
                         <th className="py-2 px-3 text-center">Qtd.</th>
-                        <th className="py-2 px-3 text-right">Custo Unit.</th>
-                        <th className="py-2 px-3 text-right">Preço Venda Unit.</th>
+                        <th className="py-2 px-3 text-right">Custo Total</th>
                         <th className="py-2 px-3 text-right">Preço Venda Total</th>
+                        <th className="py-2 px-3 text-center">Pré-Cotação</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                      {proposta.itens_json && proposta.itens_json.length > 0 ? (
+                      {(itensBanco.length > 0 ? itensBanco : proposta.itens_json || []).length >
+                      0 ? (
                         <>
-                          {proposta.itens_json.map((it, idx) => {
-                            const bdi = Number(it.bdi_percentual ?? proposta.margem ?? 0)
-                            const qtd = Number(it.quantidade) || 1
-                            const precoTotalItem =
-                              it.preco_total != null
-                                ? Math.round(Number(it.preco_total) * 100) / 100
-                                : Math.round(Number(it.custo_total) * (1 + bdi / 100) * 100) / 100
-                            const precoUnitVenda =
-                              it.preco_venda_unitario != null
-                                ? Math.round(Number(it.preco_venda_unitario) * 100) / 100
-                                : Math.round((precoTotalItem / qtd) * 100) / 100
+                          {(itensBanco.length > 0 ? itensBanco : proposta.itens_json || []).map(
+                            (it, idx) => {
+                              const bdi = Number(it.bdi_percentual ?? proposta.margem ?? 0)
+                              const qtd = Number(it.quantidade) || 1
+                              const precoTotalItem =
+                                it.preco_total != null
+                                  ? Math.round(Number(it.preco_total) * 100) / 100
+                                  : Math.round(Number(it.custo_total) * (1 + bdi / 100) * 100) / 100
 
-                            return (
-                              <tr key={idx} className="hover:bg-slate-50">
-                                <td className="py-2 px-3 font-medium text-slate-900">
-                                  {it.descricao}
-                                </td>
-                                <td className="py-2 px-3 text-slate-600">{it.disciplina || '-'}</td>
-                                <td className="py-2 px-3 text-center text-slate-600">
-                                  {it.unidade || 'un'}
-                                </td>
-                                <td className="py-2 px-3 text-center font-mono">{it.quantidade}</td>
-                                <td className="py-2 px-3 text-right font-mono text-slate-600">
-                                  {formatCurrencyBr(it.custo_unitario)}
-                                </td>
-                                <td className="py-2 px-3 text-right font-mono text-slate-800">
-                                  {formatCurrencyBr(precoUnitVenda)}
-                                </td>
-                                <td className="py-2 px-3 text-right font-mono font-semibold text-slate-900">
-                                  {formatCurrencyBr(precoTotalItem)}
-                                </td>
-                              </tr>
-                            )
-                          })}
+                              // Encontrar item do banco se for exibido da itens_json
+                              const itemEfetivo =
+                                itensBanco.find(
+                                  (ib) => ib.id === it.id || ib.descricao === it.descricao,
+                                ) || it
+
+                              return (
+                                <tr key={idx} className="hover:bg-slate-50">
+                                  <td className="py-2 px-3 font-medium text-slate-900">
+                                    {it.descricao}
+                                  </td>
+                                  <td className="py-2 px-3 text-slate-600">
+                                    {it.disciplina || '-'}
+                                  </td>
+                                  <td className="py-2 px-3 text-center">
+                                    {itemEfetivo.origem_custo === 'pre_cotacao' ? (
+                                      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold text-[10px] gap-1">
+                                        <Lock className="w-2.5 h-2.5" />
+                                        Custo Cotado
+                                      </Badge>
+                                    ) : itemEfetivo.origem_custo === 'sem_cotacao' ? (
+                                      <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
+                                        Sem Cotação
+                                      </Badge>
+                                    ) : itemEfetivo.origem_custo === 'manual_auditado' ? (
+                                      <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-[10px]">
+                                        Manual Auditado
+                                      </Badge>
+                                    ) : (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-slate-500 text-[10px]"
+                                      >
+                                        Catálogo
+                                      </Badge>
+                                    )}
+                                  </td>
+                                  <td className="py-2 px-3 text-center text-slate-600">
+                                    {it.unidade || 'un'}
+                                  </td>
+                                  <td className="py-2 px-3 text-center font-mono">
+                                    {it.quantidade}
+                                  </td>
+                                  <td className="py-2 px-3 text-right font-mono text-slate-800 font-medium">
+                                    {formatCurrencyBr(
+                                      itemEfetivo.custo_total || it.custo_total || 0,
+                                    )}
+                                  </td>
+                                  <td className="py-2 px-3 text-right font-mono font-semibold text-slate-900">
+                                    {formatCurrencyBr(precoTotalItem)}
+                                  </td>
+                                  <td className="py-2 px-3 text-center">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setItemSelecionadoPreCotacao(itemEfetivo)
+                                        setModalPreCotacaoOpen(true)
+                                      }}
+                                      className="h-6 text-[11px] px-2 text-[#D95A2B] hover:text-[#b84820] hover:bg-orange-50 border-orange-200 gap-1 font-semibold"
+                                    >
+                                      <Send className="w-2.5 h-2.5" />
+                                      Pré-cotar
+                                    </Button>
+                                  </td>
+                                </tr>
+                              )
+                            },
+                          )}
                           <tr className="bg-slate-50 font-semibold border-t-2 border-slate-300">
                             <td colSpan={6} className="py-2 px-3 text-right text-slate-700">
                               Total da Planilha de Venda:
@@ -1007,6 +1116,22 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* MODAL DE GESTÃO DE PRÉ-COTAÇÃO VINCULANTE (RODADA 13) */}
+      {modalPreCotacaoOpen && itemSelecionadoPreCotacao && (
+        <ModalGestaoPreCotacao
+          open={modalPreCotacaoOpen}
+          onOpenChange={(op) => {
+            setModalPreCotacaoOpen(op)
+            restoreBodyPointerEvents()
+          }}
+          proposta={proposta}
+          item={itemSelecionadoPreCotacao}
+          onAtualizado={() => {
+            recarregarItens()
+          }}
+        />
+      )}
 
       {/* MODAL DO DOSSIÊ / PDF NO MODELO REAL GMAIS */}
       <DossiePropostaGmais

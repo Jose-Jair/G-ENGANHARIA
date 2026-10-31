@@ -763,6 +763,27 @@ cronAdd('monitoramento_e_cobranca_prazos', '*/10 * * * *', () => {
     }
 
     // -------------------------------------------------------------------------
+    // 7.2 REGISTRO DE ÚLTIMO SUCESSO DO CRON (RODADA 19)
+    // -------------------------------------------------------------------------
+    try {
+      const pRecCron = $app.findFirstRecordByData('parametros', 'chave', 'crons_ultimo_sucesso')
+      let mapaCrons = {}
+      if (pRecCron) {
+        try {
+          mapaCrons = JSON.parse(pRecCron.getString('valor') || '{}')
+        } catch (_) {}
+        mapaCrons.cobranca_prazos = {
+          ultimo_sucesso: agora.toISOString(),
+          status: 'ok',
+          total_os: ordens.length,
+          total_atrasadas: totalOsAtrasadas,
+        }
+        pRecCron.set('valor', JSON.stringify(mapaCrons))
+        $app.save(pRecCron)
+      }
+    } catch (_) {}
+
+    // -------------------------------------------------------------------------
     // 8. RESUMO DIÁRIO DO GESTOR
     // -------------------------------------------------------------------------
     try {

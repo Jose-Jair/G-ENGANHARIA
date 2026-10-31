@@ -245,6 +245,61 @@ routerAdd('GET', '/backend/v1/decisoes/fila', (e) => {
     }
   } catch (_) {}
 
+  // 9. RODADA 19: Alertas de Crons com atraso > 2x intervalo
+  try {
+    const rotinasNominais = {
+      cobranca_prazos: { nome: 'Cobrança de Prazos', intervalo_minutos: 10 },
+      prospeccao: { nome: 'Prospecção Diária', intervalo_minutos: 1440 },
+      scorecards: { nome: 'Scorecards', intervalo_minutos: 1440 },
+      exportacao: { nome: 'Exportação Semanal', intervalo_minutos: 10080 },
+    }
+    let pRecCron = null
+    try {
+      pRecCron = $app.findFirstRecordByData('parametros', 'chave', 'crons_ultimo_sucesso')
+    } catch (_) {}
+
+    let mapaCrons = {}
+    if (pRecCron) {
+      try {
+        mapaCrons = JSON.parse(pRecCron.getString('valor') || '{}')
+      } catch (_) {}
+    }
+
+    const agoraMs = agora.getTime()
+    const rKeys = Object.keys(rotinasNominais)
+    for (let rIdx = 0; rIdx < rKeys.length; rIdx++) {
+      const rKey = rKeys[rIdx]
+      const rCfg = rotinasNominais[rKey]
+      const st = mapaCrons[rKey] || {}
+      const ultSuc = st.ultimo_sucesso
+
+      if (ultSuc) {
+        const ms = new Date(ultSuc).getTime()
+        const diffMinutos = Math.floor((agoraMs - ms) / (1000 * 60))
+        if (diffMinutos > rCfg.intervalo_minutos * 2) {
+          itens.push({
+            tipo_item: 'cron_atrasado_2x',
+            item_id: 'cron_' + rKey,
+            impacto: 88,
+            titulo:
+              'Alerta Operacional: Rotina de cron "' +
+              rCfg.nome +
+              '" sem rodar há ' +
+              diffMinutos +
+              ' min (>2× intervalo)',
+            contexto: {
+              rotina: rKey,
+              nome: rCfg.nome,
+              ultimo_sucesso: ultSuc,
+              minutos_sem_rodar: diffMinutos,
+              limite_tolerancia_minutos: rCfg.intervalo_minutos * 2,
+            },
+          })
+        }
+      }
+    }
+  } catch (_) {}
+
   itens.sort((a, b) => (b.impacto || 0) - (a.impacto || 0))
 
   try {

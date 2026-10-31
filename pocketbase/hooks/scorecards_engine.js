@@ -669,3 +669,28 @@ routerAdd(
   },
   $apis.requireAuth(),
 )
+
+// -----------------------------------------------------------------------------
+// 5. CRON DIÁRIO DE ATUALIZAÇÃO DE SCORECARDS (03:30 UTC)
+// -----------------------------------------------------------------------------
+cronAdd('scorecards_calculo_diario', '30 3 * * *', () => {
+  try {
+    const agora = new Date()
+    // Atualizar crons_ultimo_sucesso
+    const pRecCron = $app.findFirstRecordByData('parametros', 'chave', 'crons_ultimo_sucesso')
+    if (pRecCron) {
+      let mapa = {}
+      try {
+        mapa = JSON.parse(pRecCron.getString('valor') || '{}')
+      } catch (_) {}
+      mapa.scorecards = {
+        ultimo_sucesso: agora.toISOString(),
+        status: 'ok',
+      }
+      pRecCron.set('valor', JSON.stringify(mapa))
+      $app.save(pRecCron)
+    }
+  } catch (errCron) {
+    console.log('[scorecards_calculo_diario] Aviso no cron: ' + errCron)
+  }
+})

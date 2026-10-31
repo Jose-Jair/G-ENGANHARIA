@@ -1538,6 +1538,23 @@ cronAdd('prospeccao_diaria_pncp', '0 3 * * *', () => {
     if (res.statusCode >= 200 && res.statusCode < 300 && res.json && Array.isArray(res.json.data)) {
       console.log('Cron PNCP executado com sucesso: ' + res.json.data.length + ' contratos lidos.')
     }
+
+    // RODADA 19: Registrar último sucesso da rotina de prospecção
+    try {
+      const pRecCron = $app.findFirstRecordByData('parametros', 'chave', 'crons_ultimo_sucesso')
+      if (pRecCron) {
+        let mapa = {}
+        try {
+          mapa = JSON.parse(pRecCron.getString('valor') || '{}')
+        } catch (_) {}
+        mapa.prospeccao = {
+          ultimo_sucesso: new Date().toISOString(),
+          status: 'ok',
+        }
+        pRecCron.set('valor', JSON.stringify(mapa))
+        $app.save(pRecCron)
+      }
+    } catch (_) {}
   } catch (err) {
     console.log('Erro no cron de prospecção diária: ' + err)
   }

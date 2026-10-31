@@ -33,8 +33,9 @@ import { toast } from '@/hooks/use-toast'
 import {
   analisarEValidarIfc,
   extrairResumoIfcPayload,
-  type ChecklistIfcResultado,
+  type ResultadoValidacaoIfc,
 } from '@/services/ifcChecklistParser'
+import { validarArquivoComLimites } from '@/services/operacaoSistema'
 import { issuesRevisaoService } from '@/services/issuesRevisaoService'
 import { entregaveisCicloService } from '@/services/cadeiaContratosProjetos'
 
@@ -66,6 +67,18 @@ export const ModalChecklistEnvioIfc: React.FC<ModalChecklistEnvioIfcProps> = ({
     if (!file) {
       setArquivo(null)
       setResultado(null)
+      return
+    }
+
+    // Validação de teto máximo configurado na Administração
+    const checagemTeto = validarArquivoComLimites(file)
+    if (!checagemTeto.valido) {
+      toast({
+        title: 'Teto de Arquivo Excedido',
+        description: checagemTeto.mensagem,
+        variant: 'destructive',
+      })
+      e.target.value = ''
       return
     }
 

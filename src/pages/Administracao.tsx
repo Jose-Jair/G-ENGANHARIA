@@ -24,6 +24,7 @@ import { PainelSmtpSeguranca } from '@/components/administracao/PainelSmtpSegura
 import { PainelFontesProspeccao } from '@/components/administracao/PainelFontesProspeccao'
 import { PainelFazerDentroFora } from '@/components/administracao/PainelFazerDentroFora'
 import { PainelParametrosScorecards } from '@/components/administracao/PainelParametrosScorecards'
+import { PainelOperacaoCronsExportacao } from '@/components/administracao/PainelOperacaoCronsExportacao'
 import { AreaAtuacaoRecord } from '@/types'
 import { formatCurrencyBr } from '@/lib/formatters'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -740,6 +741,13 @@ export default function AdministracaoPage() {
           >
             <Mail className="w-4 h-4 text-[#D95A2B]" />
             <span>SMTP & Selfcheck</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="operacao_crons"
+            className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white"
+          >
+            <Clock className="w-4 h-4 text-[#D95A2B]" />
+            <span>Operação & Crons</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1522,6 +1530,11 @@ export default function AdministracaoPage() {
         {/* ABA SMTP & SELFCHECK (NOVO RODADA 11) */}
         <TabsContent value="smtp_seguranca" className="space-y-4">
           <PainelSmtpSeguranca />
+        </TabsContent>
+
+        {/* ABA OPERAÇÃO, CRONS & EXPORTAÇÃO (RODADA 19) */}
+        <TabsContent value="operacao_crons" className="space-y-4">
+          <PainelOperacaoCronsExportacao />
         </TabsContent>
       </Tabs>
 

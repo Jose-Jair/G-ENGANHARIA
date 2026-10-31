@@ -765,6 +765,33 @@ export const PortalPrestadorPage: React.FC = () => {
                 className="text-xs"
               />
             </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-slate-700">
+                Anexo Técnico (Opcional)
+              </Label>
+              <Input
+                type="file"
+                className="text-xs"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) {
+                    const validacao = validarArquivoComLimites(f)
+                    if (!validacao.valido) {
+                      toast({
+                        title: 'Teto de Arquivo Excedido',
+                        description: validacao.mensagem,
+                        variant: 'destructive',
+                      })
+                      e.target.value = ''
+                    }
+                  }
+                }}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Respeita os tetos da Administração: DWG (100MB), PDF (50MB), Imagem (25MB).
+              </p>
+            </div>
           </div>
 
           <DialogFooter className="pt-3 border-t">

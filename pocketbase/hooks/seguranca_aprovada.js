@@ -1598,6 +1598,65 @@ routerAdd(
         detalhes: detalheMatrizPerfil,
       }
 
+      // -----------------------------------------------------------------------
+      // ITEM 19 (RODADA 19): Operação, Erros de Sistema e Crons
+      // -----------------------------------------------------------------------
+      let operacaoOk = true
+      const detalheOperacao = {
+        colecao_erros_sistema: false,
+        total_erros_sistema: 0,
+        parametros_upload_presentes: false,
+        parametro_crons_ultimo_sucesso: false,
+        rotinas_crons_ativas: 4,
+      }
+
+      try {
+        const errCol = $app.findCollectionByNameOrId('erros_sistema')
+        detalheOperacao.colecao_erros_sistema = Boolean(errCol)
+        if (errCol) {
+          detalheOperacao.total_erros_sistema = $app.countRecords('erros_sistema')
+        }
+
+        const pIfc = $app.findRecordsByFilter('parametros', "chave = 'upload_max_ifc_mb'", '', 1, 0)
+        const pDwg = $app.findRecordsByFilter('parametros', "chave = 'upload_max_dwg_mb'", '', 1, 0)
+        const pPdf = $app.findRecordsByFilter('parametros', "chave = 'upload_max_pdf_mb'", '', 1, 0)
+        const pImg = $app.findRecordsByFilter(
+          'parametros',
+          "chave = 'upload_max_imagem_mb'",
+          '',
+          1,
+          0,
+        )
+        detalheOperacao.parametros_upload_presentes = Boolean(
+          pIfc.length > 0 && pDwg.length > 0 && pPdf.length > 0 && pImg.length > 0,
+        )
+
+        const pCronSuc = $app.findRecordsByFilter(
+          'parametros',
+          "chave = 'crons_ultimo_sucesso'",
+          '',
+          1,
+          0,
+        )
+        detalheOperacao.parametro_crons_ultimo_sucesso = Boolean(pCronSuc.length > 0)
+
+        if (
+          !detalheOperacao.colecao_erros_sistema ||
+          !detalheOperacao.parametros_upload_presentes ||
+          !detalheOperacao.parametro_crons_ultimo_sucesso
+        ) {
+          operacaoOk = false
+        }
+      } catch (eOp) {
+        operacaoOk = false
+        detalheOperacao.erro = String(eOp)
+      }
+
+      resultados.item19_operacao_erros_crons = {
+        todas_conformes: operacaoOk,
+        detalhes: detalheOperacao,
+      }
+
       resultados.conformidade_geral =
         resultados.item1_api_rules.cotacoes_segura &&
         resultados.item1_api_rules.subcontratos_segura &&
@@ -1618,7 +1677,8 @@ routerAdd(
         custoInternoOk &&
         scorecardsOk &&
         ifcBcfOk &&
-        matrizPerfilOk
+        matrizPerfilOk &&
+        operacaoOk
 
       return e.json(200, {
         status: 'OK',

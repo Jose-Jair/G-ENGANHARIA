@@ -565,6 +565,69 @@ routerAdd(
       }
 
       // -----------------------------------------------------------------------
+      // RODADA 19: ALERTAS DE CRONS PARADOS (PASSOU DE 2X O INTERVALO)
+      // Visível para Admin e Gestor
+      // -----------------------------------------------------------------------
+      if (role === 'admin' || role === 'gestor') {
+        try {
+          const rotinasNominais = {
+            cobranca_prazos: { nome: 'Cobrança de Prazos', intervalo_minutos: 10 },
+            prospeccao: { nome: 'Prospecção Diária', intervalo_minutos: 1440 },
+            scorecards: { nome: 'Scorecards', intervalo_minutos: 1440 },
+            exportacao: { nome: 'Exportação Semanal', intervalo_minutos: 10080 },
+          }
+          let pRecCron = null
+          try {
+            pRecCron = $app.findFirstRecordByData('parametros', 'chave', 'crons_ultimo_sucesso')
+          } catch (_) {}
+
+          let mapaCrons = {}
+          if (pRecCron) {
+            try {
+              mapaCrons = JSON.parse(pRecCron.getString('valor') || '{}')
+            } catch (_) {}
+          }
+
+          const agoraMs = new Date().getTime()
+          const rKeys = Object.keys(rotinasNominais)
+          for (let rIdx = 0; rIdx < rKeys.length; rIdx++) {
+            const rKey = rKeys[rIdx]
+            const rCfg = rotinasNominais[rKey]
+            const st = mapaCrons[rKey] || {}
+            const ultSuc = st.ultimo_sucesso
+
+            if (ultSuc) {
+              const ms = new Date(ultSuc).getTime()
+              const diffMinutos = Math.floor((agoraMs - ms) / (1000 * 60))
+              if (diffMinutos > rCfg.intervalo_minutos * 2) {
+                const acaoCron = {
+                  id: 'cron_' + rKey,
+                  tipo: 'alerta_cron_parado',
+                  titulo: 'Rotina "' + rCfg.nome + '" sem rodar (>2× intervalo)',
+                  descricao:
+                    'A rotina automática de ' +
+                    rCfg.nome +
+                    ' está sem execução confirmada há ' +
+                    diffMinutos +
+                    ' minutos (tolerância máxima: ' +
+                    rCfg.intervalo_minutos * 2 +
+                    ' min).',
+                  rotina: rKey,
+                  ultimo_sucesso: ultSuc,
+                  minutos_sem_rodar: diffMinutos,
+                  acao_sugerida: 'Verificar status na Administração > Operação & Crons',
+                  prioridade: 'alta',
+                }
+                acoesDoDia.push(acaoCron)
+              }
+            }
+          }
+        } catch (eCronAlert) {
+          console.log('Aviso ao checar crons no o-que-fazer-hoje: ' + eCronAlert)
+        }
+      }
+
+      // -----------------------------------------------------------------------
       // TOTALIZADOR CONSOLIDADO POR PERFIL
       // -----------------------------------------------------------------------
       return e.json(200, {

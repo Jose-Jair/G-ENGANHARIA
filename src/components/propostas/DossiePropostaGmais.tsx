@@ -11,7 +11,12 @@ import { Badge } from '@/components/ui/badge'
 import { Printer, Download, CheckCircle2, ShieldCheck, FileText, Info } from 'lucide-react'
 import { GPlusLogo } from '@/components/GPlusLogo'
 import { PropostaRecord, PropostaParcelaRecord, PropostaItemRecord } from '@/types'
-import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
+import {
+  formatCurrencyBr,
+  formatDateBr,
+  formatDateTimeBr,
+  normalizarCondicoesPagamento,
+} from '@/lib/formatters'
 import { propostasService } from '@/services/propostas'
 import { areasAtuacaoService } from '@/services/areasAtuacao'
 
@@ -457,7 +462,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
                     ) : (
                       <tr>
                         <td colSpan={4} className="py-2 px-3 text-slate-700">
-                          {proposta.condicoes_pagamento ||
+                          {normalizarCondicoesPagamento(proposta.condicoes_pagamento) ||
                             '50% na contratação / 50% na entrega dos projetos executivos.'}
                         </td>
                       </tr>

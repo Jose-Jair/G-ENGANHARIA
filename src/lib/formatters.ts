@@ -86,6 +86,24 @@ export function formatPrazoRelativo(
   }
 }
 
+/**
+ * Normaliza textos de condições de pagamento que sofreram duplicação acidental
+ * ex: "50% (50% (cinquenta por cento) na assinatura..." -> "50% (cinquenta por cento) na assinatura..."
+ */
+export function normalizarCondicoesPagamento(texto?: string | null): string {
+  if (!texto) return ''
+  let resultado = String(texto)
+  // Colapsa padrões repetidos como "NN% (NN% (" ou "NN% ( NN% (" -> "NN% ("
+  // Tratando também múltiplas repetições caso existam
+  const regex = /(\b\d{1,3}(?:[.,]\d+)?\s*%\s*\()\s*\1+/gi
+  while (regex.test(resultado)) {
+    resultado = resultado.replace(regex, '$1')
+  }
+  // Colapsa também caso o percentual interno seja diferente mas com a mesma estrutura "NN% (MM% (" -> "NN% (" se NN == MM
+  resultado = resultado.replace(/(\b\d{1,3}(?:[.,]\d+)?\s*%)\s*\(\s*\1\s*\(/gi, '$1 (')
+  return resultado
+}
+
 export function formatCurrencyBr(value?: number | null): string {
   if (value === undefined || value === null || isNaN(value)) return 'R$ 0,00'
   return new Intl.NumberFormat('pt-BR', {

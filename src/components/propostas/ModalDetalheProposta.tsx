@@ -37,7 +37,12 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { PropostaRecord, ProjetoRecord, PropostaItemRecord } from '@/types'
-import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
+import {
+  formatCurrencyBr,
+  formatDateBr,
+  formatDateTimeBr,
+  normalizarCondicoesPagamento,
+} from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
 import { conversaoProjetoPacoteService } from '@/services/conversaoProjetoPacote'
 import { propostasService } from '@/services/propostas'
@@ -809,7 +814,7 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                   <div>
                     <span className="text-slate-500 font-medium">Condições de Pagamento:</span>{' '}
                     <span className="font-semibold text-slate-900">
-                      {proposta.condicoes_pagamento || 'A combinar'}
+                      {normalizarCondicoesPagamento(proposta.condicoes_pagamento) || 'A combinar'}
                     </span>
                   </div>
                   <div>

@@ -1,5 +1,26 @@
 import { describe, it, expect } from 'vitest'
-import { formatPrazoRelativo } from './formatters'
+import { formatPrazoRelativo, normalizarCondicoesPagamento } from './formatters'
+
+describe('normalizarCondicoesPagamento', () => {
+  it('colapsa padrão duplicado NN% (NN% ( em NN% (', () => {
+    const entrada =
+      '50% (50% (cinquenta por cento) na assinatura do contrato/aceite); 50% (50% (cinquenta por cento) na entrega final dos projetos executivos)'
+    const esperado =
+      '50% (cinquenta por cento) na assinatura do contrato/aceite); 50% (cinquenta por cento) na entrega final dos projetos executivos)'
+    expect(normalizarCondicoesPagamento(entrada)).toBe(esperado)
+  })
+
+  it('mantém texto que não tem duplicação', () => {
+    const entrada = '50% (cinquenta por cento) na assinatura; 50% (cinquenta por cento) na entrega'
+    expect(normalizarCondicoesPagamento(entrada)).toBe(entrada)
+  })
+
+  it('lida com entradas nulas ou vazias', () => {
+    expect(normalizarCondicoesPagamento(null)).toBe('')
+    expect(normalizarCondicoesPagamento(undefined)).toBe('')
+    expect(normalizarCondicoesPagamento('')).toBe('')
+  })
+})
 
 describe('formatPrazoRelativo', () => {
   const base = new Date('2026-10-10T12:00:00Z')

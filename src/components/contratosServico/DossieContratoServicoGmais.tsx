@@ -5,7 +5,12 @@ import { Badge } from '@/components/ui/badge'
 import { Printer, FileText } from 'lucide-react'
 import { GPlusLogo } from '@/components/GPlusLogo'
 import { ContratoServicoRecord } from '@/types'
-import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
+import {
+  formatCurrencyBr,
+  formatDateBr,
+  formatDateTimeBr,
+  normalizarCondicoesPagamento,
+} from '@/lib/formatters'
 
 interface DossieContratoServicoGmaisProps {
   open: boolean
@@ -195,7 +200,7 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
                       <tr key={idx} className="hover:bg-slate-50">
                         <td className="py-2 px-3 text-center font-mono">{p.ordem || idx + 1}</td>
                         <td className="py-2 px-3 font-medium text-slate-900">
-                          {p.descricao} ({p.gatilho})
+                          {normalizarCondicoesPagamento(p.descricao)} ({p.gatilho})
                         </td>
                         <td className="py-2 px-3 text-center font-mono">{p.percentual}%</td>
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">

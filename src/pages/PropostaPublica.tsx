@@ -39,7 +39,14 @@ import {
   Lock,
 } from 'lucide-react'
 import { PropostaRecord, MotivoRecord } from '@/types'
-import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
+import {
+  formatCurrencyBr,
+  formatDateBr,
+  formatDateTimeBr,
+  normalizarCondicoesPagamento,
+} from '@/lib/formatters'
+import { PropostaItemRecord } from '@/types'
+import { areasAtuacaoService } from '@/services/areasAtuacao'
 import { propostasService } from '@/services/propostas'
 import { motivosService } from '@/services/motivos'
 import { useToast } from '@/hooks/use-toast'
@@ -55,6 +62,7 @@ export function PropostaPublicaPage() {
   const [proposta, setProposta] = useState<PropostaRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [motivosRecusa, setMotivosRecusa] = useState<MotivoRecord[]>([])
+  const [areasMap, setAreasMap] = useState<Map<string, string>>(new Map())
 
   // Solicitar Alterações
   const [showAlteracoesModal, setShowAlteracoesModal] = useState(false)
@@ -100,8 +108,14 @@ export function PropostaPublicaPage() {
           }
         }
 
-        const motivos = await motivosService.listAtivos('perda')
+        const [motivos, areasList] = await Promise.all([
+          motivosService.listAtivos('perda').catch(() => []),
+          areasAtuacaoService.listAtivas().catch(() => []),
+        ])
         setMotivosRecusa(motivos)
+        const mapa = new Map<string, string>()
+        areasList.forEach((a) => mapa.set(a.id, a.nome))
+        setAreasMap(mapa)
       } catch (err) {
         console.error('Erro ao carregar proposta pública:', err)
       } finally {
@@ -453,9 +467,11 @@ export function PropostaPublicaPage() {
                     <div className="text-xs text-slate-600">
                       CPF: {proposta.expand.cliente_pf.cpf || 'Não informado'}
                     </div>
-                    {proposta.expand.cliente_pf.endereco && (
+                    {(proposta.expand.cliente_pf.endereco ||
+                      proposta.expand.cliente_pf.logradouro) && (
                       <div className="text-xs text-slate-600">
-                        {proposta.expand.cliente_pf.endereco}
+                        {proposta.expand.cliente_pf.endereco ||
+                          `${proposta.expand.cliente_pf.logradouro || ''}, nº ${proposta.expand.cliente_pf.numero || 'S/N'}${proposta.expand.cliente_pf.municipio ? ` - ${proposta.expand.cliente_pf.municipio}` : ''}${proposta.expand.cliente_pf.uf ? `/${proposta.expand.cliente_pf.uf}` : ''}`}
                       </div>
                     )}
                   </div>
@@ -483,60 +499,77 @@ export function PropostaPublicaPage() {
               </div>
             </div>
 
-            {/* SEÇÃO 2: OBJETO & ESCOPO TÉCNICO */}
-            {proposta.objeto && (
-              <div className="space-y-2">
-                <h3 className="font-bold text-sm text-slate-900 border-b pb-1">
-                  1. Objeto da Proposta
-                </h3>
-                <div className="whitespace-pre-wrap leading-relaxed text-slate-700 bg-white p-2">
-                  {proposta.objeto}
-                </div>
+            {/* 1. SEÇÃO 1: OBJETO */}
+            <div className="space-y-2">
+              <h3 className="font-bold text-sm text-slate-900 border-b pb-1">1. Objeto</h3>
+              <div className="whitespace-pre-wrap leading-relaxed text-slate-700 bg-white p-2 text-justify">
+                {(
+                  proposta.objeto ||
+                  proposta.escopo ||
+                  `Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para o empreendimento "${proposta.empreendimento || 'Empreendimento'}".`
+                )
+                  .replace(/\n{3,}/g, '\n\n')
+                  .trim()}
               </div>
-            )}
+            </div>
 
+            {/* 2. SEÇÃO 2: ESCOPO DOS SERVIÇOS (LISTA PROJETO / DISCIPLINA) */}
             <div className="space-y-2">
               <h3 className="font-bold text-sm text-slate-900 border-b pb-1">
-                {proposta.objeto
-                  ? '2. Escopo dos Serviços'
-                  : '1. Escopo e Metodologia dos Trabalhos'}
+                2. Escopo dos Serviços
               </h3>
               <div className="whitespace-pre-wrap leading-relaxed text-slate-700 bg-white p-2 text-justify">
-                {proposta.escopo_gerado || proposta.escopo}
+                {(() => {
+                  const textoEscopo =
+                    proposta.escopo_gerado ||
+                    proposta.escopo ||
+                    'Detalhamento do escopo e atividades técnicas a serem executadas conforme especificações contratuais.'
+                  return textoEscopo.replace(/\n{3,}/g, '\n\n').trim()
+                })()}
               </div>
             </div>
 
-            {/* SEÇÃO 3: DISCIPLINAS E ENTREGÁVEIS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              <div className="space-y-2">
-                <h3 className="font-bold text-sm text-slate-900 border-b pb-1">
-                  2. Disciplinas Contempladas
-                </h3>
-                <div className="p-3 bg-slate-50 rounded border text-slate-700">
-                  {proposta.disciplinas || 'Engenharia Consultiva e Projetos'}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-bold text-sm text-slate-900 border-b pb-1">
-                  3. Entregáveis Técnicos
-                </h3>
-                <div className="p-3 bg-slate-50 rounded border text-slate-700">
-                  {proposta.entregaveis || 'Memoriais, modelos e documentação técnica regulamentar'}
-                </div>
+            {/* 3. SEÇÃO 3: DISCIPLINAS */}
+            <div className="space-y-2">
+              <h3 className="font-bold text-sm text-slate-900 border-b pb-1">3. Disciplinas</h3>
+              <div className="p-3 bg-slate-50 rounded border text-slate-700 leading-relaxed">
+                {proposta.disciplinas ||
+                  (proposta.itens_json && proposta.itens_json.length > 0
+                    ? Array.from(
+                        new Set(
+                          proposta.itens_json
+                            .map(
+                              (it) =>
+                                it.disciplina ||
+                                (it.area ? areasMap.get(it.area) : null) ||
+                                'Engenharia Consultiva',
+                            )
+                            .filter(Boolean),
+                        ),
+                      ).join(', ')
+                    : 'Engenharia Consultiva e Projetos')}
               </div>
             </div>
 
-            {/* SEÇÃO 4: PLANILHA DE PREÇOS */}
+            {/* 4. SEÇÃO 4: ENTREGÁVEIS */}
+            <div className="space-y-2">
+              <h3 className="font-bold text-sm text-slate-900 border-b pb-1">4. Entregáveis</h3>
+              <div className="p-3 bg-slate-50 rounded border text-slate-700 leading-relaxed">
+                {proposta.entregaveis ||
+                  'Plantas técnicas em formato digital (DWG/PDF), memoriais descritivos e de cálculo, ART/RRT de projeto e documentação regulamentar pertinente.'}
+              </div>
+            </div>
+
+            {/* 5. SEÇÃO 5: DISCRIMINAÇÃO E PREÇO */}
             <div className="space-y-2">
               <h3 className="font-bold text-sm text-slate-900 border-b pb-1">
-                4. Discriminação dos Serviços e Preço
+                5. Discriminação e Preço
               </h3>
               <div className="border rounded-lg overflow-x-auto shadow-2xs">
                 <table className="w-full text-left text-xs min-w-[600px]">
                   <thead className="bg-slate-100 text-slate-800 font-semibold border-b">
                     <tr>
-                      <th className="py-2.5 px-3">Item / Serviço</th>
+                      <th className="py-2.5 px-3">Tipo de Projeto / Serviço</th>
                       <th className="py-2.5 px-3">Disciplina / Área</th>
                       <th className="py-2.5 px-3 text-center w-16">Unid.</th>
                       <th className="py-2.5 px-3 text-center w-16">Qtd.</th>
@@ -551,10 +584,19 @@ export function PropostaPublicaPage() {
                           it.preco_total !== undefined && it.preco_total !== null
                             ? Math.round(Number(it.preco_total) * 100) / 100
                             : Math.round(Number(it.custo_total || 0) * (1 + bdi / 100) * 100) / 100
+                        const areaNome =
+                          it.disciplina || (it.area ? areasMap.get(it.area) : '-') || '-'
                         return (
                           <tr key={idx} className="hover:bg-slate-50">
-                            <td className="py-2 px-3 font-medium text-slate-900">{it.descricao}</td>
-                            <td className="py-2 px-3 text-slate-600">{it.disciplina || '-'}</td>
+                            <td className="py-2 px-3 font-medium text-slate-900">
+                              <span>{it.descricao}</span>
+                              {it.subservicos && it.subservicos.length > 0 && (
+                                <span className="text-slate-500 text-[10px] block">
+                                  Subserviços: {it.subservicos.join(', ')}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2 px-3 text-slate-600">{areaNome}</td>
                             <td className="py-2 px-3 text-center text-slate-600">
                               {it.unidade || 'un'}
                             </td>
@@ -568,7 +610,8 @@ export function PropostaPublicaPage() {
                     ) : (
                       <tr>
                         <td colSpan={5} className="py-3 px-3 text-slate-500 italic">
-                          Serviços técnicos globais de engenharia conforme escopo descrito.
+                          Serviços técnicos globais de engenharia conforme escopo descrito:{' '}
+                          {formatCurrencyBr(proposta.preco)}
                         </td>
                       </tr>
                     )}
@@ -630,11 +673,14 @@ export function PropostaPublicaPage() {
                               </tr>
                             </>
                           )}
-                          <tr>
-                            <td colSpan={4} className="py-3 px-3 text-right text-slate-800 text-sm">
-                              Valor Total da Proposta:
+                          <tr className="bg-slate-900 text-white font-bold">
+                            <td
+                              colSpan={4}
+                              className="py-3 px-3 text-right uppercase text-xs tracking-wider"
+                            >
+                              Investimento Global Consolidado:
                             </td>
-                            <td className="py-3 px-3 text-right font-mono text-base font-bold text-blue-700">
+                            <td className="py-3 px-3 text-right font-mono text-base font-bold text-orange-400">
                               {formatCurrencyBr(totalFinal)}
                             </td>
                           </tr>
@@ -662,17 +708,20 @@ export function PropostaPublicaPage() {
               </div>
             </div>
 
-            {/* SEÇÃO CONDIÇÕES GERAIS */}
-            {proposta.condicoes_gerais && (
-              <div className="space-y-2">
-                <h3 className="font-bold text-sm text-slate-900 border-b pb-1">
-                  5. Condições Gerais
-                </h3>
-                <div className="p-3 bg-slate-50 rounded border text-slate-700 whitespace-pre-wrap leading-relaxed text-[11px] text-justify">
-                  {proposta.condicoes_gerais}
-                </div>
+            {/* 6. SEÇÃO 6: CONDIÇÕES GERAIS COM CLÁUSULAS 1ª A 3ª */}
+            <div className="space-y-2">
+              <h3 className="font-bold text-sm text-slate-900 border-b pb-1">
+                6. Condições Gerais
+              </h3>
+              <div className="p-3.5 bg-slate-50 rounded border text-slate-800 whitespace-pre-wrap leading-relaxed text-[11px] text-justify font-sans">
+                {(
+                  proposta.condicoes_gerais ||
+                  'CLÁUSULA 1ª — As alterações no projeto ou nas premissas solicitadas pela CONTRATANTE incorrerão em custos adicionais correspondentes às horas técnicas de retrabalho necessárias.\n\nCLÁUSULA 2ª — Os documentos e arquivos digitais são de uso exclusivo para o empreendimento objeto desta proposta.\n\nCLÁUSULA 3ª — A rescisão imotivada do contrato sujeitará a parte infratora à quitação dos serviços executados, acrescida de multa rescisória compensatória de 20% sobre o saldo remanescente.'
+                )
+                  .replace(/\n{3,}/g, '\n\n')
+                  .trim()}
               </div>
-            )}
+            </div>
 
             {/* PRAZO E CONDIÇÕES DE PAGAMENTO */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 bg-slate-50 p-3.5 sm:p-4 rounded-lg border border-slate-200">
@@ -681,8 +730,13 @@ export function PropostaPublicaPage() {
                   Prazo de Execução:
                 </span>
                 <p className="font-semibold text-slate-800">
-                  {proposta.prazo || '30 dias corridos'}
+                  {proposta.prazo || `${proposta.prazo_dias || 30} dias corridos`}
                 </p>
+                {proposta.nota_prazo && (
+                  <p className="text-[11px] text-slate-500 italic mt-1">
+                    <strong>Nota:</strong> {proposta.nota_prazo}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -690,7 +744,8 @@ export function PropostaPublicaPage() {
                   Condições de Pagamento:
                 </span>
                 <p className="font-semibold text-slate-800">
-                  {proposta.condicoes_pagamento || 'Conforme medição ou etapas acordadas'}
+                  {normalizarCondicoesPagamento(proposta.condicoes_pagamento) ||
+                    '50% na contratação / 50% na entrega dos projetos executivos.'}
                 </p>
               </div>
             </div>
@@ -1009,6 +1064,12 @@ export function PropostaPublicaPage() {
               <div>
                 <strong>Prazo Estimado:</strong> {proposta.prazo || '30 dias'}
               </div>
+              {proposta.condicoes_pagamento && (
+                <div>
+                  <strong>Condições de Pagamento:</strong>{' '}
+                  {normalizarCondicoesPagamento(proposta.condicoes_pagamento)}
+                </div>
+              )}
             </div>
 
             <div className="bg-white border rounded-lg p-4 font-sans text-xs whitespace-pre-wrap leading-relaxed text-slate-800 max-h-[45vh] overflow-y-auto">

@@ -27,7 +27,12 @@ import {
 } from 'lucide-react'
 import { ContratoServicoRecord } from '@/types'
 import { DossieContratoServicoGmais } from '@/components/contratosServico/DossieContratoServicoGmais'
-import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
+import {
+  formatCurrencyBr,
+  formatDateBr,
+  formatDateTimeBr,
+  normalizarCondicoesPagamento,
+} from '@/lib/formatters'
 import { cleanCpf, formatCpf } from '@/lib/cnpj'
 import { contratosServicoService } from '@/services/contratosServico'
 import { useToast } from '@/hooks/use-toast'
@@ -373,7 +378,7 @@ export function ContratoServicoPublicoPage() {
                         <tr key={idx} className="hover:bg-slate-50">
                           <td className="py-2 px-3 text-center font-mono">{p.ordem || idx + 1}</td>
                           <td className="py-2 px-3 font-medium text-slate-900">
-                            {p.descricao} ({p.gatilho})
+                            {normalizarCondicoesPagamento(p.descricao)} ({p.gatilho})
                           </td>
                           <td className="py-2 px-3 text-center font-mono">{p.percentual}%</td>
                           <td className="py-2 px-3 text-right font-mono font-bold text-slate-800">

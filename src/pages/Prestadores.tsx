@@ -16,6 +16,10 @@ import {
 } from '@/services/prestadores'
 import { formatDateBr, formatCurrencyBr } from '@/lib/formatters'
 import { ModalDossieEvidenciasOS } from '@/components/prestadores/ModalDossieEvidenciasOS'
+import { ModalCustosVigenciasInterno } from '@/components/prestadores/ModalCustosVigenciasInterno'
+import { PainelAprovacaoApontamentos } from '@/components/prestadores/PainelAprovacaoApontamentos'
+import { custoInternoService } from '@/services/custoInterno'
+import { Switch } from '@/components/ui/switch'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import { openProtectedFile } from '@/lib/pocketbase/files'
@@ -112,6 +116,11 @@ export const PrestadoresPage: React.FC = () => {
   const [prestadorSelecionado, setPrestadorSelecionado] = useState<PrestadorRecord | null>(null)
   const [profissionais, setProfissionais] = useState<ProfissionalPrestadorRecord[]>([])
   const [carregandoProf, setCarregandoProf] = useState(false)
+
+  // Modal de Custos e Vigências (Prestador Interno - Rodada 15)
+  const [modalCustosOpen, setModalCustosOpen] = useState(false)
+  const [prestadorCustosSelecionado, setPrestadorCustosSelecionado] =
+    useState<PrestadorRecord | null>(null)
 
   // Modal de Ordens de Serviço do Prestador (Visão do Gestor)
   const [modalOrdensServicoOpen, setModalOrdensServicoOpen] = useState(false)
@@ -594,12 +603,29 @@ export const PrestadoresPage: React.FC = () => {
               <span>Fila de Triagem Técnica</span>
             </TabsTrigger>
           )}
+
+          {canEdit && (
+            <TabsTrigger
+              value="aprovacao_horas"
+              className="text-xs font-bold gap-1.5 text-sky-700 data-[state=active]:bg-white"
+            >
+              <Clock className="w-4 h-4 text-sky-600" />
+              <span>Aprovação de Horas</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* CONTEÚDO DA ABA TRIAGEM (SÓ ADMIN / GESTOR) */}
         {podeAcessarTriagem && (
           <TabsContent value="triagem" className="space-y-4">
             <FilaTriagemPrestadores onTriagemAtualizada={carregarPrestadores} />
+          </TabsContent>
+        )}
+
+        {/* CONTEÚDO DA ABA APROVAÇÃO DE HORAS (RODADA 15) */}
+        {canEdit && (
+          <TabsContent value="aprovacao_horas" className="space-y-4">
+            <PainelAprovacaoApontamentos onProcessado={carregarPrestadores} />
           </TabsContent>
         )}
 
@@ -735,7 +761,25 @@ export const PrestadoresPage: React.FC = () => {
                         {getStatusBadge(p.status)}
                       </div>
 
-                      <div className="mb-4">{getTipoBadge(p.tipo)}</div>
+                      <div className="mb-4 flex items-center justify-between gap-1 flex-wrap">
+                        {getTipoBadge(p.tipo)}
+                        {isInterno &&
+                          (p.custo_hora && p.custo_hora > 0 ? (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300 font-mono"
+                            >
+                              {formatCurrencyBr(p.custo_hora)}/h
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] bg-amber-50 text-amber-700 border-amber-300"
+                            >
+                              custo não configurado
+                            </Badge>
+                          ))}
+                      </div>
 
                       {/* Desempenho e Tendência */}
                       <div className="mb-3 p-2 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between text-xs">
@@ -828,6 +872,23 @@ export const PrestadoresPage: React.FC = () => {
 
                     <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5">
+                        {/* Botão de Custos e Vigências para Prestador Interno (Admin e Financeiro) */}
+                        {isInterno && (user?.role === 'admin' || user?.role === 'financeiro') && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setPrestadorCustosSelecionado(p)
+                              setModalCustosOpen(true)
+                            }}
+                            className="text-[11px] h-7 px-2 border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+                            title="Custos mensais, horas e vigências"
+                          >
+                            <DollarSign className="w-3 h-3 mr-1 text-emerald-600" />
+                            Custos & Vigências
+                          </Button>
+                        )}
+
                         {/* Botão de Profissionais para PJ */}
                         {isPj && (
                           <Button
@@ -1395,6 +1456,61 @@ export const PrestadoresPage: React.FC = () => {
                       </p>
                     )}
 
+                    {/* Toggle Exige Apontamento (Rodada 15) */}
+                    <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-semibold text-slate-800 block text-xs">
+                          Exige Apontamento de Horas
+                        </span>
+                        <span className="text-[10px] text-slate-500">
+                          {os.exige_apontamento
+                            ? 'O prestador interno deve lançar horas nesta OS para apurar custo real.'
+                            : 'Custo interno apurado por estimativa direta de prazo útil.'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {canEdit ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-mono font-medium text-slate-700">
+                              {os.exige_apontamento ? 'Ativo' : 'Inativo'}
+                            </span>
+                            <Switch
+                              checked={Boolean(os.exige_apontamento)}
+                              onCheckedChange={async (checked) => {
+                                try {
+                                  await custoInternoService.alternarExigeApontamento(os.id, checked)
+                                  setOrdensServicoPrestador((prev) =>
+                                    prev.map((item) =>
+                                      item.id === os.id
+                                        ? { ...item, exige_apontamento: checked }
+                                        : item,
+                                    ),
+                                  )
+                                  toast({
+                                    title: checked
+                                      ? 'Exigência de apontamento ativada!'
+                                      : 'Exigência de apontamento desativada.',
+                                    description: `OS ${os.numero} atualizada.`,
+                                  })
+                                } catch (err: any) {
+                                  toast({
+                                    title: 'Erro ao alternar exigência de apontamento',
+                                    description: err.message,
+                                    variant: 'destructive',
+                                  })
+                                }
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px]">
+                            {os.exige_apontamento ? 'Exige Apontamento' : 'Não Exige'}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Ações da OS: Dossiê de Evidências */}
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                       <div className="text-[10px] text-slate-400">
@@ -1481,6 +1597,15 @@ export const PrestadoresPage: React.FC = () => {
         onOpenChange={setModalDossieOpen}
         osId={osDossieSelecionada?.id || null}
         numeroOS={osDossieSelecionada?.numero}
+      />
+
+      {/* Modal Custos e Vigências (Rodada 15) */}
+      <ModalCustosVigenciasInterno
+        open={modalCustosOpen}
+        onOpenChange={setModalCustosOpen}
+        prestador={prestadorCustosSelecionado}
+        canEdit={user?.role === 'admin'}
+        onAtualizado={carregarPrestadores}
       />
     </div>
   )

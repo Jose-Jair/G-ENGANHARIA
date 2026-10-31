@@ -42,6 +42,8 @@ interface SaudeFinanceiraResponse {
     custos_pagos: number
     custos_em_aberto: number
     total_os_externas_count: number
+    soma_custo_interno?: number
+    total_os_internas_count?: number
     detalhes_os: Array<{
       id: string
       numero: string
@@ -233,9 +235,17 @@ export const PainelSaudeFinanceiraProjeto: React.FC<PainelSaudeFinanceiraProjeto
             <div className="text-2xl font-bold font-mono text-rose-700">
               {formatCurrencyBr(custos.custo_total_comprometido)}
             </div>
-            <div className="text-[11px] text-slate-500">
-              {custos.total_os_externas_count} OS externa(s) (
-              {formatCurrencyBr(custos.soma_os_externas)})
+            <div className="text-[11px] text-slate-500 space-y-0.5">
+              <div>
+                Ext: {custos.total_os_externas_count} OS (
+                {formatCurrencyBr(custos.soma_os_externas)})
+              </div>
+              {custos.soma_custo_interno !== undefined && custos.soma_custo_interno > 0 && (
+                <div className="text-emerald-700 font-medium">
+                  Int: {custos.total_os_internas_count || 0} OS (
+                  {formatCurrencyBr(custos.soma_custo_interno)})
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

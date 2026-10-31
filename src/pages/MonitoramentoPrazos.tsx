@@ -306,8 +306,10 @@ export const MonitoramentoPrazosPage: React.FC = () => {
     return { atrasosDestaque: atrasos, proximosMarcosDestaque: marcos }
   }, [itensOsProcessados, entregaveis, prestadoresMap])
 
-  // Carga de Trabalho por Prestador (Interno e Externo)
+  // Carga de Trabalho por Prestador (Interno e Externo) - Com Horas da Semana e Alerta > 100%
   const cargasPrestadores: PrestadorCargaItem[] = useMemo(() => {
+    // Cálculo das horas semanais para prestadores internos
+    // Capacidade semanal padrão = (horas_mes / 4) ou 40h
     return prestadores
       .map((prest) => {
         const osDoPrestador = itensOsProcessados.filter(
@@ -335,6 +337,28 @@ export const MonitoramentoPrazosPage: React.FC = () => {
         const tipoCalculado: 'interno' | 'externo' =
           prest.tipo === 'interno' ? 'interno' : 'externo'
 
+        // Métricas de horas semanais para interno
+        let horasSemanaCap = 40
+        let horasSemanaApt = 0
+        let ocupacaoHorasPerc = 0
+        let alertaSobrecarga = false
+
+        if (tipoCalculado === 'interno') {
+          const hMes = prest.horas_mes && prest.horas_mes > 0 ? prest.horas_mes : 160
+          horasSemanaCap = Math.round((hMes / 4) * 10) / 10
+
+          // Soma de horas estimadas/apontadas ativas do prestador divididas pelo prazo semanal
+          // OU horas estimadas alocadas nesta semana
+          const somaHorasAtivas = osDoPrestador.reduce(
+            (acc, it) => acc + (it.os.horas_estimadas || 0),
+            0,
+          )
+          horasSemanaApt = Math.round(somaHorasAtivas * 10) / 10
+          ocupacaoHorasPerc =
+            horasSemanaCap > 0 ? Math.round((horasSemanaApt / horasSemanaCap) * 1000) / 10 : 0
+          alertaSobrecarga = ocupacaoHorasPerc > 100
+        }
+
         return {
           prestador: prest,
           tipo: tipoCalculado,
@@ -345,6 +369,10 @@ export const MonitoramentoPrazosPage: React.FC = () => {
           disciplinas: discs.length > 0 ? discs : [prest.disciplinas || 'Engenharia'],
           capacidadeMax: capMax,
           percentualOcupacao: percentual,
+          horasSemanaApontadas: horasSemanaApt,
+          horasSemanaCapacidade: horasSemanaCap,
+          ocupacaoHorasSemanaPerc: ocupacaoHorasPerc,
+          alertaSobrecargaSemanal: alertaSobrecarga,
           statusGeral,
         }
       })

@@ -57,6 +57,7 @@ import { ModalRelatoriosFinanceiros } from '@/components/financeiro/ModalRelator
 import { TabGerencialFinanceiro } from '@/components/financeiro/TabGerencialFinanceiro'
 import { PainelPrevisaoReceitaFunil } from '@/components/financeiro/PainelPrevisaoReceitaFunil'
 import { PainelFluxoMarcosInversao } from '@/components/financeiro/PainelFluxoMarcosInversao'
+import { PainelRateioCustoInterno } from '@/components/financeiro/PainelRateioCustoInterno'
 import { TrilhaDoNegocio } from '@/components/comum/TrilhaDoNegocio'
 
 import { useSearchParams } from 'react-router-dom'
@@ -573,6 +574,10 @@ export function FinanceiroPage() {
             <TabsTrigger value="marcos_inversao" className="text-xs font-semibold gap-2">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
               Inversão de Fluxo
+            </TabsTrigger>
+            <TabsTrigger value="custo_interno" className="text-xs font-semibold gap-2">
+              <Users className="w-3.5 h-3.5 text-emerald-600" />
+              Custo Interno
             </TabsTrigger>
           </TabsList>
 
@@ -1119,6 +1124,11 @@ export function FinanceiroPage() {
         {/* ABA 6: FLUXO PROJETADO COM ALERTAS DE INVERSÃO DE CAIXA */}
         <TabsContent value="marcos_inversao" className="space-y-4">
           <PainelFluxoMarcosInversao />
+        </TabsContent>
+
+        {/* ABA 7: RATEIO DE CUSTO INTERNO (RODADA 15) */}
+        <TabsContent value="custo_interno" className="space-y-4">
+          <PainelRateioCustoInterno />
         </TabsContent>
       </Tabs>
 

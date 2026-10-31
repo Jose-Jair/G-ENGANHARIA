@@ -16,6 +16,10 @@ export interface PrestadorCargaItem {
   disciplinas: string[]
   capacidadeMax?: number
   percentualOcupacao: number
+  horasSemanaApontadas?: number
+  horasSemanaCapacidade?: number
+  ocupacaoHorasSemanaPerc?: number
+  alertaSobrecargaSemanal?: boolean
   statusGeral: SemaforoPrazoStatus
 }
 
@@ -96,22 +100,48 @@ export const PainelCargaPrestadores: React.FC<PainelCargaPrestadoresProps> = ({
                   {/* Barra de Ocupação / Carga */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500">Ocupação / Carga:</span>
+                      <span className="text-slate-500">
+                        {isInterno ? 'Ocupação Horas da Semana:' : 'Ocupação / Carga:'}
+                      </span>
                       <strong className="text-slate-800 font-mono">
-                        {item.totalOsAtivas}{' '}
-                        {item.capacidadeMax ? `/ ${item.capacidadeMax} OS` : 'OS ativas'}
+                        {isInterno && item.horasSemanaCapacidade ? (
+                          <>
+                            {item.horasSemanaApontadas || 0}h / {item.horasSemanaCapacidade}h (
+                            {item.ocupacaoHorasSemanaPerc || 0}%)
+                          </>
+                        ) : (
+                          <>
+                            {item.totalOsAtivas}{' '}
+                            {item.capacidadeMax ? `/ ${item.capacidadeMax} OS` : 'OS ativas'}
+                          </>
+                        )}
                       </strong>
                     </div>
                     <Progress
-                      value={Math.min(100, item.percentualOcupacao)}
+                      value={Math.min(
+                        100,
+                        isInterno && item.ocupacaoHorasSemanaPerc !== undefined
+                          ? item.ocupacaoHorasSemanaPerc
+                          : item.percentualOcupacao,
+                      )}
                       className={`h-2 ${
-                        item.totalOsAtrasadas > 0
+                        item.alertaSobrecargaSemanal || item.totalOsAtrasadas > 0
                           ? '[&>div]:bg-rose-600'
-                          : item.percentualOcupacao >= 90
+                          : (item.ocupacaoHorasSemanaPerc || item.percentualOcupacao) >= 90
                             ? '[&>div]:bg-amber-500'
-                            : '[&>div]:bg-[#D95A2B]'
+                            : isInterno
+                              ? '[&>div]:bg-sky-600'
+                              : '[&>div]:bg-[#D95A2B]'
                       }`}
                     />
+
+                    {/* Alerta Acima de 100% de ocupação para prestador interno */}
+                    {isInterno && item.alertaSobrecargaSemanal && (
+                      <div className="flex items-center gap-1 text-[10px] text-rose-700 font-bold bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded mt-1">
+                        <AlertOctagon className="w-3 h-3 text-rose-600 shrink-0" />
+                        <span>Alerta: Sobrecarga acima de 100% da capacidade semanal!</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Resumo de Semáforo da Carga */}

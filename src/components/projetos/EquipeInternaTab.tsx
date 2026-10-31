@@ -250,6 +250,53 @@ export const EquipeInternaTab: React.FC<EquipeInternaTabProps> = ({ projetoId, c
                       <span>{formatDateBr(os.data_previsao_fim)}</span>
                     </div>
                   )}
+
+                  {/* Horas e Lead Time da OS (Rodada 15) */}
+                  <div className="pt-1.5 mt-1.5 border-t border-slate-200/60 grid grid-cols-2 gap-1.5">
+                    <div className="bg-white p-1.5 rounded border border-slate-200/80">
+                      <span className="text-[10px] text-slate-400 block">
+                        Horas Estimadas / Apontadas
+                      </span>
+                      <strong className="text-xs font-mono text-slate-800">
+                        {os.horas_estimadas !== undefined && os.horas_estimadas !== null
+                          ? `${os.horas_estimadas}h`
+                          : '—'}
+                      </strong>
+                      <span className="text-[9px] text-slate-400 block">
+                        {os.exige_apontamento ? 'Por apontamento real' : 'Por prazo útil'}
+                      </span>
+                    </div>
+
+                    <div className="bg-white p-1.5 rounded border border-slate-200/80">
+                      <span className="text-[10px] text-slate-400 block">Lead Time Realizado</span>
+                      <strong className="text-xs font-mono text-slate-800">
+                        {os.lead_time_dias_uteis !== undefined &&
+                        os.lead_time_dias_uteis !== null &&
+                        os.lead_time_dias_uteis > 0
+                          ? `${os.lead_time_dias_uteis}d úteis`
+                          : os.lead_time_dias_corridos
+                            ? `${os.lead_time_dias_corridos}d corridos`
+                            : 'Em andamento'}
+                      </strong>
+                      <span className="text-[9px] text-slate-400 block">
+                        {os.ciclos_revisao ? `${os.ciclos_revisao} ciclos revisão` : '0 ciclos'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Status Custo Interno na visão da equipe interna */}
+                  {os.status_custo_interno && (
+                    <div className="flex items-center justify-between text-[11px] pt-1">
+                      <span className="text-slate-400">Status Custo:</span>
+                      <span className="font-mono text-slate-600">
+                        {os.status_custo_interno === 'configurado' ? (
+                          <span className="text-emerald-700 font-semibold">Configurado</span>
+                        ) : (
+                          <span className="text-amber-700">Custo não configurado</span>
+                        )}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {os.escopo_tecnico && (

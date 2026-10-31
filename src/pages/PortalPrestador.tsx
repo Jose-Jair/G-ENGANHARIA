@@ -40,6 +40,7 @@ import { ModalAssinaturaEletronicaOS } from '@/components/prestadores/ModalAssin
 import { PainelMensagensOs } from '@/components/prestadores/PainelMensagensOs'
 import { PortalMeuCadastro } from '@/components/prestadores/PortalMeuCadastro'
 import { SecaoPreCotacoesPrestador } from '@/components/prestadores/SecaoPreCotacoesPrestador'
+import { PortalMinhasHoras } from '@/components/prestadores/PortalMinhasHoras'
 import { prestadoresService } from '@/services/prestadores'
 import { PrestadorRecord } from '@/types'
 import { EntregavelVersaoComentarios } from '@/components/projetos/EntregavelVersaoComentarios'
@@ -224,9 +225,13 @@ export const PortalPrestadorPage: React.FC = () => {
           </Badge>
         </div>
 
-        {/* Abas Principais: Pré-Cotações vs Cotações vs Ordens de Serviço vs Meu Cadastro */}
+        {/* Abas Principais: Pré-Cotações vs Cotações vs Ordens de Serviço vs Minhas Horas (se interno) vs Meu Cadastro */}
         <Tabs defaultValue="pre_cotacoes" className="w-full space-y-4">
-          <TabsList className="grid grid-cols-4 max-w-2xl text-xs bg-slate-200/70 p-1">
+          <TabsList
+            className={`grid ${
+              meuPrestador?.tipo === 'interno' ? 'grid-cols-5 max-w-3xl' : 'grid-cols-4 max-w-2xl'
+            } text-xs bg-slate-200/70 p-1`}
+          >
             <TabsTrigger
               value="pre_cotacoes"
               className="gap-2 text-xs font-bold text-[#D95A2B] data-[state=active]:bg-white"
@@ -248,6 +253,15 @@ export const PortalPrestadorPage: React.FC = () => {
               <Layers className="w-3.5 h-3.5 text-blue-600" />
               Ordens de Serviço ({ordensServico.length})
             </TabsTrigger>
+            {meuPrestador?.tipo === 'interno' && (
+              <TabsTrigger
+                value="minhas_horas"
+                className="gap-2 text-xs font-bold text-sky-700 data-[state=active]:bg-white"
+              >
+                <Clock className="w-3.5 h-3.5 text-sky-600" />
+                Minhas Horas
+              </TabsTrigger>
+            )}
             <TabsTrigger
               value="meu_cadastro"
               className="gap-2 text-xs font-bold text-slate-700 data-[state=active]:bg-white"
@@ -266,6 +280,17 @@ export const PortalPrestadorPage: React.FC = () => {
           <TabsContent value="cotacoes" className="space-y-4">
             <SecaoCotacoesPrestador onCotacaoRespondida={carregarMinhasOS} />
           </TabsContent>
+
+          {/* ABA 2.5: MINHAS HORAS (PRESTADOR INTERNO - RODADA 15) */}
+          {meuPrestador?.tipo === 'interno' && (
+            <TabsContent value="minhas_horas" className="space-y-4">
+              <PortalMinhasHoras
+                prestador={meuPrestador}
+                ordensServico={ordensServico}
+                onApontamentoSalvo={carregarMinhasOS}
+              />
+            </TabsContent>
+          )}
 
           {/* ABA 3: MEU CADASTRO (RODADA 12) */}
           <TabsContent value="meu_cadastro" className="space-y-4">

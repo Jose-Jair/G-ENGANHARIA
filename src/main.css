@@ -315,7 +315,9 @@
   body:has(.dossie-gmais-documento) #root,
   body:has([data-radix-portal] .dossie-gmais-documento) #root,
   body:has(.dossie-contrato-documento) #root,
-  body:has([data-radix-portal] .dossie-contrato-documento) #root {
+  body:has([data-radix-portal] .dossie-contrato-documento) #root,
+  body:has(.dossie-projeto-documento) #root,
+  body:has([data-radix-portal] .dossie-projeto-documento) #root {
     display: none !important;
   }
 
@@ -332,12 +334,15 @@
   }
 
   /* Ocultar qualquer portal ou modal que NÃO contenha o dossiê ativo */
-  [data-radix-portal]:not(:has(.dossie-contrato-documento)):not(:has(.dossie-gmais-documento)) {
+  [data-radix-portal]:not(:has(.dossie-contrato-documento)):not(:has(.dossie-gmais-documento)):not(
+      :has(.dossie-projeto-documento)
+    ) {
     display: none !important;
   }
 
   div[role='dialog']:has(.dossie-contrato-documento),
-  div[role='dialog']:has(.dossie-gmais-documento) {
+  div[role='dialog']:has(.dossie-gmais-documento),
+  div[role='dialog']:has(.dossie-projeto-documento) {
     position: static !important;
     transform: none !important;
     width: 100% !important;
@@ -353,7 +358,9 @@
   }
 
   /* Qualquer outro diálogo aberto por baixo (ex.: ModalDetalhesContratoServico) fica oculto */
-  div[role='dialog']:not(:has(.dossie-contrato-documento)):not(:has(.dossie-gmais-documento)) {
+  div[role='dialog']:not(:has(.dossie-contrato-documento)):not(:has(.dossie-gmais-documento)):not(
+      :has(.dossie-projeto-documento)
+    ) {
     display: none !important;
   }
 
@@ -380,9 +387,10 @@
     display: none !important;
   }
 
-  /* Regras de impressão para o dossiê da proposta G+ e contrato de serviço */
+  /* Regras de impressão para os dossiês (proposta G+, contrato de serviço e projeto) */
   .dossie-contrato-dialog,
-  .dossie-gmais-dialog {
+  .dossie-gmais-dialog,
+  .dossie-projeto-dialog {
     max-width: 100% !important;
     max-height: none !important;
     height: auto !important;
@@ -395,7 +403,8 @@
   }
 
   .dossie-contrato-documento,
-  .dossie-gmais-documento {
+  .dossie-gmais-documento,
+  .dossie-projeto-documento {
     padding: 0 !important;
     margin: 0 !important;
     max-width: 100% !important;
@@ -445,7 +454,8 @@
 
   /* Evitar margens / paddings excessivos ou duplicados na impressão */
   .dossie-gmais-documento > * + *,
-  .dossie-contrato-documento > * + * {
+  .dossie-contrato-documento > * + *,
+  .dossie-projeto-documento > * + * {
     margin-top: 0.6rem !important;
   }
 

@@ -675,12 +675,7 @@ export const PropostasPage: React.FC = () => {
                               <div className="font-semibold text-slate-900">
                                 {p.expand.cliente_pf.nome}
                               </div>
-                              <div className="text-[11px] text-slate-500">
-                                PF{' '}
-                                {p.expand.cliente_pf.endereco
-                                  ? `• ${p.expand.cliente_pf.endereco}`
-                                  : ''}
-                              </div>
+                              <div className="text-[11px] text-slate-500">Cliente PF</div>
                             </div>
                           ) : (
                             <span className="text-slate-400">Não informado</span>

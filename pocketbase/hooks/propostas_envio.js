@@ -102,7 +102,13 @@ routerAdd('POST', '/backend/v1/propostas/registrar-envio-whatsapp', (e) => {
       destinatario_telefone: destinatarioTelefone,
       data_envio: new Date().toISOString(),
     })
-    auditRec.set('ip', reqInfo.remoteIP || '127.0.0.1')
+    const clientIp =
+      (e.request &&
+        typeof e.request.getHeader === 'function' &&
+        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+      '127.0.0.1'
+    auditRec.set('ip', clientIp)
     $app.save(auditRec)
   } catch (auditErr) {
     console.warn('[propostas_envio] Falha ao registrar log de auditoria WhatsApp:', auditErr)
@@ -201,7 +207,13 @@ routerAdd('POST', '/backend/v1/gmais/propostas/{id}/enviar-whatsapp', (e) => {
       destinatario_telefone: destinatarioTelefone,
       data_envio: new Date().toISOString(),
     })
-    auditRec.set('ip', reqInfo.remoteIP || '127.0.0.1')
+    const clientIp =
+      (e.request &&
+        typeof e.request.getHeader === 'function' &&
+        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+      '127.0.0.1'
+    auditRec.set('ip', clientIp)
     $app.save(auditRec)
   } catch (auditErr) {
     console.warn('[propostas_envio] Falha ao registrar log de auditoria WhatsApp:', auditErr)
@@ -278,7 +290,13 @@ routerAdd('POST', '/backend/v1/propostas/registrar-envio-manual', (e) => {
       observacoes: observacoes,
       data_envio: new Date().toISOString(),
     })
-    auditRec.set('ip', reqInfo.remoteIP || '127.0.0.1')
+    const clientIp =
+      (e.request &&
+        typeof e.request.getHeader === 'function' &&
+        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+      '127.0.0.1'
+    auditRec.set('ip', clientIp)
     $app.save(auditRec)
   } catch (auditErr) {
     console.warn('[propostas_envio] Falha ao registrar log de auditoria envio manual:', auditErr)
@@ -355,7 +373,13 @@ routerAdd('POST', '/backend/v1/gmais/propostas/{id}/registrar-envio-manual', (e)
       observacoes: observacoes,
       data_envio: new Date().toISOString(),
     })
-    auditRec.set('ip', reqInfo.remoteIP || '127.0.0.1')
+    const clientIp =
+      (e.request &&
+        typeof e.request.getHeader === 'function' &&
+        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+      '127.0.0.1'
+    auditRec.set('ip', clientIp)
     $app.save(auditRec)
   } catch (auditErr) {
     console.warn('[propostas_envio] Falha ao registrar log de auditoria envio manual:', auditErr)
@@ -677,7 +701,13 @@ routerAdd('POST', '/backend/v1/propostas/enviar-email', (e) => {
       assunto: assuntoFinal,
       data_envio: new Date().toISOString(),
     })
-    auditRec.set('ip', reqInfo.remoteIP || '127.0.0.1')
+    const clientIp =
+      (e.request &&
+        typeof e.request.getHeader === 'function' &&
+        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+      '127.0.0.1'
+    auditRec.set('ip', clientIp)
     $app.save(auditRec)
   } catch (auditErr) {
     console.warn('[propostas_envio] Falha ao registrar log de auditoria do e-mail:', auditErr)
@@ -995,7 +1025,13 @@ routerAdd('POST', '/backend/v1/gmais/propostas/{id}/enviar-email', (e) => {
       assunto: assuntoFinal,
       data_envio: new Date().toISOString(),
     })
-    auditRec.set('ip', reqInfo.remoteIP || '127.0.0.1')
+    const clientIp =
+      (e.request &&
+        typeof e.request.getHeader === 'function' &&
+        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+      '127.0.0.1'
+    auditRec.set('ip', clientIp)
     $app.save(auditRec)
   } catch (auditErr) {
     console.warn('[propostas_envio] Falha ao registrar log de auditoria do e-mail:', auditErr)

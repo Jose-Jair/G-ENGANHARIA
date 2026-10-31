@@ -75,13 +75,13 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
     proposta.expand?.empresa?.razao_social ||
     proposta.expand?.empresa?.nome_fantasia ||
     proposta.expand?.cliente_pf?.nome ||
-    (proposta.cliente_pf_dados && proposta.cliente_pf_dados.nome) ||
+    ((proposta as any).cliente_pf_dados && (proposta as any).cliente_pf_dados.nome) ||
     'Cliente Não Informado'
 
   const contratanteDoc =
     proposta.expand?.empresa?.cnpj ||
     proposta.expand?.cliente_pf?.cpf ||
-    (proposta.cliente_pf_dados && proposta.cliente_pf_dados.cpf) ||
+    ((proposta as any).cliente_pf_dados && (proposta as any).cliente_pf_dados.cpf) ||
     'Documento não informado'
 
   const contratanteEndereco =

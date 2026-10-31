@@ -73,7 +73,7 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0 print:m-0 print:p-0 print:max-w-none print:max-h-none print:shadow-none print:border-none">
+      <DialogContent className="dossie-projeto-dialog max-w-4xl max-h-[95vh] overflow-y-auto p-0 print:m-0 print:p-0 print:max-w-none print:max-h-none print:shadow-none print:border-none">
         {/* Barra Superior com Controles de Exportação / PDF */}
         <div className="p-4 bg-[#1E2A4A] text-white flex items-center justify-between sticky top-0 z-20 print:hidden">
           <div className="flex items-center gap-3">
@@ -116,7 +116,7 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
             </p>
           </div>
         ) : dossie ? (
-          <div className="p-8 sm:p-10 bg-white text-slate-900 text-xs space-y-6 print:p-6 print:space-y-4 font-sans">
+          <div className="dossie-projeto-documento p-8 sm:p-10 bg-white text-slate-900 text-xs space-y-6 print:p-6 print:space-y-4 font-sans">
             {/* CABEÇALHO INSTITUCIONAL DO DOSSIÊ */}
             <div className="border-b-2 border-[#1E2A4A] pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1">

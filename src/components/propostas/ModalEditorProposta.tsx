@@ -833,8 +833,19 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
       const dtVal = new Date()
       dtVal.setDate(dtVal.getDate() + diasValidadeCalc)
 
-      // Montar resumo textual de condições de pagamento
-      const condicoesTexto = parcelas.map((p) => `${p.percentual}% (${p.descricao})`).join('; ')
+      // Montar resumo textual de condições de pagamento sem duplicação de percentual
+      const condicoesTexto = parcelas
+        .map((p) => {
+          const desc = (p.descricao || '').trim()
+          if (!desc) return `${p.percentual}%`
+          // Se a descrição já inicia com o percentual (ex: "50% (cinquenta por cento)..."), usa a própria descrição
+          const regexJaTemPercentual = new RegExp(`^${p.percentual}\\s*%`, 'i')
+          if (regexJaTemPercentual.test(desc)) {
+            return desc
+          }
+          return `${p.percentual}% (${desc})`
+        })
+        .join('; ')
 
       const payload: any = {
         empresa: tipoCliente === 'pj' ? selectedEmpresaId : undefined,

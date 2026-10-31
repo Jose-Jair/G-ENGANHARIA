@@ -225,7 +225,14 @@ routerAdd('POST', '/backend/v1/descadastro/confirmar', (e) => {
           motivo: motivoCliente,
           token: token,
         })
-        aRec.set('ip', e.requestInfo().remoteIP || '')
+        const clientIp =
+          (e.request &&
+            typeof e.request.getHeader === 'function' &&
+            (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+          (e.requestInfo().headers &&
+            (e.requestInfo().headers['x-forwarded-for'] || e.requestInfo().headers['x-real-ip'])) ||
+          '127.0.0.1'
+        aRec.set('ip', clientIp)
         $app.save(aRec)
       } catch (_) {}
     }
@@ -331,7 +338,14 @@ routerAdd(
               observacao: observacao,
               movido_por: reqInfo.auth.getString('email'),
             })
-            aRec.set('ip', reqInfo.remoteIP || '')
+            const clientIp =
+              (e.request &&
+                typeof e.request.getHeader === 'function' &&
+                (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+              (reqInfo.headers &&
+                (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+              '127.0.0.1'
+            aRec.set('ip', clientIp)
             $app.save(aRec)
           }
         } catch (empErr) {

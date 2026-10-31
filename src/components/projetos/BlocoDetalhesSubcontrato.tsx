@@ -9,7 +9,7 @@ import {
 import { subcontratosService } from '@/services/subcontratos'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
-import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
+import { formatCurrencyBr, formatDateBr, formatDateTimeBr, formatarMoeda } from '@/lib/formatters'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -224,7 +224,7 @@ export const BlocoDetalhesSubcontrato: React.FC<BlocoDetalhesSubcontratoProps> =
       )
       toast({
         title: 'Retenção Técnica Liberada!',
-        description: `R$ ${vNum.toFixed(2)} liberados com sucesso. Conta a pagar gerada no Financeiro.`,
+        description: `${formatarMoeda(vNum)} liberados com sucesso. Conta a pagar gerada no Financeiro.`,
       })
       setModalRetencaoOpen(false)
       setValorLiberar('')

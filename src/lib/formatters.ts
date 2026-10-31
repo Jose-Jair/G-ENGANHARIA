@@ -94,6 +94,8 @@ export function formatCurrencyBr(value?: number | null): string {
   }).format(value)
 }
 
+export const formatarMoeda = formatCurrencyBr
+
 /**
  * Converte uma digitação monetária (ex: "1250000", "R$ 1.250.000,00" ou números em centavos/reais)
  * para o formato de máscara "R$ 1.250.000,00".

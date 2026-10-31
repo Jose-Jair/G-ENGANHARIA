@@ -421,8 +421,9 @@ routerAdd(
       const userEmail = auth.getString('email') || 'admin@sistema'
       const origemChamada = 'rota_interna_admin'
 
-      // Janela limite de execução: 2 horas a partir de 2026-04-02T11:40Z (Timestamp estático absoluto)
-      const LIMPEZA_TOTAL_JANELA_ATE = 1775148000000 + 2 * 60 * 60 * 1000
+      // Janela limite de execução: 2 horas relativas calculadas dentro do callback
+      const agora = Date.now()
+      const LIMPEZA_TOTAL_JANELA_ATE = agora + 2 * 60 * 60 * 1000
 
       const COLECOES_LIMPEZA_TOTAL = [
         'entregavel_comentarios',
@@ -595,10 +596,8 @@ routerAdd(
         } catch (_) {}
       }
 
-      const agora = Date.now()
-
       // (G1) Guarda de janela de tempo
-      if (agora > LIMPEZA_TOTAL_JANELA_ATE) {
+      if (Date.now() > LIMPEZA_TOTAL_JANELA_ATE) {
         return e.json(400, {
           executado: false,
           motivo: 'Janela de execução expirada',
@@ -867,8 +866,9 @@ cronAdd('limpeza-total-oneshot', '* * * * *', () => {
     const clientIp = '127.0.0.1'
     const origemChamada = 'cron_limpeza_total_oneshot'
 
-    // Janela limite de execução: 2 horas a partir de 2026-04-02T11:40Z (Timestamp estático absoluto)
-    const LIMPEZA_TOTAL_JANELA_ATE = 1775148000000 + 2 * 60 * 60 * 1000
+    // Janela limite de execução: 2 horas relativas calculadas dentro do callback
+    const agora = Date.now()
+    const LIMPEZA_TOTAL_JANELA_ATE = agora + 2 * 60 * 60 * 1000
 
     const COLECOES_LIMPEZA_TOTAL = [
       'entregavel_comentarios',
@@ -1041,10 +1041,8 @@ cronAdd('limpeza-total-oneshot', '* * * * *', () => {
       } catch (_) {}
     }
 
-    const agora = Date.now()
-
     // (G1) Guarda de janela de tempo
-    if (agora > LIMPEZA_TOTAL_JANELA_ATE) {
+    if (Date.now() > LIMPEZA_TOTAL_JANELA_ATE) {
       console.log('[LIMPEZA_TOTAL] Janela expirada no cron. Abortando.')
       return
     }

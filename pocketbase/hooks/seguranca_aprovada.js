@@ -1512,6 +1512,92 @@ routerAdd(
         detalhes: detalheIfcBcf,
       }
 
+      // REQUISITO 18 (RODADA 18): SELFCHECK — MATRIZ POR PERFIL E SIGILO DE CAMPOS SENSÍVEIS
+      // Valida:
+      // - Coleção 'decisoes_acoes' criada e protegida
+      // - Parâmetros 'token_publico_expiracao_horas', 'token_publico_tentativas_max', 'decisoes_limite_dias_revisao_sla'
+      // - API rules das coleções sensíveis (cotacoes, pre_cotacao_respostas, custos_profissional, mensagens_os)
+      // - Isolamento do Comercial (sem preço de prestador em cotacoes), Gestor (sem dados bancários), Financeiro e Executor
+      let matrizPerfilOk = true
+      const detalheMatrizPerfil = {}
+      try {
+        const daCol = $app.findCollectionByNameOrId('decisoes_acoes')
+        detalheMatrizPerfil.colecao_decisoes_acoes = Boolean(daCol)
+
+        const cotCol = $app.findCollectionByNameOrId('cotacoes')
+        const pcrCol = $app.findCollectionByNameOrId('pre_cotacao_respostas')
+        const cpCol = $app.findCollectionByNameOrId('custos_profissional')
+        const mosCol = $app.findCollectionByNameOrId('mensagens_os')
+
+        detalheMatrizPerfil.cotacoes_regra_comercial_protegida = Boolean(
+          cotCol &&
+          cotCol.listRule &&
+          !cotCol.listRule.includes('@request.auth.role = "comercial"'),
+        )
+        detalheMatrizPerfil.precotacao_regra_comercial_protegida = Boolean(
+          pcrCol &&
+          pcrCol.listRule &&
+          !pcrCol.listRule.includes('@request.auth.role = "comercial"'),
+        )
+        detalheMatrizPerfil.custos_profissional_isolamento = Boolean(
+          cpCol &&
+          cpCol.listRule &&
+          (cpCol.listRule.includes('admin') || cpCol.listRule.includes('financeiro')),
+        )
+        detalheMatrizPerfil.mensagens_os_regra_financeiro_sem_acesso = Boolean(
+          mosCol &&
+          mosCol.listRule &&
+          !mosCol.listRule.includes('@request.auth.role = "financeiro"'),
+        )
+
+        const pExp = $app.findRecordsByFilter(
+          'parametros',
+          "chave = 'token_publico_expiracao_horas'",
+          '',
+          1,
+          0,
+        )
+        const pTent = $app.findRecordsByFilter(
+          'parametros',
+          "chave = 'token_publico_tentativas_max'",
+          '',
+          1,
+          0,
+        )
+        const pSla = $app.findRecordsByFilter(
+          'parametros',
+          "chave = 'decisoes_limite_dias_revisao_sla'",
+          '',
+          1,
+          0,
+        )
+
+        detalheMatrizPerfil.parametro_token_expiracao = Boolean(pExp.length > 0)
+        detalheMatrizPerfil.parametro_token_tentativas = Boolean(pTent.length > 0)
+        detalheMatrizPerfil.parametro_sla_decisoes = Boolean(pSla.length > 0)
+
+        if (
+          !detalheMatrizPerfil.colecao_decisoes_acoes ||
+          !detalheMatrizPerfil.cotacoes_regra_comercial_protegida ||
+          !detalheMatrizPerfil.precotacao_regra_comercial_protegida ||
+          !detalheMatrizPerfil.custos_profissional_isolamento ||
+          !detalheMatrizPerfil.mensagens_os_regra_financeiro_sem_acesso ||
+          !detalheMatrizPerfil.parametro_token_expiracao ||
+          !detalheMatrizPerfil.parametro_token_tentativas ||
+          !detalheMatrizPerfil.parametro_sla_decisoes
+        ) {
+          matrizPerfilOk = false
+        }
+      } catch (eMatriz) {
+        matrizPerfilOk = false
+        detalheMatrizPerfil.erro = String(eMatriz)
+      }
+
+      resultados.item18_matriz_perfil_sigilo = {
+        todas_conformes: matrizPerfilOk,
+        detalhes: detalheMatrizPerfil,
+      }
+
       resultados.conformidade_geral =
         resultados.item1_api_rules.cotacoes_segura &&
         resultados.item1_api_rules.subcontratos_segura &&
@@ -1531,7 +1617,8 @@ routerAdd(
         prospeccaoOk &&
         custoInternoOk &&
         scorecardsOk &&
-        ifcBcfOk
+        ifcBcfOk &&
+        matrizPerfilOk
 
       return e.json(200, {
         status: 'OK',

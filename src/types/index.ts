@@ -2482,3 +2482,160 @@ export interface RecalcularScorecardPayload {
   tipo_entidade: TipoEntidadeScorecard
   registro_id: string
 }
+
+// -----------------------------------------------------------------------------
+// RODADA 18 — Fila de Decisões, Sigilo de Detalhes Auditados e Rotas por Token
+// -----------------------------------------------------------------------------
+
+export type TipoItemDecisao =
+  | 'vencedor_cotacao'
+  | 'vencedor_pre_cotacao'
+  | 'revisao_fora_sla'
+  | 'issue_sem_atribuicao'
+  | 'apontamento_a_aprovar'
+  | 'triagem_prestador'
+  | 'sugestao_suspensao'
+  | 'alerta_financeiro'
+  | 'cobranca_escalada'
+
+export interface ItemFilaDecisao {
+  tipo_item: TipoItemDecisao
+  item_id: string
+  impacto: number
+  titulo: string
+  contexto: Record<string, any>
+}
+
+export interface FilaDecisoesResponse {
+  sucesso: boolean
+  itens: ItemFilaDecisao[]
+  erro?: string
+}
+
+export interface FecharDecisaoPayload {
+  tipo_item: string
+  item_id: string
+  impacto?: number | string
+  titulo?: string
+  parecer_resolucao?: string
+  acao_tomada?: string
+}
+
+export interface DecisaoAcaoRecord {
+  id: string
+  tipo_item: string
+  item_id: string
+  impacto: string
+  titulo: string
+  resolvido_por?: string
+  resolvido_por_email?: string
+  resolvido_por_nome?: string
+  parecer_resolucao?: string
+  acao_tomada?: string
+  created: string
+  updated: string
+}
+
+export interface PrestadorSensivelResponse {
+  sucesso: boolean
+  dados?: {
+    id: string
+    nome: string
+    tipo_vinculo: string
+    dados_bancarios: string | null
+    custo_hora: number | null
+    custo_mensal: number | null
+    dados_bancarios_ocultados_motivo: string | null
+  }
+  erro?: string
+}
+
+export interface CotacaoPrecoResponse {
+  sucesso: boolean
+  dados?: {
+    id: string
+    codigo: string
+    preco_ofertado: number
+    prazo_dias: number
+    status: string
+  }
+  erro?: string
+}
+
+export interface PreCotacaoRespostaPrecoResponse {
+  sucesso: boolean
+  dados?: {
+    id: string
+    codigo_pre_cotacao: string
+    preco_ofertado: number
+    prazo_ofertado_dias: number
+    status: string
+  }
+  erro?: string
+}
+
+export interface ContratoPublicoValorResponse {
+  sucesso: boolean
+  dados?: {
+    id: string
+    numero_edital: string
+    orgao: string
+    valor: number
+  }
+  erro?: string
+}
+
+export interface ValidarTokenPropostaResponse {
+  sucesso: boolean
+  proposta?: {
+    id: string
+    numero: string
+    titulo: string
+    status: string
+    valor_total: number
+    cliente_nome: string
+    created: string
+  }
+  erro?: string
+}
+
+export interface ValidarTokenContratoResponse {
+  sucesso: boolean
+  contrato?: {
+    id: string
+    codigo: string
+    objeto: string
+    status: string
+    valor_total: number
+  }
+  erro?: string
+}
+
+export interface ValidarTokenPreCadastroResponse {
+  sucesso: boolean
+  link?: {
+    id: string
+    area: string
+    modalidade: string
+  }
+  erro?: string
+}
+
+export interface ValidarTokenComplementoResponse {
+  sucesso: boolean
+  contrato_id?: string
+  codigo?: string
+  erro?: string
+}
+
+export interface ConfirmarDescadastroPayload {
+  email: string
+  token?: string
+  motivo?: string
+}
+
+export interface ConfirmarDescadastroResponse {
+  sucesso: boolean
+  mensagem?: string
+  erro?: string
+}

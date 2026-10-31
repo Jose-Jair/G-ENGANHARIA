@@ -10,20 +10,28 @@
  *  - Alertas de margem / inversão de fluxo
  *  - Cobranças escaladas
  * Cada item fecha com clique auditado (registro em decisoes_acoes).
+ * - Nota PocketBase JSVM: todas as funções utilitárias ficam inline dentro de cada callback.
  */
 
-routerAdd('GET', '/backend/v1/decisoes/fila', (c) => {
-  const auth = c.auth
+routerAdd('GET', '/backend/v1/decisoes/fila', (e) => {
+  const reqInfo = e.requestInfo()
+  const auth = reqInfo.auth || e.auth
   if (!auth) {
-    return c.json(401, { erro: 'Autenticação necessária' })
+    return e.json(401, { erro: 'Autenticação necessária' })
   }
   const role = (auth.getString('role') || '').toLowerCase()
   if (role !== 'admin' && role !== 'gestor') {
-    return c.json(403, { erro: 'Fila de decisões restrita a Admin e Gestor' })
+    return e.json(403, { erro: 'Fila de decisões restrita a Admin e Gestor' })
   }
 
   const agora = new Date()
   const itens = []
+  const clientIp =
+    (e.request &&
+      typeof e.request.getHeader === 'function' &&
+      (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+    (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+    '127.0.0.1'
 
   // 1. Vencedores de cotação
   try {
@@ -143,7 +151,7 @@ routerAdd('GET', '/backend/v1/decisoes/fila', (c) => {
   try {
     const apont = $app.findRecordsByFilter(
       'apontamentos',
-      "status = 'pendente_aprovacao'",
+      "status = 'pendente'",
       '-created',
       100,
       0,
@@ -164,9 +172,15 @@ routerAdd('GET', '/backend/v1/decisoes/fila', (c) => {
     }
   } catch (_) {}
 
-  // 6. Triagens de prestador pendentes
+  // 6. Triagens de prestador pendentes (prestadores em status triagem)
   try {
-    const triagens = $app.findRecordsByFilter('triagens', "status = 'pendente'", '-created', 50, 0)
+    const triagens = $app.findRecordsByFilter(
+      'prestadores',
+      "status = 'triagem'",
+      '-created',
+      50,
+      0,
+    )
     for (let i = 0; i < triagens.length; i++) {
       const rec = triagens[i]
       itens.push({
@@ -174,63 +188,46 @@ routerAdd('GET', '/backend/v1/decisoes/fila', (c) => {
         item_id: rec.id,
         impacto: 45,
         titulo: 'Triagem de prestador pendente de avaliação',
-        contexto: { prestador: rec.getString('prestador'), score: rec.getFloat('score') },
+        contexto: {
+          prestador_nome: rec.getString('nome'),
+          disciplinas: rec.getString('disciplinas'),
+        },
       })
     }
   } catch (_) {}
 
-  // 7. Sugestões de suspensão de executor
+  // 7. Alertas de margem / inversão de fluxo (via financeiro)
   try {
-    const sugestoes = $app.findRecordsByFilter(
-      'sugestoes_suspensao',
-      "status = 'pendente'",
-      '-created',
-      50,
+    const contasAtrasadas = $app.findRecordsByFilter(
+      'contas',
+      "status = 'atrasada' && tipo = 'pagar'",
+      '-vencimento',
+      20,
       0,
     )
-    for (let i = 0; i < sugestoes.length; i++) {
-      const rec = sugestoes[i]
-      itens.push({
-        tipo_item: 'sugestao_suspensao',
-        item_id: rec.id,
-        impacto: 95,
-        titulo: 'Sugestão de suspensão de executor aguardando decisão',
-        contexto: { prestador: rec.getString('prestador'), motivo: rec.getString('motivo') },
-      })
-    }
-  } catch (_) {}
-
-  // 8. Alertas de margem / inversão de fluxo
-  try {
-    const alertas = $app.findRecordsByFilter(
-      'alertas_financeiros',
-      "status = 'ativo' && (tipo = 'margem' || tipo = 'inversao_fluxo')",
-      '-created',
-      50,
-      0,
-    )
-    for (let i = 0; i < alertas.length; i++) {
-      const rec = alertas[i]
+    for (let i = 0; i < contasAtrasadas.length; i++) {
+      const rec = contasAtrasadas[i]
       itens.push({
         tipo_item: 'alerta_financeiro',
         item_id: rec.id,
         impacto: 80,
-        titulo:
-          rec.getString('tipo') === 'margem'
-            ? 'Alerta de margem do projeto'
-            : 'Inversão de fluxo de caixa',
-        contexto: { projeto: rec.getString('projeto'), detalhe: rec.getString('mensagem') },
+        titulo: 'Conta a pagar em atraso',
+        contexto: {
+          descricao: rec.getString('descricao'),
+          valor: rec.getFloat('valor'),
+          vencimento: rec.getString('vencimento'),
+        },
       })
     }
   } catch (_) {}
 
-  // 9. Cobranças escaladas
+  // 8. Cobranças de prazo escaladas (eventos de cobrança d_mais_3 ou revisor_sla)
   try {
     const cobrancas = $app.findRecordsByFilter(
-      'cobrancas',
-      "status = 'escalada'",
+      'eventos_cobranca',
+      "degrau = 'd_mais_3' || degrau = 'revisor_sla'",
       '-created',
-      50,
+      30,
       0,
     )
     for (let i = 0; i < cobrancas.length; i++) {
@@ -239,11 +236,10 @@ routerAdd('GET', '/backend/v1/decisoes/fila', (c) => {
         tipo_item: 'cobranca_escalada',
         item_id: rec.id,
         impacto: 75,
-        titulo: 'Cobrança de prazo escalada',
+        titulo: 'Cobrança de prazo escalada (' + rec.getString('degrau') + ')',
         contexto: {
-          projeto: rec.getString('projeto'),
-          os: rec.getString('os'),
-          dias_atraso: rec.getInt('dias_atraso'),
+          referencia_tipo: rec.getString('referencia_tipo'),
+          referencia_id: rec.getString('referencia_id'),
         },
       })
     }
@@ -252,39 +248,46 @@ routerAdd('GET', '/backend/v1/decisoes/fila', (c) => {
   itens.sort((a, b) => (b.impacto || 0) - (a.impacto || 0))
 
   try {
-    const auditCol = $app.findCollectionByNameOrId('audit_log')
+    const auditCol = $app.findCollectionByNameOrId('audit_logs')
     const audit = new Record(auditCol)
-    audit.set('usuario', auth.id)
-    audit.set('usuario_email', auth.getString('email'))
-    audit.set('usuario_role', role)
+    audit.set('user', auth.id)
+    audit.set('user_email', auth.getString('email'))
     audit.set('acao', 'LEITURA_FILA_DECISOES')
     audit.set('entidade', 'decisoes_acoes')
-    audit.set('detalhes', JSON.stringify({ itens_retornados: itens.length, ip: c.realIP() }))
+    audit.set('registro_id', '')
+    audit.set('ip', clientIp)
+    audit.set('detalhes', { itens_retornados: itens.length, ip: clientIp })
     $app.save(audit)
   } catch (_) {}
 
-  return c.json(200, { sucesso: true, itens })
+  return e.json(200, { sucesso: true, itens })
 })
 
-routerAdd('POST', '/backend/v1/decisoes/fechar', (c) => {
-  const auth = c.auth
+routerAdd('POST', '/backend/v1/decisoes/fechar', (e) => {
+  const reqInfo = e.requestInfo()
+  const auth = reqInfo.auth || e.auth
   if (!auth) {
-    return c.json(401, { erro: 'Autenticação necessária' })
+    return e.json(401, { erro: 'Autenticação necessária' })
   }
   const role = (auth.getString('role') || '').toLowerCase()
   if (role !== 'admin' && role !== 'gestor') {
-    return c.json(403, { erro: 'Fila de decisões restrita a Admin e Gestor' })
+    return e.json(403, { erro: 'Fila de decisões restrita a Admin e Gestor' })
   }
 
-  const info = c.requestInfo()
-  const dados = info.body || {}
+  const dados = reqInfo.body || {}
   const tipoItem = (dados.tipo_item || '').toString()
   const itemId = (dados.item_id || '').toString()
   const parecer = (dados.parecer_resolucao || '').toString()
   const acao = (dados.acao_tomada || '').toString()
+  const clientIp =
+    (e.request &&
+      typeof e.request.getHeader === 'function' &&
+      (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+    (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+    '127.0.0.1'
 
   if (!tipoItem || !itemId) {
-    return c.json(400, { erro: 'tipo_item e item_id são obrigatórios' })
+    return e.json(400, { erro: 'tipo_item e item_id são obrigatórios' })
   }
 
   try {
@@ -300,22 +303,22 @@ routerAdd('POST', '/backend/v1/decisoes/fechar', (c) => {
     rec.set('parecer_resolucao', parecer)
     rec.set('acao_tomada', acao)
     $app.save(rec)
-  } catch (e) {
-    return c.json(500, { erro: 'Falha ao registrar decisão: ' + e })
+  } catch (err) {
+    return e.json(500, { erro: 'Falha ao registrar decisão: ' + err })
   }
 
   try {
-    const auditCol = $app.findCollectionByNameOrId('audit_log')
+    const auditCol = $app.findCollectionByNameOrId('audit_logs')
     const audit = new Record(auditCol)
-    audit.set('usuario', auth.id)
-    audit.set('usuario_email', auth.getString('email'))
-    audit.set('usuario_role', role)
+    audit.set('user', auth.id)
+    audit.set('user_email', auth.getString('email'))
     audit.set('acao', 'DECISAO_FECHADA')
     audit.set('entidade', tipoItem)
     audit.set('registro_id', itemId)
-    audit.set('detalhes', JSON.stringify({ parecer: parecer, acao_tomada: acao, ip: c.realIP() }))
+    audit.set('ip', clientIp)
+    audit.set('detalhes', { parecer: parecer, acao_tomada: acao, ip: clientIp })
     $app.save(audit)
   } catch (_) {}
 
-  return c.json(200, { sucesso: true, mensagem: 'Decisão registrada com auditoria' })
+  return e.json(200, { sucesso: true, mensagem: 'Decisão registrada com auditoria' })
 })

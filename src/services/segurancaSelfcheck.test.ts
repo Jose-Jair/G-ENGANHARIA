@@ -152,5 +152,27 @@ describe('Endpoint de Autochecagem de Segurança (/backend/v1/seguranca/selfchec
     expect(res.resultados.item17_ifc_bcf_issues.detalhes.issues_isolamento_prestador).toBe(true)
     expect(res.resultados.item17_ifc_bcf_issues.detalhes.parametro_teto_ifc).toBe(true)
     expect(res.resultados.item17_ifc_bcf_issues.detalhes.teto_ifc_mb).toBe('150')
+
+    // Item 18: Matriz por Perfil e Sigilo de Campos Sensíveis (Rodada 18)
+    expect(res.resultados.item18_matriz_perfil_sigilo).toBeDefined()
+    expect(res.resultados.item18_matriz_perfil_sigilo.todas_conformes).toBe(true)
+    expect(res.resultados.item18_matriz_perfil_sigilo.detalhes.colecao_decisoes_acoes).toBe(true)
+    expect(
+      res.resultados.item18_matriz_perfil_sigilo.detalhes.cotacoes_regra_comercial_protegida,
+    ).toBe(true)
+    expect(
+      res.resultados.item18_matriz_perfil_sigilo.detalhes.precotacao_regra_comercial_protegida,
+    ).toBe(true)
+    expect(res.resultados.item18_matriz_perfil_sigilo.detalhes.custos_profissional_isolamento).toBe(
+      true,
+    )
+    expect(
+      res.resultados.item18_matriz_perfil_sigilo.detalhes.mensagens_os_regra_financeiro_sem_acesso,
+    ).toBe(true)
+    expect(res.resultados.item18_matriz_perfil_sigilo.detalhes.parametro_token_expiracao).toBe(true)
+    expect(res.resultados.item18_matriz_perfil_sigilo.detalhes.parametro_token_tentativas).toBe(
+      true,
+    )
+    expect(res.resultados.item18_matriz_perfil_sigilo.detalhes.parametro_sla_decisoes).toBe(true)
   })
 })

@@ -121,6 +121,20 @@ interface SelfcheckResultados {
       erro?: string
     }
   }
+  item18_matriz_perfil_sigilo?: {
+    todas_conformes?: boolean
+    detalhes?: {
+      colecao_decisoes_acoes?: boolean
+      cotacoes_regra_comercial_protegida?: boolean
+      precotacao_regra_comercial_protegida?: boolean
+      custos_profissional_isolamento?: boolean
+      mensagens_os_regra_financeiro_sem_acesso?: boolean
+      parametro_token_expiracao?: boolean
+      parametro_token_tentativas?: boolean
+      parametro_sla_decisoes?: boolean
+      erro?: string
+    }
+  }
   conformidade_geral?: boolean
 }
 
@@ -298,12 +312,12 @@ export const PainelSmtpSeguranca: React.FC = () => {
             <div>
               <CardTitle className="text-base flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-blue-600" />
-                Autochecagem de Segurança & Integridade (12 Itens)
+                Autochecagem de Segurança & Integridade (18 Itens)
               </CardTitle>
               <CardDescription className="text-xs">
                 Varredura profunda executada diretamente no backend
                 (/backend/v1/seguranca/selfcheck). Verifica isolamento por API rules, tokens,
-                telefones, IA, monitoramento e SMTP.
+                telefones, IA, monitoramento, scorecards, IFC/BCF e matriz de sigilo por perfil.
               </CardDescription>
             </div>
             <Button
@@ -332,7 +346,7 @@ export const PainelSmtpSeguranca: React.FC = () => {
             <div className="py-6 text-center text-slate-400 border border-dashed rounded-lg bg-slate-50/50">
               <Server className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p className="text-xs">
-                Nenhum selfcheck carregado nesta sessão. Clique no botão acima para verificar os 12
+                Nenhum selfcheck carregado nesta sessão. Clique no botão acima para verificar os 18
                 itens.
               </p>
             </div>
@@ -341,7 +355,7 @@ export const PainelSmtpSeguranca: React.FC = () => {
               <div className="flex items-center justify-between p-3 rounded-lg bg-slate-100 border border-slate-200">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold text-slate-800">
-                    Conformidade Geral dos 12 Itens:
+                    Conformidade Geral dos Itens:
                   </span>
                   {res?.conformidade_geral ? (
                     <Badge className="bg-emerald-600 text-white text-xs gap-1">
@@ -641,6 +655,42 @@ export const PainelSmtpSeguranca: React.FC = () => {
                     | Teto IFC:{' '}
                     <strong className="text-slate-700">
                       {res?.item17_ifc_bcf_issues?.detalhes?.teto_ifc_mb || '150'} MB
+                    </strong>
+                  </p>
+                </div>
+
+                {/* 18. Matriz por Perfil & Sigilo de Campos Sensíveis (Rodada 18) */}
+                <div className="p-3 border rounded-lg bg-white space-y-1 ring-1 ring-emerald-500/40">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span className="text-emerald-700">
+                      18. Matriz por Perfil & Sigilo (Rodada 18)
+                    </span>
+                    {res?.item18_matriz_perfil_sigilo?.todas_conformes ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    )}
+                  </div>
+                  <p className="text-slate-500 text-[11px]">
+                    Fila de Decisões:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item18_matriz_perfil_sigilo?.detalhes?.colecao_decisoes_acoes
+                        ? 'Criada'
+                        : 'Pendente'}
+                    </strong>{' '}
+                    | Comercial sem preço:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item18_matriz_perfil_sigilo?.detalhes
+                        ?.cotacoes_regra_comercial_protegida
+                        ? 'Protegido'
+                        : 'Não'}
+                    </strong>{' '}
+                    | Tokens & SLA:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item18_matriz_perfil_sigilo?.detalhes?.parametro_token_expiracao &&
+                      res?.item18_matriz_perfil_sigilo?.detalhes?.parametro_sla_decisoes
+                        ? 'Configurados'
+                        : 'Pendente'}
                     </strong>
                   </p>
                 </div>

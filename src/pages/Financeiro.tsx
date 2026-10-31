@@ -49,6 +49,7 @@ import {
   Layers,
   Download,
   PieChart,
+  Users,
 } from 'lucide-react'
 import { exportService } from '@/services/exportService'
 import { ModalNovaConta } from '@/components/financeiro/ModalNovaConta'

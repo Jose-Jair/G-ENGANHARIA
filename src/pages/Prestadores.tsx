@@ -71,6 +71,8 @@ import {
   Minus,
   MessageSquare,
   Inbox,
+  Clock,
+  DollarSign,
 } from 'lucide-react'
 import { exportService } from '@/services/exportService'
 import { ModalMensagensOsGestor } from '@/components/prestadores/ModalMensagensOsGestor'

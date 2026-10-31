@@ -30,6 +30,7 @@ import {
   FileSpreadsheet,
   Award,
   Sparkles,
+  Users,
   ChevronDown,
   ChevronRight,
   Printer,
@@ -282,6 +283,57 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
       'Bloqueio irrestrito no servidor: recusa de chamadas anônimas ou de perfis não-Admin.',
       'Gravação de evento detalhado na Auditoria Imutável (LIMPEZA_DADOS_NEGOCIO) contendo a contagem de registros removidos e a identidade do Administrador.',
       'Migrações de limpeza são estruturadas como no-op idempotentes para não impactar novas implantações.',
+    ],
+  },
+  {
+    id: 'custo-interno-operacional',
+    titulo: 'Custo Interno Operacional & Apontamento de Horas',
+    subtitulo:
+      'Vigências de remuneração, apontamento técnico no Portal, aprovação em lote, rateio no Financeiro e indicador "Fazer Dentro ou Fora"',
+    icone: Users,
+    corIcone: 'text-[#D95A2B]',
+    perfisPermitidos: ['admin', 'gestor', 'financeiro', 'executor'],
+    descricao:
+      'O módulo de Custo Interno Operacional permite apurar com rigor contábil e gerencial a dedicação da equipe técnica própria da G+ Engenharia alocada nos projetos. O fluxo contempla o cadastro confidencial de vigências de custo pelo Admin/Financeiro, a chave seletiva de apontamento nas Ordens de Serviço, o lançamento semanal pelo profissional no Portal sem nenhuma informação salarial visível, a mesa semanal de aprovação do Gestor, a consolidação do rateio na nova aba do Financeiro e o painel estratégico "Fazer Dentro ou Fora" na Administração.',
+    passos: [
+      {
+        titulo: '1. Cadastro de Vigências de Custo do Profissional (Admin & Financeiro)',
+        descricao:
+          'Em Prestadores › Custos & Vigências, o Admin ou Financeiro cadastra o histórico de remuneração do profissional interno: data de início, data fim (opcional), custo mensal contratado (R$) e horas/mês (padrão 176h). O custo-hora é derivado automaticamente no servidor. O cadastro inicia vazio até preenchimento pelo Admin: enquanto não houver vigência ativa cadastrada, o prestador e suas OS exibem o aviso "custo não configurado" com custo apurado zerado.',
+        dica: 'O histórico de vigências é confidencial e nunca é exposto aos prestadores nem em relatórios externos.',
+      },
+      {
+        titulo: '2. Chave "Exige Apontamento" na Ordem de Serviço (Gestor)',
+        descricao:
+          'Nas Ordens de Serviço emitidas para a equipe interna (projeto ou aba Prestadores), o Gestor define se a OS exige apontamento detalhado de horas ou se o custo deve ser estimado com base nos dias úteis de lead time da OS frente à capacidade simultânea do profissional.',
+      },
+      {
+        titulo: '3. Lançamento Diário no Portal do Profissional ("Minhas Horas")',
+        descricao:
+          'O membro da equipe técnica própria acessa o Portal do Prestador e visualiza a aba dedicada "Minhas Horas". Ali, seleciona a OS delegada, a data de execução, a atividade técnica (Produção, Revisão, Correção ou Reunião), a fração de horas trabalhadas em passos de 0,25h (15 min) e a descrição técnica do serviço realizado. REGRA DE SEGURANÇA MANDATÓRIA: o portal do profissional não exibe nenhum valor monetário (sem custo_hora, sem salário, sem valor da OS e sem margem).',
+        dica: 'O formulário oferece atalhos rápidos de 0,25h, 0,5h, 1h, 2h, 4h e 8h com visualização da semana corrente e status de aprovação de cada lançamento.',
+      },
+      {
+        titulo: '4. Mesa Semanal de Aprovação em Lote (Gestor & Admin)',
+        descricao:
+          'Em Prestadores › aba "Aprovação de Horas", o Gestor ou Admin analisa a mesa de apontamentos pendentes. É possível selecionar apontamentos individualmente ou em lote para "Aprovar Lote" (com recálculo automático instantâneo do custo apurado e horas acumuladas nas OS afetadas) ou "Rejeitar Lote" (com exigência obrigatória de justificativa técnica auditada).',
+      },
+      {
+        titulo: '5. Rateio no Financeiro & Painel "Fazer Dentro ou Fora"',
+        descricao:
+          'No módulo Financeiro, a nova aba "Custo Interno" consolida os valores apurados por projeto e por competência mensal (mês/ano), detalhando a quantidade de OS internas, horas dedicadas e valor total rateado, com link direto de navegação para a aba "Fazer Dentro ou Fora" na Administração. Ali, o indicador algorítmico compara o custo horário da equipe própria contra referências externas (pré-cotações e catálogo base de 40h) e recomenda formalmente "Fazer Dentro" ou "Fazer Fora" com cálculo percentual de economia estimada.',
+      },
+      {
+        titulo: '6. Margem Real na Saúde Financeira & Ocupação no Monitoramento',
+        descricao:
+          'O custo interno apurado debita diretamente do custo comprometido do projeto, reduzindo a Margem Real calculada em tempo real no Painel de Saúde Financeira do Projeto. Paralelamente, o Painel de Carga de Prestadores no Monitoramento de Prazos (/monitoramento) exibe a barra de ocupação semanal em horas e dispara alerta visual vermelho quando a alocação da equipe técnica interna ultrapassar 100% da capacidade semanal.',
+      },
+    ],
+    regrasAutomaticas: [
+      'Segmentação estrita: custo_hora, salário e margem financeira nunca chegam ao Portal do Prestador (perfil executor).',
+      'Validação de integridade: lançamentos em passos de 0,25h e auditoria de aprovação/rejeição no servidor.',
+      'Recálculo automático do custo apurado da OS ao aprovar apontamentos no endpoint seguro /backend/v1/apontamentos/aprovar-lote.',
+      'Alerta automático de sobrecarga acima de 100% da capacidade semanal no Monitoramento de Prazos.',
     ],
   },
   {

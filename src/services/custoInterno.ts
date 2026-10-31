@@ -40,6 +40,16 @@ export interface RecalcularOsResponse {
   ciclos_revisao: number
 }
 
+export interface RateioProjetoMes {
+  projeto_id: string
+  codigo_projeto: string
+  nome_projeto: string
+  mes_ano: string
+  total_os: number
+  horas_totais: number
+  custo_total: number
+}
+
 export const custoInternoService = {
   // --------------------------------------------------------------------------
   // Vigências de Custo do Profissional (custos_profissional)
@@ -172,5 +182,107 @@ export const custoInternoService = {
       },
     )
     return res
+  },
+
+  // --------------------------------------------------------------------------
+  // Rateio Mensal de Custo Interno por Projeto
+  // --------------------------------------------------------------------------
+  async obterRateioMensalProjetos(): Promise<RateioProjetoMes[]> {
+    // 1. Buscar OS internas apuradas
+    const osInternas = await pb.collection('ordens_servico').getFullList<OrdemServicoRecord>({
+      filter: `tipo_prestador = 'interno' && status != 'cancelada'`,
+      expand: 'projeto,prestador',
+    })
+
+    // 2. Buscar contas de despesa do tipo 'custo_interno'
+    let contasCustoInterno: any[] = []
+    try {
+      contasCustoInterno = await pb.collection('contas').getFullList({
+        filter: `tipo = 'custo_interno' && status != 'cancelada'`,
+        expand: 'projeto',
+      })
+    } catch (_) {
+      contasCustoInterno = []
+    }
+
+    const mapaRateio: Record<string, RateioProjetoMes> = {}
+
+    // Processar OS internas
+    for (const os of osInternas) {
+      const prj = os.expand?.projeto
+      const prjId = os.projeto || prj?.id || 'sem_projeto'
+      const prjCod = prj?.codigo || 'PRJ'
+      const prjNome = prj?.nome || 'Projeto Sem Nome'
+
+      // Determinar competência (mês/ano) baseada na conclusão ou criação
+      const dataRef = os.data_conclusao || os.created || new Date().toISOString()
+      const d = new Date(dataRef)
+      const mes = String(d.getMonth() + 1).padStart(2, '0')
+      const ano = d.getFullYear()
+      const mesAno = `${mes}/${ano}`
+
+      const chave = `${prjId}_${mesAno}`
+
+      if (!mapaRateio[chave]) {
+        mapaRateio[chave] = {
+          projeto_id: prjId,
+          codigo_projeto: prjCod,
+          nome_projeto: prjNome,
+          mes_ano: mesAno,
+          total_os: 0,
+          horas_totais: 0,
+          custo_total: 0,
+        }
+      }
+
+      mapaRateio[chave].total_os += 1
+      mapaRateio[chave].horas_totais += Number(os.horas_estimadas) || 0
+      mapaRateio[chave].custo_total += Number(os.custo_interno_apurado) || 0
+    }
+
+    // Processar contas do tipo custo_interno (adicionar valores financeiros complementares se houver)
+    for (const c of contasCustoInterno) {
+      const prj = c.expand?.projeto
+      const prjId = c.projeto || prj?.id || 'sem_projeto'
+      const prjCod = prj?.codigo || 'PRJ'
+      const prjNome = prj?.nome || 'Projeto Sem Nome'
+
+      const dataRef = c.data_pagamento || c.data_vencimento || c.created || new Date().toISOString()
+      const d = new Date(dataRef)
+      const mes = String(d.getMonth() + 1).padStart(2, '0')
+      const ano = d.getFullYear()
+      const mesAno = `${mes}/${ano}`
+
+      const chave = `${prjId}_${mesAno}`
+
+      if (!mapaRateio[chave]) {
+        mapaRateio[chave] = {
+          projeto_id: prjId,
+          codigo_projeto: prjCod,
+          nome_projeto: prjNome,
+          mes_ano: mesAno,
+          total_os: 0,
+          horas_totais: 0,
+          custo_total: 0,
+        }
+      }
+
+      // Adiciona o valor da conta ao custo total do rateio se não tiver ordem de serviço vinculada
+      // para evitar dupla contagem com a OS
+      if (!c.ordem_servico) {
+        mapaRateio[chave].custo_total += Number(c.valor) || 0
+      }
+    }
+
+    const lista = Object.values(mapaRateio)
+    // Arredondar valores
+    lista.forEach((item) => {
+      item.horas_totais = Math.round(item.horas_totais * 100) / 100
+      item.custo_total = Math.round(item.custo_total * 100) / 100
+    })
+
+    // Ordenar decrescente por competência
+    lista.sort((a, b) => b.mes_ano.localeCompare(a.mes_ano))
+    return lista
   },
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ModalPadrao } from '@/components/comum/ModalPadrao'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -72,42 +72,52 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
   if (!open || !projetoId) return null
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="dossie-projeto-dialog max-w-4xl max-h-[95vh] overflow-y-auto p-0 print:m-0 print:p-0 print:max-w-none print:max-h-none print:shadow-none print:border-none">
-        {/* Barra Superior com Controles de Exportação / PDF */}
-        <div className="p-4 bg-[#1E2A4A] text-white flex items-center justify-between sticky top-0 z-20 print:hidden">
-          <div className="flex items-center gap-3">
-            <GPlusLogo variant="icon" size={28} />
-            <div>
-              <DialogTitle className="text-sm font-bold text-white">
-                Dossiê Consolidado do Projeto — G+ Engenharia
-              </DialogTitle>
-              <p className="text-[11px] text-slate-300">
-                Layout A4 oficial com etapas, entregáveis, documentos, riscos e finanças.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={handleImprimirSalvarPdf}
-              className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs gap-1.5 shadow-xs"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              Imprimir / Salvar em PDF A4
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-              className="text-xs bg-white/10 border-white/20 text-slate-200 hover:bg-white/20"
-            >
-              Fechar
-            </Button>
-          </div>
+    <ModalPadrao
+      open={open}
+      onOpenChange={onOpenChange}
+      maxWidthClass="sm:max-w-4xl"
+      className="dossie-projeto-dialog print:m-0 print:p-0 print:max-w-none print:max-h-none print:shadow-none print:border-none"
+      headerClassName="bg-[#1E2A4A] text-white border-b-slate-800 print:hidden"
+      title={
+        <div className="flex items-center gap-2.5 text-white">
+          <GPlusLogo variant="icon" size={24} />
+          <span className="text-sm sm:text-base font-bold text-white truncate">
+            Dossiê Consolidado do Projeto — G+ Engenharia
+          </span>
         </div>
-
+      }
+      description={
+        <span className="text-[11px] text-slate-300 block">
+          Layout A4 oficial com etapas, entregáveis, documentos, riscos e finanças.
+        </span>
+      }
+      headerExtra={
+        <div className="flex items-center gap-2 print:hidden">
+          <Button
+            size="sm"
+            onClick={handleImprimirSalvarPdf}
+            className="bg-[#D95A2B] hover:bg-[#C44E22] text-white text-xs gap-1.5 shadow-xs"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Imprimir / Salvar em PDF A4</span>
+            <span className="sm:hidden">PDF</span>
+          </Button>
+        </div>
+      }
+      footer={
+        <div className="w-full flex items-center justify-end gap-2 print:hidden">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+            className="text-xs"
+          >
+            Fechar
+          </Button>
+        </div>
+      }
+    >
+      <div className="pt-1">
         {loading ? (
           <div className="py-24 text-center">
             <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600 mb-2" />
@@ -561,7 +571,7 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
             </div>
           </div>
         ) : null}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </ModalPadrao>
   )
 }

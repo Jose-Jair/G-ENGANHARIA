@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { ROLE_LABELS, UserRole } from '@/types'
 import {
@@ -33,8 +33,10 @@ import {
   FileCheck,
   Clock,
   CheckSquare,
+  Menu,
 } from 'lucide-react'
 import { ModalTrocarSenha } from '@/components/ModalTrocarSenha'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { GPlusLogo } from '@/components/GPlusLogo'
 import { projetosService } from '@/services/projetos'
 import { toquesService } from '@/services/toques'
@@ -61,7 +63,9 @@ const ROLE_BADGE_VARIANTS: Record<UserRole, string> = {
 export default function AppLayout() {
   const { user, isAdmin, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [badgeAcoesCount, setBadgeAcoesCount] = useState<number>(0)
   const [badgeCriticosCount, setBadgeCriticosCount] = useState<number>(0)
   const [badgeCampanhasPendentesCount, setBadgeCampanhasPendentesCount] = useState<number>(0)
@@ -253,6 +257,11 @@ export default function AppLayout() {
     }
   }
 
+  // Fecha o menu mobile ao navegar para qualquer rota
+  React.useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [location.pathname, location.search])
+
   React.useEffect(() => {
     carregarNotificacoes()
     const timer = setInterval(carregarNotificacoes, 30000)
@@ -273,477 +282,33 @@ export default function AppLayout() {
     navigate('/login')
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
-      {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-[#1E2A4A] text-slate-100 flex flex-col shrink-0 border-r border-[#141D34]">
-        <div className="p-4 border-b border-white/10 flex items-center justify-between">
-          <NavLink to={isAdmin ? '/dashboard' : '/'} className="flex items-center gap-3 group">
-            <GPlusLogo variant="compact" theme="dark" size={32} />
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-sm tracking-tight text-white">GESTÃO G+</span>
-                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#D95A2B] text-white tracking-wider uppercase">
-                  BETA
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-400 font-mono">v1.0.0-beta</span>
+  const renderSidebarContent = () => (
+    <div className="flex flex-col h-full bg-[#1E2A4A] text-slate-100">
+      <div className="p-4 border-b border-white/10 flex items-center justify-between">
+        <NavLink to={isAdmin ? '/dashboard' : '/'} className="flex items-center gap-3 group">
+          <GPlusLogo variant="compact" theme="dark" size={32} />
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-sm tracking-tight text-white">GESTÃO G+</span>
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#D95A2B] text-white tracking-wider uppercase">
+                BETA
+              </span>
             </div>
-          </NavLink>
+            <span className="text-[10px] text-slate-400 font-mono">v1.0.0-beta</span>
+          </div>
+        </NavLink>
+      </div>
+
+      {/* Navigation Modules (Strictly by Role) */}
+      <div className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+        <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          Navegação Principal
         </div>
 
-        {/* Navigation Modules (Strictly by Role) */}
-        <div className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-          <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Navegação Principal
-          </div>
-
-          {/* MENU PARA PRESTADOR / EXECUTOR EXTERNO */}
-          {user?.role === 'executor' ? (
-            <NavLink
-              to="/portal-prestador"
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                }`
-              }
-            >
-              <HardHat className="w-4 h-4 text-orange-300" />
-              <div className="flex items-center justify-between flex-1">
-                <span>Portal do Prestador</span>
-                <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-400/30 px-1.5 py-0.2 rounded font-bold uppercase">
-                  Meu Acesso
-                </span>
-              </div>
-            </NavLink>
-          ) : user?.role && (user.role === 'admin' || user.role === 'comercial') ? (
-            <NavLink
-              to="/dashboard"
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                }`
-              }
-            >
-              <LayoutDashboard className="w-4 h-4 text-orange-300" />
-              <div className="flex items-center justify-between flex-1">
-                <span>Dashboard</span>
-                <span className="text-[9px] bg-white/20 text-white px-1.5 py-0.2 rounded font-bold uppercase">
-                  {isAdmin ? 'Admin' : 'Comercial'}
-                </span>
-              </div>
-            </NavLink>
-          ) : (
-            <NavLink
-              to="/"
-              end
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                }`
-              }
-            >
-              <Home className="w-4 h-4 text-orange-300" />
-              <span>Página Inicial</span>
-            </NavLink>
-          )}
-
-          {/* Atalho ao Portal do Prestador para Administradores e Gestores (Supervisão) */}
-          {(user?.role === 'admin' || user?.role === 'gestor') && (
-            <NavLink
-              to="/portal-prestador"
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                }`
-              }
-            >
-              <HardHat className="w-4 h-4 text-amber-400" />
-              <div className="flex items-center justify-between flex-1">
-                <span>Portal do Prestador</span>
-                <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
-                  Visão
-                </span>
-              </div>
-            </NavLink>
-          )}
-
-          {/* Módulo de Empresas / Cadastros (Admin, Comercial, Financeiro, Gestor) */}
-          {user?.role && user.role !== 'executor' && (
-            <NavLink
-              to="/empresas"
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                }`
-              }
-            >
-              <Building2 className="w-4 h-4" />
-              <div className="flex items-center justify-between flex-1">
-                <span>Empresas</span>
-                {(user.role === 'financeiro' || user.role === 'gestor') && (
-                  <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
-                    Leitura
-                  </span>
-                )}
-              </div>
-            </NavLink>
-          )}
-
-          {/* ETAPA 6: Módulo Parceiros e Clientes (Admin, Comercial, Financeiro, Gestor) */}
-          {user?.role && user.role !== 'executor' && (
-            <>
-              <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                Parceiros e Clientes
-              </div>
-
-              <NavLink
-                to="/parceiros"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <Handshake className="w-4 h-4 text-emerald-400" />
-                <div className="flex items-center justify-between flex-1">
-                  <span>Parceiros</span>
-                  {badgeParceirosSemDemandaCount > 0 && (
-                    <span
-                      className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-rose-600 text-white shadow-xs"
-                      title={`${badgeParceirosSemDemandaCount} parceiro(s) sem demanda há mais de 180 dias`}
-                    >
-                      {badgeParceirosSemDemandaCount}
-                    </span>
-                  )}
-                  {(user.role === 'financeiro' || user.role === 'gestor') && (
-                    <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
-                      Leitura
-                    </span>
-                  )}
-                </div>
-              </NavLink>
-
-              <NavLink
-                to="/clientes-pf"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <UserCheck className="w-4 h-4 text-cyan-400" />
-                <div className="flex items-center justify-between flex-1">
-                  <span>Clientes PF</span>
-                  {(user.role === 'financeiro' || user.role === 'gestor') && (
-                    <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
-                      Leitura
-                    </span>
-                  )}
-                </div>
-              </NavLink>
-
-              {/* ETAPA 7: Módulo Propostas (Admin/Comercial gravam; Financeiro/Gestor leem) */}
-              <NavLink
-                to="/propostas"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <FileText className="w-4 h-4 text-orange-300" />
-                <div className="flex items-center justify-between flex-1">
-                  <span>Propostas</span>
-                  {(user.role === 'financeiro' || user.role === 'gestor') && (
-                    <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
-                      Leitura
-                    </span>
-                  )}
-                </div>
-              </NavLink>
-
-              {/* ETAPA 9: MÓDULO FINANCEIRO (Exclusivo Admin e Financeiro) */}
-              {(user.role === 'admin' || user.role === 'financeiro') && (
-                <>
-                  <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Controladoria & Finanças
-                  </div>
-
-                  <NavLink
-                    to="/financeiro"
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        isActive
-                          ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                          : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                      }`
-                    }
-                  >
-                    <DollarSign className="w-4 h-4 text-emerald-400" />
-                    <div className="flex items-center justify-between flex-1">
-                      <span>Financeiro</span>
-                      {badgeFinanceiroAlertasCount > 0 && (
-                        <span
-                          className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-rose-600 text-white shadow-xs"
-                          title={`${badgeFinanceiroAlertasCount} conta(s) com alerta de vencimento (D-7/D-1/Atraso)`}
-                        >
-                          {badgeFinanceiroAlertasCount}
-                        </span>
-                      )}
-                    </div>
-                  </NavLink>
-                </>
-              )}
-
-              {/* ETAPA 8: PROJETOS E PRESTADORES */}
-              <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                Operação de Engenharia
-              </div>
-
-              {/* Projetos: Leitura por Admin, Comercial, Financeiro, Gestor */}
-              <NavLink
-                to="/projetos"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <Briefcase className="w-4 h-4 text-sky-400" />
-                <div className="flex items-center justify-between flex-1">
-                  <span>Projetos</span>
-                  {badgeDocumentosVencendoCount > 0 && (
-                    <span
-                      className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 shadow-xs"
-                      title={`${badgeDocumentosVencendoCount} documento(s) com alerta de vencimento`}
-                    >
-                      {badgeDocumentosVencendoCount}
-                    </span>
-                  )}
-                  {(user.role === 'financeiro' || user.role === 'comercial') && (
-                    <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
-                      Leitura
-                    </span>
-                  )}
-                </div>
-              </NavLink>
-
-              {/* Contratos de Serviço (G+ com Clientes) */}
-              <NavLink
-                to="/contratos-servico"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <FileCheck className="w-4 h-4 text-emerald-400" />
-                <div className="flex items-center justify-between flex-1">
-                  <span>Contratos de Serviço</span>
-                  {badgeContratosPendentesCount > 0 && (
-                    <span
-                      className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 shadow-xs"
-                      title={`${badgeContratosPendentesCount} contrato(s) de serviço aguardando assinatura`}
-                    >
-                      {badgeContratosPendentesCount}
-                    </span>
-                  )}
-                </div>
-              </NavLink>
-
-              {/* Prestadores de Serviço (Conceito Único): Admin, Gestor, Comercial */}
-              {user.role !== 'financeiro' && (
-                <NavLink
-                  to="/prestadores"
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                        : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                    }`
-                  }
-                >
-                  <Users className="w-4 h-4 text-amber-400" />
-                  <div className="flex items-center justify-between flex-1">
-                    <span>Prestadores</span>
-                    {user.role === 'comercial' && (
-                      <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
-                        Leitura
-                      </span>
-                    )}
-                  </div>
-                </NavLink>
-              )}
-
-              {/* RODADA 18: Fila Única de Decisões (Admin e Gestor) */}
-              {(user.role === 'admin' || user.role === 'gestor') && (
-                <NavLink
-                  to="/decisoes"
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                        : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                    }`
-                  }
-                >
-                  <CheckSquare className="w-4 h-4 text-amber-400" />
-                  <div className="flex items-center justify-between flex-1">
-                    <span>Decisões</span>
-                    <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono">
-                      Fila
-                    </span>
-                  </div>
-                </NavLink>
-              )}
-
-              {/* RODADA 7: Monitoramento de Prazos e Cobrança (Admin e Gestor) */}
-              {(user.role === 'admin' || user.role === 'gestor') && (
-                <NavLink
-                  to="/monitoramento"
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                        : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                    }`
-                  }
-                >
-                  <Clock className="w-4 h-4 text-emerald-400" />
-                  <div className="flex items-center justify-between flex-1">
-                    <span>Monitoramento</span>
-                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded font-mono">
-                      Prazos
-                    </span>
-                  </div>
-                </NavLink>
-              )}
-            </>
-          )}
-
-          {/* ETAPA 3: MÓDULO FUNIL COMERCIAL (Admin e Comercial exclusivamente) */}
-          {user?.role && (user.role === 'admin' || user.role === 'comercial') && (
-            <>
-              <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                Funil de Intermediação
-              </div>
-
-              <NavLink
-                to="/acoes-do-dia"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <CalendarCheck className="w-4 h-4 text-amber-400" />
-                <div className="flex items-center justify-between flex-1">
-                  <span>Ações do Dia</span>
-                  {badgeAcoesCount > 0 && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-rose-600 text-white shadow-xs">
-                      {badgeAcoesCount}
-                    </span>
-                  )}
-                </div>
-              </NavLink>
-
-              <NavLink
-                to="/funil"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <Kanban className="w-4 h-4 text-sky-400" />
-                <span>Funil (5 Etapas)</span>
-              </NavLink>
-
-              <NavLink
-                to="/campanhas"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <Megaphone className="w-4 h-4 text-violet-400" />
-                <div className="flex items-center justify-between flex-1">
-                  <span>Nutrição Mensal</span>
-                  {isAdmin && badgeCampanhasPendentesCount > 0 && (
-                    <span
-                      className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 shadow-xs"
-                      title={`${badgeCampanhasPendentesCount} campanha(s) aguardando aprovação do Admin`}
-                    >
-                      {badgeCampanhasPendentesCount}
-                    </span>
-                  )}
-                </div>
-              </NavLink>
-
-              <NavLink
-                to="/funil/sugestoes"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                <span>Fila de Sugestões</span>
-              </NavLink>
-
-              <NavLink
-                to="/nao-contatar"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <ShieldAlert className="w-4 h-4 text-rose-400" />
-                <span>Não Contatar</span>
-              </NavLink>
-            </>
-          )}
-
-          {/* AJUDA & MANUAL DE USO (Acesso geral com login) */}
-          <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Ajuda & Documentação
-          </div>
+        {/* MENU PARA PRESTADOR / EXECUTOR EXTERNO */}
+        {user?.role === 'executor' ? (
           <NavLink
-            to="/manual"
+            to="/portal-prestador"
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 isActive
@@ -752,147 +317,618 @@ export default function AppLayout() {
               }`
             }
           >
-            <BookOpen className="w-4 h-4 text-amber-300" />
+            <HardHat className="w-4 h-4 text-orange-300" />
             <div className="flex items-center justify-between flex-1">
-              <span>Manual de Uso</span>
-              <span className="text-[9px] bg-white/20 text-white px-1.5 py-0.2 rounded font-medium">
-                Guia
+              <span>Portal do Prestador</span>
+              <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-400/30 px-1.5 py-0.2 rounded font-bold uppercase">
+                Meu Acesso
               </span>
             </div>
           </NavLink>
-
-          {/* Admin Exclusive Links */}
-          {isAdmin && (
-            <>
-              <div className="pt-4 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                Gestão do Sistema (Admin)
-              </div>
-
-              <NavLink
-                to="/administracao"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <Shield className="w-4 h-4 text-orange-300" />
-                <span>Administração</span>
-              </NavLink>
-
-              <NavLink
-                to="/auditoria"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <History className="w-4 h-4 text-orange-300" />
-                <span>Auditoria Imutável</span>
-              </NavLink>
-            </>
-          )}
-
-          {user?.role === 'executor' && (
-            <div className="mt-6 p-3 rounded-lg bg-black/20 border border-white/10 text-xs text-slate-300">
-              <span className="font-semibold text-white block mb-1">Acesso Restrito:</span>
-              Como prestador externo, suas ordens de serviço e demandas de engenharia são
-              disponibilizadas pelo Gestor de Projetos no Portal do Prestador.
+        ) : user?.role && (user.role === 'admin' || user.role === 'comercial') ? (
+          <NavLink
+            to="/dashboard"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                  : 'text-slate-300 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <LayoutDashboard className="w-4 h-4 text-orange-300" />
+            <div className="flex items-center justify-between flex-1">
+              <span>Dashboard</span>
+              <span className="text-[9px] bg-white/20 text-white px-1.5 py-0.2 rounded font-bold uppercase">
+                {isAdmin ? 'Admin' : 'Comercial'}
+              </span>
             </div>
-          )}
-        </div>
+          </NavLink>
+        ) : (
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                  : 'text-slate-300 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <Home className="w-4 h-4 text-orange-300" />
+            <span>Página Inicial</span>
+          </NavLink>
+        )}
 
-        {/* Contato Oficial G+ Engenharia na Sidebar */}
-        <div className="px-3 py-2 border-t border-white/10 bg-[#17223b] text-xs">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block mb-1">
-            Contato Oficial G+
-          </span>
-          <div className="space-y-1 text-[11px]">
-            <a
-              href="mailto:grupomais.sae@gmail.com"
-              className="text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors truncate"
-              title="E-mail Oficial (grupomais.sae@gmail.com)"
-            >
-              <Mail className="w-3 h-3 text-orange-400 shrink-0" />
-              <span className="truncate">grupomais.sae@gmail.com</span>
-            </a>
-            <button
-              type="button"
-              onClick={() => openWhatsAppWithFallback({ phone: '5588999441685' })}
-              className="text-slate-300 hover:text-emerald-300 flex items-center gap-1.5 transition-colors text-left cursor-pointer w-full"
-              title="Abrir WhatsApp Oficial no aplicativo desktop (ou WhatsApp Web)"
-            >
-              <MessageSquare className="w-3 h-3 text-emerald-400 shrink-0" />
-              <span>+55 88 9 9944-1685</span>
-            </button>
-          </div>
-        </div>
-
-        {/* User Card in Sidebar */}
-        <div className="p-3 border-t border-white/10 bg-[#141D34]">
-          <div className="flex items-center justify-between mb-2">
-            <div className="min-w-0 pr-2">
-              <p className="text-xs font-semibold text-white truncate">{user?.name || 'Usuário'}</p>
-              <p className="text-[11px] text-slate-400 truncate">{user?.email}</p>
+        {/* Atalho ao Portal do Prestador para Administradores e Gestores (Supervisão) */}
+        {(user?.role === 'admin' || user?.role === 'gestor') && (
+          <NavLink
+            to="/portal-prestador"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                  : 'text-slate-300 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <HardHat className="w-4 h-4 text-amber-400" />
+            <div className="flex items-center justify-between flex-1">
+              <span>Portal do Prestador</span>
+              <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
+                Visão
+              </span>
             </div>
-            {user?.role && (
-              <Badge
-                variant="outline"
-                className={`text-[10px] uppercase font-bold shrink-0 ${ROLE_BADGE_VARIANTS[user.role]}`}
-              >
-                {ROLE_LABELS[user.role]}
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5">
+          </NavLink>
+        )}
+
+        {/* Módulo de Empresas / Cadastros (Admin, Comercial, Financeiro, Gestor) */}
+        {user?.role && user.role !== 'executor' && (
+          <NavLink
+            to="/empresas"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                  : 'text-slate-300 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <Building2 className="w-4 h-4" />
+            <div className="flex items-center justify-between flex-1">
+              <span>Empresas</span>
+              {(user.role === 'financeiro' || user.role === 'gestor') && (
+                <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
+                  Leitura
+                </span>
+              )}
+            </div>
+          </NavLink>
+        )}
+
+        {/* ETAPA 6: Módulo Parceiros e Clientes (Admin, Comercial, Financeiro, Gestor) */}
+        {user?.role && user.role !== 'executor' && (
+          <>
+            <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Parceiros e Clientes
+            </div>
+
             <NavLink
-              to="/manual"
-              className="flex-1 inline-flex items-center justify-center gap-1 px-1.5 py-1.5 text-[11px] text-slate-200 hover:text-white bg-white/5 hover:bg-white/10 rounded-md transition-colors"
-              title="Manual de Uso da Plataforma"
+              to="/parceiros"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`
+              }
             >
-              <BookOpen className="w-3.5 h-3.5 text-orange-400 shrink-0" />
-              <span>Manual</span>
+              <Handshake className="w-4 h-4 text-emerald-400" />
+              <div className="flex items-center justify-between flex-1">
+                <span>Parceiros</span>
+                {badgeParceirosSemDemandaCount > 0 && (
+                  <span
+                    className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-rose-600 text-white shadow-xs"
+                    title={`${badgeParceirosSemDemandaCount} parceiro(s) sem demanda há mais de 180 dias`}
+                  >
+                    {badgeParceirosSemDemandaCount}
+                  </span>
+                )}
+                {(user.role === 'financeiro' || user.role === 'gestor') && (
+                  <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
+                    Leitura
+                  </span>
+                )}
+              </div>
             </NavLink>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setModalSenhaOpen(true)}
-              className="px-2 text-[11px] text-slate-300 hover:text-white hover:bg-white/10 h-8"
-              title="Alterar minha senha de acesso"
+
+            <NavLink
+              to="/clientes-pf"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`
+              }
             >
-              <KeyRound className="w-3.5 h-3.5 text-amber-300 mr-1 shrink-0" />
-              <span>Senha</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="px-2 text-[11px] text-rose-300 hover:text-rose-100 hover:bg-rose-900/40 h-8"
-              title="Encerrar Sessão"
+              <UserCheck className="w-4 h-4 text-cyan-400" />
+              <div className="flex items-center justify-between flex-1">
+                <span>Clientes PF</span>
+                {(user.role === 'financeiro' || user.role === 'gestor') && (
+                  <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
+                    Leitura
+                  </span>
+                )}
+              </div>
+            </NavLink>
+
+            {/* ETAPA 7: Módulo Propostas (Admin/Comercial gravam; Financeiro/Gestor leem) */}
+            <NavLink
+              to="/propostas"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`
+              }
             >
-              <LogOut className="w-3.5 h-3.5 mr-1 shrink-0" />
-              Sair
-            </Button>
-          </div>
+              <FileText className="w-4 h-4 text-orange-300" />
+              <div className="flex items-center justify-between flex-1">
+                <span>Propostas</span>
+                {(user.role === 'financeiro' || user.role === 'gestor') && (
+                  <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
+                    Leitura
+                  </span>
+                )}
+              </div>
+            </NavLink>
+
+            {/* ETAPA 9: MÓDULO FINANCEIRO (Exclusivo Admin e Financeiro) */}
+            {(user.role === 'admin' || user.role === 'financeiro') && (
+              <>
+                <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Controladoria & Finanças
+                </div>
+
+                <NavLink
+                  to="/financeiro"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                        : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                    }`
+                  }
+                >
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                  <div className="flex items-center justify-between flex-1">
+                    <span>Financeiro</span>
+                    {badgeFinanceiroAlertasCount > 0 && (
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-rose-600 text-white shadow-xs"
+                        title={`${badgeFinanceiroAlertasCount} conta(s) com alerta de vencimento (D-7/D-1/Atraso)`}
+                      >
+                        {badgeFinanceiroAlertasCount}
+                      </span>
+                    )}
+                  </div>
+                </NavLink>
+              </>
+            )}
+
+            {/* ETAPA 8: PROJETOS E PRESTADORES */}
+            <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Operação de Engenharia
+            </div>
+
+            {/* Projetos: Leitura por Admin, Comercial, Financeiro, Gestor */}
+            <NavLink
+              to="/projetos"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <Briefcase className="w-4 h-4 text-sky-400" />
+              <div className="flex items-center justify-between flex-1">
+                <span>Projetos</span>
+                {badgeDocumentosVencendoCount > 0 && (
+                  <span
+                    className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 shadow-xs"
+                    title={`${badgeDocumentosVencendoCount} documento(s) com alerta de vencimento`}
+                  >
+                    {badgeDocumentosVencendoCount}
+                  </span>
+                )}
+                {(user.role === 'financeiro' || user.role === 'comercial') && (
+                  <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
+                    Leitura
+                  </span>
+                )}
+              </div>
+            </NavLink>
+
+            {/* Contratos de Serviço (G+ com Clientes) */}
+            <NavLink
+              to="/contratos-servico"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <FileCheck className="w-4 h-4 text-emerald-400" />
+              <div className="flex items-center justify-between flex-1">
+                <span>Contratos de Serviço</span>
+                {badgeContratosPendentesCount > 0 && (
+                  <span
+                    className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 shadow-xs"
+                    title={`${badgeContratosPendentesCount} contrato(s) de serviço aguardando assinatura`}
+                  >
+                    {badgeContratosPendentesCount}
+                  </span>
+                )}
+              </div>
+            </NavLink>
+
+            {/* Prestadores de Serviço (Conceito Único): Admin, Gestor, Comercial */}
+            {user.role !== 'financeiro' && (
+              <NavLink
+                to="/prestadores"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                  }`
+                }
+              >
+                <Users className="w-4 h-4 text-amber-400" />
+                <div className="flex items-center justify-between flex-1">
+                  <span>Prestadores</span>
+                  {user.role === 'comercial' && (
+                    <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded font-mono">
+                      Leitura
+                    </span>
+                  )}
+                </div>
+              </NavLink>
+            )}
+
+            {/* RODADA 18: Fila Única de Decisões (Admin e Gestor) */}
+            {(user.role === 'admin' || user.role === 'gestor') && (
+              <NavLink
+                to="/decisoes"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                  }`
+                }
+              >
+                <CheckSquare className="w-4 h-4 text-amber-400" />
+                <div className="flex items-center justify-between flex-1">
+                  <span>Decisões</span>
+                  <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono">
+                    Fila
+                  </span>
+                </div>
+              </NavLink>
+            )}
+
+            {/* RODADA 7: Monitoramento de Prazos e Cobrança (Admin e Gestor) */}
+            {(user.role === 'admin' || user.role === 'gestor') && (
+              <NavLink
+                to="/monitoramento"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                  }`
+                }
+              >
+                <Clock className="w-4 h-4 text-emerald-400" />
+                <div className="flex items-center justify-between flex-1">
+                  <span>Monitoramento</span>
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded font-mono">
+                    Prazos
+                  </span>
+                </div>
+              </NavLink>
+            )}
+          </>
+        )}
+
+        {/* ETAPA 3: MÓDULO FUNIL COMERCIAL (Admin e Comercial exclusivamente) */}
+        {user?.role && (user.role === 'admin' || user.role === 'comercial') && (
+          <>
+            <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Funil de Intermediação
+            </div>
+
+            <NavLink
+              to="/acoes-do-dia"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <CalendarCheck className="w-4 h-4 text-amber-400" />
+              <div className="flex items-center justify-between flex-1">
+                <span>Ações do Dia</span>
+                {badgeAcoesCount > 0 && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-rose-600 text-white shadow-xs">
+                    {badgeAcoesCount}
+                  </span>
+                )}
+              </div>
+            </NavLink>
+
+            <NavLink
+              to="/funil"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <Kanban className="w-4 h-4 text-sky-400" />
+              <span>Funil (5 Etapas)</span>
+            </NavLink>
+
+            <NavLink
+              to="/campanhas"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <Megaphone className="w-4 h-4 text-violet-400" />
+              <div className="flex items-center justify-between flex-1">
+                <span>Nutrição Mensal</span>
+                {isAdmin && badgeCampanhasPendentesCount > 0 && (
+                  <span
+                    className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 shadow-xs"
+                    title={`${badgeCampanhasPendentesCount} campanha(s) aguardando aprovação do Admin`}
+                  >
+                    {badgeCampanhasPendentesCount}
+                  </span>
+                )}
+              </div>
+            </NavLink>
+
+            <NavLink
+              to="/funil/sugestoes"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>Fila de Sugestões</span>
+            </NavLink>
+
+            <NavLink
+              to="/nao-contatar"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <ShieldAlert className="w-4 h-4 text-rose-400" />
+              <span>Não Contatar</span>
+            </NavLink>
+          </>
+        )}
+
+        {/* AJUDA & MANUAL DE USO (Acesso geral com login) */}
+        <div className="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          Ajuda & Documentação
         </div>
+        <NavLink
+          to="/manual"
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              isActive
+                ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                : 'text-slate-300 hover:bg-white/10 hover:text-white'
+            }`
+          }
+        >
+          <BookOpen className="w-4 h-4 text-amber-300" />
+          <div className="flex items-center justify-between flex-1">
+            <span>Manual de Uso</span>
+            <span className="text-[9px] bg-white/20 text-white px-1.5 py-0.2 rounded font-medium">
+              Guia
+            </span>
+          </div>
+        </NavLink>
+
+        {/* Admin Exclusive Links */}
+        {isAdmin && (
+          <>
+            <div className="pt-4 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Gestão do Sistema (Admin)
+            </div>
+
+            <NavLink
+              to="/administracao"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <Shield className="w-4 h-4 text-orange-300" />
+              <span>Administração</span>
+            </NavLink>
+
+            <NavLink
+              to="/auditoria"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <History className="w-4 h-4 text-orange-300" />
+              <span>Auditoria Imutável</span>
+            </NavLink>
+          </>
+        )}
+
+        {user?.role === 'executor' && (
+          <div className="mt-6 p-3 rounded-lg bg-black/20 border border-white/10 text-xs text-slate-300">
+            <span className="font-semibold text-white block mb-1">Acesso Restrito:</span>
+            Como prestador externo, suas ordens de serviço e demandas de engenharia são
+            disponibilizadas pelo Gestor de Projetos no Portal do Prestador.
+          </div>
+        )}
+      </div>
+
+      {/* Contato Oficial G+ Engenharia na Sidebar */}
+      <div className="px-3 py-2 border-t border-white/10 bg-[#17223b] text-xs">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block mb-1">
+          Contato Oficial G+
+        </span>
+        <div className="space-y-1 text-[11px]">
+          <a
+            href="mailto:grupomais.sae@gmail.com"
+            className="text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors truncate"
+            title="E-mail Oficial (grupomais.sae@gmail.com)"
+          >
+            <Mail className="w-3 h-3 text-orange-400 shrink-0" />
+            <span className="truncate">grupomais.sae@gmail.com</span>
+          </a>
+          <button
+            type="button"
+            onClick={() => openWhatsAppWithFallback({ phone: '5588999441685' })}
+            className="text-slate-300 hover:text-emerald-300 flex items-center gap-1.5 transition-colors text-left cursor-pointer w-full"
+            title="Abrir WhatsApp Oficial no aplicativo desktop (ou WhatsApp Web)"
+          >
+            <MessageSquare className="w-3 h-3 text-emerald-400 shrink-0" />
+            <span>+55 88 9 9944-1685</span>
+          </button>
+        </div>
+      </div>
+
+      {/* User Card in Sidebar (Único botão Sair do menu mantido no rodapé do menu) */}
+      <div className="p-3 border-t border-white/10 bg-[#141D34]">
+        <div className="flex items-center justify-between mb-2">
+          <div className="min-w-0 pr-2">
+            <p className="text-xs font-semibold text-white truncate">{user?.name || 'Usuário'}</p>
+            <p className="text-[11px] text-slate-400 truncate">{user?.email}</p>
+          </div>
+          {user?.role && (
+            <Badge
+              variant="outline"
+              className={`text-[10px] uppercase font-bold shrink-0 ${ROLE_BADGE_VARIANTS[user.role]}`}
+            >
+              {ROLE_LABELS[user.role]}
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <NavLink
+            to="/manual"
+            className="flex-1 inline-flex items-center justify-center gap-1 px-1.5 py-1.5 text-[11px] text-slate-200 hover:text-white bg-white/5 hover:bg-white/10 rounded-md transition-colors"
+            title="Manual de Uso da Plataforma"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+            <span>Manual</span>
+          </NavLink>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setModalSenhaOpen(true)}
+            className="px-2 text-[11px] text-slate-300 hover:text-white hover:bg-white/10 h-8"
+            title="Alterar minha senha de acesso"
+          >
+            <KeyRound className="w-3.5 h-3.5 text-amber-300 mr-1 shrink-0" />
+            <span>Senha</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="px-2 text-[11px] text-rose-300 hover:text-rose-100 hover:bg-rose-900/40 h-8"
+            title="Encerrar Sessão"
+          >
+            <LogOut className="w-3.5 h-3.5 mr-1 shrink-0" />
+            Sair
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
+      {/* Desktop Sidebar (oculta abaixo de md) */}
+      <aside className="hidden md:flex md:w-64 bg-[#1E2A4A] text-slate-100 flex-col shrink-0 border-r border-[#141D34]">
+        {renderSidebarContent()}
       </aside>
+
+      {/* Mobile Drawer (Sheet lateral reutilizando o mesmo renderSidebarContent sem duplicar) */}
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent
+          side="left"
+          className="p-0 w-72 sm:w-80 border-r border-[#141D34] bg-[#1E2A4A]"
+        >
+          {renderSidebarContent()}
+        </SheetContent>
+      </Sheet>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header */}
-        <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shrink-0">
-          <div className="flex items-center gap-3">
+        <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 sm:px-6 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Botão Hambúrguer Mobile (visível abaixo de md) */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setMobileMenuOpen(true)}
+              className="md:hidden p-2 text-slate-700 hover:text-[#D95A2B] hover:bg-slate-100 -ml-1"
+              aria-label="Abrir Menu de Navegação"
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+
             <span className="text-xs font-semibold text-[#1E2A4A] tracking-tight flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[#D95A2B]" />
               GESTÃO G+ • Engenharia
             </span>
-            <span className="text-slate-300">|</span>
-            <span className="text-xs text-slate-500 font-mono">
+            <span className="text-slate-300 hidden sm:inline">|</span>
+            <span className="text-xs text-slate-500 font-mono hidden sm:inline">
               Hoje: {formatDateBr(new Date().toISOString())}
             </span>
           </div>
@@ -973,15 +1009,6 @@ export default function AppLayout() {
                 </div>
               </NavLink>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleLogout}
-              className="text-xs text-slate-600 hover:text-red-600 hover:border-red-200"
-            >
-              <LogOut className="w-3.5 h-3.5 mr-1.5" />
-              Sair
-            </Button>
           </div>
         </header>
 

@@ -29,6 +29,7 @@ import { ContratoServicoPublicoPage } from './pages/ContratoServicoPublico'
 import { ComplementoDadosClientePage } from './pages/ComplementoDadosCliente'
 import { ProjetosPage } from './pages/Projetos'
 import { GrupoProjetosPage } from './pages/GrupoProjetos'
+import ContratosServicoPage from './pages/ContratosServico'
 import { ExecutoresPage } from './pages/Executores'
 import { PrestadoresPage } from './pages/Prestadores'
 import { PortalPrestadorPage } from './pages/PortalPrestador'
@@ -161,12 +162,12 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            {/* Redirecionamento legado: Contratos de Serviço agora vivem dentro do Projeto em /projetos como aba */}
+            {/* Módulo Contratos de Serviço (Acesso: Admin, Comercial, Financeiro, Gestor) */}
             <Route
               path="/contratos-servico"
               element={
                 <ProtectedRoute allowedRoles={['admin', 'comercial', 'financeiro', 'gestor']}>
-                  <Navigate to="/projetos" replace />
+                  <ContratosServicoPage />
                 </ProtectedRoute>
               }
             />{' '}

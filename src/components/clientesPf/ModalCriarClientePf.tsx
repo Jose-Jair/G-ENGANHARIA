@@ -1,12 +1,5 @@
 import React, { useState } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog'
+import { ModalPadrao } from '@/components/comum/ModalPadrao'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -184,267 +177,267 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <User className="w-5 h-5 text-blue-600" />
-            Novo Cliente Pessoa Física (PF)
-          </DialogTitle>
-          <DialogDescription className="text-xs">
-            Cadastro de contratantes pessoa física com contatos completos (múltiplos telefones com
-            WhatsApp), endereço segmentado via CEP e conformidade LGPD.
-          </DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1 sm:col-span-2">
-              <Label className="text-xs">
-                Nome Completo <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                required
-                value={formData.nome}
-                onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                placeholder="Ex: Carlos Alberto Silveira"
-                className="text-xs h-9 bg-white"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs">
-                CPF (com validação estrita) <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                required
-                value={formatCpf(formData.cpf)}
-                onChange={handleCpfChange}
-                placeholder="000.000.000-00"
-                className={`text-xs h-9 font-mono bg-white ${
-                  cpfError ? 'border-red-500 focus-visible:ring-red-400' : ''
-                }`}
-              />
-              {cpfError && (
-                <span className="text-[11px] text-red-600 flex items-center gap-1 mt-0.5">
-                  <AlertCircle className="w-3 h-3" />
-                  {cpfError}
-                </span>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs">E-mail (Único)</Label>
-              <div className="flex items-center gap-1.5">
-                <Input
-                  type="email"
-                  value={formData.email || ''}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="cliente@email.com"
-                  className="text-xs h-9 bg-white flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleEnviarEmail}
-                  disabled={!formData.email?.trim()}
-                  className="h-9 px-2 text-xs text-blue-700 hover:bg-blue-50 border-blue-200 gap-1 shrink-0"
-                  title="Abrir no cliente de e-mail padrão (mailto:)"
-                >
-                  <Mail className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Enviar</span>
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Múltiplos Telefones com WhatsApp */}
-          <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50">
-            <ListaTelefones
-              telefones={telefones}
-              onChange={setTelefones}
-              label="Telefones do Cliente PF"
-              helperText="Adicione múltiplos números (fixo ou celular) com interruptor WhatsApp."
-            />
-          </div>
-
-          {/* Endereço Segmentado com busca ViaCEP e fallback IBGE */}
-          <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50">
-            <EnderecoComCep
-              value={endereco}
-              onChange={setEndereco}
-              label="Endereço Completo do Cliente PF"
+    <ModalPadrao
+      open={open}
+      onOpenChange={onOpenChange}
+      maxWidthClass="sm:max-w-2xl"
+      title={
+        <span className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-900">
+          <User className="w-5 h-5 text-blue-600" />
+          Novo Cliente Pessoa Física (PF)
+        </span>
+      }
+      description="Cadastro de contratantes pessoa física com contatos completos (múltiplos telefones com WhatsApp), endereço segmentado via CEP e conformidade LGPD."
+      footer={
+        <>
+          <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            form="form-criar-cliente-pf"
+            size="sm"
+            disabled={salvando || Boolean(cpfError)}
+            className="bg-blue-600 hover:bg-blue-700 text-xs"
+          >
+            {salvando ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              'Salvar Cliente PF'
+            )}
+          </Button>
+        </>
+      }
+    >
+      <form id="form-criar-cliente-pf" onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1 sm:col-span-2">
+            <Label className="text-xs">
+              Nome Completo <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              required
+              value={formData.nome}
+              onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+              placeholder="Ex: Carlos Alberto Silveira"
+              className="text-xs h-9 bg-white"
             />
           </div>
 
           <div className="space-y-1">
-            <Label className="text-xs">Observações do Atendimento</Label>
-            <Textarea
-              rows={2}
-              value={formData.observacoes || ''}
-              onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-              placeholder="Natureza da demanda, laudo pericial, indicação..."
-              className="text-xs bg-white"
+            <Label className="text-xs">
+              CPF (com validação estrita) <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              required
+              value={formatCpf(formData.cpf)}
+              onChange={handleCpfChange}
+              placeholder="000.000.000-00"
+              className={`text-xs h-9 font-mono bg-white ${
+                cpfError ? 'border-red-500 focus-visible:ring-red-400' : ''
+              }`}
+            />
+            {cpfError && (
+              <span className="text-[11px] text-red-600 flex items-center gap-1 mt-0.5">
+                <AlertCircle className="w-3 h-3" />
+                {cpfError}
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">E-mail (Único)</Label>
+            <div className="flex items-center gap-1.5">
+              <Input
+                type="email"
+                value={formData.email || ''}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="cliente@email.com"
+                className="text-xs h-9 bg-white flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleEnviarEmail}
+                disabled={!formData.email?.trim()}
+                className="h-9 px-2 text-xs text-blue-700 hover:bg-blue-50 border-blue-200 gap-1 shrink-0"
+                title="Abrir no cliente de e-mail padrão (mailto:)"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Enviar</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Múltiplos Telefones com WhatsApp */}
+        <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50">
+          <ListaTelefones
+            telefones={telefones}
+            onChange={setTelefones}
+            label="Telefones do Cliente PF"
+            helperText="Adicione múltiplos números (fixo ou celular) com interruptor WhatsApp."
+          />
+        </div>
+
+        {/* Endereço Segmentado com busca ViaCEP e fallback IBGE */}
+        <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50">
+          <EnderecoComCep
+            value={endereco}
+            onChange={setEndereco}
+            label="Endereço Completo do Cliente PF"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-xs">Observações do Atendimento</Label>
+          <Textarea
+            rows={2}
+            value={formData.observacoes || ''}
+            onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+            placeholder="Natureza da demanda, laudo pericial, indicação..."
+            className="text-xs bg-white"
+          />
+        </div>
+
+        {/* Seção LGPD Obrigatória */}
+        <div className="border border-emerald-200 bg-emerald-50/40 rounded-lg p-3.5 space-y-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-700" />
+            <span className="text-xs font-bold text-emerald-950 uppercase">
+              Conformidade LGPD — Tratamento de Dados Pessoais
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-[11px] font-medium text-emerald-900">
+                Base Legal Aplicável (Art. 7º Lei 13.709/2018)
+              </Label>
+              <Select
+                value={formData.base_legal}
+                onValueChange={(val: BaseLegalLgpd) =>
+                  setFormData({ ...formData, base_legal: val })
+                }
+              >
+                <SelectTrigger className="text-xs h-8 bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(BASE_LEGAL_LGPD_LABELS) as BaseLegalLgpd[]).map((bl) => (
+                    <SelectItem key={bl} value={bl}>
+                      {BASE_LEGAL_LGPD_LABELS[bl]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[11px] font-medium text-emerald-900">
+                Data do Consentimento / Registro
+              </Label>
+              <Input
+                type="date"
+                required
+                value={formData.data_consentimento}
+                onChange={(e) => setFormData({ ...formData, data_consentimento: e.target.value })}
+                className="text-xs h-8 bg-white font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-start space-x-2 pt-1">
+            <Checkbox
+              id="consentimentoLgpd"
+              checked={formData.consentimento_lgpd}
+              onCheckedChange={(checked) =>
+                setFormData({ ...formData, consentimento_lgpd: Boolean(checked) })
+              }
+            />
+            <Label
+              htmlFor="consentimentoLgpd"
+              className="text-[11px] leading-tight text-emerald-950 cursor-pointer"
+            >
+              <strong>Consentimento formal registrado:</strong> O titular autorizou o tratamento de
+              seus dados pessoais para execução de serviços de engenharia e emissão de ART/laudos
+              conforme as regras de auditoria do sistema.
+            </Label>
+          </div>
+        </div>
+
+        {/* Vínculo opcional a proposta comercial */}
+        <div className="border border-blue-100 bg-blue-50/40 rounded-lg p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FilePlus2 className="w-4 h-4 text-blue-600" />
+              <Label
+                htmlFor="incluirPropostaPf"
+                className="text-xs font-semibold text-blue-950 cursor-pointer"
+              >
+                Vincular proposta comercial inicial agora? (Opcional)
+              </Label>
+            </div>
+            <Switch
+              id="incluirPropostaPf"
+              checked={incluirProposta}
+              onCheckedChange={setIncluirProposta}
             />
           </div>
 
-          {/* Seção LGPD Obrigatória */}
-          <div className="border border-emerald-200 bg-emerald-50/40 rounded-lg p-3.5 space-y-3">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-700" />
-              <span className="text-xs font-bold text-emerald-950 uppercase">
-                Conformidade LGPD — Tratamento de Dados Pessoais
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-emerald-900">
-                  Base Legal Aplicável (Art. 7º Lei 13.709/2018)
-                </Label>
-                <Select
-                  value={formData.base_legal}
-                  onValueChange={(val: BaseLegalLgpd) =>
-                    setFormData({ ...formData, base_legal: val })
-                  }
-                >
-                  <SelectTrigger className="text-xs h-8 bg-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(BASE_LEGAL_LGPD_LABELS) as BaseLegalLgpd[]).map((bl) => (
-                      <SelectItem key={bl} value={bl}>
-                        {BASE_LEGAL_LGPD_LABELS[bl]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-emerald-900">
-                  Data do Consentimento / Registro
-                </Label>
-                <Input
-                  type="date"
-                  required
-                  value={formData.data_consentimento}
-                  onChange={(e) => setFormData({ ...formData, data_consentimento: e.target.value })}
-                  className="text-xs h-8 bg-white font-mono"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-2 pt-1">
-              <Checkbox
-                id="consentimentoLgpd"
-                checked={formData.consentimento_lgpd}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, consentimento_lgpd: Boolean(checked) })
-                }
-              />
-              <Label
-                htmlFor="consentimentoLgpd"
-                className="text-[11px] leading-tight text-emerald-950 cursor-pointer"
-              >
-                <strong>Consentimento formal registrado:</strong> O titular autorizou o tratamento
-                de seus dados pessoais para execução de serviços de engenharia e emissão de
-                ART/laudos conforme as regras de auditoria do sistema.
-              </Label>
-            </div>
-          </div>
-
-          {/* Vínculo opcional a proposta comercial */}
-          <div className="border border-blue-100 bg-blue-50/40 rounded-lg p-3 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FilePlus2 className="w-4 h-4 text-blue-600" />
-                <Label
-                  htmlFor="incluirPropostaPf"
-                  className="text-xs font-semibold text-blue-950 cursor-pointer"
-                >
-                  Vincular proposta comercial inicial agora? (Opcional)
-                </Label>
-              </div>
-              <Switch
-                id="incluirPropostaPf"
-                checked={incluirProposta}
-                onCheckedChange={setIncluirProposta}
-              />
-            </div>
-
-            {incluirProposta && (
-              <div className="space-y-2 pt-2 border-t border-blue-200/60">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Número Proposta</Label>
-                    <Input
-                      value={propostaData.numero}
-                      onChange={(e) => setPropostaData({ ...propostaData, numero: e.target.value })}
-                      className="text-xs h-8 font-mono bg-white"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Preço Total (R$)</Label>
-                    <Input
-                      type="number"
-                      step="500"
-                      value={propostaData.preco}
-                      onChange={(e) =>
-                        setPropostaData({
-                          ...propostaData,
-                          preco: Number(e.target.value) || 0,
-                        })
-                      }
-                      className="text-xs h-8 bg-white font-mono"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Prazo</Label>
-                    <Input
-                      value={propostaData.prazo}
-                      onChange={(e) => setPropostaData({ ...propostaData, prazo: e.target.value })}
-                      className="text-xs h-8 bg-white"
-                    />
-                  </div>
-                </div>
-
+          {incluirProposta && (
+            <div className="space-y-2 pt-2 border-t border-blue-200/60">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div className="space-y-1">
-                  <Label className="text-[11px]">Escopo Resumido</Label>
+                  <Label className="text-[11px]">Número Proposta</Label>
                   <Input
-                    value={propostaData.escopo}
-                    onChange={(e) => setPropostaData({ ...propostaData, escopo: e.target.value })}
-                    placeholder="Ex: Laudo técnico de estabilidade estrutural com recolhimento de ART"
+                    value={propostaData.numero}
+                    onChange={(e) => setPropostaData({ ...propostaData, numero: e.target.value })}
+                    className="text-xs h-8 font-mono bg-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px]">Preço Total (R$)</Label>
+                  <Input
+                    type="number"
+                    step="500"
+                    value={propostaData.preco}
+                    onChange={(e) =>
+                      setPropostaData({
+                        ...propostaData,
+                        preco: Number(e.target.value) || 0,
+                      })
+                    }
+                    className="text-xs h-8 bg-white font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px]">Prazo</Label>
+                  <Input
+                    value={propostaData.prazo}
+                    onChange={(e) => setPropostaData({ ...propostaData, prazo: e.target.value })}
                     className="text-xs h-8 bg-white"
                   />
                 </div>
               </div>
-            )}
-          </div>
 
-          <DialogFooter className="pt-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={salvando || Boolean(cpfError)}
-              className="bg-blue-600 hover:bg-blue-700 text-xs"
-            >
-              {salvando ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                'Salvar Cliente PF'
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Escopo Resumido</Label>
+                <Input
+                  value={propostaData.escopo}
+                  onChange={(e) => setPropostaData({ ...propostaData, escopo: e.target.value })}
+                  placeholder="Ex: Laudo técnico de estabilidade estrutural com recolhimento de ART"
+                  className="text-xs h-8 bg-white"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </form>
+    </ModalPadrao>
   )
 }

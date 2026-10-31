@@ -93,11 +93,12 @@ routerAdd('POST', '/backend/v1/propostas/registrar-envio-whatsapp', (e) => {
     const auditRec = new Record(auditCol)
     auditRec.set('user', authRecord.id)
     auditRec.set('user_email', authRecord.getString('email') || '')
-    auditRec.set('acao', 'envio_whatsapp_proposta')
+    auditRec.set('acao', 'ENVIO_PROPOSTA')
     auditRec.set('entidade', 'propostas')
     auditRec.set('registro_id', proposta.id)
     auditRec.set('detalhes', {
       proposta_numero: proposta.get('numero'),
+      canal: 'whatsapp',
       destinatario_nome: destinatarioNome,
       destinatario_telefone: destinatarioTelefone,
       data_envio: new Date().toISOString(),
@@ -198,11 +199,12 @@ routerAdd('POST', '/backend/v1/gmais/propostas/{id}/enviar-whatsapp', (e) => {
     const auditRec = new Record(auditCol)
     auditRec.set('user', authRecord.id)
     auditRec.set('user_email', authRecord.getString('email') || '')
-    auditRec.set('acao', 'envio_whatsapp_proposta')
+    auditRec.set('acao', 'ENVIO_PROPOSTA')
     auditRec.set('entidade', 'propostas')
     auditRec.set('registro_id', proposta.id)
     auditRec.set('detalhes', {
       proposta_numero: proposta.get('numero'),
+      canal: 'whatsapp',
       destinatario_nome: destinatarioNome,
       destinatario_telefone: destinatarioTelefone,
       data_envio: new Date().toISOString(),
@@ -280,7 +282,7 @@ routerAdd('POST', '/backend/v1/propostas/registrar-envio-manual', (e) => {
     const auditRec = new Record(auditCol)
     auditRec.set('user', authRecord.id)
     auditRec.set('user_email', authRecord.getString('email') || '')
-    auditRec.set('acao', 'envio_manual_proposta')
+    auditRec.set('acao', 'ENVIO_PROPOSTA')
     auditRec.set('entidade', 'propostas')
     auditRec.set('registro_id', proposta.id)
     auditRec.set('detalhes', {
@@ -363,7 +365,7 @@ routerAdd('POST', '/backend/v1/gmais/propostas/{id}/registrar-envio-manual', (e)
     const auditRec = new Record(auditCol)
     auditRec.set('user', authRecord.id)
     auditRec.set('user_email', authRecord.getString('email') || '')
-    auditRec.set('acao', 'envio_manual_proposta')
+    auditRec.set('acao', 'ENVIO_PROPOSTA')
     auditRec.set('entidade', 'propostas')
     auditRec.set('registro_id', proposta.id)
     auditRec.set('detalhes', {
@@ -699,11 +701,12 @@ routerAdd('POST', '/backend/v1/propostas/enviar-email', (e) => {
     const auditRec = new Record(auditCol)
     auditRec.set('user', authRecord.id)
     auditRec.set('user_email', authRecord.getString('email') || '')
-    auditRec.set('acao', 'envio_email_proposta')
+    auditRec.set('acao', 'ENVIO_PROPOSTA')
     auditRec.set('entidade', 'propostas')
     auditRec.set('registro_id', proposta.id)
     auditRec.set('detalhes', {
       proposta_numero: numeroProposta,
+      canal: 'email',
       destinatario_nome: destinatarioNome,
       destinatario_email: destinatarioEmail,
       assunto: assuntoFinal,
@@ -1031,11 +1034,12 @@ routerAdd('POST', '/backend/v1/gmais/propostas/{id}/enviar-email', (e) => {
     const auditRec = new Record(auditCol)
     auditRec.set('user', authRecord.id)
     auditRec.set('user_email', authRecord.getString('email') || '')
-    auditRec.set('acao', 'envio_email_proposta')
+    auditRec.set('acao', 'ENVIO_PROPOSTA')
     auditRec.set('entidade', 'propostas')
     auditRec.set('registro_id', proposta.id)
     auditRec.set('detalhes', {
       proposta_numero: numeroProposta,
+      canal: 'email',
       destinatario_nome: destinatarioNome,
       destinatario_email: destinatarioEmail,
       assunto: assuntoFinal,

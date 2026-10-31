@@ -259,6 +259,16 @@ export function ModalEnviarPropostaCliente({
   const handleEnviar = async () => {
     if (!proposta) return
 
+    if (!proposta.empreendimento?.trim()) {
+      toast({
+        title: 'Nome do Empreendimento obrigatório',
+        description:
+          'O Nome do Empreendimento / Obra é obrigatório para enviar a proposta ao cliente.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setLoading(true)
     try {
       if (canal === 'whatsapp') {

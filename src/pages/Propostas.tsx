@@ -694,7 +694,7 @@ export const PropostasPage: React.FC = () => {
                               </div>
                             </div>
                           ) : (
-                            <span className="text-slate-400">Direto</span>
+                            <span className="text-slate-400">—</span>
                           )}
                         </td>
 

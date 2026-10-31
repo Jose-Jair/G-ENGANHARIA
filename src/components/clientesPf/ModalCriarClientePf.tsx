@@ -37,7 +37,7 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
     cpf: '',
     email: '',
     base_legal: 'consentimento',
-    consentimento_lgpd: true,
+    consentimento_lgpd: false,
     data_consentimento: new Date().toISOString().split('T')[0],
     observacoes: '',
   })
@@ -106,8 +106,8 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
 
     if (!formData.consentimento_lgpd) {
       toast({
-        title: 'Consentimento LGPD obrigatório',
-        description: 'O registro de consentimento LGPD é obrigatório conforme norma interna.',
+        title: 'Consentimento obrigatório',
+        description: 'É necessário registrar o consentimento LGPD para cadastrar o cliente.',
         variant: 'destructive',
       })
       return

@@ -4399,11 +4399,12 @@ routerAdd(
         const aRec = new Record(auditCol)
         aRec.set('user', authRecord.id)
         aRec.set('user_email', authRecord.getString('email') || '')
-        aRec.set('acao', 'ENVIO_EMAIL_CONTRATO_SERVICO')
+        aRec.set('acao', 'ENVIO_CONTRATO')
         aRec.set('entidade', 'contratos_servico')
         aRec.set('registro_id', contrato.id)
         aRec.set('detalhes', {
           origem: 'DISPARO_MANUAL_SISTEMA',
+          canal: 'email',
           mensagem:
             'Contrato ' +
             contratoNumero +

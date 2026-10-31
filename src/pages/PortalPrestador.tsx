@@ -39,6 +39,7 @@ import { Briefcase, MessageSquare, GitCompare, UserCheck } from 'lucide-react'
 import { ModalAssinaturaEletronicaOS } from '@/components/prestadores/ModalAssinaturaEletronicaOS'
 import { PainelMensagensOs } from '@/components/prestadores/PainelMensagensOs'
 import { PortalMeuCadastro } from '@/components/prestadores/PortalMeuCadastro'
+import { SecaoPreCotacoesPrestador } from '@/components/prestadores/SecaoPreCotacoesPrestador'
 import { prestadoresService } from '@/services/prestadores'
 import { PrestadorRecord } from '@/types'
 import { EntregavelVersaoComentarios } from '@/components/projetos/EntregavelVersaoComentarios'
@@ -223,15 +224,22 @@ export const PortalPrestadorPage: React.FC = () => {
           </Badge>
         </div>
 
-        {/* Abas Principais: Cotações vs Ordens de Serviço vs Meu Cadastro (Rodada 12) */}
-        <Tabs defaultValue="cotacoes" className="w-full space-y-4">
-          <TabsList className="grid grid-cols-3 max-w-lg text-xs bg-slate-200/70 p-1">
+        {/* Abas Principais: Pré-Cotações vs Cotações vs Ordens de Serviço vs Meu Cadastro */}
+        <Tabs defaultValue="pre_cotacoes" className="w-full space-y-4">
+          <TabsList className="grid grid-cols-4 max-w-2xl text-xs bg-slate-200/70 p-1">
+            <TabsTrigger
+              value="pre_cotacoes"
+              className="gap-2 text-xs font-bold text-[#D95A2B] data-[state=active]:bg-white"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-[#D95A2B]" />
+              Pré-Cotações
+            </TabsTrigger>
             <TabsTrigger
               value="cotacoes"
               className="gap-2 text-xs font-semibold data-[state=active]:bg-white"
             >
               <Briefcase className="w-3.5 h-3.5 text-[#D95A2B]" />
-              Cotações
+              Cotações OS
             </TabsTrigger>
             <TabsTrigger
               value="ordens_servico"
@@ -242,12 +250,17 @@ export const PortalPrestadorPage: React.FC = () => {
             </TabsTrigger>
             <TabsTrigger
               value="meu_cadastro"
-              className="gap-2 text-xs font-bold text-[#D95A2B] data-[state=active]:bg-white"
+              className="gap-2 text-xs font-bold text-slate-700 data-[state=active]:bg-white"
             >
-              <UserCheck className="w-3.5 h-3.5 text-[#D95A2B]" />
+              <UserCheck className="w-3.5 h-3.5 text-slate-700" />
               Meu Cadastro
             </TabsTrigger>
           </TabsList>
+
+          {/* ABA 0: PRÉ-COTAÇÕES VINCULANTES (RODADA 13) */}
+          <TabsContent value="pre_cotacoes" className="space-y-4">
+            <SecaoPreCotacoesPrestador onRespostaEnviada={carregarMinhasOS} />
+          </TabsContent>
 
           {/* ABA 1: COTAÇÕES */}
           <TabsContent value="cotacoes" className="space-y-4">

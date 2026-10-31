@@ -547,6 +547,11 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
         descricao:
           'Ao converter a proposta aceita em projeto, as contas a receber em rascunho são geradas fracionadas de acordo com as parcelas configuradas (ex: 50% contratação e 50% entrega), respeitando a incidência ou não de nota fiscal.',
       },
+      {
+        titulo: '8. Fluxo de Pré-Cotação Vinculante (Rodada 13)',
+        descricao:
+          'Na planilha orçamentária da proposta, utilize o botão "Pré-cotar" por item ou "Pré-cotar Todos os Itens". O sistema anonimiza o escopo (remove cliente, obra, órgão e BDI) e convida até 5 prestadores homologados com contrato-mestre assinado. O ranking calcula preço, prazo, nota técnica e capacidade. Ao escolher o vencedor, o item ganha o selo "Custo Cotado" e o preço/prazo são travados. Na assinatura bilateral do contrato, a trava é transportada para a OS do projeto, dispensando nova cotação automática. Caso não haja prestadores elegíveis, o item sinaliza "Sem Cotação" e gera cartão na Central de Ações com chamada direta para recrutamento público.',
+      },
     ],
     regrasAutomaticas: [
       'Ciclo de vida formal da proposta: Rascunho → Aprovação Interna → Aprovada → Enviada (via WhatsApp, E-mail oficial ou Cópia de Link confirmada) → Visualizada → Em Negociação → Aceita ou Recusada.',

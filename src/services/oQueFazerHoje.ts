@@ -65,6 +65,18 @@ export interface EntregavelAtrasadoUnificada {
   etapa_id?: string
 }
 
+export interface AlertaSemCotacaoUnificado {
+  item_id: string
+  proposta_id: string
+  proposta_codigo?: string
+  descricao_item: string
+  disciplina: string
+  quantidade?: number
+  custo_atual?: number
+  data_alerta?: string
+  link_recrutamento?: string
+}
+
 export interface OQueFazerHojeResponse {
   success: boolean
   perfil: string
@@ -87,12 +99,14 @@ export interface OQueFazerHojeResponse {
     empresas_estagnadas: number
     propostas_pendentes: number
     entregaveis_atrasados: number
+    sem_cotacao?: number
   }
   acoes_do_dia: AcaoDoDiaUnificada[]
   sugestoes_nutricao: SugestaoNutricaoUnificada[]
   empresas_estagnadas: EmpresaEstagnadaUnificada[]
   propostas_pendentes: PropostaPendenteUnificada[]
   entregaveis_atrasados: EntregavelAtrasadoUnificada[]
+  sem_cotacao?: AlertaSemCotacaoUnificado[]
 }
 
 export interface ItemOQueFazerHoje {
@@ -136,6 +150,7 @@ export interface ResumoOQueFazerHojeEstruturado {
   empresas_estagnadas: EmpresaEstagnadaUnificada[]
   propostas_pendentes: PropostaPendenteUnificada[]
   entregaveis_atrasados: EntregavelAtrasadoUnificada[]
+  sem_cotacao: AlertaSemCotacaoUnificado[]
   resumo_geral: OQueFazerHojeResponse['resumo_geral']
 }
 
@@ -226,6 +241,7 @@ export const oQueFazerHojeService = {
       empresas_estagnadas: raw.empresas_estagnadas || [],
       propostas_pendentes: raw.propostas_pendentes || [],
       entregaveis_atrasados: raw.entregaveis_atrasados || [],
+      sem_cotacao: raw.sem_cotacao || [],
       resumo_geral: raw.resumo_geral,
     }
   },

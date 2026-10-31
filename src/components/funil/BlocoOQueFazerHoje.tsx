@@ -20,6 +20,8 @@ import {
   RefreshCw,
   Building2,
   CheckCircle,
+  HelpCircle,
+  UserCheck,
 } from 'lucide-react'
 import { formatDateBr } from '@/lib/formatters'
 import { formatCnpj } from '@/lib/cnpj'
@@ -38,7 +40,9 @@ export function BlocoOQueFazerHoje({
   const [paraHoje, setParaHoje] = useState<ItemOQueFazerHoje[]>([])
   const [emAtraso, setEmAtraso] = useState<ItemOQueFazerHoje[]>([])
   const [sugestoesNutricao, setSugestoesNutricao] = useState<AcaoNutricaoOQueFazerHoje[]>([])
-  const [tabAtiva, setTabAtiva] = useState<'para_hoje' | 'em_atraso' | 'nutricao'>('para_hoje')
+  const [tabAtiva, setTabAtiva] = useState<'para_hoje' | 'em_atraso' | 'nutricao' | 'sem_cotacao'>(
+    'para_hoje',
+  )
 
   const carregar = async () => {
     setLoading(true)
@@ -47,6 +51,7 @@ export function BlocoOQueFazerHoje({
       setParaHoje(res.para_hoje || [])
       setEmAtraso(res.em_atraso || [])
       setSugestoesNutricao(res.sugestoes_nutricao || [])
+      setSemCotacao(res.sem_cotacao || [])
     } catch (err) {
       console.error('Falha ao carregar o que fazer hoje:', err)
     } finally {
@@ -58,10 +63,12 @@ export function BlocoOQueFazerHoje({
     carregar()
   }, [])
 
+  const [semCotacao, setSemCotacao] = useState<any[]>([])
   const totalHoje = paraHoje.length
   const totalAtraso = emAtraso.length
   const totalNutricao = sugestoesNutricao.length
-  const totalGeral = totalHoje + totalAtraso + totalNutricao
+  const totalSemCotacao = semCotacao.length
+  const totalGeral = totalHoje + totalAtraso + totalNutricao + totalSemCotacao
 
   const renderBadgeCurva = (curva?: string) => {
     const c = curva || 'C'
@@ -150,6 +157,17 @@ export function BlocoOQueFazerHoje({
           >
             <Sparkles className="w-3.5 h-3.5" />
             Sugestões de Nutrição ({totalNutricao})
+          </button>
+          <button
+            onClick={() => setTabAtiva('sem_cotacao')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+              tabAtiva === 'sem_cotacao'
+                ? 'bg-amber-600 text-white shadow-2xs'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            Sem Cotação ({totalSemCotacao})
           </button>
         </div>
       </CardHeader>
@@ -357,6 +375,57 @@ export function BlocoOQueFazerHoje({
                           className="h-7 text-xs border-indigo-300 text-indigo-800 hover:bg-indigo-100"
                         >
                           Ver Ficha &rarr;
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* ABA: SEM COTAÇÃO (RODADA 13) */}
+            {tabAtiva === 'sem_cotacao' && (
+              <div className="space-y-2">
+                {semCotacao.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-slate-400 bg-white rounded-lg border border-dashed border-slate-200">
+                    Nenhum item de proposta sem cotação elegível. Todos os serviços estão cobertos!
+                  </div>
+                ) : (
+                  semCotacao.map((item) => (
+                    <div
+                      key={item.item_id}
+                      className="p-3 bg-amber-50/50 rounded-lg border border-amber-200 hover:border-amber-400 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge className="bg-amber-100 text-amber-800 border-amber-300 font-bold text-[10px]">
+                            Sem Cotação
+                          </Badge>
+                          <span className="font-bold text-slate-900 truncate">
+                            {item.descricao_item}
+                          </span>
+                          <span className="text-slate-400">•</span>
+                          <span className="text-[11px] font-semibold text-slate-600">
+                            Disciplina: {item.disciplina}
+                          </span>
+                        </div>
+                        <p className="text-slate-600 text-[11px]">
+                          Item mantido com custo de catálogo padrão por falta de prestadores
+                          elegíveis ativos. Recomenda-se disparar recrutamento público para a
+                          disciplina.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            navigate('/prestadores')
+                          }}
+                          className="h-7 text-xs bg-[#D95A2B] hover:bg-[#b84820] text-white gap-1"
+                        >
+                          <UserCheck className="w-3 h-3" />
+                          Recrutar Prestadores
                         </Button>
                       </div>
                     </div>

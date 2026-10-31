@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import {
   Building2,
   FileText,
+  ShieldCheck,
   FileCheck,
   FolderGit2,
   ClipboardList,
@@ -13,7 +14,7 @@ import {
   Circle,
 } from 'lucide-react'
 
-export type EtapaTrilhaId = 'lead' | 'proposta' | 'contrato' | 'projeto' | 'os'
+export type EtapaTrilhaId = 'lead' | 'proposta' | 'pre_cotacao' | 'contrato' | 'projeto' | 'os'
 
 export interface ItemTrilhaNegocio {
   id: EtapaTrilhaId
@@ -129,10 +130,25 @@ export function TrilhaDoNegocio({
       isConcluida:
         !!contratoId ||
         !!projetoId ||
+        etapaEfetiva === 'pre_cotacao' ||
         etapaEfetiva === 'contrato' ||
         etapaEfetiva === 'projeto' ||
         etapaEfetiva === 'os',
       isAtiva: etapaEfetiva === 'proposta',
+    },
+    {
+      id: 'pre_cotacao',
+      titulo: 'Pré-Cotação',
+      subtitulo: 'Escopo & Vinculação',
+      icone: ShieldCheck,
+      link: propostaId ? `/propostas?id=${propostaId}` : '/propostas',
+      isConcluida:
+        !!contratoId ||
+        !!projetoId ||
+        etapaEfetiva === 'contrato' ||
+        etapaEfetiva === 'projeto' ||
+        etapaEfetiva === 'os',
+      isAtiva: etapaEfetiva === 'pre_cotacao',
     },
     {
       id: 'contrato',

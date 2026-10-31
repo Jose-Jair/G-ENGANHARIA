@@ -1177,6 +1177,22 @@ export default function AdministracaoPage() {
                               titulo: 'IA: Pré-revisão de Entregáveis contra Checklist',
                               badge: 'IA Operação (Opcional)',
                             },
+                            pre_cotacao_validade_dias: {
+                              titulo: 'Pré-Cotação: Validade da Convocação (dias corridos)',
+                              badge: 'Pré-Cotação Vinculante',
+                            },
+                            pre_cotacao_max_convidados: {
+                              titulo: 'Pré-Cotação: Máximo de Prestadores Convidados',
+                              badge: 'Pré-Cotação Vinculante',
+                            },
+                            pre_cotacao_lembrete_dias: {
+                              titulo: 'Pré-Cotação: Lembrete Antes do Vencimento (dias)',
+                              badge: 'Pré-Cotação Vinculante',
+                            },
+                            pre_cotacao_tolerancia_variacao_pct: {
+                              titulo: 'Pré-Cotação: Tolerância de Variação de Preço (%)',
+                              badge: 'Pré-Cotação Vinculante',
+                            },
                           }
                         const infoAmigavel = rotulosAmigaveis[param.chave]
 

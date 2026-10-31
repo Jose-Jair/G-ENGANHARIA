@@ -1453,6 +1453,65 @@ routerAdd(
         detalhes: detalheScorecards,
       }
 
+      // REQUISITO 17 (RODADA 17): SELFCHECK — IFC / BCF E ISSUES DE REVISÃO
+      // Valida:
+      // - entregaveis_versoes com campos resumo_ifc_json, hash_sha256, tamanho
+      // - issues_revisao com campos essenciais e RLS segmentado
+      // - parâmetro tamanho_maximo_ifc_mb configurado na coleção parametros
+      let ifcBcfOk = true
+      const detalheIfcBcf = {}
+      try {
+        const evCol = $app.findCollectionByNameOrId('entregaveis_versoes')
+        const irCol = $app.findCollectionByNameOrId('issues_revisao')
+
+        detalheIfcBcf.campo_resumo_ifc = Boolean(evCol.fields.getByName('resumo_ifc_json'))
+        detalheIfcBcf.campo_hash_sha256 = Boolean(evCol.fields.getByName('hash_sha256'))
+        detalheIfcBcf.campo_tamanho = Boolean(evCol.fields.getByName('tamanho'))
+
+        detalheIfcBcf.colecao_issues_revisao = Boolean(irCol)
+        detalheIfcBcf.viewpoint_protegido = Boolean(
+          irCol &&
+          irCol.fields.getByName('viewpoint') &&
+          irCol.fields.getByName('viewpoint').protected,
+        )
+
+        const irListSegura =
+          irCol &&
+          irCol.listRule &&
+          irCol.listRule.includes('entregavel.prestador.email = @request.auth.email')
+        detalheIfcBcf.issues_isolamento_prestador = Boolean(irListSegura)
+
+        const pTeto = $app.findRecordsByFilter(
+          'parametros',
+          "chave = 'tamanho_maximo_ifc_mb'",
+          '',
+          1,
+          0,
+        )
+        detalheIfcBcf.parametro_teto_ifc = Boolean(pTeto.length > 0)
+        detalheIfcBcf.teto_ifc_mb = pTeto.length > 0 ? pTeto[0].getString('valor') : '150'
+
+        if (
+          !detalheIfcBcf.campo_resumo_ifc ||
+          !detalheIfcBcf.campo_hash_sha256 ||
+          !detalheIfcBcf.campo_tamanho ||
+          !detalheIfcBcf.colecao_issues_revisao ||
+          !detalheIfcBcf.viewpoint_protegido ||
+          !detalheIfcBcf.issues_isolamento_prestador ||
+          !detalheIfcBcf.parametro_teto_ifc
+        ) {
+          ifcBcfOk = false
+        }
+      } catch (eIfc) {
+        ifcBcfOk = false
+        detalheIfcBcf.erro = String(eIfc)
+      }
+
+      resultados.item17_ifc_bcf_issues = {
+        todas_conformes: ifcBcfOk,
+        detalhes: detalheIfcBcf,
+      }
+
       resultados.conformidade_geral =
         resultados.item1_api_rules.cotacoes_segura &&
         resultados.item1_api_rules.subcontratos_segura &&
@@ -1471,7 +1530,8 @@ routerAdd(
         recrutamentoTriagemOk &&
         prospeccaoOk &&
         custoInternoOk &&
-        scorecardsOk
+        scorecardsOk &&
+        ifcBcfOk
 
       return e.json(200, {
         status: 'OK',

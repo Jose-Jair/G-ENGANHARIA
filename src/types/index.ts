@@ -1053,6 +1053,17 @@ export interface EntregavelRecord {
   }
 }
 
+export interface ResumoIfcContagem {
+  classes?: Record<string, number>
+  contagens_por_classe?: Record<string, number>
+  pavimentos?: string[]
+  disciplinas?: string[]
+  total_elementos?: number
+  avisos_checklist?: string[]
+  tempo_processamento_ms?: number
+  [key: string]: unknown
+}
+
 export interface EntregavelVersaoRecord {
   id: string
   entregavel: string
@@ -1065,6 +1076,9 @@ export interface EntregavelVersaoRecord {
   avaliado_por?: string
   avaliado_em?: string
   observacoes?: string
+  resumo_ifc_json?: ResumoIfcContagem | null
+  hash_sha256?: string
+  tamanho?: number
   created: string
   updated: string
   expand?: {
@@ -1072,6 +1086,54 @@ export interface EntregavelVersaoRecord {
     enviado_por?: UserRecord
     avaliado_por?: UserRecord
   }
+}
+
+export type OrigemIssueRevisao = 'bcf' | 'manual' | 'pre_revisao_ia'
+export type SeveridadeIssueRevisao = 'baixa' | 'media' | 'alta' | 'critica'
+export type StatusIssueRevisao = 'aberta' | 'atribuida' | 'corrigida' | 'verificada' | 'rejeitada'
+
+export interface IssueRevisaoRecord {
+  id: string
+  entregavel: string
+  versao: string
+  origem: OrigemIssueRevisao
+  guid_bcf?: string
+  titulo: string
+  descricao?: string
+  elementos?: string[] // GlobalIds IFC
+  pavimento?: string
+  severidade: SeveridadeIssueRevisao
+  status: StatusIssueRevisao
+  atribuida_a?: string
+  prazo?: string
+  viewpoint?: string
+  versao_corrigida?: string
+  created: string
+  updated: string
+  expand?: {
+    entregavel?: EntregavelRecord
+    versao?: EntregavelVersaoRecord
+    atribuida_a?: UserRecord
+    versao_corrigida?: EntregavelVersaoRecord
+  }
+}
+
+export const SEVERIDADE_ISSUE_LABELS: Record<
+  SeveridadeIssueRevisao,
+  { label: string; cor: string; badgeVariant?: string }
+> = {
+  baixa: { label: 'Baixa', cor: 'bg-slate-100 text-slate-700 border-slate-300' },
+  media: { label: 'Média', cor: 'bg-blue-50 text-blue-700 border-blue-300' },
+  alta: { label: 'Alta', cor: 'bg-amber-50 text-amber-800 border-amber-300' },
+  critica: { label: 'Crítica', cor: 'bg-rose-50 text-rose-800 border-rose-300' },
+}
+
+export const STATUS_ISSUE_LABELS: Record<StatusIssueRevisao, { label: string; cor: string }> = {
+  aberta: { label: 'Aberta', cor: 'bg-rose-100 text-rose-800 border-rose-300' },
+  atribuida: { label: 'Atribuída', cor: 'bg-amber-100 text-amber-800 border-amber-300' },
+  corrigida: { label: 'Corrigida', cor: 'bg-blue-100 text-blue-800 border-blue-300' },
+  verificada: { label: 'Verificada', cor: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+  rejeitada: { label: 'Rejeitada', cor: 'bg-slate-200 text-slate-700 border-slate-400' },
 }
 
 export interface CatalogoEscopoItemEntregavel {

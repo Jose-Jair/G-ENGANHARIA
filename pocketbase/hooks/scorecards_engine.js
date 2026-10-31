@@ -113,11 +113,31 @@ onRecordAfterUpdateSuccess((e) => {
             }
             const pontualidade = osComPrazo > 0 ? Math.round((osPontuais / osComPrazo) * 100) : 100
 
-            // Retrabalho
+            // Retrabalho (inclui entregáveis com devolução e issues de revisão apontadas)
             let comDevolucao = 0
+            let totalIssuesPrestador = 0
             for (let j = 0; j < entregaveis.length; j++) {
               const ent = entregaveis[j]
+              let teveRetrabalho = false
               if (ent.getInt('versao_atual') > 1 || ent.getString('status') === 'devolvido') {
+                teveRetrabalho = true
+              }
+
+              try {
+                const issuesEnt = $app.findRecordsByFilter(
+                  'issues_revisao',
+                  "entregavel = '" + ent.id + "'",
+                  '',
+                  100,
+                  0,
+                )
+                if (issuesEnt.length > 0) {
+                  totalIssuesPrestador += issuesEnt.length
+                  teveRetrabalho = true
+                }
+              } catch (_) {}
+
+              if (teveRetrabalho) {
                 comDevolucao++
               }
             }
@@ -188,6 +208,7 @@ onRecordAfterUpdateSuccess((e) => {
               ext_conformidade: conformidade,
               total_os: oss.length,
               total_entregaveis: entregaveis.length,
+              total_issues_revisao: totalIssuesPrestador,
             }
           }
         }
@@ -330,6 +351,25 @@ onRecordAfterUpdateSuccess((e) => {
             )
           } catch (_) {}
         }
+      }
+    }
+
+    // 2.1 Issues de Revisão criadas ou alteradas (Rodada 17: issues alimentam retrabalho do scorecard)
+    if (colName === 'issues_revisao') {
+      const entId = rec.getString('entregavel')
+      if (entId) {
+        try {
+          const ent = $app.findRecordById('entregaveis', entId)
+          if (ent) {
+            const prestadorId = ent.getString('prestador')
+            if (prestadorId) {
+              const p = $app.findRecordById('prestadores', prestadorId)
+              const tipo =
+                p.getString('tipo') === 'interno' ? 'prestador_interno' : 'prestador_externo'
+              executarRecalculo(tipo, prestadorId, 'ISSUE_REVISAO_ATUALIZADA')
+            }
+          }
+        } catch (_) {}
       }
     }
 

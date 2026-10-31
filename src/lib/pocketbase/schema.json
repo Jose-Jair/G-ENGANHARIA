@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T03:41:56.960Z",
+  "generatedAt": "2026-10-31T03:58:34.595Z",
   "collections": [
     {
       "name": "users",
@@ -6060,6 +6060,24 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "resumo_ifc_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "hash_sha256",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tamanho",
+          "type": "number",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -7951,6 +7969,132 @@
         "CREATE INDEX idx_scorecards_entidade ON scorecards (tipo_entidade, registro_id, is_snapshot)",
         "CREATE INDEX idx_scorecards_email ON scorecards (prestador_email)",
         "CREATE INDEX idx_scorecards_snapshot ON scorecards (registro_id, mes_referencia)"
+      ]
+    },
+    {
+      "name": "issues_revisao",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || @request.auth.role = 'comercial' || (@request.auth.role = 'executor' && entregavel.prestador.email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || @request.auth.role = 'comercial' || (@request.auth.role = 'executor' && entregavel.prestador.email = @request.auth.email))",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && entregavel.prestador.email = @request.auth.email))",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && entregavel.prestador.email = @request.auth.email))",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "entregavel",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "entregaveis"
+        },
+        {
+          "name": "versao",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "entregaveis_versoes"
+        },
+        {
+          "name": "origem",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["bcf", "manual", "pre_revisao_ia"]
+        },
+        {
+          "name": "guid_bcf",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "elementos",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pavimento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "severidade",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["baixa", "media", "alta", "critica"]
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["aberta", "atribuida", "corrigida", "verificada", "rejeitada"]
+        },
+        {
+          "name": "atribuida_a",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "prazo",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "viewpoint",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "versao_corrigida",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "entregaveis_versoes"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_issues_entregavel ON issues_revisao (entregavel)",
+        "CREATE INDEX idx_issues_versao ON issues_revisao (versao)",
+        "CREATE INDEX idx_issues_guid_bcf ON issues_revisao (guid_bcf)",
+        "CREATE INDEX idx_issues_status ON issues_revisao (status)",
+        "CREATE INDEX idx_issues_severidade ON issues_revisao (severidade)",
+        "CREATE INDEX idx_issues_origem ON issues_revisao (origem)"
       ]
     }
   ]

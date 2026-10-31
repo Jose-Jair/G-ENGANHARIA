@@ -658,6 +658,111 @@ cronAdd('monitoramento_e_cobranca_prazos', '*/10 * * * *', () => {
     }
 
     // -------------------------------------------------------------------------
+    // 7.1 MONITORAMENTO DE ISSUES DE REVISÃO (COBRANÇA DE PRAZO DE AJUSTES)
+    // -------------------------------------------------------------------------
+    const issuesAbertasPrazo = $app.findRecordsByFilter(
+      'issues_revisao',
+      "(status = 'aberta' || status = 'atribuida') && prazo != ''",
+      'prazo',
+      500,
+      0,
+    )
+
+    for (let k = 0; k < issuesAbertasPrazo.length; k++) {
+      const iss = issuesAbertasPrazo[k]
+      const issId = iss.id
+      const issTitulo = iss.getString('titulo') || 'Issue de Revisão'
+      const issPrazo = iss.getString('prazo')
+      const entIdIss = iss.getString('entregavel')
+      if (!issPrazo || !entIdIss) continue
+
+      let prestadorNomeIss = 'Prestador'
+      let prestadorEmailIss = ''
+      let prestadorTelIss = ''
+      let prestadorIdIss = ''
+
+      try {
+        const entRecIss = $app.findRecordById('entregaveis', entIdIss)
+        if (entRecIss) {
+          prestadorIdIss = entRecIss.getString('prestador')
+          if (prestadorIdIss) {
+            const pRecIss = $app.findRecordById('prestadores', prestadorIdIss)
+            if (pRecIss) {
+              prestadorNomeIss = pRecIss.getString('nome') || prestadorNomeIss
+              prestadorEmailIss = pRecIss.getString('email') || ''
+              prestadorTelIss = pRecIss.getString('telefone') || ''
+            }
+          }
+        }
+      } catch (_) {}
+
+      const dtPrazoIssMs = new Date(issPrazo).getTime()
+      const diffDiasIss = Math.floor((agoraMs - dtPrazoIssMs) / (1000 * 60 * 60 * 24))
+
+      if (diffDiasIss >= 0) {
+        // Issue com prazo vencido ou vencendo hoje
+        const chaveIdempIss = 'issue_' + issId + '_atraso_' + (diffDiasIss === 0 ? 'd0' : 'd_mais')
+        const jaCobradoIss = $app.findRecordsByFilter(
+          'eventos_cobranca',
+          "chave_idempotencia = '" + chaveIdempIss + "'",
+          '',
+          1,
+          0,
+        )
+
+        if (jaCobradoIss.length === 0) {
+          const msgIss =
+            'Aviso de prazo de issue: A pendência técnica "' +
+            issTitulo +
+            '" possui prazo limite ' +
+            (diffDiasIss === 0 ? 'hoje' : diffDiasIss + ' dia(s) vencido') +
+            '. Por favor, providencie os ajustes e submeta nova versão.'
+
+          try {
+            const evtCol = $app.findCollectionByNameOrId('eventos_cobranca')
+            const evtRec = new Record(evtCol)
+            evtRec.set('referencia_tipo', 'issues_revisao')
+            evtRec.set('referencia_id', issId)
+            evtRec.set('degrau', diffDiasIss === 0 ? 'd_zero' : 'd_mais_1')
+            evtRec.set('destinatario_tipo', 'prestador')
+            if (prestadorIdIss) evtRec.set('destinatario_prestador', prestadorIdIss)
+            evtRec.set('destinatario_email', prestadorEmailIss)
+            evtRec.set('destinatario_nome', prestadorNomeIss)
+            evtRec.set('destinatario_telefone', prestadorTelIss)
+            evtRec.set('status', 'processado')
+            evtRec.set('mensagem_texto', msgIss)
+            evtRec.set('chave_idempotencia', chaveIdempIss)
+            evtRec.set('detalhes_auditoria', {
+              issue_id: issId,
+              titulo: issTitulo,
+              prazo: issPrazo,
+              dias_atraso: diffDiasIss,
+            })
+
+            let notifOk = false
+            try {
+              const notCol = $app.findCollectionByNameOrId('notificacoes')
+              const nRec = new Record(notCol)
+              nRec.set('destinatario_tipo', 'prestador')
+              nRec.set('destinatario_email', prestadorEmailIss)
+              nRec.set('tipo', 'sistema')
+              nRec.set('titulo', 'Aviso de Prazo de Issue: ' + issTitulo)
+              nRec.set('mensagem', msgIss)
+              nRec.set('referencia_tipo', 'issues_revisao')
+              nRec.set('referencia_id', issId)
+              nRec.set('lida', false)
+              $app.save(nRec)
+              notifOk = true
+            } catch (_) {}
+            evtRec.set('notificacao_enviada', notifOk)
+
+            $app.save(evtRec)
+          } catch (_) {}
+        }
+      }
+    }
+
+    // -------------------------------------------------------------------------
     // 8. RESUMO DIÁRIO DO GESTOR
     // -------------------------------------------------------------------------
     try {

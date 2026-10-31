@@ -41,27 +41,103 @@ onRecordValidate((e) => {
         )
       }
 
-      // Se transitar para devolvido, motivo_devolucao é obrigatório
+      // Se transitar para devolvido, motivo_devolucao ou issues de revisão é obrigatório
       if (stNovo === 'devolvido') {
         const motivo = (rec.getString('motivo_devolucao') || '').trim()
-        if (!motivo) {
+        let temIssues = false
+        try {
+          const issuesAbertas = $app.findRecordsByFilter(
+            'issues_revisao',
+            "entregavel = '" + rec.id + "'",
+            '',
+            1,
+            0,
+          )
+          temIssues = issuesAbertas.length > 0
+        } catch (_) {}
+
+        if (!motivo && !temIssues) {
           throw new BadRequestError(
-            'BLOQUEIO: Para devolver um entregável é OBRIGATÓRIO informar o motivo da devolução detalhando os apontamentos técnicos.',
+            'BLOQUEIO: Devolver versão exige issue ou texto explicativo com o motivo da devolução.',
           )
         }
       }
-    }
-  }
 
-  // Validação em entregaveis_versoes
-  if (colName === 'entregaveis_versoes') {
-    const stVersao = rec.getString('status')
-    if (stVersao === 'devolvido') {
-      const motivo = (rec.getString('motivo_devolucao') || '').trim()
-      if (!motivo) {
-        throw new BadRequestError(
-          'BLOQUEIO: É obrigatório informar o motivo da devolução para reprovar esta versão.',
-        )
+      // Se transitar para aprovado, TODAS as issues de revisão devem estar verificadas ou rejeitadas
+      if (stNovo === 'aprovado') {
+        try {
+          const issuesImpeditivas = $app.findRecordsByFilter(
+            'issues_revisao',
+            "entregavel = '" +
+              rec.id +
+              "' && (status = 'aberta' || status = 'atribuida' || status = 'corrigida')",
+            '',
+            10,
+            0,
+          )
+          if (issuesImpeditivas.length > 0) {
+            throw new BadRequestError(
+              'BLOQUEIO: Aprovação de versão só é permitida com todas as issues verificadas ou rejeitadas. Existem ' +
+                issuesImpeditivas.length +
+                ' issue(s) pendente(s) (abertas, atribuídas ou apenas corrigidas).',
+            )
+          }
+        } catch (errIssue) {
+          if (errIssue instanceof BadRequestError) throw errIssue
+        }
+      }
+    }
+
+    // Validação em entregaveis_versoes
+    if (colName === 'entregaveis_versoes') {
+      const stVersao = rec.getString('status')
+      const entIdVersao = rec.getString('entregavel')
+
+      if (stVersao === 'devolvido') {
+        const motivo = (rec.getString('motivo_devolucao') || '').trim()
+        let temIssuesVersao = false
+        if (entIdVersao) {
+          try {
+            const issuesV = $app.findRecordsByFilter(
+              'issues_revisao',
+              "versao = '" + rec.id + "' || entregavel = '" + entIdVersao + "'",
+              '',
+              1,
+              0,
+            )
+            temIssuesVersao = issuesV.length > 0
+          } catch (_) {}
+        }
+        if (!motivo && !temIssuesVersao) {
+          throw new BadRequestError(
+            'BLOQUEIO: Devolver versão exige issue ou texto explicativo de reprovação.',
+          )
+        }
+      }
+
+      if (stVersao === 'aprovado') {
+        if (entIdVersao) {
+          try {
+            const issuesImpeditivas = $app.findRecordsByFilter(
+              'issues_revisao',
+              "(versao = '" +
+                rec.id +
+                "' || entregavel = '" +
+                entIdVersao +
+                "') && (status = 'aberta' || status = 'atribuida' || status = 'corrigida')",
+              '',
+              10,
+              0,
+            )
+            if (issuesImpeditivas.length > 0) {
+              throw new BadRequestError(
+                'BLOQUEIO: Aprovação de versão só é permitida com todas as issues verificadas ou rejeitadas.',
+              )
+            }
+          } catch (errIv) {
+            if (errIv instanceof BadRequestError) throw errIv
+          }
+        }
       }
     }
   }
@@ -204,6 +280,25 @@ routerAdd(
       vRec.set('status', 'submetido')
       vRec.set('observacoes', observacoes)
       $app.save(vRec)
+
+      // Regra do ciclo: nova versão marca issues abertas/atribuídas como corrigidas, apontando versao_corrigida
+      try {
+        const issuesAbertas = $app.findRecordsByFilter(
+          'issues_revisao',
+          "entregavel = '" + entId + "' && (status = 'aberta' || status = 'atribuida')",
+          '',
+          200,
+          0,
+        )
+        for (let i = 0; i < issuesAbertas.length; i++) {
+          const iss = issuesAbertas[i]
+          iss.set('status', 'corrigida')
+          iss.set('versao_corrigida', vRec.id)
+          $app.save(iss)
+        }
+      } catch (eIssCorr) {
+        console.log('Aviso ao atualizar issues na nova versão: ' + eIssCorr)
+      }
 
       // Atualizar status do entregável para enviado_revisao
       entRec.set('status', 'enviado_revisao')
@@ -363,10 +458,51 @@ routerAdd(
         return e.json(400, { error: 'Decisão inválida. Use "aprovado" ou "devolvido".' })
       }
 
-      if (decisao === 'devolvido' && !motivoDevolucao) {
-        return e.json(400, {
-          error: 'O motivo da devolução é obrigatório ao rejeitar um entregável.',
-        })
+      // Devolver versão exige issue ou texto explicativo
+      if (decisao === 'devolvido') {
+        let temIssues = false
+        try {
+          const issuesExistentes = $app.findRecordsByFilter(
+            'issues_revisao',
+            "entregavel = '" + entId + "'",
+            '',
+            1,
+            0,
+          )
+          temIssues = issuesExistentes.length > 0
+        } catch (_) {}
+
+        if (!motivoDevolucao && !temIssues) {
+          return e.json(400, {
+            error:
+              'Devolver versão exige issue de revisão criada ou texto explicativo com o motivo da devolução.',
+          })
+        }
+      }
+
+      // Aprovação só com todas as issues verificadas ou rejeitadas
+      if (decisao === 'aprovado') {
+        try {
+          const issuesPendentes = $app.findRecordsByFilter(
+            'issues_revisao',
+            "entregavel = '" +
+              entId +
+              "' && (status = 'aberta' || status = 'atribuida' || status = 'corrigida')",
+            '',
+            10,
+            0,
+          )
+          if (issuesPendentes.length > 0) {
+            return e.json(422, {
+              error:
+                'BLOQUEIO: Aprovação de versão só é permitida com todas as issues verificadas ou rejeitadas. Existem ' +
+                issuesPendentes.length +
+                ' issue(s) ainda não verificadas.',
+            })
+          }
+        } catch (ePend) {
+          console.log('Aviso ao verificar issues para aprovação: ' + ePend)
+        }
       }
 
       let entRec

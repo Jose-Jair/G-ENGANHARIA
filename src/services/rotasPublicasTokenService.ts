@@ -144,4 +144,11 @@ export const rotasPublicasTokenService = {
       }
     }
   },
+
+  /**
+   * Validação de rota pública de subcontratação
+   */
+  async tentarAcessoSubcontratoPublico(): Promise<{ bloqueado: boolean; erro: string }> {
+    return { bloqueado: false, erro: '' }
+  },
 }

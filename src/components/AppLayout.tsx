@@ -32,6 +32,7 @@ import {
   MessageSquare,
   FileCheck,
   Clock,
+  CheckSquare,
 } from 'lucide-react'
 import { ModalTrocarSenha } from '@/components/ModalTrocarSenha'
 import { GPlusLogo } from '@/components/GPlusLogo'
@@ -591,6 +592,28 @@ export default function AppLayout() {
                         Leitura
                       </span>
                     )}
+                  </div>
+                </NavLink>
+              )}
+
+              {/* RODADA 18: Fila Única de Decisões (Admin e Gestor) */}
+              {(user.role === 'admin' || user.role === 'gestor') && (
+                <NavLink
+                  to="/decisoes"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-[#D95A2B] text-white shadow-sm font-semibold'
+                        : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                    }`
+                  }
+                >
+                  <CheckSquare className="w-4 h-4 text-amber-400" />
+                  <div className="flex items-center justify-between flex-1">
+                    <span>Decisões</span>
+                    <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono">
+                      Fila
+                    </span>
                   </div>
                 </NavLink>
               )}

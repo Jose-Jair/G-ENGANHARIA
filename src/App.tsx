@@ -18,6 +18,7 @@ import FunilPage from './pages/Funil'
 import FunilSugestoesPage from './pages/FunilSugestoes'
 import NaoContatarPage from './pages/NaoContatar'
 import AcoesDoDiaPage from './pages/AcoesDoDia'
+import DecisoesPage from './pages/Decisoes'
 import CampanhasPage from './pages/Campanhas'
 import DescadastroPage from './pages/Descadastro'
 import { ParceirosPage } from './pages/Parceiros'
@@ -121,6 +122,15 @@ const App = () => (
                 </ProtectedRoute>
               }
             />{' '}
+            {/* RODADA 18: Fila Única de Decisões do Admin e Gestor */}
+            <Route
+              path="decisoes"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'gestor']}>
+                  <DecisoesPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/boas-vindas" element={<WelcomePage />} />
             {/* RODADA 6: Central de Notificações Unificada */}
             <Route

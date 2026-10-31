@@ -15,6 +15,7 @@ import {
   CreateContratoMestreData,
 } from '@/services/prestadores'
 import { formatDateBr, formatCurrencyBr } from '@/lib/formatters'
+import { BotaoVerDetalheSensivel } from '@/components/comum/BotaoVerDetalheSensivel'
 import { ModalDossieEvidenciasOS } from '@/components/prestadores/ModalDossieEvidenciasOS'
 import { ModalCustosVigenciasInterno } from '@/components/prestadores/ModalCustosVigenciasInterno'
 import { PainelAprovacaoApontamentos } from '@/components/prestadores/PainelAprovacaoApontamentos'
@@ -892,6 +893,18 @@ export const PrestadoresPage: React.FC = () => {
 
                     <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5">
+                        {/* Botão Ver Detalhe de Dados Sensíveis com Auditoria Imutável (Rodada 18) */}
+                        {(user?.role === 'admin' ||
+                          user?.role === 'gestor' ||
+                          user?.role === 'financeiro') && (
+                          <BotaoVerDetalheSensivel
+                            tipo="prestador_banco_custo"
+                            registroId={p.id}
+                            titulo={`Dados Sensíveis: ${p.nome}`}
+                            labelBotao="Dados Bancários / Custo"
+                          />
+                        )}
+
                         {/* Botão de Custos e Vigências para Prestador Interno (Admin e Financeiro) */}
                         {isInterno && (user?.role === 'admin' || user?.role === 'financeiro') && (
                           <Button

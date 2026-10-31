@@ -1257,6 +1257,22 @@ export default function AdministracaoPage() {
                               titulo: 'Modelos BIM: Limite Máximo de Arquivo IFC (MB)',
                               badge: 'BIM / IFC (Rodada 17)',
                             },
+                            token_publico_expiracao_horas: {
+                              titulo: 'Rotas Públicas: Validade do Token de Uso Único (horas)',
+                              badge: 'Rotas Públicas & Sigilo',
+                            },
+                            token_publico_tentativas_max: {
+                              titulo: 'Rotas Públicas: Limite Máximo de Tentativas por Token',
+                              badge: 'Rotas Públicas & Sigilo',
+                            },
+                            sigilo_auditoria_leitura_ativa: {
+                              titulo: 'Sigilo: Auditoria Imutável de Leitura Detalhada Ativa',
+                              badge: 'Rotas Públicas & Sigilo',
+                            },
+                            decisoes_limite_dias_revisao_sla: {
+                              titulo: 'Fila de Decisões: SLA de Revisão Interna Estagnada (horas)',
+                              badge: 'Fila de Decisões',
+                            },
                           }
                         const infoAmigavel = rotulosAmigaveis[param.chave]
 

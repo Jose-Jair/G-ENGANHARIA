@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { CotacaoRecord, ProjetoEtapaRecord, ExecutorRecord, StatusCotacao } from '@/types'
 import { cotacoesService, CreateCotacaoData } from '@/services/executores'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
+import { BotaoVerDetalheSensivel } from '@/components/comum/BotaoVerDetalheSensivel'
 import { useToast } from '@/hooks/use-toast'
 import {
   Dialog,
@@ -269,9 +270,18 @@ export const ModalCotacoesEtapa: React.FC<ModalCotacoesEtapaProps> = ({
                       <div className="mt-4 p-3 bg-slate-50 rounded-lg space-y-2 border border-slate-100">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] text-slate-500">Preço Ofertado:</span>
-                          <span className="text-sm font-bold text-slate-900">
-                            {c.preco_ofertado ? formatCurrencyBr(c.preco_ofertado) : '—'}
-                          </span>
+                          {c.preco_ofertado ? (
+                            <span className="text-sm font-bold text-slate-900">
+                              {formatCurrencyBr(c.preco_ofertado)}
+                            </span>
+                          ) : (
+                            <BotaoVerDetalheSensivel
+                              tipo="cotacao_preco"
+                              registroId={c.id}
+                              titulo={`Preço da Cotação: ${ex?.nome || 'Prestador'}`}
+                              labelBotao="Ver Preço (Auditado)"
+                            />
+                          )}
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] text-slate-500">Prazo Ofertado:</span>

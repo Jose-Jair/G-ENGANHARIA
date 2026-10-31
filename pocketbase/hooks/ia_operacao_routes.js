@@ -877,6 +877,78 @@ routerAdd(
         dadosFinanceiro.contas_a_pagar_proximos_7dias = contasPagar.length
       } catch (_) {}
 
+      // RODADA 18: Leitura da Fila Única de Decisões pelo Resumo do Dia
+      let itensFilaDecisoes = []
+      try {
+        // Vencedores de cotações pendentes de OS
+        const vc = $app.findRecordsByFilter(
+          'cotacoes',
+          "escolhida = true && status != 'convertida_os'",
+          '-created',
+          5,
+          0,
+        )
+        for (let i = 0; i < vc.length; i++) {
+          itensFilaDecisoes.push(
+            'Cotação vencedora ' +
+              (vc[i].getString('codigo') || vc[i].id) +
+              ' aguardando designação de OS (impacto 90)',
+          )
+        }
+        // Vencedores de pré-cotação
+        const vpc = $app.findRecordsByFilter(
+          'pre_cotacao_respostas',
+          "escolhida = true && status != 'convertida_os'",
+          '-created',
+          5,
+          0,
+        )
+        for (let i = 0; i < vpc.length; i++) {
+          itensFilaDecisoes.push(
+            'Pré-cotação vencedora ' +
+              (vpc[i].getString('codigo_pre_cotacao') || vpc[i].id) +
+              ' (' +
+              vpc[i].getString('disciplina') +
+              ') aguardando designação (impacto 85)',
+          )
+        }
+        // Apontamentos a aprovar
+        const apP = $app.findRecordsByFilter(
+          'apontamentos',
+          "status = 'pendente'",
+          '-created',
+          5,
+          0,
+        )
+        if (apP.length > 0) {
+          itensFilaDecisoes.push(
+            apP.length +
+              ' apontamento(s) de horas de equipe aguardando aprovação pelo gestor (impacto 50)',
+          )
+        }
+        // Triagens pendentes
+        const trP = $app.findRecordsByFilter('prestadores', "status = 'triagem'", '-created', 5, 0)
+        if (trP.length > 0) {
+          itensFilaDecisoes.push(
+            trP.length +
+              ' prestador(es) novo(s) aguardando parecer de triagem cadastral (impacto 45)',
+          )
+        }
+        // Revisões estagnadas em issues_revisao
+        const revP = $app.findRecordsByFilter(
+          'issues_revisao',
+          "status != 'resolvida'",
+          '-created',
+          5,
+          0,
+        )
+        if (revP.length > 0) {
+          itensFilaDecisoes.push(
+            revP.length + ' issue(s) de revisão técnica pendente(s) de resolução/atribuição',
+          )
+        }
+      } catch (_) {}
+
       const promptMensagem = `Gere o Resumo Diário Executivo do Gestor de Projetos.
 DADOS DE MONITORAMENTO DE PRAZOS:
 - Data de Referência: ${dadosMonitoramento.data_referencia}
@@ -891,7 +963,11 @@ DADOS DO FINANCEIRO:
 - Contas a Receber em Atraso: ${dadosFinanceiro.contas_a_receber_atrasadas}
 - Contas a Pagar nos Próximos 7 Dias: ${dadosFinanceiro.contas_a_pagar_proximos_7dias}
 
-Responda OBRIGATORIAMENTE no formato JSON especificado nas diretrizes do agente.`
+FILA DE DECISÕES PENDENTES DO GESTOR (RODADA 18):
+- Total de pendências na Fila de Decisões: ${itensFilaDecisoes.length}
+${itensFilaDecisoes.length > 0 ? itensFilaDecisoes.map((it) => '- ' + it).join('\n') : '- Nenhuma decisão urgente pendente na fila'}
+
+Responda OBRIGATORIAMENTE no formato JSON especificado nas diretrizes do agente, citando expressamente os itens da Fila de Decisões que exigem intervenção imediata nas ações recomendadas e destaques.`
 
       const agent = $ai.agent('ia-resumo-dia')
       const result = agent.chat({

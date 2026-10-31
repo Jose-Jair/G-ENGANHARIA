@@ -1197,6 +1197,21 @@ const GLOSSARIO_TERMOS = [
     definicao:
       'Trilha de segurança técnica que armazena todas as mutações no banco de dados. Os registros não podem ser editados nem apagados por nenhum usuário pela interface.',
   },
+  {
+    termo: 'Fila Única de Decisões',
+    definicao:
+      'Painel gerencial exclusivo para Admin e Gestor (/decisoes) que consolida e prioriza por impacto de negócio todas as pendências que exigem despacho humano: cotações e pré-cotações vencedoras pendentes de conversão em OS, revisões técnicas estagnadas (SLA), apontamentos de horas aguardando aprovação, triagem de prestadores e suspensões reincidentes. Cada item abre o contexto e permite encerramento com clique auditado.',
+  },
+  {
+    termo: 'Matriz de Sigilo e Dados Sensíveis',
+    definicao:
+      'Regras estritas aplicadas no servidor que protegem dados bancários de prestadores, custo-hora interno, preços de cotação e valor de contratos públicos. O acesso a esses campos sensíveis é intermediado por botões "Ver Detalhe" com aviso legal prévio de que o IP, usuário, data e hora da abertura são gravados de forma indelével nos logs de auditoria.',
+  },
+  {
+    termo: 'Rotas Públicas por Token de Uso Único',
+    definicao:
+      'Mecanismo de acesso sem login para proponentes e prestadores (/cotacao/:token, /subcontrato/:token, etc.) parametrizado na Administração com controle estrito de validade em horas e limite máximo de tentativas. Tokens expirados ou já utilizados exibem alertas claros e impedem reenvio indevido.',
+  },
 ]
 
 // Perguntas Frequentes (FAQ)
@@ -1225,6 +1240,16 @@ const FAQ_ITENS = [
     pergunta: 'Como salvar ou imprimir o Dossiê do Projeto em formato PDF?',
     resposta:
       'No detalhe do Projeto, clique em "Dossiê do Projeto". Uma janela pré-formatada será aberta. Clique no botão "Imprimir / Salvar em PDF A4" no canto superior direito para acionar a janela de impressão do seu navegador já formatada para folhas A4.',
+  },
+  {
+    pergunta: 'Como o Gestor e o Admin operam a nova Fila de Decisões?',
+    resposta:
+      'Acessando o item "Decisões" no menu lateral. O painel lista os itens pendentes ordenados pelo impacto de negócio (0 a 100). Ao clicar em "Abrir Contexto", é possível analisar o histórico completo e registrar o parecer com "Aprovar / Decidir Agora", gravando uma auditoria imutável.',
+  },
+  {
+    pergunta: 'Por que dados bancários e custos exigem clicar em "Ver Detalhe"?',
+    resposta:
+      'Para conformidade estrita com a matriz de sigilo e prevenção de vazamentos internos. Ao clicar no botão, o sistema emite um alerta de que o acesso será registrado nos logs com seu usuário, IP e timestamp, desincentivando acessos indevidos e garantindo rastreabilidade pericial total.',
   },
 ]
 

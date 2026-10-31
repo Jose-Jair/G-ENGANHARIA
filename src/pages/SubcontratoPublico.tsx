@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { subcontratosService, SubcontratoPublicoData } from '@/services/subcontratos'
+import { rotasPublicasTokenService } from '@/services/rotasPublicasTokenService'
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,6 +49,12 @@ export const SubcontratoPublicoPage: React.FC = () => {
 
     try {
       setCarregando(true)
+      const checkToken = await rotasPublicasTokenService.tentarAcessoSubcontratoPublico()
+      if (checkToken.bloqueado) {
+        setErro(checkToken.erro)
+        setCarregando(false)
+        return
+      }
       const data = await subcontratosService.obterPorToken(token)
       setSub(data)
       if (data.executor?.nome) {

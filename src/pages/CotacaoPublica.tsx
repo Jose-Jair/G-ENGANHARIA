@@ -5,6 +5,7 @@ import { cotacoesService, RespostaCotacaoData } from '@/services/executores'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
 import { formatPhoneBr, isValidPhoneBr } from '@/lib/cnpj'
 import { useToast } from '@/hooks/use-toast'
+import { rotasPublicasTokenService } from '@/services/rotasPublicasTokenService'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -50,6 +51,14 @@ export const CotacaoPublicaPage: React.FC = () => {
 
     setCarregando(true)
     try {
+      // Validação de token com verificação de bloqueio/expiração/uso prévio
+      const checkToken = await rotasPublicasTokenService.tentarAcessoCotacaoPublica()
+      if (checkToken.bloqueado) {
+        setErro(checkToken.erro)
+        setCarregando(false)
+        return
+      }
+
       const data = await cotacoesService.getByToken(token)
       setCotacao(data)
       if (data.status === 'respondida' || data.escolhida || data.status === 'nao_escolhida') {

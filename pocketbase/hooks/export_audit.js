@@ -43,13 +43,26 @@ routerAdd(
         )
       }
 
+      // RODADA 18: Matriz de Sigilo em Exportações
+      // 3. Financeiro NÃO exporta escopo técnico / projetos / entregáveis técnicos
+      const isEscopoTecnico =
+        tela.toLowerCase().includes('entregaveis') ||
+        tela.toLowerCase().includes('projetos_tecnico') ||
+        tela.toLowerCase().includes('pacotes_trabalho')
+      if (role === 'financeiro' && isEscopoTecnico) {
+        throw new ForbiddenError(
+          'Usuários com perfil Financeiro não têm permissão para exportar arquivos de escopo técnico de engenharia.',
+        )
+      }
+
       // 3. Registrar auditoria na coleção audit_logs
       const auditCol = $app.findCollectionByNameOrId('audit_logs')
       const auditRecord = new Record(auditCol)
 
       let ip = ''
       try {
-        ip = reqInfo.remoteIP || ''
+        const headers = reqInfo.headers || {}
+        ip = headers['x-forwarded-for'] || headers['x-real-ip'] || ''
       } catch (_) {}
 
       auditRecord.set('user', auth.id)

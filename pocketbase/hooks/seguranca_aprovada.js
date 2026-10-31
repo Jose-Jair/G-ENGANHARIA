@@ -1270,6 +1270,24 @@ routerAdd(
         detalheProspeccao.pncp_configurada = fPncp.length > 0 && fPncp[0].getBool('ativo')
         detalheProspeccao.comprasnet_csv_configurada = fComp.length > 0 && fComp[0].getBool('ativo')
 
+        // Checagem das fontes Ceará (Rodada 14 Parte 2)
+        const fTceCe = $app.findRecordsByFilter(
+          'fontes_prospeccao',
+          "slug = 'tce_ce_contratacoes'",
+          '',
+          1,
+          0,
+        )
+        const fCearaCsv = $app.findRecordsByFilter(
+          'fontes_prospeccao',
+          "slug = 'ceara_transparente_csv'",
+          '',
+          1,
+          0,
+        )
+        detalheProspeccao.tce_ce_configurada = fTceCe.length > 0
+        detalheProspeccao.ceara_transparente_csv_configurada = fCearaCsv.length > 0
+
         const chaveTransp = $os.getenv('PORTAL_TRANSPARENCIA_API_KEY') || ''
         if (chaveTransp && chaveTransp.trim().length > 0) {
           detalheProspeccao.transparencia_chave = 'configurada'

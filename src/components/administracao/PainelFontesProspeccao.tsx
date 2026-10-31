@@ -33,8 +33,15 @@ export function PainelFontesProspeccao() {
   const [lotes, setLotes] = useState<LoteProspeccaoAuditoriaRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [executandoVarredura, setExecutandoVarredura] = useState(false)
+  const [executandoTceCe, setExecutandoTceCe] = useState(false)
   const [importandoCsv, setImportandoCsv] = useState(false)
   const [csvConteudo, setCsvConteudo] = useState('')
+  const [fonteCsvDestino, setFonteCsvDestino] = useState('comprasnet_contratos')
+
+  // Municípios do Ceará
+  const [municipiosCe, setMunicipiosCe] = useState<Array<{ codigo: string; nome: string }>>([])
+  const [municipioSelecionado, setMunicipioSelecionado] = useState('044')
+  const [exercicioSelecionado, setExercicioSelecionado] = useState(2024)
 
   // Edição rápida de fonte
   const [editandoFonte, setEditandoFonte] = useState<FonteProspeccaoRecord | null>(null)
@@ -43,12 +50,16 @@ export function PainelFontesProspeccao() {
   const carregarDados = async () => {
     setLoading(true)
     try {
-      const [listaFontes, listaLotes] = await Promise.all([
+      const [listaFontes, listaLotes, resMuns] = await Promise.all([
         prospeccaoService.listarFontes(),
         prospeccaoService.listarAuditoriaLotes(15),
+        prospeccaoService.listarMunicipiosCeara().catch(() => ({ municipios: [], fonte: '' })),
       ])
       setFontes(listaFontes)
       setLotes(listaLotes)
+      if (resMuns.municipios && resMuns.municipios.length > 0) {
+        setMunicipiosCe(resMuns.municipios)
+      }
     } catch (err) {
       toast({
         title: 'Erro ao carregar fontes',
@@ -84,6 +95,29 @@ export function PainelFontesProspeccao() {
     }
   }
 
+  const handleDispararTceCe = async () => {
+    setExecutandoTceCe(true)
+    try {
+      const res = await prospeccaoService.dispararVarredura('tce_ce_contratacoes', {
+        municipio: municipioSelecionado,
+        exercicio: exercicioSelecionado,
+      })
+      toast({
+        title: 'Varredura TCE-CE concluída',
+        description: `Lidos: ${res.resultado.total_lidos} | Novas Sugestões: ${res.resultado.novas_sugestoes} | Dedupe: ${res.resultado.duplicados_dedupe} | Descarte CPF: ${res.resultado.descartados_cpf}`,
+      })
+      carregarDados()
+    } catch (err) {
+      toast({
+        title: 'Falha na varredura TCE-CE',
+        description: String(err),
+        variant: 'destructive',
+      })
+    } finally {
+      setExecutandoTceCe(false)
+    }
+  }
+
   const handleSalvarEdicaoFonte = async () => {
     if (!editandoFonte) return
     setSalvandoFonte(true)
@@ -95,6 +129,8 @@ export function PainelFontesProspeccao() {
         dias_janela: Number(editandoFonte.dias_janela) || 7,
         palavras_chave: editandoFonte.palavras_chave,
         cnaes: editandoFonte.cnaes,
+        exercicio: Number(editandoFonte.exercicio) || 2024,
+        mapeamento_colunas: editandoFonte.mapeamento_colunas,
         cron_expressao: editandoFonte.cron_expressao,
         limite_por_execucao: Number(editandoFonte.limite_por_execucao) || 50,
       })
@@ -147,9 +183,9 @@ export function PainelFontesProspeccao() {
         registros.push(obj)
       }
 
-      const res = await prospeccaoService.importarCsvComprasnet(registros)
+      const res = await prospeccaoService.importarCsvDinamico(fonteCsvDestino, registros)
       toast({
-        title: 'Importação Comprasnet concluída',
+        title: 'Importação de CSV concluída',
         description: `Lidos: ${res.resultado.total_lidos} | Novas Sugestões: ${res.resultado.novas_sugestoes} | Dedupe: ${res.resultado.duplicados_dedupe}`,
       })
       setCsvConteudo('')
@@ -179,7 +215,43 @@ export function PainelFontesProspeccao() {
             Funil. Parâmetros configuráveis no banco de dados, nunca fixos no código.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Seletor rápido de Município CE para o botão de varredura TCE-CE */}
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs">
+            <span className="text-slate-500 font-medium">TCE-CE:</span>
+            <select
+              value={municipioSelecionado}
+              onChange={(e) => setMunicipioSelecionado(e.target.value)}
+              className="h-7 text-xs border border-slate-300 rounded px-1.5 bg-white font-mono"
+            >
+              {municipiosCe.length > 0 ? (
+                municipiosCe.map((m) => (
+                  <option key={m.codigo} value={m.codigo}>
+                    {m.codigo} - {m.nome}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="044">044 - FORTALEZA</option>
+                  <option value="042">042 - CAUCAIA</option>
+                  <option value="075">075 - JUAZEIRO DO NORTE</option>
+                  <option value="088">088 - MARACANAÚ</option>
+                  <option value="135">135 - SOBRAL</option>
+                </>
+              )}
+            </select>
+            <select
+              value={exercicioSelecionado}
+              onChange={(e) => setExercicioSelecionado(Number(e.target.value))}
+              className="h-7 text-xs border border-slate-300 rounded px-1.5 bg-white font-mono"
+            >
+              <option value={2026}>2026</option>
+              <option value={2025}>2025</option>
+              <option value={2024}>2024</option>
+              <option value={2023}>2023</option>
+            </select>
+          </div>
+
           <Button
             variant="outline"
             size="sm"
@@ -193,11 +265,20 @@ export function PainelFontesProspeccao() {
           <Button
             size="sm"
             onClick={handleDispararPncp}
-            disabled={executandoVarredura}
+            disabled={executandoVarredura || executandoTceCe}
             className="bg-[#D95A2B] hover:bg-[#c24e24] text-xs h-8 text-white gap-1.5"
           >
             <Play className={`w-3.5 h-3.5 ${executandoVarredura ? 'animate-spin' : ''}`} />
-            {executandoVarredura ? 'Varrendo PNCP...' : 'Executar Varredura PNCP'}
+            {executandoVarredura ? 'Varrendo PNCP...' : 'Varredura PNCP'}
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleDispararTceCe}
+            disabled={executandoVarredura || executandoTceCe}
+            className="bg-emerald-700 hover:bg-emerald-800 text-xs h-8 text-white gap-1.5"
+          >
+            <Play className={`w-3.5 h-3.5 ${executandoTceCe ? 'animate-spin' : ''}`} />
+            {executandoTceCe ? 'Varrendo TCE-CE...' : 'Varredura TCE-CE'}
           </Button>
         </div>
       </div>
@@ -207,6 +288,8 @@ export function PainelFontesProspeccao() {
         {fontes.map((f) => {
           const isTransp = f.slug === 'portal_transparencia'
           const isComprasnet = f.slug === 'comprasnet_contratos'
+          const isTceCe = f.slug === 'tce_ce_contratacoes'
+          const isCearaTransp = f.slug === 'ceara_transparente_csv'
 
           return (
             <Card key={f.id} className="border-slate-200 shadow-sm flex flex-col justify-between">
@@ -264,6 +347,31 @@ export function PainelFontesProspeccao() {
                     <div className="p-2.5 rounded bg-blue-50 border border-blue-200 text-blue-800 text-[11px] leading-tight">
                       <strong>Importador CSV:</strong> API direta respondeu 404 (legada no
                       dados.gov.br). Opera via importação de arquivo CSV oficial abaixo.
+                    </div>
+                  )}
+
+                  {/* Informação TCE-CE */}
+                  {isTceCe && (
+                    <div className="p-2.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] leading-tight space-y-1">
+                      <div>
+                        <strong>API Ativa (TCE-CE SIM):</strong> Consulta aberta de licitações e
+                        fornecedores por município cearense e exercício.
+                      </div>
+                      <div className="text-[10px] text-emerald-700">
+                        Município atual:{' '}
+                        <span className="font-mono font-semibold">{f.municipios || '044'}</span> |
+                        Exercício:{' '}
+                        <span className="font-mono font-semibold">{f.exercicio || 2024}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Informação Ceará Transparente */}
+                  {isCearaTransp && (
+                    <div className="p-2.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[11px] leading-tight">
+                      <strong>Importador CSV Dinâmico:</strong> Portal Ceará Transparente respondeu
+                      HTTP 502 no probe. Opera via importador de CSV com mapeamento de colunas
+                      salvo.
                     </div>
                   )}
 
@@ -392,7 +500,7 @@ export function PainelFontesProspeccao() {
                 <Input
                   value={editandoFonte.ufs || ''}
                   onChange={(e) => setEditandoFonte({ ...editandoFonte, ufs: e.target.value })}
-                  placeholder="SP, RJ, MG, PR, SC, RS..."
+                  placeholder="SP, RJ, MG, PR, SC, RS, CE..."
                   className="h-8 text-xs bg-white"
                 />
               </div>
@@ -407,6 +515,181 @@ export function PainelFontesProspeccao() {
                 />
               </div>
             </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Municípios / Códigos TCE-CE</Label>
+                <Input
+                  value={editandoFonte.municipios || ''}
+                  onChange={(e) =>
+                    setEditandoFonte({ ...editandoFonte, municipios: e.target.value })
+                  }
+                  placeholder="Ex: 044 (Fortaleza), 042 (Caucaia), 135 (Sobral)"
+                  className="h-8 text-xs bg-white font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Exercício Orçamentário / Ano</Label>
+                <Input
+                  type="number"
+                  value={editandoFonte.exercicio || 2024}
+                  onChange={(e) =>
+                    setEditandoFonte({ ...editandoFonte, exercicio: Number(e.target.value) })
+                  }
+                  placeholder="2024"
+                  className="h-8 text-xs bg-white font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Mapeamento de Colunas CSV se for importador */}
+            {editandoFonte.tipo === 'importador_csv' && (
+              <div className="space-y-2 pt-2 border-t border-slate-200">
+                <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Upload className="w-3.5 h-3.5 text-[#D95A2B]" />
+                  Mapeamento de Colunas CSV (Configurável por Fonte)
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                  <div>
+                    <Label className="text-[10px] text-slate-500">Coluna CNPJ</Label>
+                    <Input
+                      value={editandoFonte.mapeamento_colunas?.col_cnpj || ''}
+                      onChange={(e) =>
+                        setEditandoFonte({
+                          ...editandoFonte,
+                          mapeamento_colunas: {
+                            ...(editandoFonte.mapeamento_colunas || {}),
+                            col_cnpj: e.target.value,
+                          },
+                        })
+                      }
+                      className="h-7 text-xs bg-white font-mono"
+                      placeholder="cnpj / cpf_cnpj"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-500">Coluna Razão Social</Label>
+                    <Input
+                      value={editandoFonte.mapeamento_colunas?.col_razao_social || ''}
+                      onChange={(e) =>
+                        setEditandoFonte({
+                          ...editandoFonte,
+                          mapeamento_colunas: {
+                            ...(editandoFonte.mapeamento_colunas || {}),
+                            col_razao_social: e.target.value,
+                          },
+                        })
+                      }
+                      className="h-7 text-xs bg-white font-mono"
+                      placeholder="razao_social / contratada"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-500">Coluna Órgão</Label>
+                    <Input
+                      value={editandoFonte.mapeamento_colunas?.col_orgao || ''}
+                      onChange={(e) =>
+                        setEditandoFonte({
+                          ...editandoFonte,
+                          mapeamento_colunas: {
+                            ...(editandoFonte.mapeamento_colunas || {}),
+                            col_orgao: e.target.value,
+                          },
+                        })
+                      }
+                      className="h-7 text-xs bg-white font-mono"
+                      placeholder="orgao / contratante"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-500">Coluna Número Contrato</Label>
+                    <Input
+                      value={editandoFonte.mapeamento_colunas?.col_numero_contrato || ''}
+                      onChange={(e) =>
+                        setEditandoFonte({
+                          ...editandoFonte,
+                          mapeamento_colunas: {
+                            ...(editandoFonte.mapeamento_colunas || {}),
+                            col_numero_contrato: e.target.value,
+                          },
+                        })
+                      }
+                      className="h-7 text-xs bg-white font-mono"
+                      placeholder="numero / num_contrato"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-500">Coluna Objeto</Label>
+                    <Input
+                      value={editandoFonte.mapeamento_colunas?.col_objeto || ''}
+                      onChange={(e) =>
+                        setEditandoFonte({
+                          ...editandoFonte,
+                          mapeamento_colunas: {
+                            ...(editandoFonte.mapeamento_colunas || {}),
+                            col_objeto: e.target.value,
+                          },
+                        })
+                      }
+                      className="h-7 text-xs bg-white font-mono"
+                      placeholder="objeto / descricao"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-500">Coluna Valor</Label>
+                    <Input
+                      value={editandoFonte.mapeamento_colunas?.col_valor || ''}
+                      onChange={(e) =>
+                        setEditandoFonte({
+                          ...editandoFonte,
+                          mapeamento_colunas: {
+                            ...(editandoFonte.mapeamento_colunas || {}),
+                            col_valor: e.target.value,
+                          },
+                        })
+                      }
+                      className="h-7 text-xs bg-white font-mono"
+                      placeholder="valor / valor_global"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-500">Início Vigência</Label>
+                    <Input
+                      value={editandoFonte.mapeamento_colunas?.col_vigencia_inicio || ''}
+                      onChange={(e) =>
+                        setEditandoFonte({
+                          ...editandoFonte,
+                          mapeamento_colunas: {
+                            ...(editandoFonte.mapeamento_colunas || {}),
+                            col_vigencia_inicio: e.target.value,
+                          },
+                        })
+                      }
+                      className="h-7 text-xs bg-white font-mono"
+                      placeholder="vigencia_inicio"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-500">Fim Vigência</Label>
+                    <Input
+                      value={editandoFonte.mapeamento_colunas?.col_vigencia_fim || ''}
+                      onChange={(e) =>
+                        setEditandoFonte({
+                          ...editandoFonte,
+                          mapeamento_colunas: {
+                            ...(editandoFonte.mapeamento_colunas || {}),
+                            col_vigencia_fim: e.target.value,
+                          },
+                        })
+                      }
+                      className="h-7 text-xs bg-white font-mono"
+                      placeholder="vigencia_fim"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1">
               <Label className="text-xs font-semibold">
@@ -446,28 +729,54 @@ export function PainelFontesProspeccao() {
         </Card>
       )}
 
-      {/* Seção Importador CSV Comprasnet Contratos (Fallback oficial) */}
+      {/* Seção Importador CSV Dinâmico (Comprasnet e Ceará Transparente) */}
       <Card className="border-slate-200">
         <CardHeader className="p-4 pb-2">
-          <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-            <Upload className="w-4 h-4 text-[#D95A2B]" />
-            Importador de CSV Comprasnet Contratos (Governo Federal)
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Fallback oficial da fonte Comprasnet: cole o conteúdo exportado do portal ou arquivo CSV
-            (colunas: cnpj, razao_social, orgao, numero_contrato, objeto, valor). Aplica o mesmo
-            pipeline: descarte de CPF, dedupe por CNPJ e classificação por dicionário e IA.
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                <Upload className="w-4 h-4 text-[#D95A2B]" />
+                Importador de CSV com Mapeamento de Colunas Salvo por Fonte
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Ingira arquivos CSV de portais externos (Ceará Transparente, Comprasnet, outros)
+                usando o mapeamento dinâmico configurado na fonte. Aplica o mesmo pipeline: descarte
+                de CPF, dedupe e classificação.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-slate-500 whitespace-nowrap">Fonte destino:</Label>
+              <select
+                value={fonteCsvDestino}
+                onChange={(e) => setFonteCsvDestino(e.target.value)}
+                className="h-8 text-xs border border-slate-300 rounded px-2 bg-white"
+              >
+                <option value="ceara_transparente_csv">
+                  Ceará Transparente (transparencia.ce.gov.br)
+                </option>
+                <option value="comprasnet_contratos">Comprasnet Contratos (Governo Federal)</option>
+              </select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-4 space-y-3">
           <Textarea
             rows={4}
             value={csvConteudo}
             onChange={(e) => setCsvConteudo(e.target.value)}
-            placeholder={`cnpj,razao_social,orgao,numero_contrato,objeto,valor,vigencia_inicio,vigencia_fim\n12345678000199,ENG CONSTRUTORA LTDA,MINISTERIO TRANSPORTES,CTR-01/2026,Elaboração de projeto executivo estrutural e drenagem,450000,2026-01-01,2027-01-01`}
+            placeholder={
+              fonteCsvDestino === 'ceara_transparente_csv'
+                ? `cpf_cnpj_contratada,nome_contratada,orgao_contratante,numero_contrato,objeto_contrato,valor_contrato,data_inicio_vigencia,data_fim_vigencia\n12345678000199,ENG CONSTRUTORA CE LTDA,SOP CEARA,CTR-044/2026,Elaboração de projetos executivos de engenharia rodoviária,850000,2026-01-01,2027-01-01`
+                : `cnpj,razao_social,orgao,numero_contrato,objeto,valor,vigencia_inicio,vigencia_fim\n12345678000199,ENG CONSTRUTORA LTDA,MINISTERIO TRANSPORTES,CTR-01/2026,Elaboração de projeto executivo estrutural e drenagem,450000,2026-01-01,2027-01-01`
+            }
             className="text-xs font-mono bg-slate-50"
           />
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center text-xs text-slate-500">
+            <span>
+              {fonteCsvDestino === 'ceara_transparente_csv'
+                ? 'Mapeamento Ceará: cpf_cnpj_contratada, nome_contratada, orgao_contratante, objeto_contrato, valor_contrato'
+                : 'Mapeamento Comprasnet: cnpj, razao_social, orgao, numero_contrato, objeto, valor'}
+            </span>
             <Button
               size="sm"
               onClick={handleProcessarCsv}
@@ -475,7 +784,7 @@ export function PainelFontesProspeccao() {
               className="bg-slate-900 hover:bg-slate-800 text-xs h-8 text-white gap-1.5"
             >
               <Upload className={`w-3.5 h-3.5 ${importandoCsv ? 'animate-spin' : ''}`} />
-              {importandoCsv ? 'Processando Lote...' : 'Parsear e Ingerir CSV Comprasnet'}
+              {importandoCsv ? 'Processando Lote...' : 'Parsear e Ingerir CSV'}
             </Button>
           </div>
         </CardContent>

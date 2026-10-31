@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T00:54:13.690Z",
+  "generatedAt": "2026-10-31T01:15:23.447Z",
   "collections": [
     {
       "name": "users",
@@ -7126,6 +7126,18 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "mapeamento_colunas",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "exercicio",
+          "type": "number",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

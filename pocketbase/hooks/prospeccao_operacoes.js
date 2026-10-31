@@ -119,7 +119,9 @@ routerAdd(
     if (fonteRec.get('tipo') === 'importador_csv') {
       return e.json(400, {
         message:
-          'A fonte Comprasnet opera como Importador de CSV. Faça o upload do arquivo na Administração.',
+          'A fonte ' +
+          fonteRec.get('nome') +
+          ' opera como Importador de CSV. Faça o upload do arquivo na Administração com o mapeamento configurado.',
       })
     }
 
@@ -131,80 +133,163 @@ routerAdd(
       .map((p) => p.trim())
       .filter(Boolean)
 
-    const hoje = new Date()
-    const dFim = hoje.toISOString().slice(0, 10).replace(/-/g, '')
-    const dIni = new Date(hoje.getTime() - diasJanela * 24 * 3600 * 1000)
-      .toISOString()
-      .slice(0, 10)
-      .replace(/-/g, '')
-    const urlPncp =
-      'https://pncp.gov.br/api/consulta/v1/contratos?dataInicial=' +
-      dIni +
-      '&dataFinal=' +
-      dFim +
-      '&pagina=1&tamanhoPagina=' +
-      Math.max(10, limite)
+    const itensMapeados = []
 
     try {
-      const res = $http.send({
-        url: urlPncp,
-        method: 'GET',
-        headers: { Accept: 'application/json', 'User-Agent': 'GESTAO-GPLUS/1.0' },
-        timeout: 15,
-      })
+      if (fonteSlug === 'tce_ce_contratacoes') {
+        // ---------------------------------------------------------------------
+        // VARREDURA TCE-CE (Sistema de Informação Municipal - SIM)
+        // ---------------------------------------------------------------------
+        const munCodigo = reqBody.municipio || fonteRec.get('municipios') || '044' // Padrão Fortaleza
+        const exercicioConfig = reqBody.exercicio || fonteRec.get('exercicio') || 2024
 
-      if (res.statusCode < 200 || res.statusCode >= 300) {
-        fonteRec.set(
-          'ultimo_erro',
-          'HTTP ' + res.statusCode + ' ao consultar PNCP: ' + (res.raw || ''),
-        )
-        $app.save(fonteRec)
-        return e.json(502, { message: 'Falha na resposta do PNCP: HTTP ' + res.statusCode })
-      }
+        // Intervalo de datas: YYYY-MM-DD
+        const dataFimStr = `${exercicioConfig}-12-31`
+        const dataIniStr = `${exercicioConfig}-01-01`
 
-      const dataArr = (res.json && res.json.data) || []
-      const itensMapeados = []
+        const urlTce =
+          'https://api-dados-abertos.tce.ce.gov.br/sim/licitantes_fornecedores_bens_servicos?codigo_municipio=' +
+          munCodigo +
+          '&data_inicio=' +
+          dataIniStr +
+          '&data_fim=' +
+          dataFimStr
 
-      for (let i = 0; i < dataArr.length; i++) {
-        const c = dataArr[i]
-        const obj = c.objetoContrato || ''
-        const objLower = obj.toLowerCase()
-
-        let aderente = palavrasChave.length === 0
-        if (!aderente) {
-          for (let k = 0; k < palavrasChave.length; k++) {
-            if (objLower.includes(palavrasChave[k])) {
-              aderente = true
-              break
-            }
-          }
-        }
-
-        if (!aderente) continue
-
-        itensMapeados.push({
-          cnpj: c.niFornecedor || '',
-          razaoSocial: c.nomeRazaoSocialFornecedor || '',
-          tipoPessoa: c.tipoPessoa || 'PJ',
-          orgao: (c.orgaoEntidade && c.orgaoEntidade.razaoSocial) || 'Órgão Público',
-          numero: c.numeroContratoEmpenho || 'CTR-' + (c.anoContrato || '2026') + '-' + i,
-          objeto: obj,
-          valor: c.valorInicial || c.valorGlobal || 0,
-          vigenciaInicio: c.dataVigenciaInicio || '',
-          vigenciaFim: c.dataVigenciaFim || '',
-          link: 'https://pncp.gov.br/app/contratos/' + (c.numeroControlePncpCompra || ''),
-          uf: (c.orgaoEntidade && c.orgaoEntidade.ufSigla) || '',
-          municipio: (c.orgaoEntidade && c.orgaoEntidade.municipioNome) || '',
+        const resTce = $http.send({
+          url: urlTce,
+          method: 'GET',
+          headers: { Accept: 'application/json', 'User-Agent': 'GESTAO-GPLUS/1.0' },
+          timeout: 20,
         })
 
-        if (itensMapeados.length >= limite) break
+        if (resTce.statusCode < 200 || resTce.statusCode >= 300) {
+          fonteRec.set(
+            'ultimo_erro',
+            'HTTP ' + resTce.statusCode + ' ao consultar TCE-CE: ' + (resTce.raw || ''),
+          )
+          $app.save(fonteRec)
+          return e.json(502, { message: 'Falha na resposta do TCE-CE: HTTP ' + resTce.statusCode })
+        }
+
+        const elementsArr = (resTce.json && resTce.json.elements) || []
+
+        for (let i = 0; i < elementsArr.length; i++) {
+          const item = elementsArr[i]
+          const obj =
+            item.objeto_licitacao || item.nome_negociante || 'Licitação Municipal ' + munCodigo
+          const objLower = obj.toLowerCase()
+
+          let aderente = palavrasChave.length === 0
+          if (!aderente) {
+            for (let k = 0; k < palavrasChave.length; k++) {
+              if (objLower.includes(palavrasChave[k])) {
+                aderente = true
+                break
+              }
+            }
+          }
+
+          if (!aderente) continue
+
+          const docNegociante = limparCnpj(item.numero_documento_negociante)
+          const tipoP =
+            item.codigo_tipo_negociante === '2' || docNegociante.length === 11 ? 'PF' : 'PJ'
+
+          itensMapeados.push({
+            cnpj: docNegociante,
+            razaoSocial: item.nome_negociante || '',
+            tipoPessoa: tipoP,
+            orgao: 'Prefeitura / Órgão Municipal (Cód. ' + munCodigo + ')',
+            numero: item.numero_licitacao || 'LIC-CE-' + munCodigo + '-' + i,
+            objeto: obj,
+            valor:
+              Number(item.valor_proposta || item.valor_homologado || item.valor_estimado || 0) || 0,
+            vigenciaInicio: item.data_realizacao_licitacao || '',
+            vigenciaFim: '',
+            link: 'https://municipios-licitacoes.tce.ce.gov.br',
+            uf: 'CE',
+            municipio: munCodigo,
+          })
+
+          if (itensMapeados.length >= limite) break
+        }
+      } else {
+        // ---------------------------------------------------------------------
+        // VARREDURA PNCP (Padrão)
+        // ---------------------------------------------------------------------
+        const hoje = new Date()
+        const dFim = hoje.toISOString().slice(0, 10).replace(/-/g, '')
+        const dIni = new Date(hoje.getTime() - diasJanela * 24 * 3600 * 1000)
+          .toISOString()
+          .slice(0, 10)
+          .replace(/-/g, '')
+        const urlPncp =
+          'https://pncp.gov.br/api/consulta/v1/contratos?dataInicial=' +
+          dIni +
+          '&dataFinal=' +
+          dFim +
+          '&pagina=1&tamanhoPagina=' +
+          Math.max(10, limite)
+
+        const res = $http.send({
+          url: urlPncp,
+          method: 'GET',
+          headers: { Accept: 'application/json', 'User-Agent': 'GESTAO-GPLUS/1.0' },
+          timeout: 15,
+        })
+
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          fonteRec.set(
+            'ultimo_erro',
+            'HTTP ' + res.statusCode + ' ao consultar PNCP: ' + (res.raw || ''),
+          )
+          $app.save(fonteRec)
+          return e.json(502, { message: 'Falha na resposta do PNCP: HTTP ' + res.statusCode })
+        }
+
+        const dataArr = (res.json && res.json.data) || []
+
+        for (let i = 0; i < dataArr.length; i++) {
+          const c = dataArr[i]
+          const obj = c.objetoContrato || ''
+          const objLower = obj.toLowerCase()
+
+          let aderente = palavrasChave.length === 0
+          if (!aderente) {
+            for (let k = 0; k < palavrasChave.length; k++) {
+              if (objLower.includes(palavrasChave[k])) {
+                aderente = true
+                break
+              }
+            }
+          }
+
+          if (!aderente) continue
+
+          itensMapeados.push({
+            cnpj: c.niFornecedor || '',
+            razaoSocial: c.nomeRazaoSocialFornecedor || '',
+            tipoPessoa: c.tipoPessoa || 'PJ',
+            orgao: (c.orgaoEntidade && c.orgaoEntidade.razaoSocial) || 'Órgão Público',
+            numero: c.numeroContratoEmpenho || 'CTR-' + (c.anoContrato || '2026') + '-' + i,
+            objeto: obj,
+            valor: c.valorInicial || c.valorGlobal || 0,
+            vigenciaInicio: c.dataVigenciaInicio || '',
+            vigenciaFim: c.dataVigenciaFim || '',
+            link: 'https://pncp.gov.br/app/contratos/' + (c.numeroControlePncpCompra || ''),
+            uf: (c.orgaoEntidade && c.orgaoEntidade.ufSigla) || '',
+            municipio: (c.orgaoEntidade && c.orgaoEntidade.municipioNome) || '',
+          })
+
+          if (itensMapeados.length >= limite) break
+        }
       }
 
       // Processamento do lote
       const auditCol = $app.findCollectionByNameOrId('lotes_prospeccao_auditoria')
       const loteRec = new Record(auditCol)
       loteRec.set('fonte_slug', fonteSlug)
-      loteRec.set('fonte_nome', 'PNCP')
+      loteRec.set('fonte_nome', fonteRec.get('nome') || fonteSlug)
       loteRec.set('tipo_execucao', 'manual_admin')
       loteRec.set('status', 'em_andamento')
       loteRec.set('data_inicio', new Date().toISOString())
@@ -395,7 +480,7 @@ routerAdd(
         nSug.set('numero_contrato', item.numero || '')
         nSug.set('objeto_contrato', item.objeto || '')
         nSug.set('valor_estimado', valorNum)
-        nSug.set('fonte', 'pncp')
+        nSug.set('fonte', fonteSlug === 'tce_ce_contratacoes' ? 'tce_ce' : 'pncp')
         nSug.set('status', 'pendente')
         nSug.set('score_relevancia', scoreRel)
         nSug.set('score_curva_provisorio', scoreCurva.score)
@@ -920,6 +1005,360 @@ routerAdd(
         novas_sugestoes: novasSugestoes,
       },
     })
+  },
+  $apis.requireAuth(),
+)
+
+// -----------------------------------------------------------------------------
+// ROTA: POST /backend/v1/prospeccao/importar-csv-dinamico
+// Suporta Ceará Transparente, Comprasnet e qualquer fonte CSV com mapeamento salvo
+// -----------------------------------------------------------------------------
+routerAdd(
+  'POST',
+  '/backend/v1/prospeccao/importar-csv-dinamico',
+  (e) => {
+    const reqBody = e.requestInfo().body || {}
+    const fonteSlug = reqBody.fonte_slug || 'ceara_transparente_csv'
+    const linhasCsv = reqBody.linhas || []
+    const mapeamentoCustom = reqBody.mapeamento || null
+
+    if (!Array.isArray(linhasCsv) || linhasCsv.length === 0) {
+      return e.json(400, { message: 'Linhas do CSV não fornecidas.' })
+    }
+
+    function limparCnpj(val) {
+      if (!val) return ''
+      return String(val).replace(/\D/g, '')
+    }
+
+    function isPessoaFisica(tipoPessoa, niFornecedor) {
+      const ni = limparCnpj(niFornecedor)
+      if (
+        tipoPessoa &&
+        (tipoPessoa === 'PF' || tipoPessoa === 'F' || tipoPessoa.toLowerCase().includes('física'))
+      ) {
+        return true
+      }
+      return ni.length === 11
+    }
+
+    function classificarPorDicionario(objetoTexto) {
+      const texto = (objetoTexto || '').toLowerCase()
+      if (!texto) return { score: 10, termos: [] }
+      const termosPesos = [
+        { termo: 'projeto executivo', peso: 35 },
+        { termo: 'projeto basico', peso: 30 },
+        { termo: 'projeto básico', peso: 30 },
+        { termo: 'elaboracao de projetos', peso: 30 },
+        { termo: 'elaboração de projetos', peso: 30 },
+        { termo: 'estrutural', peso: 20 },
+        { termo: 'eletrico', peso: 18 },
+        { termo: 'elétrico', peso: 18 },
+        { termo: 'hidrossanitario', peso: 18 },
+        { termo: 'hidrossanitário', peso: 18 },
+        { termo: 'drenagem', peso: 18 },
+        { termo: 'pavimentacao', peso: 18 },
+        { termo: 'pavimentação', peso: 18 },
+        { termo: 'orcamento', peso: 15 },
+        { termo: 'orçamento', peso: 15 },
+        { termo: 'laudo', peso: 15 },
+        { termo: 'engenharia consultiva', peso: 25 },
+        { termo: 'gerenciamento de obras', peso: 20 },
+        { termo: 'supervisao', peso: 15 },
+        { termo: 'supervisão', peso: 15 },
+      ]
+      let pontuacao = 0
+      const encontrados = []
+      for (let i = 0; i < termosPesos.length; i++) {
+        if (texto.includes(termosPesos[i].termo)) {
+          pontuacao += termosPesos[i].peso
+          encontrados.push(termosPesos[i].termo)
+        }
+      }
+      if (encontrados.length > 0) pontuacao = Math.max(30, pontuacao)
+      else pontuacao = 15
+      return { score: Math.min(100, Math.max(0, pontuacao)), termos: encontrados }
+    }
+
+    function calcularScoreCurvaProvisorio(valorContrato, mesesVigencia) {
+      const valor = Number(valorContrato) || 0
+      const meses = Number(mesesVigencia) || 12
+      const normValor = Math.min(100, Math.max(0, (valor / 10000000) * 100))
+      const normVigencia = Math.min(100, Math.max(0, (meses / 36) * 100))
+      const normQtd = 20
+      const score = Math.min(
+        100,
+        Math.max(0, Math.round(normValor * 0.5 + normVigencia * 0.3 + normQtd * 0.2)),
+      )
+      let curva = 'C'
+      if (score >= 40 || valor >= 1000000) curva = 'A'
+      else if (score >= 15 || valor >= 200000) curva = 'B'
+      return { score, curva }
+    }
+
+    let fonteRec = null
+    try {
+      fonteRec = $app.findFirstRecordByData('fontes_prospeccao', 'slug', fonteSlug)
+    } catch (_) {}
+
+    // Resolução do mapeamento de colunas (prioridade: payload customizado > persistido na fonte > defaults)
+    const mapSalvo = (fonteRec && fonteRec.get('mapeamento_colunas')) || {}
+    const mapEfetivo = Object.assign(
+      {
+        col_cnpj: 'cnpj',
+        col_razao_social: 'razao_social',
+        col_orgao: 'orgao',
+        col_numero_contrato: 'numero_contrato',
+        col_objeto: 'objeto',
+        col_valor: 'valor',
+        col_vigencia_inicio: 'vigencia_inicio',
+        col_vigencia_fim: 'vigencia_fim',
+      },
+      mapSalvo,
+      mapeamentoCustom || {},
+    )
+
+    const auditCol = $app.findCollectionByNameOrId('lotes_prospeccao_auditoria')
+    const loteRec = new Record(auditCol)
+    loteRec.set('fonte_slug', fonteSlug)
+    loteRec.set(
+      'fonte_nome',
+      (fonteRec && fonteRec.get('nome')) || 'Importação CSV (' + fonteSlug + ')',
+    )
+    loteRec.set('tipo_execucao', 'importacao_csv')
+    loteRec.set('status', 'em_andamento')
+    loteRec.set('data_inicio', new Date().toISOString())
+    loteRec.set('total_lidos', linhasCsv.length)
+    loteRec.set('parametros_aplicados', { mapeamento: mapEfetivo })
+    if (e.auth?.id) loteRec.set('executado_por', e.auth.id)
+    $app.save(loteRec)
+
+    let descartadosCpf = 0
+    let duplicadosDedupe = 0
+    let reativacoesCriadas = 0
+    let novasSugestoes = 0
+
+    const sugCol = $app.findCollectionByNameOrId('sugestoes_funil')
+    const contratosCol = $app.findCollectionByNameOrId('contratos')
+    const reativacoesCol = $app.findCollectionByNameOrId('reativacoes_sugeridas')
+
+    for (let i = 0; i < linhasCsv.length; i++) {
+      const row = linhasCsv[i]
+
+      // Extração dinâmica baseada no mapeamento configurado
+      const cnpj =
+        row[mapEfetivo.col_cnpj] || row.cnpj || row.cnpj_contratada || row['CPF/CNPJ'] || ''
+      const razao =
+        row[mapEfetivo.col_razao_social] ||
+        row.razao_social ||
+        row.nome_fornecedor ||
+        row['Razão Social'] ||
+        ''
+      const orgao =
+        row[mapEfetivo.col_orgao] || row.orgao || row.uasg_nome || row['Órgão'] || 'Órgão Público'
+      const num = row[mapEfetivo.col_numero_contrato] || row.numero || row.numero_contrato || ''
+      const obj =
+        row[mapEfetivo.col_objeto] || row.objeto || row.objeto_contrato || row['Objeto'] || ''
+      const rawValor = row[mapEfetivo.col_valor] || row.valor || row.valor_inicial || 0
+      const val = Number(String(rawValor).replace(/\./g, '').replace(',', '.')) || 0
+
+      const cnpjLimpo = limparCnpj(cnpj)
+
+      if (isPessoaFisica(row.tipo_pessoa, cnpj)) {
+        descartadosCpf++
+        continue
+      }
+
+      if (!cnpjLimpo || cnpjLimpo.length !== 14 || !obj) continue
+
+      const scoreCurva = calcularScoreCurvaProvisorio(val, 12)
+
+      // Dedupe com empresas existentes
+      let empExist = null
+      try {
+        empExist = $app.findFirstRecordByData('empresas', 'cnpj', cnpjLimpo)
+      } catch (_) {}
+
+      if (empExist) {
+        duplicadosDedupe++
+        let cExiste = false
+        if (num) {
+          const cExistentes = $app.findRecordsByFilter(
+            'contratos',
+            "empresa = '" + empExist.id + "' && numero = '" + num + "'",
+            '',
+            1,
+            0,
+          )
+          if (cExistentes.length > 0) cExiste = true
+        }
+
+        let nCtrId = null
+        if (!cExiste) {
+          const cRec = new Record(contratosCol)
+          cRec.set('empresa', empExist.id)
+          cRec.set('orgao', orgao)
+          cRec.set('numero', num || 'CTR-CSV-' + Date.now().toString().slice(-6))
+          cRec.set('objeto', obj)
+          cRec.set('valor', val)
+          cRec.set('saldo', val)
+          cRec.set('situacao', 'Em Execução')
+          cRec.set('fonte', fonteSlug.includes('ceara') ? 'Ceará Transparente' : 'CSV')
+          cRec.set('status_revisao', 'rascunho_pendente')
+          $app.save(cRec)
+          nCtrId = cRec.id
+        }
+
+        const etapa = empExist.get('etapa_funil')
+        const stEmp = empExist.get('status')
+        if (stEmp === 'inativa' || etapa === 'inativa' || etapa === 'nutricao_mensal') {
+          const reatP = $app.findRecordsByFilter(
+            'reativacoes_sugeridas',
+            "empresa = '" + empExist.id + "' && status = 'pendente'",
+            '',
+            1,
+            0,
+          )
+          if (reatP.length === 0) {
+            const rRec = new Record(reativacoesCol)
+            rRec.set('empresa', empExist.id)
+            if (nCtrId) rRec.set('contrato', nCtrId)
+            rRec.set('contrato_numero', num)
+            rRec.set('contrato_orgao', orgao)
+            rRec.set('contrato_valor', val)
+            rRec.set('etapa_origem', etapa || 'inativa')
+            rRec.set('status', 'pendente')
+            $app.save(rRec)
+            reativacoesCriadas++
+          }
+        }
+        continue
+      }
+
+      // Dedupe sugestões
+      const filtroS =
+        "cnpj = '" + cnpjLimpo + "'" + (num ? " && numero_contrato = '" + num + "'" : '')
+      const jaS = $app.findRecordsByFilter('sugestoes_funil', filtroS, '', 1, 0)
+      if (jaS.length > 0) {
+        duplicadosDedupe++
+        continue
+      }
+
+      const dic = classificarPorDicionario(obj)
+
+      const nS = new Record(sugCol)
+      nS.set('razao_social', razao || 'Fornecedor ' + cnpjLimpo)
+      nS.set('cnpj', cnpjLimpo)
+      nS.set('orgao_contrato', orgao)
+      nS.set('numero_contrato', num)
+      nS.set('objeto_contrato', obj)
+      nS.set('valor_estimado', val)
+      nS.set('fonte', 'planilha')
+      nS.set('status', 'pendente')
+      nS.set('score_relevancia', dic.score)
+      nS.set('score_curva_provisorio', scoreCurva.score)
+      nS.set('curva_provisoria', scoreCurva.curva)
+      nS.set('fonte_prospeccao_slug', fonteSlug)
+      nS.set('lote_auditoria_id', loteRec.id)
+      nS.set('status_sancao', 'nao_verificada')
+      nS.set('detalhe_sancao', 'Pendente de verificação na incorporação')
+      nS.set(
+        'observacoes',
+        'Importado via CSV (' +
+          (fonteRec ? fonteRec.get('nome') : fonteSlug) +
+          '). Relevância: ' +
+          dic.score +
+          '/100.',
+      )
+      $app.save(nS)
+      novasSugestoes++
+    }
+
+    loteRec.set('status', 'sucesso')
+    loteRec.set('data_fim', new Date().toISOString())
+    loteRec.set('total_descartados_cpf', descartadosCpf)
+    loteRec.set('total_duplicados_dedupe', duplicadosDedupe)
+    loteRec.set('total_reativacoes_sugeridas', reativacoesCriadas)
+    loteRec.set('total_novas_sugestoes', novasSugestoes)
+    $app.save(loteRec)
+
+    if (fonteRec) {
+      try {
+        fonteRec.set('ultima_execucao', new Date().toISOString())
+        fonteRec.set('total_lidos', (fonteRec.get('total_lidos') || 0) + linhasCsv.length)
+        fonteRec.set('total_sugeridos', (fonteRec.get('total_sugeridos') || 0) + novasSugestoes)
+        $app.save(fonteRec)
+      } catch (_) {}
+    }
+
+    return e.json(200, {
+      message: 'Importação de CSV processada com sucesso.',
+      resultado: {
+        lote_id: loteRec.id,
+        total_lidos: linhasCsv.length,
+        descartados_cpf: descartadosCpf,
+        duplicados_dedupe: duplicadosDedupe,
+        reativacoes_sugeridas: reativacoesCriadas,
+        novas_sugestoes: novasSugestoes,
+      },
+    })
+  },
+  $apis.requireAuth(),
+)
+
+// -----------------------------------------------------------------------------
+// ROTA: GET /backend/v1/prospeccao/tce-ce/municipios
+// Lista municípios do Ceará consultando a API do TCE-CE ou cache fixo
+// -----------------------------------------------------------------------------
+routerAdd(
+  'GET',
+  '/backend/v1/prospeccao/tce-ce/municipios',
+  (e) => {
+    try {
+      const res = $http.send({
+        url: 'https://api-dados-abertos.tce.ce.gov.br/sim/municipios',
+        method: 'GET',
+        headers: { Accept: 'application/json', 'User-Agent': 'GESTAO-GPLUS/1.0' },
+        timeout: 10,
+      })
+
+      if (
+        res.statusCode >= 200 &&
+        res.statusCode < 300 &&
+        res.json &&
+        Array.isArray(res.json.elements)
+      ) {
+        const lista = res.json.elements.map((m) => ({
+          codigo: m.codigo_municipio,
+          nome: m.nome_municipio,
+          ibge: m.codigo_municipio_ibge,
+        }))
+        return e.json(200, { municipios: lista, fonte: 'api_tce_ce' })
+      }
+    } catch (_) {}
+
+    // Fallback com principais municípios do Ceará caso a API externa oscile
+    const principais = [
+      { codigo: '044', nome: 'FORTALEZA', ibge: '2304400' },
+      { codigo: '042', nome: 'CAUCAIA', ibge: '2303709' },
+      { codigo: '075', nome: 'JUAZEIRO DO NORTE', ibge: '2307304' },
+      { codigo: '088', nome: 'MARACANAÚ', ibge: '2307650' },
+      { codigo: '135', nome: 'SOBRAL', ibge: '2312908' },
+      { codigo: '047', nome: 'CRATO', ibge: '2304202' },
+      { codigo: '074', nome: 'ITAPIPOCA', ibge: '2306405' },
+      { codigo: '089', nome: 'MARANGUAPE', ibge: '2307700' },
+      { codigo: '070', nome: 'IGUATU', ibge: '2305506' },
+      { codigo: '115', nome: 'QUIXADÁ', ibge: '2311306' },
+      { codigo: '012', nome: 'AQUIRAZ', ibge: '2301000' },
+      { codigo: '037', nome: 'CANINDÉ', ibge: '2302800' },
+      { codigo: '124', nome: 'RUSSAS', ibge: '2311801' },
+      { codigo: '048', nome: 'CRATEÚS', ibge: '2304103' },
+      { codigo: '018', nome: 'ARACATI', ibge: '2301109' },
+      { codigo: '143', nome: 'TIANGUÁ', ibge: '2313401' },
+      { codigo: '107', nome: 'PACAJUS', ibge: '2309607' },
+      { codigo: '040', nome: 'CASCAVEL', ibge: '2303501' },
+    ]
+    return e.json(200, { municipios: principais, fonte: 'fallback_ceara' })
   },
   $apis.requireAuth(),
 )

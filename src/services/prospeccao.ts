@@ -2,6 +2,18 @@ import pb from '@/lib/pocketbase/client'
 
 export type FonteProspeccaoTipo = 'api_externa' | 'importador_csv' | 'transparencia_sancoes'
 
+export interface MapeamentoColunasCsv {
+  col_cnpj?: string
+  col_razao_social?: string
+  col_orgao?: string
+  col_numero_contrato?: string
+  col_objeto?: string
+  col_valor?: string
+  col_vigencia_inicio?: string
+  col_vigencia_fim?: string
+  [key: string]: string | undefined
+}
+
 export interface FonteProspeccaoRecord {
   id: string
   nome: string
@@ -12,6 +24,7 @@ export interface FonteProspeccaoRecord {
   dias_janela?: number
   ufs?: string
   municipios?: string
+  exercicio?: number
   palavras_chave?: string
   cnaes?: string
   limite_por_execucao?: number
@@ -24,9 +37,16 @@ export interface FonteProspeccaoRecord {
   total_sugeridos?: number
   total_incorporados?: number
   ultimo_erro?: string
+  mapeamento_colunas?: MapeamentoColunasCsv
   config_extra?: Record<string, unknown>
   created: string
   updated: string
+}
+
+export interface MunicipioCearaItem {
+  codigo: string
+  nome: string
+  ibge?: string
 }
 
 export type LoteExecucaoTipo = 'cron_automatico' | 'manual_admin' | 'importacao_csv'
@@ -135,16 +155,19 @@ export const prospeccaoService = {
   },
 
   /**
-   * Dispara varredura sob demanda de uma fonte
+   * Dispara varredura sob demanda de uma fonte (PNCP ou TCE-CE)
    */
-  async dispararVarredura(fonteSlug: string = 'pncp_contratos'): Promise<{
+  async dispararVarredura(
+    fonteSlug: string = 'pncp_contratos',
+    params?: { municipio?: string; exercicio?: number },
+  ): Promise<{
     message: string
     fonte: string
     resultado: VarreduraResultado
   }> {
     return await pb.send('/backend/v1/prospeccao/executar-varredura', {
       method: 'POST',
-      body: { fonte_slug: fonteSlug },
+      body: { fonte_slug: fonteSlug, ...(params || {}) },
     })
   },
 
@@ -172,10 +195,39 @@ export const prospeccaoService = {
   },
 
   /**
+   * Importador dinâmico de CSV com mapeamento de colunas (Ceará Transparente, Comprasnet, outros)
+   */
+  async importarCsvDinamico(
+    fonteSlug: string,
+    linhas: Record<string, unknown>[],
+    mapeamento?: MapeamentoColunasCsv,
+  ): Promise<{
+    message: string
+    resultado: VarreduraResultado
+  }> {
+    return await pb.send('/backend/v1/prospeccao/importar-csv-dinamico', {
+      method: 'POST',
+      body: { fonte_slug: fonteSlug, linhas, mapeamento },
+    })
+  },
+
+  /**
+   * Lista municípios cearenses da API do TCE-CE (com fallback)
+   */
+  async listarMunicipiosCeara(): Promise<{
+    municipios: MunicipioCearaItem[]
+    fonte: string
+  }> {
+    return await pb.send('/backend/v1/prospeccao/tce-ce/municipios', {
+      method: 'GET',
+    })
+  },
+
+  /**
    * Executa o probe de diagnóstico das fontes
    */
   async probeFontes(): Promise<Record<string, unknown>> {
-    return await pb.send('/backend/v1/prospeccao/probe-fontes', {
+    return await pb.send('/backend/v1/prospeccao/probe-fontes-ceara-v5', {
       method: 'GET',
     })
   },

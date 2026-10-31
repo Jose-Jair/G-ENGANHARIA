@@ -1,16 +1,24 @@
 // Probe de Fontes - Refinamento das URLs e Parâmetros
-// Rota: GET /backend/v1/prospeccao/probe-fontes
+// Rota: GET /backend/v1/prospeccao/probe-fontes-ceara
 
-routerAdd('GET', '/backend/v1/prospeccao/probe-fontes', (e) => {
+routerAdd('GET', '/backend/v1/prospeccao/probe-fontes-ceara-v5', (e) => {
   const resultados = {}
 
   // 1a. PNCP Contratos com tamanhoPagina=10 (ou maior)
   try {
     const hoje = new Date()
     const dFim = hoje.toISOString().slice(0, 10).replace(/-/g, '')
-    const dIni = new Date(hoje.getTime() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, '')
-    const urlPncpContratos = 'https://pncp.gov.br/api/consulta/v1/contratos?dataInicial=' + dIni + '&dataFinal=' + dFim + '&pagina=1&tamanhoPagina=10'
-    
+    const dIni = new Date(hoje.getTime() - 7 * 24 * 3600 * 1000)
+      .toISOString()
+      .slice(0, 10)
+      .replace(/-/g, '')
+    const urlPncpContratos =
+      'https://pncp.gov.br/api/consulta/v1/contratos?dataInicial=' +
+      dIni +
+      '&dataFinal=' +
+      dFim +
+      '&pagina=1&tamanhoPagina=10'
+
     const resPncp = $http.send({
       url: urlPncpContratos,
       method: 'GET',
@@ -26,19 +34,25 @@ routerAdd('GET', '/backend/v1/prospeccao/probe-fontes', (e) => {
       url: urlPncpContratos,
       ok: resPncp.statusCode >= 200 && resPncp.statusCode < 300,
       totalRegistros: resPncp.json ? resPncp.json.totalRegistros : undefined,
-      primeiroItem: resPncp.json && resPncp.json.data && resPncp.json.data[0] ? {
-        numeroContratoEmpenho: resPncp.json.data[0].numeroContratoEmpenho,
-        anoContrato: resPncp.json.data[0].anoContrato,
-        objetoContrato: resPncp.json.data[0].objetoContrato,
-        valorInicial: resPncp.json.data[0].valorInicial,
-        orgaoEntidade: resPncp.json.data[0].orgaoEntidade,
-        nomeRazaoSocialFornecedor: resPncp.json.data[0].nomeRazaoSocialFornecedor,
-        niFornecedor: resPncp.json.data[0].niFornecedor,
-        tipoPessoa: resPncp.json.data[0].tipoPessoa,
-        dataVigenciaInicio: resPncp.json.data[0].dataVigenciaInicio,
-        dataVigenciaFim: resPncp.json.data[0].dataVigenciaFim,
-      } : null,
-      bodyPreview: typeof resPncp.raw === 'string' ? resPncp.raw.slice(0, 300) : JSON.stringify(resPncp.json || {}).slice(0, 300),
+      primeiroItem:
+        resPncp.json && resPncp.json.data && resPncp.json.data[0]
+          ? {
+              numeroContratoEmpenho: resPncp.json.data[0].numeroContratoEmpenho,
+              anoContrato: resPncp.json.data[0].anoContrato,
+              objetoContrato: resPncp.json.data[0].objetoContrato,
+              valorInicial: resPncp.json.data[0].valorInicial,
+              orgaoEntidade: resPncp.json.data[0].orgaoEntidade,
+              nomeRazaoSocialFornecedor: resPncp.json.data[0].nomeRazaoSocialFornecedor,
+              niFornecedor: resPncp.json.data[0].niFornecedor,
+              tipoPessoa: resPncp.json.data[0].tipoPessoa,
+              dataVigenciaInicio: resPncp.json.data[0].dataVigenciaInicio,
+              dataVigenciaFim: resPncp.json.data[0].dataVigenciaFim,
+            }
+          : null,
+      bodyPreview:
+        typeof resPncp.raw === 'string'
+          ? resPncp.raw.slice(0, 300)
+          : JSON.stringify(resPncp.json || {}).slice(0, 300),
     }
   } catch (err) {
     resultados.pncp_contratos = {
@@ -51,9 +65,17 @@ routerAdd('GET', '/backend/v1/prospeccao/probe-fontes', (e) => {
   try {
     const hoje = new Date()
     const dFim = hoje.toISOString().slice(0, 10).replace(/-/g, '')
-    const dIni = new Date(hoje.getTime() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, '')
-    const urlPncpPub = 'https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?dataInicial=' + dIni + '&dataFinal=' + dFim + '&codigoModalidadeContratacao=6&pagina=1&tamanhoPagina=10'
-    
+    const dIni = new Date(hoje.getTime() - 7 * 24 * 3600 * 1000)
+      .toISOString()
+      .slice(0, 10)
+      .replace(/-/g, '')
+    const urlPncpPub =
+      'https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?dataInicial=' +
+      dIni +
+      '&dataFinal=' +
+      dFim +
+      '&codigoModalidadeContratacao=6&pagina=1&tamanhoPagina=10'
+
     const resPncpPub = $http.send({
       url: urlPncpPub,
       method: 'GET',
@@ -69,7 +91,10 @@ routerAdd('GET', '/backend/v1/prospeccao/probe-fontes', (e) => {
       url: urlPncpPub,
       ok: resPncpPub.statusCode >= 200 && resPncpPub.statusCode < 300,
       totalRegistros: resPncpPub.json ? resPncpPub.json.totalRegistros : undefined,
-      bodyPreview: typeof resPncpPub.raw === 'string' ? resPncpPub.raw.slice(0, 300) : JSON.stringify(resPncpPub.json || {}).slice(0, 300),
+      bodyPreview:
+        typeof resPncpPub.raw === 'string'
+          ? resPncpPub.raw.slice(0, 300)
+          : JSON.stringify(resPncpPub.json || {}).slice(0, 300),
     }
   } catch (err) {
     resultados.pncp_publicacoes = {
@@ -142,8 +167,123 @@ routerAdd('GET', '/backend/v1/prospeccao/probe-fontes', (e) => {
     requer_chave: true,
     chave_configurada: false,
     status: 401,
-    observacao: 'Exige cabeçalho chave-api-dados cadastrado na CGU/Transparência. Cadastrado como fonte desligada por padrão.',
+    observacao:
+      'Exige cabeçalho chave-api-dados cadastrado na CGU/Transparência. Cadastrado como fonte desligada por padrão.',
   }
+
+  // ---------------------------------------------------------------------------
+  // 5. PROBE TCE-CE (api-dados-abertos.tce.ce.gov.br e licitacoes.tce.ce.gov.br)
+  // ---------------------------------------------------------------------------
+  // 5a. API Dados Abertos TCE-CE - teste do item completo retornado
+  let licitantesItemExemplo = null
+  try {
+    const resLicItem = $http.send({
+      url: 'https://api-dados-abertos.tce.ce.gov.br/sim/licitantes_fornecedores_bens_servicos?codigo_municipio=044&data_inicio=2024-01-01&data_fim=2024-01-05',
+      method: 'GET',
+      headers: { Accept: 'application/json', 'User-Agent': 'GESTAO-GPLUS/1.0' },
+      timeout: 8,
+    })
+    if (resLicItem.json && resLicItem.json.elements && resLicItem.json.elements[0]) {
+      licitantesItemExemplo = resLicItem.json.elements[0]
+    }
+  } catch (_) {}
+
+  const endpointsTceCe = [
+    {
+      nome: 'tce_ce_sim_municipios',
+      url: 'https://api-dados-abertos.tce.ce.gov.br/sim/municipios',
+    },
+    {
+      nome: 'tce_ce_sim_licitantes_fornecedores',
+      url: 'https://api-dados-abertos.tce.ce.gov.br/sim/licitantes_fornecedores_bens_servicos?codigo_municipio=044&data_inicio=2024-01-01&data_fim=2024-01-31',
+    },
+  ]
+
+  resultados.tce_ce = {}
+  for (let idx = 0; idx < endpointsTceCe.length; idx++) {
+    const ep = endpointsTceCe[idx]
+    try {
+      const res = $http.send({
+        url: ep.url,
+        method: 'GET',
+        headers: {
+          Accept: 'application/json, text/html, */*',
+          'User-Agent': 'GESTAO-GPLUS/1.0',
+        },
+        timeout: 8,
+      })
+      resultados.tce_ce[ep.nome] = {
+        url: ep.url,
+        status: res.statusCode,
+        ok: res.statusCode >= 200 && res.statusCode < 300,
+        tipoConteudo: res.headers ? res.headers['content-type'] : '',
+        bodyPreview:
+          typeof res.raw === 'string'
+            ? res.raw.slice(0, 300)
+            : JSON.stringify(res.json || {}).slice(0, 300),
+      }
+    } catch (errEp) {
+      resultados.tce_ce[ep.nome] = {
+        url: ep.url,
+        ok: false,
+        erro: String(errEp),
+      }
+    }
+  }
+
+  // 5b. Portal de Licitações do TCE-CE (licitacoes.tce.ce.gov.br)
+  try {
+    const resLic = $http.send({
+      url: 'https://licitacoes.tce.ce.gov.br',
+      method: 'GET',
+      headers: {
+        Accept: 'text/html, application/json, */*',
+        'User-Agent': 'GESTAO-GPLUS/1.0',
+      },
+      timeout: 8,
+    })
+    resultados.tce_ce_portal_licitacoes = {
+      url: 'https://licitacoes.tce.ce.gov.br',
+      status: resLic.statusCode,
+      ok: resLic.statusCode >= 200 && resLic.statusCode < 300,
+      tipoConteudo: resLic.headers ? resLic.headers['content-type'] : '',
+      bodyPreview: typeof resLic.raw === 'string' ? resLic.raw.slice(0, 300) : '',
+    }
+  } catch (errLic) {
+    resultados.tce_ce_portal_licitacoes = {
+      url: 'https://licitacoes.tce.ce.gov.br',
+      ok: false,
+      erro: String(errLic),
+    }
+  }
+
+  // 5c. Ceará Transparente (transparencia.ce.gov.br)
+  try {
+    const resTranspCe = $http.send({
+      url: 'https://transparencia.ce.gov.br',
+      method: 'GET',
+      headers: {
+        Accept: 'text/html, application/json, */*',
+        'User-Agent': 'GESTAO-GPLUS/1.0',
+      },
+      timeout: 8,
+    })
+    resultados.ceara_transparente = {
+      url: 'https://transparencia.ce.gov.br',
+      status: resTranspCe.statusCode,
+      ok: resTranspCe.statusCode >= 200 && resTranspCe.statusCode < 300,
+      tipoConteudo: resTranspCe.headers ? resTranspCe.headers['content-type'] : '',
+      bodyPreview: typeof resTranspCe.raw === 'string' ? resTranspCe.raw.slice(0, 300) : '',
+    }
+  } catch (errCe) {
+    resultados.ceara_transparente = {
+      url: 'https://transparencia.ce.gov.br',
+      ok: false,
+      erro: String(errCe),
+    }
+  }
+
+  resultados.tce_ce_item_exemplo = licitantesItemExemplo
 
   return e.json(200, resultados)
 })

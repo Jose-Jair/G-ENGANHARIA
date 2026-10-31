@@ -106,6 +106,9 @@ export interface ContratoBrutoProspeccao {
   valor?: number
   vigenciaInicio?: string
   vigenciaFim?: string
+  link?: string
+  uf?: string
+  municipio?: string
 }
 
 export interface EmpresaSimulada {

@@ -102,11 +102,15 @@ describe('Endpoint de Autochecagem de Segurança (/backend/v1/seguranca/selfchec
       res.resultados.item13_recrutamento_triagem_documentos.detalhes.parametros_administracao,
     ).toBe(true)
 
-    // Item 14: Prospecção Automática (Rodada 14)
+    // Item 14: Prospecção Automática (Rodada 14 - Partes 1 e 2: Fontes do Ceará)
     expect(res.resultados.item14_prospeccao_automatica).toBeDefined()
     expect(res.resultados.item14_prospeccao_automatica.todas_conformes).toBe(true)
     expect(res.resultados.item14_prospeccao_automatica.detalhes.colecoes_configuradas).toBe(true)
     expect(res.resultados.item14_prospeccao_automatica.detalhes.pncp_configurada).toBe(true)
+    expect(res.resultados.item14_prospeccao_automatica.detalhes.tce_ce_configurada).toBe(true)
+    expect(
+      res.resultados.item14_prospeccao_automatica.detalhes.ceara_transparente_csv_configurada,
+    ).toBe(true)
     // Se chave ausente, nunca finge sucesso: status 'pendente'
     expect(res.resultados.item14_prospeccao_automatica.detalhes.transparencia_status).toBeDefined()
   })

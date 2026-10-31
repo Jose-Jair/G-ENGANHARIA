@@ -2451,13 +2451,55 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
       }
     }
 
-    const clientIp =
-      (e.request &&
-        typeof e.request.getHeader === 'function' &&
-        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
-      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
-      '127.0.0.1'
-    const clientUserAgent = (reqInfo.headers && reqInfo.headers['user-agent']) || 'Navegador Web'
+    // Captura de IP: ler x-forwarded-for e depois x-real-ip na entrada; se vazio, 'nao_capturado' (NUNCA 127.0.0.1) e registrar em erros_sistema
+    let rawIp = ''
+    try {
+      if (e.request && e.request.header && typeof e.request.header.get === 'function') {
+        rawIp = e.request.header.get('x-forwarded-for') || e.request.header.get('x-real-ip') || ''
+      }
+      if (!rawIp && e.request && typeof e.request.getHeader === 'function') {
+        rawIp = e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip') || ''
+      }
+      if (!rawIp && reqInfo.headers) {
+        rawIp = reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'] || ''
+      }
+    } catch (_) {}
+
+    if (rawIp && typeof rawIp === 'string') {
+      rawIp = rawIp.split(',')[0].trim()
+    }
+
+    let clientIp = rawIp && rawIp !== '127.0.0.1' ? rawIp : 'nao_capturado'
+    if (clientIp === 'nao_capturado') {
+      try {
+        const errCol = $app.findCollectionByNameOrId('erros_sistema')
+        if (errCol) {
+          const errRec = new Record(errCol)
+          errRec.set('rota', '/backend/v1/contratos-servico/assinar-cliente')
+          errRec.set(
+            'mensagem',
+            'IP nao capturado na rota assinar-cliente (headers x-forwarded-for e x-real-ip ausentes ou locais)',
+          )
+          errRec.set('hora', new Date().toISOString())
+          errRec.set('ip', 'nao_capturado')
+          errRec.set('detalhes', {
+            contrato_id: contrato.id,
+            contrato_numero: contrato.getString('numero'),
+            raw_ip: rawIp,
+          })
+          $app.save(errRec)
+        }
+      } catch (_) {}
+    }
+
+    // User Agent: prioriza body.userAgent enviado pelo front; fallback para header
+    const clientUserAgent =
+      (
+        body.userAgent ||
+        body.user_agent ||
+        (reqInfo.headers && reqInfo.headers['user-agent']) ||
+        ''
+      ).trim() || 'Navegador Web'
     const nowIso = new Date().toISOString()
 
     let clausulaPadrao =
@@ -2564,29 +2606,42 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
     // Executam em bloco isolado com try/catch e registro de falhas em erros_sistema
     if (assinadoBilateralmente) {
       try {
-        ativarContratoServicoBilateral(contrato)
-      } catch (errAtiv) {
-        console.log('Erro ao ativar contrato assinado (assinar-cliente): ' + errAtiv)
+        const jobId = 'ativar-ctr-' + contrato.id
         try {
-          const errCol = $app.findCollectionByNameOrId('erros_sistema')
-          if (errCol) {
-            const errRec = new Record(errCol)
-            errRec.set('rota', '/backend/v1/contratos-servico/assinar-cliente')
-            errRec.set(
-              'mensagem',
-              ('Falha ao ativar contrato bilateral: ' + errAtiv).slice(0, 1000),
-            )
-            errRec.set('hora', new Date().toISOString())
-            errRec.set('ip', clientIp)
-            errRec.set('detalhes', {
-              contrato_id: contrato.id,
-              contrato_numero: contrato.getString('numero'),
-              signatario_nome: nomeAssinante,
-              erro: String(errAtiv),
-            })
-            $app.save(errRec)
-          }
+          cronRemove(jobId)
         } catch (_) {}
+        cronAdd(jobId, '* * * * *', function () {
+          try {
+            cronRemove(jobId)
+          } catch (_) {}
+          try {
+            const c = $app.findRecordById('contratos_servico', contrato.id)
+            if (!c || c.getString('status') !== 'assinado') return
+            ativarContratoServicoBilateral(c)
+          } catch (errAtiv) {
+            try {
+              const errCol = $app.findCollectionByNameOrId('erros_sistema')
+              if (errCol) {
+                const errRec = new Record(errCol)
+                errRec.set('rota', '/backend/v1/contratos-servico/assinar-cliente')
+                errRec.set(
+                  'mensagem',
+                  ('Falha ao ativar contrato bilateral (cron): ' + errAtiv).slice(0, 1000),
+                )
+                errRec.set('hora', new Date().toISOString())
+                errRec.set('ip', clientIp)
+                errRec.set('detalhes', {
+                  contrato_id: contrato.id,
+                  contrato_numero: contrato.getString('numero'),
+                  erro: String(errAtiv),
+                })
+                $app.save(errRec)
+              }
+            } catch (_) {}
+          }
+        })
+      } catch (errCron) {
+        console.log('Erro ao agendar ativacao (assinar-cliente): ' + errCron)
       }
     }
 
@@ -3955,32 +4010,46 @@ routerAdd(
       // Executam isoladamente sem travar a resposta; erros gravados em erros_sistema
       if (assinadoBilateralmente) {
         try {
-          ativarContratoServicoBilateral(contrato)
-        } catch (errAtiv) {
-          console.log('Erro ao ativar contrato assinado (assinar-admin): ' + errAtiv)
+          const jobId = 'ativar-ctr-' + contrato.id
           try {
-            const errCol = $app.findCollectionByNameOrId('erros_sistema')
-            if (errCol) {
-              const errRec = new Record(errCol)
-              errRec.set('rota', '/backend/v1/contratos-servico/assinar-admin')
-              errRec.set(
-                'mensagem',
-                ('Falha ao ativar contrato bilateral: ' + errAtiv).slice(0, 1000),
-              )
-              errRec.set('usuario', reqInfo.auth.id)
-              errRec.set('usuario_email', reqInfo.auth.getString('email'))
-              errRec.set('hora', new Date().toISOString())
-              errRec.set('ip', clientIp)
-              errRec.set('detalhes', {
-                contrato_id: contrato.id,
-                contrato_numero: contrato.getString('numero'),
-                admin_id: reqInfo.auth.id,
-                admin_nome: reqInfo.auth.getString('name'),
-                erro: String(errAtiv),
-              })
-              $app.save(errRec)
-            }
+            cronRemove(jobId)
           } catch (_) {}
+          cronAdd(jobId, '* * * * *', function () {
+            try {
+              cronRemove(jobId)
+            } catch (_) {}
+            try {
+              const c = $app.findRecordById('contratos_servico', contrato.id)
+              if (!c || c.getString('status') !== 'assinado') return
+              ativarContratoServicoBilateral(c)
+            } catch (errAtiv) {
+              try {
+                const errCol = $app.findCollectionByNameOrId('erros_sistema')
+                if (errCol) {
+                  const errRec = new Record(errCol)
+                  errRec.set('rota', '/backend/v1/contratos-servico/assinar-admin')
+                  errRec.set(
+                    'mensagem',
+                    ('Falha ao ativar contrato bilateral (cron): ' + errAtiv).slice(0, 1000),
+                  )
+                  if (reqInfo && reqInfo.auth) {
+                    errRec.set('usuario', reqInfo.auth.id)
+                    errRec.set('usuario_email', reqInfo.auth.getString('email'))
+                  }
+                  errRec.set('hora', new Date().toISOString())
+                  errRec.set('ip', clientIp)
+                  errRec.set('detalhes', {
+                    contrato_id: contrato.id,
+                    contrato_numero: contrato.getString('numero'),
+                    erro: String(errAtiv),
+                  })
+                  $app.save(errRec)
+                }
+              } catch (_) {}
+            }
+          })
+        } catch (errCron) {
+          console.log('Erro ao agendar ativacao (assinar-admin): ' + errCron)
         }
       }
 

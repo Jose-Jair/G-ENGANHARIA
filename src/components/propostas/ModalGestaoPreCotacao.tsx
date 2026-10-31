@@ -478,6 +478,7 @@ export function ModalGestaoPreCotacao({
                             <tr>
                               <th className="py-2.5 px-3">Prestador Convidado</th>
                               <th className="py-2.5 px-3">Status</th>
+                              <th className="py-2.5 px-3 text-center">Scorecard</th>
                               <th className="py-2.5 px-3 text-right">Preço Ofertado</th>
                               <th className="py-2.5 px-3 text-center">Prazo Ofertado</th>
                               <th className="py-2.5 px-3 text-center">Aceite Vinculante</th>
@@ -533,6 +534,24 @@ export function ModalGestaoPreCotacao({
                                         className="text-slate-500 text-[10px]"
                                       >
                                         Aguardando
+                                      </Badge>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center">
+                                    {resp.scorecard_composto !== undefined &&
+                                    resp.scorecard_composto !== null ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="font-mono text-[10px] bg-orange-50 text-orange-800 border-orange-200"
+                                      >
+                                        {Math.round(resp.scorecard_composto)} pts
+                                      </Badge>
+                                    ) : (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] bg-slate-50 text-slate-500"
+                                      >
+                                        Dados insuf.
                                       </Badge>
                                     )}
                                   </td>

@@ -172,6 +172,7 @@ export interface ResumoOQueFazerHojeEstruturado {
   propostas_pendentes: PropostaPendenteUnificada[]
   entregaveis_atrasados: EntregavelAtrasadoUnificada[]
   sem_cotacao: AlertaSemCotacaoUnificado[]
+  alertas_scorecards: AlertaScorecardUnificado[]
   resumo_geral: OQueFazerHojeResponse['resumo_geral']
 }
 
@@ -263,6 +264,7 @@ export const oQueFazerHojeService = {
       propostas_pendentes: raw.propostas_pendentes || [],
       entregaveis_atrasados: raw.entregaveis_atrasados || [],
       sem_cotacao: raw.sem_cotacao || [],
+      alertas_scorecards: raw.alertas_scorecards || [],
       resumo_geral: raw.resumo_geral,
     }
   },

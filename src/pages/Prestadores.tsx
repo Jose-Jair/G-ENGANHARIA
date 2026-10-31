@@ -76,6 +76,7 @@ import {
 } from 'lucide-react'
 import { exportService } from '@/services/exportService'
 import { ModalMensagensOsGestor } from '@/components/prestadores/ModalMensagensOsGestor'
+import { ModalFichaPrestadorScorecard } from '@/components/scorecards/ModalFichaPrestadorScorecard'
 import { FilaTriagemPrestadores } from '@/components/prestadores/FilaTriagemPrestadores'
 import { mensagensOsService } from '@/services/mensagensOs'
 import { TrilhaDoNegocio } from '@/components/comum/TrilhaDoNegocio'
@@ -151,6 +152,11 @@ export const PrestadoresPage: React.FC = () => {
   const [contratosMestre, setContratosMestre] = useState<ContratoMestreRecord[]>([])
   const [carregandoCm, setCarregandoCm] = useState(false)
   const [assinandoGmais, setAssinandoGmais] = useState(false)
+
+  // Modal de Ficha com Scorecard (Rodada 16)
+  const [modalScorecardOpen, setModalScorecardOpen] = useState(false)
+  const [prestadorScorecardSelecionado, setPrestadorScorecardSelecionado] =
+    useState<PrestadorRecord | null>(null)
 
   // Modal de Suspensão
   const [modalSuspenderOpen, setModalSuspenderOpen] = useState(false)
@@ -783,8 +789,15 @@ export const PrestadoresPage: React.FC = () => {
                           ))}
                       </div>
 
-                      {/* Desempenho e Tendência */}
-                      <div className="mb-3 p-2 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between text-xs">
+                      {/* Desempenho, Tendência e Acesso ao Scorecard */}
+                      <div
+                        onClick={() => {
+                          setPrestadorScorecardSelecionado(p)
+                          setModalScorecardOpen(true)
+                        }}
+                        className="mb-3 p-2 bg-slate-50 hover:bg-orange-50/50 rounded-lg border border-slate-100 hover:border-orange-200 flex items-center justify-between text-xs cursor-pointer transition-all"
+                        title="Clique para abrir o Scorecard completo do prestador"
+                      >
                         <div className="flex items-center gap-1.5">
                           <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
                           <span className="font-semibold text-slate-800">
@@ -795,46 +808,50 @@ export const PrestadoresPage: React.FC = () => {
                           </span>
                         </div>
 
-                        {/* Selo de Tendência na Ficha do Prestador */}
-                        {p.total_avaliacoes && p.total_avaliacoes >= 2 ? (
-                          (p.nota_geral || 5) >= 4.5 ? (
-                            <Badge
-                              variant="outline"
-                              className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] gap-1 py-0 h-5"
-                              title="Tendência: Melhorou / Alto desempenho"
-                            >
-                              <TrendingUp className="w-3 h-3 text-emerald-600" />
-                              Melhorou
-                            </Badge>
-                          ) : (p.nota_geral || 5) < 3.5 ? (
-                            <Badge
-                              variant="outline"
-                              className="bg-rose-50 text-rose-700 border-rose-300 text-[10px] gap-1 py-0 h-5"
-                              title="Tendência: Piorou / Sob atenção técnica"
-                            >
-                              <TrendingDown className="w-3 h-3 text-rose-600" />
-                              Piorou
-                            </Badge>
+                        <div className="flex items-center gap-1.5">
+                          {p.total_avaliacoes && p.total_avaliacoes >= 2 ? (
+                            (p.nota_geral || 5) >= 4.5 ? (
+                              <Badge
+                                variant="outline"
+                                className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] gap-1 py-0 h-5"
+                                title="Tendência: Melhorou"
+                              >
+                                <TrendingUp className="w-3 h-3 text-emerald-600" />
+                                Melhorou
+                              </Badge>
+                            ) : (p.nota_geral || 5) < 3.5 ? (
+                              <Badge
+                                variant="outline"
+                                className="bg-rose-50 text-rose-700 border-rose-300 text-[10px] gap-1 py-0 h-5"
+                                title="Tendência: Piorou"
+                              >
+                                <TrendingDown className="w-3 h-3 text-rose-600" />
+                                Piorou
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="bg-slate-100 text-slate-700 border-slate-300 text-[10px] gap-1 py-0 h-5"
+                                title="Tendência: Estável"
+                              >
+                                <Minus className="w-3 h-3 text-slate-500" />
+                                Estável
+                              </Badge>
+                            )
                           ) : (
                             <Badge
                               variant="outline"
-                              className="bg-slate-100 text-slate-700 border-slate-300 text-[10px] gap-1 py-0 h-5"
-                              title="Tendência: Desempenho Estável"
+                              className="bg-amber-50 text-amber-800 border-amber-200 text-[10px] gap-1 py-0 h-5"
+                              title="Sem histórico suficiente"
                             >
-                              <Minus className="w-3 h-3 text-slate-500" />
-                              Estável
+                              <AlertCircle className="w-3 h-3 text-amber-600" />
+                              Dados insuficientes
                             </Badge>
-                          )
-                        ) : (
-                          <Badge
-                            variant="outline"
-                            className="bg-slate-50 text-slate-500 border-slate-200 text-[10px] gap-1 py-0 h-5"
-                            title="Tendência: Estável / Inicial"
-                          >
-                            <Minus className="w-3 h-3 text-slate-400" />
-                            Estável
-                          </Badge>
-                        )}
+                          )}
+                          <span className="text-[10px] text-[#D95A2B] font-semibold underline ml-1">
+                            Scorecard &rarr;
+                          </span>
+                        </div>
                       </div>
 
                       <div className="space-y-1.5 text-xs text-slate-600 mb-4">
@@ -980,6 +997,14 @@ export const PrestadoresPage: React.FC = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Modal de Ficha com Scorecard Completo (Rodada 16) */}
+      <ModalFichaPrestadorScorecard
+        open={modalScorecardOpen}
+        onOpenChange={setModalScorecardOpen}
+        prestador={prestadorScorecardSelecionado}
+        canRecalculate={canEdit}
+      />
 
       {/* Modal Criar/Editar Prestador */}
       <Dialog open={modalNovoOpen} onOpenChange={setModalNovoOpen}>

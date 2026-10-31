@@ -37,6 +37,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
 import { assinaturaEletronicaService } from '@/services/assinaturaEletronica'
 import { ModalDossieEvidenciasOS } from '@/components/prestadores/ModalDossieEvidenciasOS'
+import { IndicesEquipeInterna } from '@/components/projetos/IndicesEquipeInterna'
 import { ShieldCheck } from 'lucide-react'
 
 interface EquipeInternaTabProps {
@@ -178,6 +179,13 @@ export const EquipeInternaTab: React.FC<EquipeInternaTabProps> = ({ projetoId, c
           </Button>
         )}
       </div>
+
+      {/* Painel de Índices Internos do Scorecard da Equipe (Rodada 16) */}
+      <IndicesEquipeInterna
+        prestadoresIds={Array.from(
+          new Set(ordensServico.map((os) => os.prestador).filter(Boolean)),
+        )}
+      />
 
       {carregando ? (
         <div className="flex justify-center p-12">

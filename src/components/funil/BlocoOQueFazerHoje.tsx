@@ -4,7 +4,9 @@ import {
   oQueFazerHojeService,
   ItemOQueFazerHoje,
   AcaoNutricaoOQueFazerHoje,
+  AlertaScorecardUnificado,
 } from '@/services/oQueFazerHoje'
+import { CardAlertaScorecard } from '@/components/funil/CardAlertaScorecard'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -40,9 +42,9 @@ export function BlocoOQueFazerHoje({
   const [paraHoje, setParaHoje] = useState<ItemOQueFazerHoje[]>([])
   const [emAtraso, setEmAtraso] = useState<ItemOQueFazerHoje[]>([])
   const [sugestoesNutricao, setSugestoesNutricao] = useState<AcaoNutricaoOQueFazerHoje[]>([])
-  const [tabAtiva, setTabAtiva] = useState<'para_hoje' | 'em_atraso' | 'nutricao' | 'sem_cotacao'>(
-    'para_hoje',
-  )
+  const [tabAtiva, setTabAtiva] = useState<
+    'para_hoje' | 'em_atraso' | 'nutricao' | 'sem_cotacao' | 'scorecards'
+  >('para_hoje')
 
   const carregar = async () => {
     setLoading(true)
@@ -52,23 +54,26 @@ export function BlocoOQueFazerHoje({
       setEmAtraso(res.em_atraso || [])
       setSugestoesNutricao(res.sugestoes_nutricao || [])
       setSemCotacao(res.sem_cotacao || [])
-    } catch (err) {
-      console.error('Falha ao carregar o que fazer hoje:', err)
+      setAlertasScorecard(res.alertas_scorecards || [])
+    } catch {
+      // Falha silenciosa
     } finally {
       setLoading(false)
     }
   }
-
   useEffect(() => {
     carregar()
   }, [])
 
-  const [semCotacao, setSemCotacao] = useState<any[]>([])
+  const [semCotacao, setSemCotacao] = useState<AlertaSemCotacaoUnificado[]>([])
+  const [alertasScorecard, setAlertasScorecard] = useState<AlertaScorecardUnificado[]>([])
   const totalHoje = paraHoje.length
   const totalAtraso = emAtraso.length
   const totalNutricao = sugestoesNutricao.length
   const totalSemCotacao = semCotacao.length
-  const totalGeral = totalHoje + totalAtraso + totalNutricao + totalSemCotacao
+  const totalAlertasScorecard = alertasScorecard.length
+  const totalGeral =
+    totalHoje + totalAtraso + totalNutricao + totalSemCotacao + totalAlertasScorecard
 
   const renderBadgeCurva = (curva?: string) => {
     const c = curva || 'C'
@@ -168,6 +173,17 @@ export function BlocoOQueFazerHoje({
           >
             <HelpCircle className="w-3.5 h-3.5" />
             Sem Cotação ({totalSemCotacao})
+          </button>
+          <button
+            onClick={() => setTabAtiva('scorecards')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+              tabAtiva === 'scorecards'
+                ? 'bg-[#D95A2B] text-white shadow-2xs'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            Scorecards ({totalAlertasScorecard})
           </button>
         </div>
       </CardHeader>
@@ -429,6 +445,26 @@ export function BlocoOQueFazerHoje({
                         </Button>
                       </div>
                     </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* ABA: ALERTAS DE SCORECARD (RODADA 16) */}
+            {tabAtiva === 'scorecards' && (
+              <div className="space-y-2">
+                {alertasScorecard.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-slate-400 bg-white rounded-lg border border-dashed border-slate-200">
+                    Nenhum alerta crítico de scorecard ativo no momento. Desempenho e prazos
+                    normais!
+                  </div>
+                ) : (
+                  alertasScorecard.map((alerta, idx) => (
+                    <CardAlertaScorecard
+                      key={`${alerta.scorecard_id}_${idx}`}
+                      alerta={alerta}
+                      onAcaoConcluida={carregar}
+                    />
                   ))
                 )}
               </div>

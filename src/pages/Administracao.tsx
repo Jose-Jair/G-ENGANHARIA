@@ -23,6 +23,7 @@ import { PainelLimpezaDadosNegocio } from '@/components/administracao/PainelLimp
 import { PainelSmtpSeguranca } from '@/components/administracao/PainelSmtpSeguranca'
 import { PainelFontesProspeccao } from '@/components/administracao/PainelFontesProspeccao'
 import { PainelFazerDentroFora } from '@/components/administracao/PainelFazerDentroFora'
+import { PainelParametrosScorecards } from '@/components/administracao/PainelParametrosScorecards'
 import { AreaAtuacaoRecord } from '@/types'
 import { formatCurrencyBr } from '@/lib/formatters'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -726,6 +727,13 @@ export default function AdministracaoPage() {
             <span>Fazer Dentro ou Fora</span>
           </TabsTrigger>
           <TabsTrigger
+            value="scorecards_parametros"
+            className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white"
+          >
+            <Award className="w-4 h-4 text-[#D95A2B]" />
+            <span>Scorecards & Metas</span>
+          </TabsTrigger>
+          <TabsTrigger
             value="smtp_seguranca"
             className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white"
           >
@@ -733,6 +741,11 @@ export default function AdministracaoPage() {
             <span>SMTP & Selfcheck</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* ABA PARÂMETROS E PESOS DE SCORECARD (RODADA 16) */}
+        <TabsContent value="scorecards_parametros" className="space-y-4">
+          <PainelParametrosScorecards />
+        </TabsContent>
 
         {/* ABA FONTES DE PROSPECÇÃO (RODADA 14) */}
         <TabsContent value="fontes_prospeccao" className="space-y-4">

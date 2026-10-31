@@ -637,6 +637,7 @@ export interface PreCotacaoRespostaItemDto {
   aceite_hash?: string
   aceite_timestamp?: string
   data_resposta?: string
+  scorecard_composto?: number | null
 }
 
 export interface PreCotacaoRespostaPortalRecord {

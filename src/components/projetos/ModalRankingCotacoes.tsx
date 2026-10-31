@@ -403,6 +403,12 @@ export const ModalRankingCotacoes: React.FC<ModalRankingCotacoesProps> = ({
                         <span className="text-base font-bold text-[#D95A2B]">
                           {item.score_final} pts
                         </span>
+                        {item.scorecard_composto !== undefined &&
+                          item.scorecard_composto !== null && (
+                            <span className="text-[10px] text-slate-500 font-mono block mt-0.5">
+                              Scorecard: <strong>{Math.round(item.scorecard_composto)}</strong>/100
+                            </span>
+                          )}
                       </div>
 
                       {!item.escolhida && !pacote.ordem_servico_ativa && (

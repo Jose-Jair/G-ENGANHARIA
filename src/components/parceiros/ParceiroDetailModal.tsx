@@ -39,6 +39,7 @@ import {
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
 import { formatCnpj, formatPhoneBr } from '@/lib/cnpj'
 import { auditService } from '@/services/audit'
+import { FichaScorecard } from '@/components/scorecards/FichaScorecard'
 
 interface ParceiroDetailModalProps {
   open: boolean
@@ -63,7 +64,10 @@ export function ParceiroDetailModal({
   contratos,
   onAtualizar,
 }: ParceiroDetailModalProps) {
-  const [activeTab, setActiveTab] = useState<'visao_geral' | 'demandas' | 'timeline'>('visao_geral')
+  const [activeTab, setActiveTab] = useState<'visao_geral' | 'scorecard' | 'demandas' | 'timeline'>(
+    'visao_geral',
+  )
+  const canEdit = true
   const [timelineLogs, setTimelineLogs] = useState<AuditLogRecord[]>([])
   const [loadingTimeline, setLoadingTimeline] = useState(false)
 
@@ -168,23 +172,42 @@ export function ParceiroDetailModal({
         {/* 3 ABAS REQUISITADAS NO ITEM A2: Visão Geral, Histórico de Demandas, Linha do Tempo */}
         <Tabs
           value={activeTab}
-          onValueChange={(v) => setActiveTab(v as 'visao_geral' | 'demandas' | 'timeline')}
+          onValueChange={(v) =>
+            setActiveTab(v as 'visao_geral' | 'scorecard' | 'demandas' | 'timeline')
+          }
           className="mt-4"
         >
-          <TabsList className="grid grid-cols-3 w-full bg-slate-100">
+          <TabsList className="grid grid-cols-4 w-full bg-slate-100">
             <TabsTrigger value="visao_geral" className="text-xs font-medium gap-2">
               <Building2 className="w-4 h-4" />
               Visão Geral
             </TabsTrigger>
+            <TabsTrigger
+              value="scorecard"
+              className="text-xs font-bold text-[#D95A2B] gap-2 data-[state=active]:bg-white"
+            >
+              <Award className="w-4 h-4 text-[#D95A2B]" />
+              Scorecard Parceiro
+            </TabsTrigger>
             <TabsTrigger value="demandas" className="text-xs font-medium gap-2">
               <FileText className="w-4 h-4" />
-              Histórico de Demandas ({empProps.length + empProjs.length})
+              Demandas ({empProps.length + empProjs.length})
             </TabsTrigger>
             <TabsTrigger value="timeline" className="text-xs font-medium gap-2">
               <History className="w-4 h-4" />
               Linha do Tempo ({timelineLogs.length})
             </TabsTrigger>
           </TabsList>
+
+          {/* ABA SCORECARD DE PARCEIRO (RODADA 16) */}
+          <TabsContent value="scorecard" className="space-y-4 mt-4">
+            <FichaScorecard
+              tipo="empresa_parceira"
+              registroId={parceiro.id}
+              nomeEntidade={parceiro.razao_social || parceiro.nome_fantasia}
+              canRecalculate={canEdit}
+            />
+          </TabsContent>
 
           {/* ABA 1: VISÃO GERAL */}
           <TabsContent value="visao_geral" className="space-y-4 mt-4">

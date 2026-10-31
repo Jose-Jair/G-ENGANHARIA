@@ -41,6 +41,7 @@ import { PainelMensagensOs } from '@/components/prestadores/PainelMensagensOs'
 import { PortalMeuCadastro } from '@/components/prestadores/PortalMeuCadastro'
 import { SecaoPreCotacoesPrestador } from '@/components/prestadores/SecaoPreCotacoesPrestador'
 import { PortalMinhasHoras } from '@/components/prestadores/PortalMinhasHoras'
+import { PortalMeuDesempenho } from '@/components/prestadores/PortalMeuDesempenho'
 import { prestadoresService } from '@/services/prestadores'
 import { PrestadorRecord } from '@/types'
 import { EntregavelVersaoComentarios } from '@/components/projetos/EntregavelVersaoComentarios'
@@ -225,38 +226,45 @@ export const PortalPrestadorPage: React.FC = () => {
           </Badge>
         </div>
 
-        {/* Abas Principais: Pré-Cotações vs Cotações vs Ordens de Serviço vs Minhas Horas (se interno) vs Meu Cadastro */}
+        {/* Abas Principais: Pré-Cotações vs Cotações vs Ordens de Serviço vs Meu Desempenho vs Minhas Horas (se interno) vs Meu Cadastro */}
         <Tabs defaultValue="pre_cotacoes" className="w-full space-y-4">
           <TabsList
             className={`grid ${
-              meuPrestador?.tipo === 'interno' ? 'grid-cols-5 max-w-3xl' : 'grid-cols-4 max-w-2xl'
+              meuPrestador?.tipo === 'interno' ? 'grid-cols-6 max-w-4xl' : 'grid-cols-5 max-w-3xl'
             } text-xs bg-slate-200/70 p-1`}
           >
             <TabsTrigger
               value="pre_cotacoes"
-              className="gap-2 text-xs font-bold text-[#D95A2B] data-[state=active]:bg-white"
+              className="gap-1.5 text-xs font-bold text-[#D95A2B] data-[state=active]:bg-white"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-[#D95A2B]" />
               Pré-Cotações
             </TabsTrigger>
             <TabsTrigger
               value="cotacoes"
-              className="gap-2 text-xs font-semibold data-[state=active]:bg-white"
+              className="gap-1.5 text-xs font-semibold data-[state=active]:bg-white"
             >
               <Briefcase className="w-3.5 h-3.5 text-[#D95A2B]" />
               Cotações OS
             </TabsTrigger>
             <TabsTrigger
               value="ordens_servico"
-              className="gap-2 text-xs font-semibold data-[state=active]:bg-white"
+              className="gap-1.5 text-xs font-semibold data-[state=active]:bg-white"
             >
               <Layers className="w-3.5 h-3.5 text-blue-600" />
               Ordens de Serviço ({ordensServico.length})
             </TabsTrigger>
+            <TabsTrigger
+              value="meu_desempenho"
+              className="gap-1.5 text-xs font-bold text-[#D95A2B] data-[state=active]:bg-white"
+            >
+              <Award className="w-3.5 h-3.5 text-[#D95A2B]" />
+              Meu Desempenho
+            </TabsTrigger>
             {meuPrestador?.tipo === 'interno' && (
               <TabsTrigger
                 value="minhas_horas"
-                className="gap-2 text-xs font-bold text-sky-700 data-[state=active]:bg-white"
+                className="gap-1.5 text-xs font-bold text-sky-700 data-[state=active]:bg-white"
               >
                 <Clock className="w-3.5 h-3.5 text-sky-600" />
                 Minhas Horas
@@ -264,12 +272,17 @@ export const PortalPrestadorPage: React.FC = () => {
             )}
             <TabsTrigger
               value="meu_cadastro"
-              className="gap-2 text-xs font-bold text-slate-700 data-[state=active]:bg-white"
+              className="gap-1.5 text-xs font-bold text-slate-700 data-[state=active]:bg-white"
             >
               <UserCheck className="w-3.5 h-3.5 text-slate-700" />
               Meu Cadastro
             </TabsTrigger>
           </TabsList>
+
+          {/* ABA MEU DESEMPENHO / SCORECARD PRÓPRIO (RODADA 16) */}
+          <TabsContent value="meu_desempenho" className="space-y-4">
+            <PortalMeuDesempenho />
+          </TabsContent>
 
           {/* ABA 0: PRÉ-COTAÇÕES VINCULANTES (RODADA 13) */}
           <TabsContent value="pre_cotacoes" className="space-y-4">

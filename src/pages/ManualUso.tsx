@@ -57,6 +57,56 @@ interface CapituloManual {
 // Lista de capítulos do manual de uso da plataforma GESTÃO G+
 const CAPITULOS_MANUAL: CapituloManual[] = [
   {
+    id: 'scorecards-desempenho',
+    titulo: 'Scorecards de Desempenho & Governança (Rodada 16)',
+    subtitulo:
+      'Ponderações por perfil (externo, interno, parceiro), nota composta, tendência, versionamento e transparência no Portal',
+    icone: Award,
+    corIcone: 'text-[#D95A2B]',
+    perfisPermitidos: ['admin', 'comercial', 'financeiro', 'gestor', 'executor'],
+    descricao:
+      'O sistema de Scorecards da G+ Engenharia avalia objetiva e continuamente a performance das três pontas da operação: Prestadores Externos (terceirizados), Equipe Interna (engenharia própria) e Empresas Parceiras (clientes demandantes). O motor recalcula automaticamente os índices a cada evento operacional (conclusão de OS, avaliação, apontamento de horas, pagamento de marco), ponderando os fatores conforme os pesos da versão ativa configurada na Administração.',
+    passos: [
+      {
+        titulo: '1. O que é o Scorecard e os 3 Perfis de Avaliação',
+        descricao:
+          'O scorecard consolida múltiplos indicadores operacionais em um Índice Composto de 0 a 100 pontos. Os três perfis possuem métricas exclusivas: 1. Prestador Externo (pontualidade da OS, ausência de retrabalho, qualidade técnica das pranchas, aderência ao preço cotado, responsividade e conformidade documental); 2. Equipe Interna (lead time vs. meta por disciplina, ciclos de revisão técnica, horas/entregável apontadas, taxa de ocupação e pontualidade); 3. Empresa Parceira (prazo real de pagamento de marcos faturados, taxa de aceite de entregáveis, índice de devoluções pelo cliente, frequência de demanda, margem média e inversões de fluxo financeiro).',
+      },
+      {
+        titulo: '2. Regra de "Dados Insuficientes" (Sem Notas Inventadas)',
+        descricao:
+          'Quando um prestador ou parceiro não possui histórico suficiente (mínimo de trabalhos concluídos na janela de 12 meses), o sistema exibe expressamente a bandeira amarela de "Dados insuficientes" em vez de inventar uma nota arbitrária ou penalizar injustamente o profissional com nota zero.',
+        dica: 'Nas cotações e pré-cotações, participantes com dados insuficientes concorrem de forma neutra até acumularem entregas homologadas.',
+      },
+      {
+        titulo: '3. Tendência dos Últimos 5 Trabalhos & Gráfico Mensal',
+        descricao:
+          'O scorecard analisa a inclinação das últimas 5 entregas e classifica a tendência em "Melhorou" (verde), "Estável" (cinza) ou "Piorou" (vermelho). Adicionalmente, a ficha técnica e o portal exibem um gráfico de linha com os snapshots mensais preservados, permitindo visualizar a evolução ao longo do ano.',
+      },
+      {
+        titulo: '4. Parâmetros, Pesos e Versionamento Imutável na Administração (Admin)',
+        descricao:
+          'Em Administração › Scorecards & Metas, o Administrador gerencia as ponderações de cada indicador para os três perfis. A soma dos pesos deve totalizar exatamente 100%. Nenhuma alteração sobrescreve dados: cada ajuste gera uma nova versão auditada (v1, v2, v3...), preservando o histórico de versões anteriores apenas para leitura histórica.',
+      },
+      {
+        titulo: '5. Cartões de Alerta na Central de Ações & Decisão Humana Obrigatória',
+        descricao:
+          'O robô de scorecards alimenta a Central de Ações ("O que fazer hoje") com cartões de alerta preventivo: queda de 15 pontos em relação ao trimestre anterior, atraso de pagamento de marcos pelo parceiro e sobrecarga de equipe interna acima de 100%. Em caso de "Sugestão de Suspensão Técnica", o sistema NUNCA suspende automaticamente: exige intervenção expressa do gestor com botões para "Confirmar Suspensão" ou "Manter Ativo (Rejeitar Suspensão)", registrando a decisão em auditoria.',
+      },
+      {
+        titulo: '6. Aba "Meu Desempenho" no Portal do Prestador (Sem Comparação e Sem Finanças)',
+        descricao:
+          'O profissional credenciado (externo ou interno) acessa a aba "Meu Desempenho" no Portal do Prestador. O painel exibe com total transparência seus próprios índices, nota composta, tendência e gráfico histórico mensal. REGRA RÍGIDA DE SEGURANÇA: o portal NUNCA compara com outros prestadores e NUNCA expõe custo-hora, salário, margem financeira ou valores contratuais de clientes.',
+      },
+    ],
+    regrasAutomaticas: [
+      'Recálculo automático acionado por eventos operacionais (hooks de OS, medições e avaliações).',
+      'Preservação imutável de snapshots mensais e histórico de versões de parâmetros na coleção parametros_scorecards.',
+      'Suspensão técnica sempre assistida por decisão humana obrigatória (zero suspensão arbitrária por algoritmo).',
+      'Segmentação estrita por RLS: prestadores só leem seu próprio registro via endpoint seguro /portal-prestador/meu-scorecard.',
+    ],
+  },
+  {
     id: 'funil-enxuto-5-colunas',
     titulo: 'Funil Comercial Enxuto (5 Colunas)',
     subtitulo:

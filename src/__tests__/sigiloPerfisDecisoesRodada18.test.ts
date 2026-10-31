@@ -11,8 +11,28 @@ import schema from '@/lib/pocketbase/schema.json'
  */
 
 describe('RODADA 18 — Matriz de Sigilo e RLS por Perfil', () => {
+  const schemaData = schema as unknown as {
+    collections?: Array<{
+      name: string
+      createRule: string | null
+      updateRule: string | null
+      deleteRule: string | null
+      listRule: string | null
+      viewRule: string | null
+      fields?: Array<{ name: string; type: string }>
+      schema?: Array<{ name: string; type: string }>
+      apiRules?: {
+        list?: string | null
+        view?: string | null
+        create?: string | null
+        update?: string | null
+        delete?: string | null
+      }
+    }>
+  }
+
   const getCollection = (name: string) => {
-    const list = (schema as any).collections || (schema as any[])
+    const list = schemaData.collections || (schema as unknown as any[])
     return list.find((c: any) => c.name === name)
   }
 

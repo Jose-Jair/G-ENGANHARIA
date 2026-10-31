@@ -19,6 +19,8 @@ export interface ItemChecklistResultado {
   bloqueante: boolean
 }
 
+export type ResultadoValidacaoIfc = ChecklistIfcResultado
+
 export interface ChecklistIfcResultado {
   valido: boolean
   schema: string

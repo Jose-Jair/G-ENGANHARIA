@@ -34,6 +34,7 @@ import {
   analisarEValidarIfc,
   extrairResumoIfcPayload,
   type ResultadoValidacaoIfc,
+  type ChecklistIfcResultado,
 } from '@/services/ifcChecklistParser'
 import { validarArquivoComLimites } from '@/services/operacaoSistema'
 import { issuesRevisaoService } from '@/services/issuesRevisaoService'

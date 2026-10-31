@@ -50,6 +50,7 @@ import { VisualizadorIfc } from '@/components/projetos/VisualizadorIfc'
 import { PainelIssuesRevisao } from '@/components/projetos/PainelIssuesRevisao'
 import { ModalChecklistEnvioIfc } from '@/components/projetos/ModalChecklistEnvioIfc'
 import { mensagensOsService } from '@/services/mensagensOs'
+import { validarArquivoComLimites } from '@/services/operacaoSistema'
 import { Box } from 'lucide-react'
 
 export const PortalPrestadorPage: React.FC = () => {

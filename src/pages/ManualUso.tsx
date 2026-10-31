@@ -57,6 +57,57 @@ interface CapituloManual {
 // Lista de capítulos do manual de uso da plataforma GESTÃO G+
 const CAPITULOS_MANUAL: CapituloManual[] = [
   {
+    id: 'operacao-do-sistema',
+    titulo: 'Operação do Sistema & Crons (Rodada 19)',
+    subtitulo:
+      'Exportação semanal/manual auditada, monitoramento de crons 2×, catálogo de erros e tetos reais de upload',
+    icone: Shield,
+    corIcone: 'text-indigo-600',
+    perfisPermitidos: ['admin', 'gestor', 'executor'],
+    descricao:
+      'Diretrizes operacionais e de sustentação da plataforma GESTÃO G+. Abrange a rotina semanal e sob demanda de exportação completa do banco de dados com auditoria indelével, o painel de integridade de crons e rotinas em background com alerta preventivo de 2× intervalo sem execução, o repositório de erros de sistema para suporte técnico ágil e os tetos rígidos de upload configurados na Administração por formato técnico (IFC, DWG, PDF e Imagens).',
+    passos: [
+      {
+        titulo: '1. Exportação Semanal & Backup Manual Auditado (Admin)',
+        descricao:
+          'O Administrador dispõe de rotina automática semanal executada todo domingo às 02:00 UTC que consolida um backup integral JSON de todas as coleções do sistema com geração de índice e hash de integridade. Em Administração › "Operação & Crons", o Admin pode a qualquer momento clicar em "Exportar agora", gerando imediatamente o download auditado com registro de IP, data/hora e total de registros exportados.',
+        dica: 'Cada exportação manual ou automática gera evento imutável na trilha audit_logs.',
+      },
+      {
+        titulo: '2. Monitoramento de Crons & Alerta Preventivo de 2× Intervalo (Admin & Gestor)',
+        descricao:
+          'O painel de Crons inspeciona continuamente o batimento das rotinas agendadas essenciais: Monitoramento e Cobrança de Prazos (10 min), Prospecção Diária PNCP (24 h), Cálculo de Scorecards (24 h) e Exportação Semanal (7 dias). Quando uma rotina ultrapassa o dobro do seu intervalo normal sem registrar sucesso (2× intervalo), o sistema emite um badge de alerta crítico vermelho para intervenção imediata da equipe de TI/Gestão.',
+      },
+      {
+        titulo: '3. Repositório Central de Erros de Sistema (Admin)',
+        descricao:
+          'Falhas de requisições, endpoints ou processamento são catalogadas automaticamente na coleção erros_sistema com rota afetada, mensagem técnica, pilha de erro, usuário autenticado e timestamp, permitindo diagnosticar problemas em minutos sem depender de reprodução cega.',
+      },
+      {
+        titulo: '4. Tetos Reais de Upload por Tipo de Arquivo (Admin, Gestor & Prestador)',
+        descricao:
+          'Para garantir estabilidade da infraestrutura e respeitar os limites de memória da nuvem (limite de 100 MB por requisição da plataforma e buffer de 32 MB), o sistema aplica limites máximos por tipo de anexo parametrizáveis na Administração: IFC (.ifc, .ifczip — teto de até 150 MB), DWG/DXF (100 MB), PDF (50 MB) e Imagens (.png, .jpg, .jpeg, .webp — 25 MB).',
+      },
+      {
+        titulo: '5. Mensagem de Bloqueio Educativa no Portal do Prestador (Prestador / Executor)',
+        descricao:
+          'Ao submeter arquivos técnicos ou anexos de prancha no Portal do Prestador e no envio de versões IFC, o arquivo é inspecionado antes do upload. Caso exceda o teto configurado, o envio é sumariamente bloqueado com a mensagem clara: "O arquivo [nome] tem X MB e excede o limite máximo permitido de Y MB para arquivos do tipo [TIPO]. Reduza o arquivo ou entre em contato com a equipe de gestão."',
+        dica: 'Prestadores devem compactar ou expurgar camadas desnecessárias de arquivos CAD/BIM antes da submissão.',
+      },
+      {
+        titulo: '6. Padrão de Snapshot Pré-Migração (Admin)',
+        descricao:
+          'Antes de qualquer migração estrutural ou transformação de dados em lote, o sistema gera um snapshot declarativo pré-migração que registra o estado anterior das coleções afetadas, contagens de registros e operador responsável, prevenindo corrupção de dados ou regressões operacionais.',
+      },
+    ],
+    regrasAutomaticas: [
+      'Alerta preventivo automático ativado sempre que o tempo desde o último sucesso for superior a 2× o intervalo da rotina.',
+      'Validação de tamanho no cliente e no servidor antes de alocar memória para upload de pranchas e modelos.',
+      'Auditoria de cada exportação manual contendo identificador do usuário e contagem de registros baixados.',
+      'O Portal do Prestador mantém isolamento rígido: prestadores visualizam apenas as regras e limites de upload que afetam suas submissões.',
+    ],
+  },
+  {
     id: 'bim-ifc-bcf-fluxo',
     titulo: 'Modelos BIM, Visualizador IFC & Gestão de Issues BCF (Rodada 17)',
     subtitulo:

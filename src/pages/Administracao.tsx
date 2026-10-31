@@ -75,6 +75,7 @@ import {
   Globe,
   Scale,
   Award,
+  Clock,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { formatDateBr, formatDateTimeBr } from '@/lib/formatters'

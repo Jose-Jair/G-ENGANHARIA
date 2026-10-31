@@ -7,7 +7,7 @@
 // (4) Erros de sistema (registro e listagem)
 // (5) Snapshot pré-migração de dados
 
-import { pb } from '@/lib/pocketbase/client'
+import pb from '@/lib/pocketbase/client'
 
 export interface CronRotinaStatus {
   chave: string

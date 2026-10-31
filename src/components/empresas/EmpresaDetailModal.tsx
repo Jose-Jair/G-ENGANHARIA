@@ -56,6 +56,8 @@ import {
   Sparkles,
   ArrowRight,
   ShieldAlert,
+  ShieldCheck,
+  HelpCircle,
   CalendarCheck,
   PhoneCall,
   Trash2,
@@ -785,7 +787,7 @@ export function EmpresaDetailModal({
                     </Badge>
                   )}
                   {empresa && (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <Badge
                         variant="outline"
                         className="font-mono bg-blue-50 text-blue-700 border-blue-300"
@@ -799,6 +801,36 @@ export function EmpresaDetailModal({
                       >
                         Índice: {empresa.score || 0}/100
                       </Badge>
+
+                      {/* Badge de Sanção CEIS / CNEP (sancionada / não verificada / verificada livre) */}
+                      {empresa.status_sancao === 'sancionada' ||
+                      empresa.cadencia_bloqueada_sancao ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-rose-50 text-rose-800 border-rose-300 gap-1 text-[10px] font-semibold"
+                          title={empresa.sancao_detalhe || 'Empresa sancionada no CEIS/CNEP'}
+                        >
+                          <ShieldAlert className="w-3 h-3 text-rose-600" />
+                          Sancionada (Cadência Bloqueada)
+                        </Badge>
+                      ) : empresa.status_sancao === 'sem_sancao' ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-50 text-emerald-800 border-emerald-300 gap-1 text-[10px] font-semibold"
+                        >
+                          <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                          Sanção Verificada
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="bg-amber-50 text-amber-800 border-amber-300 gap-1 text-[10px] font-semibold"
+                          title="Consulta de sanção não realizada ou aguardando chave da API do Portal da Transparência"
+                        >
+                          <HelpCircle className="w-3 h-3 text-amber-600" />
+                          Sanção Não Verificada
+                        </Badge>
+                      )}
                     </div>
                   )}
                 </div>
@@ -892,6 +924,24 @@ export function EmpresaDetailModal({
                 </span>
               </div>
             )}
+
+            {/* Banner de Bloqueio por Sanção se Houver */}
+            {empresa &&
+              (empresa.status_sancao === 'sancionada' || empresa.cadencia_bloqueada_sancao) && (
+                <div className="mt-2 px-3 py-2 bg-rose-50 border border-rose-300 rounded-md text-rose-900 text-xs flex items-start gap-2 font-medium">
+                  <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Bloqueio de Conformidade (CEIS / CNEP):</strong> Esta empresa possui
+                    sanção vigente. Novos toques de prospecção e campanhas automáticas estão
+                    suspensos por conformidade.
+                    {empresa.sancao_detalhe && (
+                      <span className="block text-[11px] text-rose-800 font-mono mt-0.5">
+                        Detalhes: {empresa.sancao_detalhe}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
           </DialogHeader>
 
           {/* Abas do Modal */}

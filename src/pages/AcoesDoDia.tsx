@@ -60,6 +60,7 @@ import { EventoCobrancaRecord, ResumoDiarioGestorRecord } from '@/types'
 import { CardResumoDiarioGestor } from '@/components/monitoramento/CardResumoDiarioGestor'
 import { CardCobrancaPrazo } from '@/components/monitoramento/CardCobrancaPrazo'
 import { BlocoOQueFazerHoje } from '@/components/funil/BlocoOQueFazerHoje'
+import { CardMetricasProspeccao } from '@/components/funil/CardMetricasProspeccao'
 import { TrilhaDoNegocio } from '@/components/comum/TrilhaDoNegocio'
 
 export default function AcoesDoDiaPage() {
@@ -535,6 +536,9 @@ export default function AcoesDoDiaPage() {
           </Button>
         </div>
       </div>
+
+      {/* CARTÃO DE MÉTRICAS DE PROSPECÇÃO POR FONTE (RODADA 14) */}
+      <CardMetricasProspeccao />
 
       {/* BLOCO UNIFICADO 'O QUE FAZER HOJE' (ENDPOINT CONSOLIDADO RODADA 10) */}
       <BlocoOQueFazerHoje

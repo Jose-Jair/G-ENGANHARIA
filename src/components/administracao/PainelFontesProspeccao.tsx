@@ -32,8 +32,7 @@ export function PainelFontesProspeccao() {
   const [fontes, setFontes] = useState<FonteProspeccaoRecord[]>([])
   const [lotes, setLotes] = useState<LoteProspeccaoAuditoriaRecord[]>([])
   const [loading, setLoading] = useState(false)
-  const [executandoVarredura, setExecutandoVarredura] = useState(false)
-  const [executandoTceCe, setExecutandoTceCe] = useState(false)
+  const [executandoFonteSlug, setExecutandoFonteSlug] = useState<string | null>(null)
   const [importandoCsv, setImportandoCsv] = useState(false)
   const [csvConteudo, setCsvConteudo] = useState('')
   const [fonteCsvDestino, setFonteCsvDestino] = useState('comprasnet_contratos')
@@ -75,46 +74,58 @@ export function PainelFontesProspeccao() {
     carregarDados()
   }, [])
 
-  const handleDispararPncp = async () => {
-    setExecutandoVarredura(true)
-    try {
-      const res = await prospeccaoService.dispararVarredura('pncp_contratos')
+  const handleDispararFonte = async (fonte: FonteProspeccaoRecord) => {
+    // Se for portal_transparencia e estiver desligado por falta de chave
+    if (fonte.slug === 'portal_transparencia' && !fonte.chave_configurada) {
       toast({
-        title: 'Varredura PNCP concluída',
-        description: `Lidos: ${res.resultado.total_lidos} | Novas Sugestões: ${res.resultado.novas_sugestoes} | Dedupe: ${res.resultado.duplicados_dedupe} | Descarte CPF: ${res.resultado.descartados_cpf}`,
-      })
-      carregarDados()
-    } catch (err) {
-      toast({
-        title: 'Falha na varredura',
-        description: String(err),
+        title: 'Fonte Desligada — Chave Ausente',
+        description:
+          fonte.aviso_configuracao ||
+          'Chave PORTAL_TRANSPARENCIA_API_KEY ausente no servidor. Configure a chave de API da CGU para ativar a consulta de sanções.',
         variant: 'destructive',
       })
-    } finally {
-      setExecutandoVarredura(false)
+      return
     }
-  }
 
-  const handleDispararTceCe = async () => {
-    setExecutandoTceCe(true)
-    try {
-      const res = await prospeccaoService.dispararVarredura('tce_ce_contratacoes', {
-        municipio: municipioSelecionado,
-        exercicio: exercicioSelecionado,
-      })
+    // Se for importador de CSV, orienta a usar a seção de importação
+    if (fonte.tipo === 'importador_csv') {
+      setFonteCsvDestino(fonte.slug)
       toast({
-        title: 'Varredura TCE-CE concluída',
+        title: `${fonte.nome} é um Importador de CSV`,
+        description:
+          'Utilize a seção "Importador de CSV com Mapeamento de Colunas Salvo" abaixo para ingerir o arquivo oficial.',
+      })
+      const secaoCsv = document.getElementById('secao-importador-csv')
+      if (secaoCsv) {
+        secaoCsv.scrollIntoView({ behavior: 'smooth' })
+      }
+      return
+    }
+
+    setExecutandoFonteSlug(fonte.slug)
+    try {
+      const params =
+        fonte.slug === 'tce_ce_contratacoes'
+          ? {
+              municipio: municipioSelecionado || fonte.municipios || '044',
+              exercicio: exercicioSelecionado || fonte.exercicio || 2024,
+            }
+          : undefined
+
+      const res = await prospeccaoService.dispararVarredura(fonte.slug, params)
+      toast({
+        title: `Varredura concluída: ${fonte.nome}`,
         description: `Lidos: ${res.resultado.total_lidos} | Novas Sugestões: ${res.resultado.novas_sugestoes} | Dedupe: ${res.resultado.duplicados_dedupe} | Descarte CPF: ${res.resultado.descartados_cpf}`,
       })
       carregarDados()
     } catch (err) {
       toast({
-        title: 'Falha na varredura TCE-CE',
+        title: `Falha na varredura (${fonte.nome})`,
         description: String(err),
         variant: 'destructive',
       })
     } finally {
-      setExecutandoTceCe(false)
+      setExecutandoFonteSlug(null)
     }
   }
 
@@ -264,21 +275,33 @@ export function PainelFontesProspeccao() {
           </Button>
           <Button
             size="sm"
-            onClick={handleDispararPncp}
-            disabled={executandoVarredura || executandoTceCe}
+            onClick={() => {
+              const fPncp = fontes.find((f) => f.slug === 'pncp_contratos')
+              if (fPncp) handleDispararFonte(fPncp)
+            }}
+            disabled={Boolean(executandoFonteSlug)}
             className="bg-[#D95A2B] hover:bg-[#c24e24] text-xs h-8 text-white gap-1.5"
           >
-            <Play className={`w-3.5 h-3.5 ${executandoVarredura ? 'animate-spin' : ''}`} />
-            {executandoVarredura ? 'Varrendo PNCP...' : 'Varredura PNCP'}
+            <Play
+              className={`w-3.5 h-3.5 ${executandoFonteSlug === 'pncp_contratos' ? 'animate-spin' : ''}`}
+            />
+            {executandoFonteSlug === 'pncp_contratos' ? 'Varrendo PNCP...' : 'Varredura PNCP'}
           </Button>
           <Button
             size="sm"
-            onClick={handleDispararTceCe}
-            disabled={executandoVarredura || executandoTceCe}
+            onClick={() => {
+              const fTce = fontes.find((f) => f.slug === 'tce_ce_contratacoes')
+              if (fTce) handleDispararFonte(fTce)
+            }}
+            disabled={Boolean(executandoFonteSlug)}
             className="bg-emerald-700 hover:bg-emerald-800 text-xs h-8 text-white gap-1.5"
           >
-            <Play className={`w-3.5 h-3.5 ${executandoTceCe ? 'animate-spin' : ''}`} />
-            {executandoTceCe ? 'Varrendo TCE-CE...' : 'Varredura TCE-CE'}
+            <Play
+              className={`w-3.5 h-3.5 ${executandoFonteSlug === 'tce_ce_contratacoes' ? 'animate-spin' : ''}`}
+            />
+            {executandoFonteSlug === 'tce_ce_contratacoes'
+              ? 'Varrendo TCE-CE...'
+              : 'Varredura TCE-CE'}
           </Button>
         </div>
       </div>
@@ -419,12 +442,50 @@ export function PainelFontesProspeccao() {
                     <div className="text-slate-400 text-[10px]">
                       Última execução: {formatDateTimeBr(f.ultima_execucao) || 'Nunca'}
                     </div>
-                    {f.ultimo_erro && (
-                      <div className="text-red-600 text-[10px] font-mono break-all">
-                        Último erro: {f.ultimo_erro}
+                    {f.ultimo_erro ? (
+                      <div className="p-2 rounded bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-mono break-all">
+                        <span className="font-bold block text-rose-800">Último erro real:</span>
+                        {f.ultimo_erro}
+                      </div>
+                    ) : (
+                      <div className="text-slate-400 text-[10px] italic">
+                        Último erro: nenhum registro de falha.
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Botão Rodar Agora por Fonte */}
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 mt-2">
+                  <span className="text-[10px] text-slate-400">
+                    {f.tipo === 'importador_csv'
+                      ? 'Upload de arquivo CSV'
+                      : f.tipo === 'transparencia_sancoes'
+                        ? 'Consulta sob demanda'
+                        : 'Disparo da API'}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant={isTransp && !f.chave_configurada ? 'outline' : 'default'}
+                    onClick={() => handleDispararFonte(f)}
+                    disabled={Boolean(executandoFonteSlug)}
+                    className={
+                      isTransp && !f.chave_configurada
+                        ? 'text-amber-700 border-amber-300 hover:bg-amber-50 h-7 text-xs gap-1'
+                        : isComprasnet || isCearaTransp
+                          ? 'bg-slate-800 hover:bg-slate-900 text-white h-7 text-xs gap-1'
+                          : 'bg-[#D95A2B] hover:bg-[#c24e24] text-white h-7 text-xs gap-1'
+                    }
+                  >
+                    <Play
+                      className={`w-3 h-3 ${executandoFonteSlug === f.slug ? 'animate-spin' : ''}`}
+                    />
+                    {executandoFonteSlug === f.slug
+                      ? 'Executando...'
+                      : isComprasnet || isCearaTransp
+                        ? 'Abrir Importador'
+                        : 'Rodar agora'}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -730,7 +791,7 @@ export function PainelFontesProspeccao() {
       )}
 
       {/* Seção Importador CSV Dinâmico (Comprasnet e Ceará Transparente) */}
-      <Card className="border-slate-200">
+      <Card id="secao-importador-csv" className="border-slate-200">
         <CardHeader className="p-4 pb-2">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>

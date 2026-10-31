@@ -333,6 +333,57 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
     ],
   },
   {
+    id: 'prospeccao-automatica',
+    titulo: 'Prospecção Automática & Fontes Públicas (Rodada 14)',
+    subtitulo:
+      'Varredura diária no PNCP e TCE-CE, importador CSV dinâmico, triagem em lote e conformidade CEIS/CNEP',
+    icone: Sparkles,
+    corIcone: 'text-[#D95A2B]',
+    perfisPermitidos: ['admin', 'comercial'],
+    descricao:
+      'Sistema automatizado de detecção de oportunidades de intermediação em contratos públicos de engenharia. O motor analisa dados oficiais (PNCP, TCE-CE SIM, Comprasnet e Ceará Transparente), enriquece dados via BrasilAPI/CNPJ, descarta CPFs e duplicidades, gera pontuação de relevância (Score ABC) e submete as oportunidades para triagem em lote.',
+    passos: [
+      {
+        titulo: '1. Fontes de Prospecção & Agendamento (Administração)',
+        descricao:
+          'Na aba "Fontes Prospecção" da Administração, visualize e gerencie as 5 fontes oficiais: PNCP Contratos (API pública diária), TCE-CE SIM Contratações (municípios e exercício configuráveis), Importador CSV Comprasnet, Importador CSV Ceará Transparente e Portal da Transparência CGU (sanções CEIS/CNEP). Cada fonte expõe parâmetros editáveis, agendamento diário às 03:00 (cron), registro da última execução com contador de lidos/sugeridos/incorporados, último erro real e botão "Rodar agora". O Portal da Transparência permanece desligado com aviso amigável caso a chave PORTAL_TRANSPARENCIA_API_KEY não esteja configurada no servidor.',
+        dica: 'Utilize o botão "Rodar agora" para disparar a extração imediata de uma fonte específica sem esperar pelo cron da madrugada.',
+      },
+      {
+        titulo: '2. Importador CSV Dinâmico com Mapeamento Salvo',
+        descricao:
+          'Para bases que não possuem API aberta (ex: Comprasnet após desligamento do endpoint ou Ceará Transparente), acerte o mapeamento dinâmico de colunas (CNPJ, Razão Social, Órgão, Contrato, Objeto, Valor, Vigência). O sistema salva as preferências na coleção fontes_prospeccao e ingere o arquivo oficial de forma idêntica à varredura automática.',
+      },
+      {
+        titulo: '3. Fila de Sugestões Reformulada & Filtros Avançados',
+        descricao:
+          'Em Funil › Sugestões (/funil/sugestoes), filtre a fila de oportunidades por fonte de origem, relevância (alta/média/baixa conforme score 0-100), UF e município, valor mínimo de contrato e status de vigência (vigente ou encerrado). Clique sobre qualquer sugestão para abrir a Ficha Completa com o objeto na íntegra, órgão contratante, vigência e link oficial do contrato.',
+      },
+      {
+        titulo: '4. Triagem em Lote (Aprovar, Descartar e Incorporar)',
+        descricao:
+          'Selecione múltiplas sugestões e execute ações em massa: "Aprovar Selecionadas" (para validação prévia), "Incorporar ao Funil" (cria a empresa na etapa Identificada do Funil Comercial e gera rascunho de contrato pré-preenchido) ou "Descartar com Motivo". Ao descartar, o operador obrigatoriamente preenche o motivo auditado e os e-mails associados alimentam a lista "Não Contatar" para proteger a conformidade LGPD da empresa.',
+      },
+      {
+        titulo: '5. Conformidade e Badge de Sanção (CEIS / CNEP)',
+        descricao:
+          'Na ficha da empresa e na Fila de Sugestões, o sistema exibe o badge de conformidade: "Sancionada" (bloqueio preventivo de toques de cadência e campanhas automáticas), "Sanção Verificada" (livre de penalidades) ou "Sanção Não Verificada" (caso a chave da CGU não esteja configurada).',
+      },
+      {
+        titulo: '6. Métricas por Fonte na Central de Ações',
+        descricao:
+          'Na Central de Ações (Ações do Dia), o cartão de métricas consolidadas exibe o placar de contratos lidos, sugestões geradas, empresas incorporadas e créditos de IA consumidos por cada fonte configurada.',
+      },
+    ],
+    regrasAutomaticas: [
+      'Deduplicação automática por CNPJ: contratos de empresas já presentes no banco ou em sugestões anteriores não geram registros duplicados.',
+      'Descarte automático de CPFs: contratos firmados com pessoas físicas são descartados da prospecção de empresas.',
+      'Enriquecimento automático via BrasilAPI: consulta dados cadastrais, CNAE e situação na Receita Federal.',
+      'Bloqueio de cadência para empresas com sanção confirmada (flag cadencia_bloqueada_sancao).',
+      'Descartes em lote alimentam compulsoriamente a lista Não Contatar.',
+    ],
+  },
+  {
     id: 'funil',
     titulo: 'Módulo Funil Comercial',
     subtitulo: 'Gestão visual Kanban em 9 etapas e classificação Curva ABC',

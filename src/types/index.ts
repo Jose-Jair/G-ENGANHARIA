@@ -164,6 +164,10 @@ export interface EmpresaRecord {
   proxima_acao_desc?: string
   observacoes?: string
   pre_cadastro?: boolean
+  status_sancao?: string
+  sancao_detalhe?: string
+  cadencia_bloqueada_sancao?: boolean
+  fonte_prospeccao_origem?: string
   created: string
   updated: string
   expand?: {

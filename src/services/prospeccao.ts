@@ -43,6 +43,19 @@ export interface FonteProspeccaoRecord {
   updated: string
 }
 
+export interface MetricPorFonte {
+  slug: string
+  nome: string
+  tipo: FonteProspeccaoTipo
+  ativo: boolean
+  total_lidos: number
+  total_sugeridos: number
+  total_incorporados: number
+  creditos_ia_gastos: number
+  ultima_execucao?: string
+  ultimo_status?: string
+}
+
 export interface MunicipioCearaItem {
   codigo: string
   nome: string
@@ -230,5 +243,42 @@ export const prospeccaoService = {
     return await pb.send('/backend/v1/prospeccao/probe-fontes-ceara-v5', {
       method: 'GET',
     })
+  },
+
+  /**
+   * Consolida métricas de prospecção por fonte a partir das fontes cadastradas e lotes de auditoria
+   */
+  async obterMetricasConsolidadas(): Promise<MetricPorFonte[]> {
+    const [fontes, lotes] = await Promise.all([
+      this.listarFontes(),
+      this.listarAuditoriaLotes(100).catch(() => [] as LoteProspeccaoAuditoriaRecord[]),
+    ])
+
+    // Mapa de créditos IA e status por fonte a partir dos lotes
+    const creditosPorFonte: Record<string, number> = {}
+    const ultimoStatusPorFonte: Record<string, string> = {}
+
+    for (const lote of lotes) {
+      if (lote.fonte_slug) {
+        creditosPorFonte[lote.fonte_slug] =
+          (creditosPorFonte[lote.fonte_slug] || 0) + (lote.creditos_ia_gastos || 0)
+        if (!ultimoStatusPorFonte[lote.fonte_slug]) {
+          ultimoStatusPorFonte[lote.fonte_slug] = lote.status
+        }
+      }
+    }
+
+    return fontes.map((f) => ({
+      slug: f.slug,
+      nome: f.nome,
+      tipo: f.tipo,
+      ativo: f.ativo,
+      total_lidos: f.total_lidos || 0,
+      total_sugeridos: f.total_sugeridos || 0,
+      total_incorporados: f.total_incorporados || 0,
+      creditos_ia_gastos: creditosPorFonte[f.slug] || 0,
+      ultima_execucao: f.ultima_execucao,
+      ultimo_status: ultimoStatusPorFonte[f.slug],
+    }))
   },
 }

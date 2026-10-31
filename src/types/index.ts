@@ -520,12 +520,20 @@ export interface CatalogoServicoRecord {
   }
 }
 
+export type OrigemCustoItem = 'catalogo' | 'pre_cotacao' | 'manual_auditado' | 'sem_cotacao'
+
 export interface PropostaItemRecord {
   id?: string
   proposta?: string
   servico?: string
   area?: string
   origem?: 'catalogo' | 'avulso'
+  origem_custo?: OrigemCustoItem
+  motivo_edicao_custo?: string
+  pre_cotacao_vencedora?: string
+  preco_travado?: number
+  prazo_travado_dias?: number
+  prestador_vencedor?: string
   subservicos?: string[] // IDs ou nomes de subserviços
   status_conversao?: 'nao_convertido' | 'convertido'
   projeto_gerado?: string
@@ -547,7 +555,80 @@ export interface PropostaItemRecord {
     area?: AreaAtuacaoRecord
     projeto_gerado?: ProjetoRecord
     etapa_gerada?: ProjetoEtapaRecord
+    prestador_vencedor?: PrestadorRecord
   }
+}
+
+export type StatusPreCotacao = 'aberta' | 'respondida' | 'encerrada' | 'convertida' | 'expirada'
+export type StatusPreCotacaoResposta =
+  | 'convite_enviado'
+  | 'enviada'
+  | 'travada'
+  | 'liberada'
+  | 'expirada'
+
+export interface PreCotacaoRecord {
+  id: string
+  codigo: string // PRE-AAAA-NNNN
+  proposta: string
+  item_proposta: string
+  disciplina: string
+  escopo_anonimizado: string
+  entregaveis_texto?: string
+  prazo_desejado_dias?: number
+  validade_dias?: number
+  data_limite: string
+  status: StatusPreCotacao
+  resposta_escolhida_id?: string
+  motivo_encerramento?: string
+  criado_por?: string
+  created: string
+  updated: string
+  respostas?: PreCotacaoRespostaItemDto[]
+}
+
+export interface PreCotacaoRespostaItemDto {
+  id: string
+  prestador_id: string
+  prestador_nome: string
+  preco_ofertado: number
+  prazo_ofertado_dias: number
+  premissas?: string
+  observacoes?: string
+  status: StatusPreCotacaoResposta
+  escolhida: boolean
+  aceite_vinculante: boolean
+  aceite_hash?: string
+  aceite_timestamp?: string
+  data_resposta?: string
+}
+
+export interface PreCotacaoRespostaPortalRecord {
+  id: string
+  pre_cotacao: string
+  prestador: string
+  codigo_pre_cotacao: string
+  disciplina: string
+  escopo_resumo: string
+  entregaveis_resumo: string
+  prazo_desejado_dias: number
+  data_limite_resposta: string
+  preco_ofertado?: number
+  prazo_ofertado_dias?: number
+  premissas?: string
+  observacoes?: string
+  aceite_vinculante?: boolean
+  aceite_hash?: string
+  aceite_ip?: string
+  aceite_user_agent?: string
+  aceite_timestamp?: string
+  data_resposta?: string
+  status: StatusPreCotacaoResposta
+  escolhida: boolean
+  aviso_liberacao?: string
+  data_liberacao?: string
+  created: string
+  updated: string
 }
 
 export interface PropostaRevisaoHistorico {

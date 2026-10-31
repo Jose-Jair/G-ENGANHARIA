@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T04:27:05.180Z",
+  "generatedAt": "2026-10-31T04:59:24.394Z",
   "collections": [
     {
       "name": "users",
@@ -707,12 +707,6 @@
         {
           "name": "modalidade",
           "type": "text",
-          "required": false,
-          "system": false
-        },
-        {
-          "name": "valor",
-          "type": "number",
           "required": false,
           "system": false
         },
@@ -1549,6 +1543,18 @@
           "type": "number",
           "required": false,
           "system": false
+        },
+        {
+          "name": "token_usado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_uso_token",
+          "type": "date",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -1780,12 +1786,6 @@
           "system": false
         },
         {
-          "name": "dados_bancarios",
-          "type": "text",
-          "required": false,
-          "system": false
-        },
-        {
           "name": "nda_contrato",
           "type": "file",
           "required": false,
@@ -1894,6 +1894,18 @@
         {
           "name": "telefones",
           "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "token_usado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_uso_token",
+          "type": "date",
           "required": false,
           "system": false
         }
@@ -2337,8 +2349,8 @@
       "name": "cotacoes",
       "type": "base",
       "apiRules": {
-        "list": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))) || (token != '' && (@request.query.token = token || token = @request.headers.x_token_cotacao))",
-        "view": "(@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))) || (token != '' && (@request.query.token = token || token = @request.headers.x_token_cotacao))",
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
         "create": null,
         "update": null,
         "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
@@ -4045,6 +4057,18 @@
           "type": "text",
           "required": false,
           "system": false
+        },
+        {
+          "name": "token_usado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_uso_token",
+          "type": "date",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -4389,6 +4413,18 @@
         {
           "name": "tentativas_token",
           "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "token_usado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_uso_token",
+          "type": "date",
           "required": false,
           "system": false
         }
@@ -4765,12 +4801,6 @@
           "system": false
         },
         {
-          "name": "dados_bancarios",
-          "type": "text",
-          "required": false,
-          "system": false
-        },
-        {
           "name": "nda_contrato",
           "type": "file",
           "required": false,
@@ -4914,20 +4944,20 @@
           "collectionRef": "users"
         },
         {
-          "name": "custo_mensal",
-          "type": "number",
-          "required": false,
-          "system": false
-        },
-        {
           "name": "horas_mes",
           "type": "number",
           "required": false,
           "system": false
         },
         {
-          "name": "custo_hora",
-          "type": "number",
+          "name": "token_usado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_uso_token",
+          "type": "date",
           "required": false,
           "system": false
         }
@@ -6890,8 +6920,8 @@
       "name": "pre_cotacao_respostas",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
-        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
         "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial')",
         "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
         "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
@@ -7743,8 +7773,8 @@
       "name": "scorecards",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && prestador_email = @request.auth.email))",
-        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && prestador_email = @request.auth.email))",
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador_email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador_email = @request.auth.email))",
         "create": null,
         "update": null,
         "delete": null
@@ -8095,6 +8125,92 @@
         "CREATE INDEX idx_issues_status ON issues_revisao (status)",
         "CREATE INDEX idx_issues_severidade ON issues_revisao (severidade)",
         "CREATE INDEX idx_issues_origem ON issues_revisao (origem)"
+      ]
+    },
+    {
+      "name": "decisoes_acoes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "tipo_item",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "item_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "impacto",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "resolvido_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "resolvido_por_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resolvido_por_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "parecer_resolucao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "acao_tomada",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_decisao_item ON decisoes_acoes (tipo_item, item_id)",
+        "CREATE INDEX idx_decisao_resolvido_por ON decisoes_acoes (resolvido_por)"
       ]
     }
   ]

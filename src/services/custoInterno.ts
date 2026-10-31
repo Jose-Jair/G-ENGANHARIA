@@ -63,12 +63,12 @@ export const custoInternoService = {
     const record = await pb.collection('custos_profissional').create<CustoProfissionalRecord>({
       prestador: params.prestadorId,
       data_inicio: params.dataInicio,
-      data_fim: params.dataFim || null,
+      data_fim: params.dataFim || '',
       custo_mensal: params.custoMensal,
       horas_mes: params.horasMes,
       custo_hora: custoHora,
       observacoes: params.observacoes || '',
-      criado_por: pb.authStore.record?.id || null,
+      criado_por: pb.authStore.record?.id || '',
     })
     return record
   },
@@ -124,14 +124,17 @@ export const custoInternoService = {
     decisao: 'aprovado' | 'rejeitado',
     motivoRejeicao = '',
   ): Promise<{ success: boolean; processados: number; decisao: string }> {
-    const res = await pb.send('/backend/v1/apontamentos/aprovar-lote', {
-      method: 'POST',
-      body: {
-        apontamento_ids: apontamentoIds,
-        decisao,
-        motivo_rejeicao: motivoRejeicao,
+    const res = await pb.send<{ success: boolean; processados: number; decisao: string }>(
+      '/backend/v1/apontamentos/aprovar-lote',
+      {
+        method: 'POST',
+        body: {
+          apontamento_ids: apontamentoIds,
+          decisao,
+          motivo_rejeicao: motivoRejeicao,
+        },
       },
-    })
+    )
     return res
   },
 
@@ -139,9 +142,12 @@ export const custoInternoService = {
   // Recálculo da OS Interna
   // --------------------------------------------------------------------------
   async recalcularOsInterna(osId: string): Promise<RecalcularOsResponse> {
-    const res = await pb.send(`/backend/v1/ordens-servico/${osId}/recalcular-custo-interno`, {
-      method: 'POST',
-    })
+    const res = await pb.send<RecalcularOsResponse>(
+      `/backend/v1/ordens-servico/${osId}/recalcular-custo-interno`,
+      {
+        method: 'POST',
+      },
+    )
     return res
   },
 
@@ -159,9 +165,12 @@ export const custoInternoService = {
     disciplina?: string,
   ): Promise<IndicadoresFazerDentroForaResponse> {
     const q = disciplina ? `?disciplina=${encodeURIComponent(disciplina)}` : ''
-    const res = await pb.send(`/backend/v1/indicadores/fazer-dentro-ou-fora${q}`, {
-      method: 'GET',
-    })
+    const res = await pb.send<IndicadoresFazerDentroForaResponse>(
+      `/backend/v1/indicadores/fazer-dentro-ou-fora${q}`,
+      {
+        method: 'GET',
+      },
+    )
     return res
   },
 }

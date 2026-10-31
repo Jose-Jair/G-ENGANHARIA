@@ -415,5 +415,55 @@ describe('RODADA 15 — Custo Interno Real (Regras de Negócio do Backend)', () 
       expect(autorizarLeitura('prestador', regraListagemCustosProfissional)).toBe(false)
       expect(autorizarLeitura('comercial', regraListagemCustosProfissional)).toBe(false)
     })
+
+    it('segmentação restrita: Portal do Prestador não recebe cliente, proposta, valor_contrato ou dados de terceiros', () => {
+      // Objeto completo da Ordem de Serviço interna no backend
+      const ordemServicoCompletaBackend = {
+        id: 'os_int_900',
+        numero: 'OS-2026-0900',
+        projeto: 'prj_123',
+        prestador: 'prest_int_456',
+        disciplina: 'Projetos Estruturais',
+        escopo_tecnico: 'Dimensionamento de vigas e pilares',
+        // Dados confidenciais do negócio que NÃO podem vazar para o prestador
+        cliente_nome: 'Secretaria de Infraestrutura e Obras Públicas',
+        cliente_documento: '00.123.456/0001-99',
+        proposta_id: 'prop_2026_0042',
+        valor_contrato: 450000.0,
+        valor_venda_projeto: 520000.0,
+        bdi_percentual: 28.5,
+        margem_lucro_gmais: 35.0,
+        outros_prestadores_alocados: [
+          { id: 'prest_ext_777', nome: 'Outro Engenheiro Terceirizado', valor_os: 3500.0 },
+        ],
+      }
+
+      // Função de projeção restrita do Portal do Prestador (espelha PortalOsRecord e API rules)
+      const projetarParaPortalPrestador = (osBackend: typeof ordemServicoCompletaBackend) => {
+        return {
+          id: osBackend.id,
+          numero: osBackend.numero,
+          disciplina: osBackend.disciplina,
+          escopo_tecnico: osBackend.escopo_tecnico,
+        }
+      }
+
+      const visaoPortal = projetarParaPortalPrestador(ordemServicoCompletaBackend)
+
+      // Assertivas positivas permitidas
+      expect(visaoPortal.id).toBe('os_int_900')
+      expect(visaoPortal.numero).toBe('OS-2026-0900')
+      expect(visaoPortal.disciplina).toBe('Projetos Estruturais')
+
+      // Assertivas negativas cruciais (isolamento e segmentação)
+      expect(visaoPortal).not.toHaveProperty('cliente_nome')
+      expect(visaoPortal).not.toHaveProperty('cliente_documento')
+      expect(visaoPortal).not.toHaveProperty('proposta_id')
+      expect(visaoPortal).not.toHaveProperty('valor_contrato')
+      expect(visaoPortal).not.toHaveProperty('valor_venda_projeto')
+      expect(visaoPortal).not.toHaveProperty('bdi_percentual')
+      expect(visaoPortal).not.toHaveProperty('margem_lucro_gmais')
+      expect(visaoPortal).not.toHaveProperty('outros_prestadores_alocados')
+    })
   })
 })

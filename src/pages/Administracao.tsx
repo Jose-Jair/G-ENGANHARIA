@@ -22,6 +22,7 @@ import { GestaoLinksRecrutamento } from '@/components/administracao/GestaoLinksR
 import { PainelLimpezaDadosNegocio } from '@/components/administracao/PainelLimpezaDadosNegocio'
 import { PainelSmtpSeguranca } from '@/components/administracao/PainelSmtpSeguranca'
 import { PainelFontesProspeccao } from '@/components/administracao/PainelFontesProspeccao'
+import { PainelFazerDentroFora } from '@/components/administracao/PainelFazerDentroFora'
 import { AreaAtuacaoRecord } from '@/types'
 import { formatCurrencyBr } from '@/lib/formatters'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -70,6 +71,7 @@ import {
   Mail,
   Link as LinkIcon,
   Globe,
+  Scale,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { formatDateBr, formatDateTimeBr } from '@/lib/formatters'
@@ -717,6 +719,13 @@ export default function AdministracaoPage() {
             <span>Fontes Prospecção</span>
           </TabsTrigger>
           <TabsTrigger
+            value="fazer_dentro_fora"
+            className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white"
+          >
+            <Scale className="w-4 h-4 text-[#D95A2B]" />
+            <span>Fazer Dentro ou Fora</span>
+          </TabsTrigger>
+          <TabsTrigger
             value="smtp_seguranca"
             className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white"
           >
@@ -1092,12 +1101,23 @@ export default function AdministracaoPage() {
         {/* 2. ABA PARÂMETROS */}
         <TabsContent value="parametros" className="space-y-4">
           <Card className="border-slate-200">
-            <CardHeader>
-              <CardTitle className="text-lg">Parâmetros do Sistema</CardTitle>
-              <CardDescription className="text-xs">
-                Chaves de configuração global que ditam cadências de prospecção, carências de
-                nutrição, alertas de vencimento documental e prazos operacionais.
-              </CardDescription>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <CardTitle className="text-lg">Parâmetros do Sistema</CardTitle>
+                <CardDescription className="text-xs">
+                  Chaves de configuração global que ditam cadências de prospecção, carências de
+                  nutrição, alertas de vencimento documental, prazos operacionais e limites de
+                  apontamento (custo interno).
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="text-[11px] bg-orange-50 border-orange-200 text-[#D95A2B] font-semibold"
+                >
+                  Custo Interno: Retroativo Máximo (7d) & Passo (0,25h)
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -1206,6 +1226,18 @@ export default function AdministracaoPage() {
                             pre_cotacao_tolerancia_variacao_pct: {
                               titulo: 'Pré-Cotação: Tolerância de Variação de Preço (%)',
                               badge: 'Pré-Cotação Vinculante',
+                            },
+                            apontamento_retroativo_max_dias: {
+                              titulo: 'Apontamento: Retroativo Máximo Permitido (dias)',
+                              badge: 'Custo Interno Real',
+                            },
+                            apontamento_passo_horas: {
+                              titulo: 'Apontamento: Fração Mínima de Horas (Passo)',
+                              badge: 'Custo Interno Real',
+                            },
+                            apontamento_horas_dia_padrao: {
+                              titulo: 'Apontamento: Carga Horária Padrão Diária (horas/dia)',
+                              badge: 'Custo Interno Real',
                             },
                           }
                         const infoAmigavel = rotulosAmigaveis[param.chave]
@@ -1446,6 +1478,11 @@ export default function AdministracaoPage() {
               loadCatalogo()
             }}
           />
+        </TabsContent>
+
+        {/* ABA FAZER DENTRO OU FORA (RODADA 15) */}
+        <TabsContent value="fazer_dentro_fora" className="space-y-4">
+          <PainelFazerDentroFora />
         </TabsContent>
 
         {/* ABA SMTP & SELFCHECK (NOVO RODADA 11) */}

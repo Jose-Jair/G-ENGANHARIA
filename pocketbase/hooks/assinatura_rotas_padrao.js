@@ -447,17 +447,24 @@ routerAdd('POST', '/backend/v1/ordens-servico/{id}/aceite-interno', (e) => {
 
     const nowIso = new Date().toISOString()
 
+    const temOtp = false
     let clausulaPadrao =
-      'CLÁUSULA DE ACEITE DE ASSINATURA ELETRÔNICA: As partes declaram e reconhecem expressamente a validade, ' +
-      'integridade e eficácia jurídica desta contratação formalizada por meio eletrônico, nos termos da Medida ' +
-      'Provisória nº 2.200-2/2001 e da Lei Federal nº 14.063/2020.'
+      'CLÁUSULA DE ACEITE DE ASSINATURA ELETRÔNICA: As partes declaram e reconhecem expressamente a validade, integridade e eficácia jurídica desta formalização interna realizada por meio eletrônico, nos termos da Medida Provisória nº 2.200-2/2001 e da Lei Federal nº 14.063/2020, admitindo como prova de autoria, integridade e tempestividade o registro da data e hora da manifestação, o endereço IP de conexão, a identificação do navegador (user agent) e o hash criptográfico SHA-256 gerado no momento do aceite.'
     try {
       const p = $app.findFirstRecordByData(
         'parametros',
         'chave',
         'clausula_assinatura_eletronica_padrao',
       )
-      if (p && p.getString('valor')) clausulaPadrao = p.getString('valor')
+      if (p && p.getString('valor')) {
+        const textoParam = p.getString('valor')
+        if (/código OTP|código de 6 dígitos/i.test(textoParam)) {
+          clausulaPadrao =
+            'CLÁUSULA DE ACEITE DE ASSINATURA ELETRÔNICA: As partes declaram e reconhecem expressamente a validade, integridade e eficácia jurídica desta formalização interna realizada por meio eletrônico, nos termos da Medida Provisória nº 2.200-2/2001 e da Lei Federal nº 14.063/2020, admitindo como prova de autoria, integridade e tempestividade o registro da data e hora da manifestação, o endereço IP de conexão, a identificação do navegador (user agent) e o hash criptográfico SHA-256 gerado no momento do aceite.'
+        } else {
+          clausulaPadrao = textoParam
+        }
+      }
     } catch (_) {}
 
     const textoBase =

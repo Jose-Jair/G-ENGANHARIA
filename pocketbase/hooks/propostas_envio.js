@@ -541,20 +541,24 @@ routerAdd('POST', '/backend/v1/propostas/enviar-email', (e) => {
   }
 
   const numeroProposta = proposta.get('numero') || 'PROP'
-  const empreendimento = proposta.get('empreendimento') || 'Empreendimento'
+  const empreendimento = (proposta.get('empreendimento') || '').toString().trim()
   const objeto =
     proposta.get('objeto') || proposta.get('escopo') || 'Serviços de Engenharia Consultiva'
 
   const assuntoFinal =
     assuntoCustomizado || 'Proposta Comercial ' + numeroProposta + ' — G+ Engenharia'
 
+  const trechoEmpreendimentoHtml = empreendimento
+    ? ' para o empreendimento <em>' + empreendimento + '</em>'
+    : ''
+
   const textoPrincipalHtml = corpoCustomizado
     ? corpoCustomizado.replace(/\n/g, '<br/>')
     : 'Apresentamos a proposta comercial e técnica <strong>' +
       numeroProposta +
-      '</strong> para o empreendimento <em>' +
-      empreendimento +
-      '</em>.<br/><br/>' +
+      '</strong>' +
+      trechoEmpreendimentoHtml +
+      '.<br/><br/>' +
       'Para visualizar os detalhes técnicos, escopo, entregáveis e formalizar o seu <strong>aceite eletrônico</strong>, acesse o link seguro abaixo:'
 
   const htmlBody = `
@@ -600,10 +604,14 @@ routerAdd('POST', '/backend/v1/propostas/enviar-email', (e) => {
                   <td width="35%" style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Proposta:</td>
                   <td style="color: #0f172a; font-weight: bold; border-bottom: 1px solid #edf2f7;">${numeroProposta}</td>
                 </tr>
-                <tr>
+                ${
+                  empreendimento
+                    ? `<tr>
                   <td style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Empreendimento:</td>
                   <td style="color: #0f172a; border-bottom: 1px solid #edf2f7;">${empreendimento}</td>
-                </tr>
+                </tr>`
+                    : ''
+                }
                 <tr>
                   <td style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Objeto / Escopo:</td>
                   <td style="color: #0f172a; border-bottom: 1px solid #edf2f7;">${objeto}</td>
@@ -865,20 +873,24 @@ routerAdd('POST', '/backend/v1/gmais/propostas/{id}/enviar-email', (e) => {
   }
 
   const numeroProposta = proposta.get('numero') || 'PROP'
-  const empreendimento = proposta.get('empreendimento') || 'Empreendimento'
+  const empreendimento = (proposta.get('empreendimento') || '').toString().trim()
   const objeto =
     proposta.get('objeto') || proposta.get('escopo') || 'Serviços de Engenharia Consultiva'
 
   const assuntoFinal =
     assuntoCustomizado || 'Proposta Comercial ' + numeroProposta + ' — G+ Engenharia'
 
+  const trechoEmpreendimentoHtml = empreendimento
+    ? ' para o empreendimento <em>' + empreendimento + '</em>'
+    : ''
+
   const textoPrincipalHtml = corpoCustomizado
     ? corpoCustomizado.replace(/\n/g, '<br/>')
     : 'Apresentamos a proposta comercial e técnica <strong>' +
       numeroProposta +
-      '</strong> para o empreendimento <em>' +
-      empreendimento +
-      '</em>.<br/><br/>' +
+      '</strong>' +
+      trechoEmpreendimentoHtml +
+      '.<br/><br/>' +
       'Para visualizar os detalhes técnicos, escopo, entregáveis e formalizar o seu <strong>aceite eletrônico</strong>, acesse o link seguro abaixo:'
 
   const htmlBody = `
@@ -924,10 +936,14 @@ routerAdd('POST', '/backend/v1/gmais/propostas/{id}/enviar-email', (e) => {
                   <td width="35%" style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Proposta:</td>
                   <td style="color: #0f172a; font-weight: bold; border-bottom: 1px solid #edf2f7;">${numeroProposta}</td>
                 </tr>
-                <tr>
+                ${
+                  empreendimento
+                    ? `<tr>
                   <td style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Empreendimento:</td>
                   <td style="color: #0f172a; border-bottom: 1px solid #edf2f7;">${empreendimento}</td>
-                </tr>
+                </tr>`
+                    : ''
+                }
                 <tr>
                   <td style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Objeto / Escopo:</td>
                   <td style="color: #0f172a; border-bottom: 1px solid #edf2f7;">${objeto}</td>

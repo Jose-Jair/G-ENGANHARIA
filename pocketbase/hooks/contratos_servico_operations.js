@@ -2502,17 +2502,30 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
       ).trim() || 'Navegador Web'
     const nowIso = new Date().toISOString()
 
-    let clausulaPadrao =
-      'CLÁUSULA DE ACEITE DE ASSINATURA ELETRÔNICA: As partes declaram e reconhecem expressamente a validade, ' +
-      'integridade e eficácia jurídica desta contratação formalizada por meio eletrônico, nos termos da Medida ' +
-      'Provisória nº 2.200-2/2001 e da Lei Federal nº 14.063/2020.'
+    const temOtp = Boolean(codigoHashEsperado)
+    let clausulaPadrao = temOtp
+      ? 'CLÁUSULA DE ACEITE DE ASSINATURA ELETRÔNICA: As partes declaram e reconhecem expressamente a validade, integridade e eficácia jurídica desta contratação formalizada por meio eletrônico, nos termos da Medida Provisória nº 2.200-2/2001 e da Lei Federal nº 14.063/2020, admitindo como válidas as assinaturas eletrônicas emitidas mediante verificação de código OTP de 6 dígitos enviado por e-mail, registro de endereço IP, user-agent, carimbo de tempo UTC e hash criptográfico SHA-256 do documento congelado.'
+      : 'CLÁUSULA DE ACEITE DE ASSINATURA ELETRÔNICA: As partes declaram e reconhecem expressamente a validade, integridade e eficácia jurídica desta contratação formalizada por meio eletrônico, nos termos da Medida Provisória nº 2.200-2/2001 e da Lei Federal nº 14.063/2020, admitindo como prova de autoria, integridade e tempestividade o registro da data e hora da manifestação, o endereço IP de conexão, a identificação do navegador (user agent) e o hash criptográfico SHA-256 gerado no momento do aceite.'
     try {
       const p = $app.findFirstRecordByData(
         'parametros',
         'chave',
         'clausula_assinatura_eletronica_padrao',
       )
-      if (p && p.getString('valor')) clausulaPadrao = p.getString('valor')
+      if (p && p.getString('valor')) {
+        const textoParam = p.getString('valor')
+        if (temOtp) {
+          clausulaPadrao = textoParam
+        } else {
+          // Se o parâmetro do banco contiver menção explícita a OTP, substitui pela redação por clique
+          if (/código OTP|código de 6 dígitos/i.test(textoParam)) {
+            clausulaPadrao =
+              'CLÁUSULA DE ACEITE DE ASSINATURA ELETRÔNICA: As partes declaram e reconhecem expressamente a validade, integridade e eficácia jurídica desta contratação formalizada por meio eletrônico, nos termos da Medida Provisória nº 2.200-2/2001 e da Lei Federal nº 14.063/2020, admitindo como prova de autoria, integridade e tempestividade o registro da data e hora da manifestação, o endereço IP de conexão, a identificação do navegador (user agent) e o hash criptográfico SHA-256 gerado no momento do aceite.'
+          } else {
+            clausulaPadrao = textoParam
+          }
+        }
+      }
     } catch (_) {}
 
     const hashPayload =

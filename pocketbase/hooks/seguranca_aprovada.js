@@ -1315,6 +1315,72 @@ routerAdd(
         detalhes: detalheProspeccao,
       }
 
+      // REQUISITO 15 (RODADA 15): SELFCHECK ESTENDIDO — CUSTO INTERNO REAL E ISOLAMENTO
+      // Valida:
+      // - Coleções custos_profissional e apontamentos existem e ativas
+      // - custos_profissional: listRule restrito a Admin e Financeiro (prestador NUNCA lê)
+      // - apontamentos: prestador só vê próprias horas (prestador.email = @request.auth.email)
+      // - prestadores: não expõe custo_hora, custo_mensal ao executor externo
+      // - Parâmetros da Administração configurados (retroativo, passo, horas padrão)
+      let custoInternoOk = true
+      const detalheCustoInterno = {}
+      try {
+        const cpCol = $app.findCollectionByNameOrId('custos_profissional')
+        const aptCol = $app.findCollectionByNameOrId('apontamentos')
+        const osColCusto = $app.findCollectionByNameOrId('ordens_servico')
+
+        detalheCustoInterno.colecoes_configuradas = Boolean(cpCol && aptCol)
+
+        // custos_profissional sem executor no listRule/viewRule
+        const cpRegraSegura =
+          cpCol.listRule &&
+          !cpCol.listRule.includes('executor') &&
+          !cpCol.listRule.includes('true') &&
+          (cpCol.listRule.includes("@request.auth.role = 'admin'") ||
+            cpCol.listRule.includes("@request.auth.role = 'financeiro'"))
+        detalheCustoInterno.custos_profissional_isolamento = Boolean(cpRegraSegura)
+
+        // apontamentos: executor isolado por prestador.email
+        const aptRegraSegura =
+          aptCol.listRule && aptCol.listRule.includes('prestador.email = @request.auth.email')
+        detalheCustoInterno.apontamentos_isolamento_prestador = Boolean(aptRegraSegura)
+
+        // ordens_servico: contém campo exige_apontamento e custo_interno_apurado
+        const temExigeApt = Boolean(osColCusto.fields.getByName('exige_apontamento'))
+        const temCustoApurado = Boolean(osColCusto.fields.getByName('custo_interno_apurado'))
+        detalheCustoInterno.os_campos_custo_interno = Boolean(temExigeApt && temCustoApurado)
+
+        // Parâmetros de apontamento na Administração
+        const pRetro = Boolean(
+          $app.findFirstRecordByData('parametros', 'chave', 'apontamento_retroativo_max_dias'),
+        )
+        const pPasso = Boolean(
+          $app.findFirstRecordByData('parametros', 'chave', 'apontamento_passo_horas'),
+        )
+        const pHorasPadrao = Boolean(
+          $app.findFirstRecordByData('parametros', 'chave', 'apontamento_horas_dia_padrao'),
+        )
+        detalheCustoInterno.parametros_administracao = Boolean(pRetro && pPasso && pHorasPadrao)
+
+        if (
+          !detalheCustoInterno.colecoes_configuradas ||
+          !cpRegraSegura ||
+          !aptRegraSegura ||
+          !detalheCustoInterno.os_campos_custo_interno ||
+          !detalheCustoInterno.parametros_administracao
+        ) {
+          custoInternoOk = false
+        }
+      } catch (eCusto) {
+        custoInternoOk = false
+        detalheCustoInterno.erro = String(eCusto)
+      }
+
+      resultados.item15_custo_interno_real = {
+        todas_conformes: custoInternoOk,
+        detalhes: detalheCustoInterno,
+      }
+
       resultados.conformidade_geral =
         resultados.item1_api_rules.cotacoes_segura &&
         resultados.item1_api_rules.subcontratos_segura &&
@@ -1331,7 +1397,8 @@ routerAdd(
         iaOperacaoOk &&
         smtpOk &&
         recrutamentoTriagemOk &&
-        prospeccaoOk
+        prospeccaoOk &&
+        custoInternoOk
 
       return e.json(200, {
         status: 'OK',

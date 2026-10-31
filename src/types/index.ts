@@ -1371,7 +1371,7 @@ export type StatusConta =
 
 export interface ContaRecord {
   id: string
-  tipo: 'receber' | 'pagar'
+  tipo: 'receber' | 'pagar' | 'custo_interno'
   projeto?: string
   proposta?: string
   contrato_servico?: string
@@ -1667,6 +1667,11 @@ export interface PrestadorRecord {
   parecer_triagem?: string
   triado_por?: string
 
+  // Novos campos Rodada 15 (Custo Interno Real)
+  custo_mensal?: number
+  horas_mes?: number
+  custo_hora?: number
+
   created: string
   updated: string
   expand?: {
@@ -1806,6 +1811,16 @@ export interface OrdemServicoRecord {
   emitido_por?: string
   token_expiracao?: string
   tentativas_token?: number
+
+  // Novos campos Rodada 15 (Custo Interno Real)
+  exige_apontamento?: boolean
+  horas_estimadas?: number
+  lead_time_dias_corridos?: number
+  lead_time_dias_uteis?: number
+  ciclos_revisao?: number
+  custo_interno_apurado?: number
+  status_custo_interno?: 'configurado' | 'nao_configurado'
+
   created: string
   updated: string
   expand?: {
@@ -2016,6 +2031,71 @@ export interface EventoCobrancaRecord {
     destinatario_usuario?: UserRecord
     destinatario_prestador?: PrestadorRecord
   }
+}
+
+// =============================================================================
+// RODADA 15 — CUSTO INTERNO REAL, APONTAMENTOS E VIGÊNCIAS
+// =============================================================================
+
+export interface CustoProfissionalRecord {
+  id: string
+  prestador: string
+  data_inicio: string
+  data_fim?: string
+  custo_mensal: number
+  horas_mes: number
+  custo_hora: number
+  observacoes?: string
+  criado_por?: string
+  created: string
+  updated: string
+  expand?: {
+    prestador?: PrestadorRecord
+    criado_por?: UserRecord
+  }
+}
+
+export type AtividadeApontamento = 'producao' | 'revisao' | 'correcao' | 'reuniao'
+export type OrigemApontamento = 'manual' | 'automatico'
+export type StatusApontamento = 'pendente' | 'aprovado' | 'rejeitado'
+
+export interface ApontamentoRecord {
+  id: string
+  os: string
+  prestador: string
+  data: string
+  horas: number
+  atividade: AtividadeApontamento
+  origem: OrigemApontamento
+  status?: StatusApontamento
+  aprovado_por?: string
+  data_aprovacao?: string
+  descricao?: string
+  motivo_rejeicao?: string
+  created: string
+  updated: string
+  expand?: {
+    os?: OrdemServicoRecord
+    prestador?: PrestadorRecord
+    aprovado_por?: UserRecord
+  }
+}
+
+export interface IndicadorFazerDentroFora {
+  disciplina: string
+  custo_interno_hora: number
+  custo_interno_padrao_40h: number
+  referencia_externa_valor: number
+  origem_referencia_externa: 'pre_cotacao' | 'catalogo' | 'sem_referencia'
+  recomendacao: 'fazer_dentro' | 'fazer_fora' | 'indiferente'
+  economia_estimada_perc: number
+  prestadores_internos_disponiveis: number
+}
+
+export interface IndicadoresFazerDentroForaResponse {
+  success: boolean
+  total_disciplinas: number
+  indicadores: IndicadorFazerDentroFora[]
 }
 
 export interface ItemAtencaoResumo {

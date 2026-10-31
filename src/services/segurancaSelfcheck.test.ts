@@ -113,5 +113,18 @@ describe('Endpoint de Autochecagem de Segurança (/backend/v1/seguranca/selfchec
     ).toBe(true)
     // Se chave ausente, nunca finge sucesso: status 'pendente'
     expect(res.resultados.item14_prospeccao_automatica.detalhes.transparencia_status).toBeDefined()
+
+    // Item 15: Custo Interno Real e Isolamento (Rodada 15)
+    expect(res.resultados.item15_custo_interno_real).toBeDefined()
+    expect(res.resultados.item15_custo_interno_real.todas_conformes).toBe(true)
+    expect(res.resultados.item15_custo_interno_real.detalhes.colecoes_configuradas).toBe(true)
+    expect(res.resultados.item15_custo_interno_real.detalhes.custos_profissional_isolamento).toBe(
+      true,
+    )
+    expect(
+      res.resultados.item15_custo_interno_real.detalhes.apontamentos_isolamento_prestador,
+    ).toBe(true)
+    expect(res.resultados.item15_custo_interno_real.detalhes.os_campos_custo_interno).toBe(true)
+    expect(res.resultados.item15_custo_interno_real.detalhes.parametros_administracao).toBe(true)
   })
 })

@@ -86,6 +86,17 @@ interface SelfcheckResultados {
       erro?: string
     }
   }
+  item15_custo_interno_real?: {
+    todas_conformes?: boolean
+    detalhes?: {
+      colecoes_configuradas?: boolean
+      custos_profissional_isolamento?: boolean
+      apontamentos_isolamento_prestador?: boolean
+      os_campos_custo_interno?: boolean
+      parametros_administracao?: boolean
+      erro?: string
+    }
+  }
   conformidade_geral?: boolean
 }
 
@@ -524,6 +535,32 @@ export const PainelSmtpSeguranca: React.FC = () => {
                         {smtp.detalhes.motivo}
                       </span>
                     )}
+                  </p>
+                </div>
+
+                {/* 15. Custo Interno Real (Novo Rodada 15) */}
+                <div className="p-3 border rounded-lg bg-white space-y-1 ring-1 ring-[#D95A2B]/30">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span className="text-[#D95A2B]">15. Custo Interno Real & Isolamento</span>
+                    {res?.item15_custo_interno_real?.todas_conformes ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    )}
+                  </div>
+                  <p className="text-slate-500 text-[11px]">
+                    Vigências protegidas:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item15_custo_interno_real?.detalhes?.custos_profissional_isolamento
+                        ? 'Sim (Admin/Fin)'
+                        : 'Não'}
+                    </strong>{' '}
+                    | Apontamentos isolados por dono:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item15_custo_interno_real?.detalhes?.apontamentos_isolamento_prestador
+                        ? 'Sim'
+                        : 'Não'}
+                    </strong>
                   </p>
                 </div>
               </div>

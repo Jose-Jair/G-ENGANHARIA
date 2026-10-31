@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T01:45:24.451Z",
+  "generatedAt": "2026-10-31T01:59:45.655Z",
   "collections": [
     {
       "name": "users",
@@ -2621,7 +2621,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["receber", "pagar"]
+          "selectValues": ["receber", "pagar", "custo_interno"]
         },
         {
           "name": "projeto",
@@ -4912,6 +4912,24 @@
           "required": false,
           "system": false,
           "collectionRef": "users"
+        },
+        {
+          "name": "custo_mensal",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "horas_mes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "custo_hora",
+          "type": "number",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -5549,6 +5567,49 @@
           "type": "text",
           "required": false,
           "system": false
+        },
+        {
+          "name": "exige_apontamento",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "horas_estimadas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lead_time_dias_corridos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lead_time_dias_uteis",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ciclos_revisao",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "custo_interno_apurado",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_custo_interno",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["configurado", "nao_configurado"]
         }
       ],
       "indexes": [
@@ -7385,6 +7446,192 @@
         "CREATE INDEX idx_exclusoes_prospeccao_cnpj ON exclusoes_prospeccao (cnpj)",
         "CREATE INDEX idx_exclusoes_prospeccao_cnae ON exclusoes_prospeccao (cnae)",
         "CREATE INDEX idx_exclusoes_prospeccao_ativo ON exclusoes_prospeccao (ativo)"
+      ]
+    },
+    {
+      "name": "custos_profissional",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'financeiro')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'financeiro')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'financeiro')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'financeiro')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "prestador",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "prestadores"
+        },
+        {
+          "name": "data_inicio",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_fim",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "custo_mensal",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "horas_mes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "custo_hora",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_cp_prestador ON custos_profissional (prestador)",
+        "CREATE INDEX idx_cp_data_inicio ON custos_profissional (data_inicio)"
+      ]
+    },
+    {
+      "name": "apontamentos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email && status = 'pendente'))",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email && status = 'pendente'))"
+      },
+      "fields": [
+        {
+          "name": "os",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "ordens_servico"
+        },
+        {
+          "name": "prestador",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "prestadores"
+        },
+        {
+          "name": "data",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "horas",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "atividade",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["producao", "revisao", "correcao", "reuniao"]
+        },
+        {
+          "name": "origem",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["manual", "automatico"]
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["pendente", "aprovado", "rejeitado"]
+        },
+        {
+          "name": "aprovado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "data_aprovacao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "motivo_rejeicao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_apt_os ON apontamentos (os)",
+        "CREATE INDEX idx_apt_prestador ON apontamentos (prestador)",
+        "CREATE INDEX idx_apt_data ON apontamentos (data)",
+        "CREATE INDEX idx_apt_status ON apontamentos (status)"
       ]
     }
   ]

@@ -785,6 +785,38 @@ routerAdd(
         }
       }
 
+      // RODADA 15: Custo interno de OS internas e contas tipo 'custo_interno'
+      const contasCustoInterno = $app.findRecordsByFilter(
+        'contas',
+        "projeto = '" + projetoId + "' && tipo = 'custo_interno' && status != 'cancelada'",
+        '-created',
+        200,
+        0,
+      )
+
+      let somaCustoInternoContas = 0
+      for (let ci = 0; ci < contasCustoInterno.length; ci++) {
+        somaCustoInternoContas += contasCustoInterno[ci].getFloat('valor') || 0
+      }
+
+      // Buscar também OS internas do projeto que já tenham custo_interno_apurado
+      const osInternas = $app.findRecordsByFilter(
+        'ordens_servico',
+        "projeto = '" + projetoId + "' && tipo_prestador = 'interno' && status != 'cancelada'",
+        '',
+        100,
+        0,
+      )
+
+      let somaCustoInternoOs = 0
+      for (let oi = 0; oi < osInternas.length; oi++) {
+        somaCustoInternoOs += osInternas[oi].getFloat('custo_interno_apurado') || 0
+      }
+
+      // Custo interno considerado: maior entre contas lançadas e apuração direta das OS internas
+      const custoInternoTotal =
+        Math.round(Math.max(somaCustoInternoContas, somaCustoInternoOs) * 100) / 100
+
       let custosSemOs = 0
       for (let i = 0; i < contasPagar.length; i++) {
         if (
@@ -794,7 +826,9 @@ routerAdd(
           custosSemOs += contasPagar[i].getFloat('valor') || 0
         }
       }
-      const custoTotalComprometido = Math.round((somaOsExternas + custosSemOs) * 100) / 100
+      // RODADA 15: Margem e saúde financeira passam a SUBTRAIR o custo interno
+      const custoTotalComprometido =
+        Math.round((somaOsExternas + custosSemOs + custoInternoTotal) * 100) / 100
       const margemRealValor = Math.round((valorVendido - custoTotalComprometido) * 100) / 100
       const margemRealPerc =
         valorVendido > 0 ? Math.round((margemRealValor / valorVendido) * 1000) / 10 : 0
@@ -835,11 +869,13 @@ routerAdd(
         teto_vendido: valorVendido,
         custos: {
           soma_os_externas: Math.round(somaOsExternas * 100) / 100,
+          soma_custo_interno: custoInternoTotal,
           outros_custos_lancados: Math.round(custosSemOs * 100) / 100,
           custo_total_comprometido: custoTotalComprometido,
           custos_pagos: Math.round(custosPagos * 100) / 100,
           custos_em_aberto: Math.round(custosEmAberto * 100) / 100,
           total_os_externas_count: osExternas.length,
+          total_os_internas_count: osInternas.length,
           detalhes_os: detalheOs,
         },
         receitas: {

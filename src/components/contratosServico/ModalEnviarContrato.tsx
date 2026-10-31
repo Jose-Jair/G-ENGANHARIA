@@ -456,7 +456,7 @@ export function ModalEnviarContrato({
               size="sm"
               disabled={!adminAssinou || enviandoEmail}
               onClick={handleEnviarEmail}
-              className="text-xs gap-1.5 font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-xs gap-1.5 font-semibold text-white bg-[#D95A2B] hover:bg-[#C44E22] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               title={
                 adminAssinou
                   ? 'Disparar e-mail com link de assinatura'

@@ -256,7 +256,11 @@ export const ModalCriarProjeto: React.FC<ModalCriarProjetoProps> = ({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={salvando} className="bg-blue-600 hover:bg-blue-700">
+            <Button
+              type="submit"
+              disabled={salvando}
+              className="bg-[#D95A2B] hover:bg-[#C44E22] text-white"
+            >
               {salvando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Cadastrar Projeto
             </Button>

@@ -408,7 +408,7 @@ export const PropostasPage: React.FC = () => {
           {canCreateOrEdit && (
             <Button
               onClick={handleOpenNova}
-              className="bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow-sm text-xs"
+              className="bg-[#D95A2B] hover:bg-[#C44E22] text-white gap-2 shadow-sm text-xs"
             >
               <Plus className="w-4 h-4" />
               Nova Proposta
@@ -420,7 +420,7 @@ export const PropostasPage: React.FC = () => {
       {/* PAINEL DE INDICADORES (Req. F: Análise de Recusas e Taxa de Aceite) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Taxa de Aceite */}
-        <Card className="border-slate-200">
+        <Card className="border-slate-200 shadow-sm">
           <CardHeader className="p-4 pb-1">
             <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center justify-between">
               <span>Taxa de Conversão / Aceite</span>
@@ -438,7 +438,7 @@ export const PropostasPage: React.FC = () => {
         </Card>
 
         {/* Volume Financeiro Aceito */}
-        <Card className="border-slate-200">
+        <Card className="border-slate-200 shadow-sm">
           <CardHeader className="p-4 pb-1">
             <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center justify-between">
               <span>Valor Total Fechado</span>
@@ -456,7 +456,7 @@ export const PropostasPage: React.FC = () => {
         </Card>
 
         {/* Em Negociação / Ativas */}
-        <Card className="border-slate-200">
+        <Card className="border-slate-200 shadow-sm">
           <CardHeader className="p-4 pb-1">
             <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center justify-between">
               <span>Em Andamento</span>
@@ -478,7 +478,7 @@ export const PropostasPage: React.FC = () => {
         </Card>
 
         {/* Recusas e Expiradas */}
-        <Card className="border-slate-200">
+        <Card className="border-slate-200 shadow-sm">
           <CardHeader className="p-4 pb-1">
             <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center justify-between">
               <span>Recusas & Expiradas</span>
@@ -567,10 +567,10 @@ export const PropostasPage: React.FC = () => {
       </div>
 
       {/* TABELA DE PROPOSTAS */}
-      <Card className="border-slate-200">
+      <Card className="border-slate-200 shadow-sm">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
                 <tr>
                   <th className="py-3 px-4">Número & Rev.</th>
@@ -579,7 +579,9 @@ export const PropostasPage: React.FC = () => {
                   <th className="py-3 px-4 text-right">Preço Total</th>
                   <th className="py-3 px-4 text-center">Status</th>
                   <th className="py-3 px-4">Validade</th>
-                  <th className="py-3 px-4 text-right">Ações</th>
+                  <th className="py-3 px-4 text-right sticky right-0 bg-slate-100 z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]">
+                    Ações
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -646,7 +648,7 @@ export const PropostasPage: React.FC = () => {
                     }
 
                     return (
-                      <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                      <tr key={p.id} className="group hover:bg-slate-50/80 transition-colors">
                         <td className="py-3 px-4">
                           <div className="font-bold text-slate-900 font-mono flex items-center gap-1.5">
                             {p.numero}
@@ -722,7 +724,7 @@ export const PropostasPage: React.FC = () => {
                           )}
                         </td>
 
-                        <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
+                        <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap sticky right-0 bg-white group-hover:bg-slate-50 transition-colors z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]">
                           {p.token_aceite && (
                             <Button
                               variant="ghost"

@@ -93,7 +93,7 @@ export const CardProjeto: React.FC<CardProjetoProps> = ({
   return (
     <div
       onClick={() => onAbrirProjeto(projeto.id)}
-      className="group bg-white border border-slate-200 rounded-xl hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between overflow-hidden cursor-pointer"
+      className="group bg-white border border-slate-200 rounded-xl shadow-sm hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between overflow-hidden cursor-pointer"
     >
       {/* 1. Faixa de Standby destacada (se o projeto estiver aguardando definição) */}
       {isStandby && (

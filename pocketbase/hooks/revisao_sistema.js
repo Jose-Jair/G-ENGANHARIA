@@ -1,6 +1,6 @@
 // pocketbase/hooks/revisao_sistema.js
 // Rota GET /backend/v1/revisao-sistema - Revisão e integridade do sistema (Somente Leitura em dados de negócio)
-// Versão: 0.0.184
+// Versão: 0.0.185
 
 routerAdd(
   'GET',

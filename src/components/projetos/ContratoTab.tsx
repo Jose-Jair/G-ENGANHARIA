@@ -155,7 +155,7 @@ export function ContratoTab({
 
   if (!contrato) {
     return (
-      <Card className="border-dashed border-slate-300 bg-white">
+      <Card className="border-dashed border-slate-300 bg-white shadow-sm">
         <CardContent className="py-12 text-center space-y-3">
           <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
             <FileSignature className="w-6 h-6" />
@@ -343,7 +343,7 @@ export function ContratoTab({
       )}
 
       {/* Cabeçalho do Contrato */}
-      <Card className="bg-white border-slate-200">
+      <Card className="bg-white border-slate-200 shadow-sm">
         <CardHeader className="pb-3 pt-4 px-4 border-b border-slate-100">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
@@ -390,7 +390,7 @@ export function ContratoTab({
                   size="sm"
                   onClick={handleGerarPacotes}
                   disabled={gerandoPacotes}
-                  className="h-8 text-xs bg-[#D95A2B] hover:bg-[#c44e24] text-white gap-1.5 font-semibold shadow-xs"
+                  className="h-8 text-xs bg-[#D95A2B] hover:bg-[#C44E22] text-white gap-1.5 font-semibold shadow-xs"
                   title="Gera ou atualiza os pacotes de trabalho e marcos sem duplicar registros"
                 >
                   {gerandoPacotes ? (

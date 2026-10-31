@@ -1002,7 +1002,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                 size="sm"
                 onClick={() => handleSave(true)}
                 disabled={saving || !parcelasValidas}
-                className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
+                className="bg-[#D95A2B] hover:bg-[#C44E22] text-white gap-1.5"
               >
                 <Check className="w-4 h-4" />
                 Salvar e Enviar para Aprovação Interna

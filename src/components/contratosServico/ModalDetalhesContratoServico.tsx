@@ -196,7 +196,7 @@ export function ModalDetalhesContratoServico({
   if (!contrato && loading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md p-6 text-center">
+        <DialogContent className="max-w-md p-6 text-center shadow-lg">
           <Loader2 className="w-6 h-6 animate-spin text-orange-600 mx-auto mb-2" />
           <p className="text-xs text-slate-600">Carregando detalhes do contrato...</p>
         </DialogContent>
@@ -220,7 +220,7 @@ export function ModalDetalhesContratoServico({
         onOpenChange(op)
       }}
     >
-      <DialogContent className="w-[96vw] sm:max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="w-[96vw] sm:max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden shadow-lg">
         <DialogHeader className="p-4 sm:p-6 pb-3 border-b shrink-0 bg-white">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div className="min-w-0">
@@ -321,7 +321,7 @@ export function ModalDetalhesContratoServico({
                         setCanalInicialEnvio('email')
                         setShowEnviarModal(true)
                       }}
-                      className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1.5 font-semibold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="h-8 text-xs bg-[#D95A2B] hover:bg-[#C44E22] text-white gap-1.5 font-semibold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                       title={
                         contrato.data_assinatura_admin
                           ? 'Enviar link de assinatura ao cliente via E-mail'
@@ -581,7 +581,7 @@ export function ModalDetalhesContratoServico({
                         setCanalInicialEnvio('email')
                         setShowEnviarModal(true)
                       }}
-                      className="h-7 text-xs px-2 bg-blue-600 hover:bg-blue-700 text-white gap-1 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="h-7 text-xs px-2 bg-[#D95A2B] hover:bg-[#C44E22] text-white gap-1 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                       title={
                         contrato.data_assinatura_admin
                           ? 'Enviar por E-mail'

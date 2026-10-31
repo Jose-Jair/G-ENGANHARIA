@@ -42,7 +42,7 @@ export function ModalPadrao({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          'w-[95vw] p-0 flex flex-col max-h-[90vh] overflow-hidden gap-0 rounded-lg sm:rounded-xl shadow-xl bg-background border border-border',
+          'w-[95vw] p-0 flex flex-col max-h-[90vh] overflow-hidden gap-0 rounded-lg sm:rounded-xl shadow-lg bg-background border border-border',
           maxWidthClass,
           className,
         )}

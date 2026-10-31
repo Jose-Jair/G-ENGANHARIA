@@ -76,7 +76,7 @@ export function ModalDossieProjeto({ open, onOpenChange, projetoId }: ModalDossi
       open={open}
       onOpenChange={onOpenChange}
       maxWidthClass="sm:max-w-4xl"
-      className="dossie-projeto-dialog print:m-0 print:p-0 print:max-w-none print:max-h-none print:shadow-none print:border-none"
+      className="dossie-projeto-dialog shadow-lg print:m-0 print:p-0 print:max-w-none print:max-h-none print:shadow-none print:border-none"
       headerClassName="bg-[#1E2A4A] text-white border-b-slate-800 print:hidden"
       title={
         <div className="flex items-center gap-2.5 text-white">

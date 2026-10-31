@@ -654,7 +654,7 @@ export function ModalEnviarPropostaCliente({
               className={`text-xs gap-1.5 font-semibold text-white ${
                 canal === 'whatsapp'
                   ? 'bg-emerald-600 hover:bg-emerald-700'
-                  : 'bg-blue-600 hover:bg-blue-700'
+                  : 'bg-[#D95A2B] hover:bg-[#C44E22]'
               }`}
             >
               {loading ? (

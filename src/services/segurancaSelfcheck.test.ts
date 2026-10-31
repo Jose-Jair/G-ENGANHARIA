@@ -79,6 +79,20 @@ describe('Endpoint de Autochecagem de Segurança (/backend/v1/seguranca/selfchec
     expect(res.resultados.item11_ia_operacao_chaves).toBeDefined()
     expect(res.resultados.item11_ia_operacao_chaves.todas_conformes).toBe(true)
 
+    // Item 8: Assinatura Eletrônica e OTP
+    expect(res.resultados.item8_assinatura_eletronica_otp).toBeDefined()
+    expect(res.resultados.item8_assinatura_eletronica_otp.todas_conformes).toBe(true)
+    expect(res.resultados.item8_assinatura_eletronica_otp.detalhes.ordens_servico_campos).toBe(true)
+    expect(res.resultados.item8_assinatura_eletronica_otp.detalhes.contratos_mestre_campos).toBe(
+      true,
+    )
+    expect(res.resultados.item8_assinatura_eletronica_otp.detalhes.contratos_servico_campos).toBe(
+      true,
+    )
+    expect(res.resultados.item8_assinatura_eletronica_otp.detalhes.parametro_clausula_padrao).toBe(
+      true,
+    )
+
     // Item 12: SMTP Operante (Rodada 11)
     expect(res.resultados.item12_smtp_operante).toBeDefined()
     expect(res.resultados.item12_smtp_operante.detalhes).toBeDefined()

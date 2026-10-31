@@ -130,6 +130,21 @@ export function ContratoTab({
   const [dossieOpen, setDossieOpen] = useState(false)
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false)
   const [showComplementoWhatsAppModal, setShowComplementoWhatsAppModal] = useState(false)
+  const [segundosAssinando, setSegundosAssinando] = useState(0)
+
+  React.useEffect(() => {
+    let timer: ReturnType<typeof setInterval>
+    if (assinandoAdmin) {
+      setSegundosAssinando(0)
+      timer = setInterval(() => {
+        setSegundosAssinando((s) => s + 1)
+      }, 1000)
+    } else {
+      setSegundosAssinando(0)
+    }
+    return () => clearInterval(timer)
+  }, [assinandoAdmin])
+
   // Atualizar cláusulas locais se contrato mudar
   React.useEffect(() => {
     if (contrato) {
@@ -164,18 +179,36 @@ export function ContratoTab({
 
   const handleAssinarComoAdmin = async () => {
     setAssinandoAdmin(true)
+
+    // Timeout de segurança visível (~30s) para evitar giro indefinido
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              'A requisição excedeu o tempo limite (30s). Por favor, verifique a conexão e tente novamente.',
+            ),
+          ),
+        30000,
+      ),
+    )
+
     try {
-      await contratosServicoService.assinarComoAdmin(contrato.id, true)
+      await Promise.race([
+        contratosServicoService.assinarComoAdmin(contrato.id, true),
+        timeoutPromise,
+      ])
       toast({
         title: 'Contrato Assinado pelo Administrador!',
         description:
-          'Assinatura eletrônica registrada com hash e auditoria. O link para o cliente está liberado.',
+          'Assinatura eletrônica registrada com hash e auditoria. O link oficial para o cliente está liberado.',
       })
       onRefresh()
     } catch (err: any) {
       toast({
-        title: 'Erro ao assinar contrato',
-        description: err.message || 'Falha ao processar assinatura eletrônica.',
+        title: 'Falha na assinatura eletrônica',
+        description:
+          err.message || 'Falha ao processar assinatura eletrônica dentro do tempo limite.',
         variant: 'destructive',
       })
     } finally {
@@ -625,11 +658,16 @@ export function ContratoTab({
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 gap-1.5"
                   >
                     {assinandoAdmin ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Assinando... ({segundosAssinando}s / 30s)</span>
+                      </>
                     ) : (
-                      <Check className="w-3.5 h-3.5" />
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Assinar como Administrador</span>
+                      </>
                     )}
-                    Assinar como Administrador
                   </Button>
                 </div>
               ) : (

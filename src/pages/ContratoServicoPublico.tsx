@@ -51,7 +51,21 @@ export function ContratoServicoPublicoPage() {
   const [cpfSignatario, setCpfSignatario] = useState('')
   const [showConfirmacaoModal, setShowConfirmacaoModal] = useState(false)
   const [submittingAssinatura, setSubmittingAssinatura] = useState(false)
+  const [segundosAssinandoCliente, setSegundosAssinandoCliente] = useState(0)
   const [dossieOpen, setDossieOpen] = useState(false)
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval>
+    if (submittingAssinatura) {
+      setSegundosAssinandoCliente(0)
+      timer = setInterval(() => {
+        setSegundosAssinandoCliente((s) => s + 1)
+      }, 1000)
+    } else {
+      setSegundosAssinandoCliente(0)
+    }
+    return () => clearInterval(timer)
+  }, [submittingAssinatura])
 
   useEffect(() => {
     async function loadContrato() {
@@ -118,19 +132,36 @@ export function ContratoServicoPublicoPage() {
     if (!contrato || !token) return
 
     setSubmittingAssinatura(true)
+
+    // Timeout de segurança visível (~30s) para evitar giro indefinido
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              'A requisição excedeu o tempo limite (30s). Por favor, verifique a conexão e tente novamente.',
+            ),
+          ),
+        30000,
+      ),
+    )
+
     try {
-      const res = await contratosServicoService.assinarComoCliente({
-        token_assinatura_cliente: token,
-        declaracao: true,
-        nome_assinante: nomeSignatario.trim(),
-        documento_assinante: cpfSignatario.trim(),
-      })
+      await Promise.race([
+        contratosServicoService.assinarComoCliente({
+          token_assinatura_cliente: token,
+          declaracao: true,
+          nome_assinante: nomeSignatario.trim(),
+          documento_assinante: cpfSignatario.trim(),
+        }),
+        timeoutPromise,
+      ])
 
       setShowConfirmacaoModal(false)
       toast({
         title: 'Contrato Assinado com Sucesso!',
         description:
-          'Agradecemos a assinatura. O projeto técnico de engenharia e os trabalhos operacionais foram iniciados.',
+          'Assinatura digital e hash criptográfico registrados com sucesso! O projeto técnico de engenharia foi formalizado.',
       })
 
       // Recarregar dados
@@ -139,8 +170,10 @@ export function ContratoServicoPublicoPage() {
     } catch (err: any) {
       console.error('Erro na assinatura do contrato:', err)
       toast({
-        title: 'Erro na assinatura',
-        description: err.message || 'Não foi possível formalizar a assinatura do contrato.',
+        title: 'Falha na assinatura eletrônica',
+        description:
+          err.message ||
+          'Não foi possível formalizar a assinatura do contrato dentro do tempo limite.',
         variant: 'destructive',
       })
     } finally {
@@ -578,8 +611,8 @@ export function ContratoServicoPublicoPage() {
 
       {/* MODAL DE CONFIRMAÇÃO FINAL DE ASSINATURA */}
       <Dialog open={showConfirmacaoModal} onOpenChange={setShowConfirmacaoModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="w-[96vw] sm:max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-4 sm:p-5 border-b bg-white shrink-0">
             <DialogTitle className="text-base flex items-center gap-2 text-emerald-800">
               <ShieldCheck className="w-5 h-5 text-emerald-600" />
               Confirmar Assinatura do Contrato {contrato.numero}
@@ -590,7 +623,7 @@ export function ContratoServicoPublicoPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-2 space-y-2 text-xs text-slate-600">
+          <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-2 text-xs text-slate-600">
             <div className="p-3 bg-slate-50 rounded border space-y-1">
               <div>
                 <strong>Signatário:</strong> {nomeSignatario}
@@ -604,7 +637,7 @@ export function ContratoServicoPublicoPage() {
             </div>
           </div>
 
-          <DialogFooter className="pt-2">
+          <DialogFooter className="p-4 border-t bg-slate-50 shrink-0">
             <Button
               type="button"
               variant="outline"
@@ -624,12 +657,12 @@ export function ContratoServicoPublicoPage() {
               {submittingAssinatura ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Assinando...
+                  <span>Assinando... ({segundosAssinandoCliente}s / 30s)</span>
                 </>
               ) : (
                 <>
                   <Check className="w-3.5 h-3.5" />
-                  Confirmar Assinatura Definitiva
+                  <span>Confirmar Assinatura Definitiva</span>
                 </>
               )}
             </Button>

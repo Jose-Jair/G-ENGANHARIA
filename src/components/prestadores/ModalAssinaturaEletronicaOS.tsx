@@ -171,8 +171,8 @@ export const ModalAssinaturaEletronicaOS: React.FC<ModalAssinaturaEletronicaOSPr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="w-[96vw] sm:max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="p-4 sm:p-5 border-b bg-white shrink-0">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-orange-100 rounded-lg text-[#D95A2B]">
               <ShieldCheck className="w-5 h-5" />
@@ -188,197 +188,201 @@ export const ModalAssinaturaEletronicaOS: React.FC<ModalAssinaturaEletronicaOSPr
           </div>
         </DialogHeader>
 
-        <form onSubmit={handleConfirmarAssinatura} className="space-y-4 pt-1">
-          {/* Dados resumidos da OS exclusiva do prestador (Sem dados de cliente/obra/outros) */}
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Ordem de Serviço:</span>
-              <strong className="text-slate-900 font-mono text-sm">{os?.numero_os}</strong>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Disciplina Técnica:</span>
-              <span className="font-semibold text-slate-800">{os?.disciplina || 'Engenharia'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Valor Acordado da OS:</span>
-              <strong className="text-emerald-700 text-sm">
-                {formatCurrencyBr(os?.valor_os || 0)}
-              </strong>
-            </div>
-            {os?.prazo_dias && (
+        <form onSubmit={handleConfirmarAssinatura} className="flex flex-col flex-1 overflow-hidden">
+          <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-4">
+            {/* Dados resumidos da OS exclusiva do prestador (Sem dados de cliente/obra/outros) */}
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-slate-500">Prazo de Execução:</span>
-                <span>{os.prazo_dias} dias corridos</span>
+                <span className="text-slate-500">Ordem de Serviço:</span>
+                <strong className="text-slate-900 font-mono text-sm">{os?.numero_os}</strong>
               </div>
-            )}
-          </div>
-
-          {/* Cláusula Legal de Aceite Eletrônico */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
-              <FileText className="w-3.5 h-3.5 text-[#D95A2B]" />
-              Cláusula Legal de Aceite de Assinatura Eletrônica
-            </Label>
-            <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-lg text-[11px] text-amber-950 leading-relaxed max-h-28 overflow-y-auto">
-              {CLÁUSULA_ACEITE_ELETRONICO_PADRAO}
-            </div>
-          </div>
-
-          {/* Escopo da OS */}
-          {os?.escopo_tecnico && (
-            <div className="space-y-1">
-              <Label className="text-xs font-semibold text-slate-700">Resumo do Escopo</Label>
-              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600 line-clamp-3">
-                {os.escopo_tecnico}
-              </div>
-            </div>
-          )}
-
-          {/* Identificação do Signatário */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Nome Completo do Signatário *</Label>
-              <Input
-                required
-                value={nomeAssinante}
-                onChange={(e) => setNomeAssinante(e.target.value)}
-                placeholder="Ex.: João da Silva"
-                className="text-xs mt-1"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">CPF / CNPJ do Signatário *</Label>
-              <Input
-                required
-                value={docAssinante}
-                onChange={(e) => setDocAssinante(e.target.value)}
-                placeholder="000.000.000-00 ou 00.000.000/0000-00"
-                className="text-xs mt-1"
-              />
-            </div>
-          </div>
-
-          {/* Declaração de Concordância */}
-          <div className="flex items-start gap-2.5 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-            <Checkbox
-              id="declara_concordancia"
-              checked={concordou}
-              onCheckedChange={(c) => setConcordou(!!c)}
-              className="mt-0.5"
-            />
-            <label
-              htmlFor="declara_concordancia"
-              className="text-[11px] text-slate-700 leading-snug cursor-pointer select-none"
-            >
-              Declaro que li e concordo integralmente com as obrigações técnicas, prazos e valores
-              desta Ordem de Serviço, reconhecendo expressamente a validade jurídica plena desta
-              assinatura formalizada com código de verificação OTP.
-            </label>
-          </div>
-
-          {/* Bloco de Código de 6 Dígitos e Contador */}
-          <div className="p-4 bg-orange-50/50 border border-orange-200 rounded-xl space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <KeyRound className="w-4 h-4 text-[#D95A2B]" />
-                <span className="text-xs font-bold text-slate-900">
-                  Código de Confirmação (OTP 6 dígitos)
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Disciplina Técnica:</span>
+                <span className="font-semibold text-slate-800">
+                  {os?.disciplina || 'Engenharia'}
                 </span>
               </div>
-
-              {!codigoSolicitado ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleSolicitarCodigo}
-                  disabled={solicitandoCodigo || !concordou}
-                  className="bg-[#1E2A4A] hover:bg-[#141D34] text-white text-xs h-8"
-                >
-                  {solicitandoCodigo ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
-                      Enviando...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-3.5 h-3.5 mr-1" />
-                      Solicitar Código por E-mail
-                    </>
-                  )}
-                </Button>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`flex items-center gap-1 text-xs font-mono px-2 py-1 rounded font-bold ${
-                      tempoRestanteSegundos <= 60
-                        ? 'bg-rose-100 text-rose-700 animate-pulse'
-                        : 'bg-orange-100 text-[#D95A2B]'
-                    }`}
-                  >
-                    <Clock className="w-3.5 h-3.5" />
-                    Validade: {formatarTempo(tempoRestanteSegundos)}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSolicitarCodigo}
-                    disabled={solicitandoCodigo}
-                    className="text-xs h-8 gap-1 border-orange-300 text-slate-700 hover:bg-orange-100"
-                    title="Solicitar novo código por e-mail"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    Reenviar
-                  </Button>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Valor Acordado da OS:</span>
+                <strong className="text-emerald-700 text-sm">
+                  {formatCurrencyBr(os?.valor_os || 0)}
+                </strong>
+              </div>
+              {os?.prazo_dias && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Prazo de Execução:</span>
+                  <span>{os.prazo_dias} dias corridos</span>
                 </div>
               )}
             </div>
 
-            {codigoSolicitado && (
-              <div className="space-y-2 pt-1">
-                <p className="text-[11px] text-slate-600">
-                  Um código numérico de 6 dígitos foi enviado para{' '}
-                  <strong className="text-slate-800">{emailDestinoMascarado}</strong>. Consulte sua
-                  caixa de entrada e spam.
-                </p>
+            {/* Cláusula Legal de Aceite Eletrônico */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-[#D95A2B]" />
+                Cláusula Legal de Aceite de Assinatura Eletrônica
+              </Label>
+              <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-lg text-[11px] text-amber-950 leading-relaxed max-h-28 overflow-y-auto">
+                {CLÁUSULA_ACEITE_ELETRONICO_PADRAO}
+              </div>
+            </div>
 
-                <div>
-                  <Label className="text-xs font-semibold text-slate-800">
-                    Digite o código de 6 dígitos recebido:
-                  </Label>
-                  <Input
-                    maxLength={6}
-                    value={codigoOtp}
-                    onChange={(e) => {
-                      const v = e.target.value.replace(/\D/g, '').slice(0, 6)
-                      setCodigoOtp(v)
-                    }}
-                    placeholder="Ex: 482915"
-                    disabled={tempoRestanteSegundos <= 0 || assinando}
-                    className="font-mono text-center text-lg tracking-widest font-bold max-w-[200px] mt-1 bg-white"
-                  />
+            {/* Escopo da OS */}
+            {os?.escopo_tecnico && (
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-slate-700">Resumo do Escopo</Label>
+                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600 line-clamp-3">
+                  {os.escopo_tecnico}
                 </div>
               </div>
             )}
+
+            {/* Identificação do Signatário */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Nome Completo do Signatário *</Label>
+                <Input
+                  required
+                  value={nomeAssinante}
+                  onChange={(e) => setNomeAssinante(e.target.value)}
+                  placeholder="Ex.: João da Silva"
+                  className="text-xs mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">CPF / CNPJ do Signatário *</Label>
+                <Input
+                  required
+                  value={docAssinante}
+                  onChange={(e) => setDocAssinante(e.target.value)}
+                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                  className="text-xs mt-1"
+                />
+              </div>
+            </div>
+
+            {/* Declaração de Concordância */}
+            <div className="flex items-start gap-2.5 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <Checkbox
+                id="declara_concordancia"
+                checked={concordou}
+                onCheckedChange={(c) => setConcordou(!!c)}
+                className="mt-0.5"
+              />
+              <label
+                htmlFor="declara_concordancia"
+                className="text-[11px] text-slate-700 leading-snug cursor-pointer select-none"
+              >
+                Declaro que li e concordo integralmente com as obrigações técnicas, prazos e valores
+                desta Ordem de Serviço, reconhecendo expressamente a validade jurídica plena desta
+                assinatura formalizada com código de verificação OTP.
+              </label>
+            </div>
+
+            {/* Bloco de Código de 6 Dígitos e Contador */}
+            <div className="p-4 bg-orange-50/50 border border-orange-200 rounded-xl space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-[#D95A2B]" />
+                  <span className="text-xs font-bold text-slate-900">
+                    Código de Confirmação (OTP 6 dígitos)
+                  </span>
+                </div>
+
+                {!codigoSolicitado ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleSolicitarCodigo}
+                    disabled={solicitandoCodigo || !concordou}
+                    className="bg-[#1E2A4A] hover:bg-[#141D34] text-white text-xs h-8"
+                  >
+                    {solicitandoCodigo ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+                        Enviando...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5 mr-1" />
+                        Solicitar Código por E-mail
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`flex items-center gap-1 text-xs font-mono px-2 py-1 rounded font-bold ${
+                        tempoRestanteSegundos <= 60
+                          ? 'bg-rose-100 text-rose-700 animate-pulse'
+                          : 'bg-orange-100 text-[#D95A2B]'
+                      }`}
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      Validade: {formatarTempo(tempoRestanteSegundos)}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSolicitarCodigo}
+                      disabled={solicitandoCodigo}
+                      className="text-xs h-8 gap-1 border-orange-300 text-slate-700 hover:bg-orange-100"
+                      title="Solicitar novo código por e-mail"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Reenviar
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {codigoSolicitado && (
+                <div className="space-y-2 pt-1">
+                  <p className="text-[11px] text-slate-600">
+                    Um código numérico de 6 dígitos foi enviado para{' '}
+                    <strong className="text-slate-800">{emailDestinoMascarado}</strong>. Consulte
+                    sua caixa de entrada e spam.
+                  </p>
+
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-800">
+                      Digite o código de 6 dígitos recebido:
+                    </Label>
+                    <Input
+                      maxLength={6}
+                      value={codigoOtp}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/\D/g, '').slice(0, 6)
+                        setCodigoOtp(v)
+                      }}
+                      placeholder="Ex: 482915"
+                      disabled={tempoRestanteSegundos <= 0 || assinando}
+                      className="font-mono text-center text-lg tracking-widest font-bold max-w-[200px] mt-1 bg-white"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Feedback de Erro */}
+            {mensagemErro && (
+              <Alert variant="destructive" className="py-2 text-xs">
+                <AlertTriangle className="w-4 h-4 mr-2 shrink-0" />
+                <AlertDescription>{mensagemErro}</AlertDescription>
+              </Alert>
+            )}
+
+            {/* Feedback de Sucesso */}
+            {mensagemSucesso && (
+              <Alert className="py-2 text-xs bg-emerald-50 text-emerald-800 border-emerald-300">
+                <CheckCircle2 className="w-4 h-4 mr-2 shrink-0 text-emerald-600" />
+                <AlertDescription>{mensagemSucesso}</AlertDescription>
+              </Alert>
+            )}
           </div>
 
-          {/* Feedback de Erro */}
-          {mensagemErro && (
-            <Alert variant="destructive" className="py-2 text-xs">
-              <AlertTriangle className="w-4 h-4 mr-2 shrink-0" />
-              <AlertDescription>{mensagemErro}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* Feedback de Sucesso */}
-          {mensagemSucesso && (
-            <Alert className="py-2 text-xs bg-emerald-50 text-emerald-800 border-emerald-300">
-              <CheckCircle2 className="w-4 h-4 mr-2 shrink-0 text-emerald-600" />
-              <AlertDescription>{mensagemSucesso}</AlertDescription>
-            </Alert>
-          )}
-
-          <DialogFooter className="pt-2 border-t">
+          <DialogFooter className="p-4 border-t bg-slate-50 shrink-0">
             <Button
               type="button"
               variant="outline"

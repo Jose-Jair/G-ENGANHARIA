@@ -2437,39 +2437,62 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
 
     $app.save(contrato)
 
-    // Ativação explícita do contrato quando assinado bilateralmente
+    // Auditoria imediata da assinatura do cliente (rápida, atômica)
+    try {
+      const auditCol = $app.findCollectionByNameOrId('audit_logs')
+      if (auditCol) {
+        const aRec = new Record(auditCol)
+        aRec.set('acao', 'ASSINATURA_CLIENTE_CONTRATO')
+        aRec.set('entidade', 'contratos_servico')
+        aRec.set('registro_id', contrato.id)
+        aRec.set('detalhes', {
+          mensagem:
+            'Contrato ' +
+            contrato.getString('numero') +
+            ' assinado digitalmente pelo cliente ' +
+            nomeAssinante,
+          contrato_numero: contrato.getString('numero'),
+          signatario_nome: nomeAssinante,
+          signatario_doc: documentoAssinante,
+          data_assinatura: nowIso,
+          ip: clientIp,
+          hash: clientHash,
+        })
+        aRec.set('ip', clientIp)
+        $app.save(aRec)
+      }
+    } catch (errAudit) {
+      console.log('Erro ao auditar assinatura cliente contrato: ' + errAudit)
+    }
+
+    // Efeitos colaterais assíncronos/protegidos (ativação de projetos/etapas/contas)
+    // Executam em bloco isolado com try/catch e registro de falhas em erros_sistema
     if (assinadoBilateralmente) {
       try {
         ativarContratoServicoBilateral(contrato)
       } catch (errAtiv) {
         console.log('Erro ao ativar contrato assinado (assinar-cliente): ' + errAtiv)
+        try {
+          const errCol = $app.findCollectionByNameOrId('erros_sistema')
+          if (errCol) {
+            const errRec = new Record(errCol)
+            errRec.set('rota', '/backend/v1/contratos-servico/assinar-cliente')
+            errRec.set(
+              'mensagem',
+              ('Falha ao ativar contrato bilateral: ' + errAtiv).slice(0, 1000),
+            )
+            errRec.set('hora', new Date().toISOString())
+            errRec.set('ip', clientIp)
+            errRec.set('detalhes', {
+              contrato_id: contrato.id,
+              contrato_numero: contrato.getString('numero'),
+              signatario_nome: nomeAssinante,
+              erro: String(errAtiv),
+            })
+            $app.save(errRec)
+          }
+        } catch (_) {}
       }
-    }
-
-    // Auditoria da assinatura do cliente
-    try {
-      const auditCol = $app.findCollectionByNameOrId('audit_logs')
-      const aRec = new Record(auditCol)
-      aRec.set('acao', 'ASSINATURA_CLIENTE_CONTRATO')
-      aRec.set('entidade', 'contratos_servico')
-      aRec.set('registro_id', contrato.id)
-      aRec.set('detalhes', {
-        mensagem:
-          'Contrato ' +
-          contrato.getString('numero') +
-          ' assinado digitalmente pelo cliente ' +
-          nomeAssinante,
-        contrato_numero: contrato.getString('numero'),
-        signatario_nome: nomeAssinante,
-        signatario_doc: documentoAssinante,
-        data_assinatura: nowIso,
-        ip: clientIp,
-        hash: clientHash,
-      })
-      aRec.set('ip', clientIp)
-      $app.save(aRec)
-    } catch (errAudit) {
-      console.log('Erro ao auditar assinatura cliente contrato: ' + errAudit)
     }
 
     return e.json(200, {
@@ -2481,6 +2504,17 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
     })
   } catch (err) {
     console.log('Erro ao assinar contrato de serviço (cliente): ' + err)
+    try {
+      const errCol = $app.findCollectionByNameOrId('erros_sistema')
+      if (errCol) {
+        const errRec = new Record(errCol)
+        errRec.set('rota', '/backend/v1/contratos-servico/assinar-cliente')
+        errRec.set('mensagem', ('Erro interno ao assinar contrato: ' + err).slice(0, 1000))
+        errRec.set('hora', new Date().toISOString())
+        errRec.set('detalhes', { erro: String(err) })
+        $app.save(errRec)
+      }
+    } catch (_) {}
     return e.json(500, { message: 'Erro interno ao assinar contrato: ' + err })
   }
 })
@@ -3651,41 +3685,67 @@ routerAdd(
 
       $app.save(contrato)
 
-      // Ativação explícita do contrato quando assinado bilateralmente
+      // Auditoria imediata da assinatura do admin (rápida, atômica)
+      try {
+        const auditCol = $app.findCollectionByNameOrId('audit_logs')
+        if (auditCol) {
+          const aRec = new Record(auditCol)
+          aRec.set('user', reqInfo.auth.id)
+          aRec.set('user_email', reqInfo.auth.getString('email'))
+          aRec.set('acao', 'ASSINATURA_ADMIN_CONTRATO')
+          aRec.set('entidade', 'contratos_servico')
+          aRec.set('registro_id', contratoId)
+          aRec.set('detalhes', {
+            mensagem:
+              'Contrato ' +
+              contrato.getString('numero') +
+              ' assinado digitalmente pelo Administrador ' +
+              reqInfo.auth.getString('name'),
+            contrato_numero: contrato.getString('numero'),
+            admin_id: reqInfo.auth.id,
+            admin_nome: reqInfo.auth.getString('name'),
+            data_assinatura: nowIso,
+            ip: clientIp,
+            hash: adminHash,
+          })
+          aRec.set('ip', clientIp)
+          $app.save(aRec)
+        }
+      } catch (errAudit) {
+        console.log('Erro ao auditar assinatura admin contrato: ' + errAudit)
+      }
+
+      // Efeitos colaterais protegidos (ativação de projetos/etapas/contas se assinado bilateralmente)
+      // Executam isoladamente sem travar a resposta; erros gravados em erros_sistema
       if (assinadoBilateralmente) {
         try {
           ativarContratoServicoBilateral(contrato)
         } catch (errAtiv) {
           console.log('Erro ao ativar contrato assinado (assinar-admin): ' + errAtiv)
+          try {
+            const errCol = $app.findCollectionByNameOrId('erros_sistema')
+            if (errCol) {
+              const errRec = new Record(errCol)
+              errRec.set('rota', '/backend/v1/contratos-servico/assinar-admin')
+              errRec.set(
+                'mensagem',
+                ('Falha ao ativar contrato bilateral: ' + errAtiv).slice(0, 1000),
+              )
+              errRec.set('usuario', reqInfo.auth.id)
+              errRec.set('usuario_email', reqInfo.auth.getString('email'))
+              errRec.set('hora', new Date().toISOString())
+              errRec.set('ip', clientIp)
+              errRec.set('detalhes', {
+                contrato_id: contrato.id,
+                contrato_numero: contrato.getString('numero'),
+                admin_id: reqInfo.auth.id,
+                admin_nome: reqInfo.auth.getString('name'),
+                erro: String(errAtiv),
+              })
+              $app.save(errRec)
+            }
+          } catch (_) {}
         }
-      }
-
-      // Auditoria da assinatura do admin
-      try {
-        const auditCol = $app.findCollectionByNameOrId('audit_logs')
-        const aRec = new Record(auditCol)
-        aRec.set('user', reqInfo.auth.id)
-        aRec.set('user_email', reqInfo.auth.getString('email'))
-        aRec.set('acao', 'ASSINATURA_ADMIN_CONTRATO')
-        aRec.set('entidade', 'contratos_servico')
-        aRec.set('registro_id', contratoId)
-        aRec.set('detalhes', {
-          mensagem:
-            'Contrato ' +
-            contrato.getString('numero') +
-            ' assinado digitalmente pelo Administrador ' +
-            reqInfo.auth.getString('name'),
-          contrato_numero: contrato.getString('numero'),
-          admin_id: reqInfo.auth.id,
-          admin_nome: reqInfo.auth.getString('name'),
-          data_assinatura: nowIso,
-          ip: clientIp,
-          hash: adminHash,
-        })
-        aRec.set('ip', clientIp)
-        $app.save(aRec)
-      } catch (errAudit) {
-        console.log('Erro ao auditar assinatura admin contrato: ' + errAudit)
       }
 
       return e.json(200, {
@@ -3698,6 +3758,21 @@ routerAdd(
       })
     } catch (err) {
       console.log('Erro ao assinar contrato como admin: ' + err)
+      try {
+        const errCol = $app.findCollectionByNameOrId('erros_sistema')
+        if (errCol) {
+          const errRec = new Record(errCol)
+          errRec.set('rota', '/backend/v1/contratos-servico/assinar-admin')
+          errRec.set('mensagem', ('Erro interno ao assinar contrato: ' + err).slice(0, 1000))
+          if (reqInfo && reqInfo.auth) {
+            errRec.set('usuario', reqInfo.auth.id)
+            errRec.set('usuario_email', reqInfo.auth.getString('email'))
+          }
+          errRec.set('hora', new Date().toISOString())
+          errRec.set('detalhes', { erro: String(err) })
+          $app.save(errRec)
+        }
+      } catch (_) {}
       return e.json(500, { message: 'Erro interno ao assinar contrato: ' + err })
     }
   },

@@ -92,22 +92,55 @@ export function ModalDetalhesContratoServico({
     }
   }, [open, contratoId])
 
+  const [segundosAssinando, setSegundosAssinando] = useState(0)
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval>
+    if (assinandoAdmin) {
+      setSegundosAssinando(0)
+      timer = setInterval(() => {
+        setSegundosAssinando((s) => s + 1)
+      }, 1000)
+    } else {
+      setSegundosAssinando(0)
+    }
+    return () => clearInterval(timer)
+  }, [assinandoAdmin])
+
   const handleAssinarComoAdmin = async () => {
     if (!contrato) return
     setAssinandoAdmin(true)
+
+    // Timeout de segurança visível (~30s) para evitar giro indefinido
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              'A requisição excedeu o tempo limite (30s). Por favor, verifique a conexão e tente novamente.',
+            ),
+          ),
+        30000,
+      ),
+    )
+
     try {
-      await contratosServicoService.assinarComoAdmin(contrato.id, true)
+      await Promise.race([
+        contratosServicoService.assinarComoAdmin(contrato.id, true),
+        timeoutPromise,
+      ])
       toast({
         title: 'Contrato Assinado pelo Administrador!',
         description:
-          'O link de assinatura foi liberado para o cliente e a ação foi auditada com sucesso.',
+          'Assinatura e hash registrados com sucesso! O link oficial foi liberado para o cliente.',
       })
       await loadContrato()
       if (onUpdated) onUpdated()
     } catch (err: any) {
       toast({
-        title: 'Erro ao assinar contrato',
-        description: err.message || 'Falha ao processar assinatura eletrônica.',
+        title: 'Falha na assinatura eletrônica',
+        description:
+          err.message || 'Falha ao processar assinatura eletrônica dentro do tempo limite.',
         variant: 'destructive',
       })
     } finally {
@@ -186,9 +219,9 @@ export function ModalDetalhesContratoServico({
         onOpenChange(op)
       }}
     >
-      <DialogContent className="w-[96vw] max-w-3xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
-        <DialogHeader>
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 border-b pb-3">
+      <DialogContent className="w-[96vw] sm:max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="p-4 sm:p-6 pb-3 border-b shrink-0 bg-white">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <DialogTitle className="text-lg font-bold text-slate-900 truncate">
@@ -320,7 +353,7 @@ export function ModalDetalhesContratoServico({
           </div>
         </DialogHeader>
 
-        <div className="space-y-5 text-xs pt-2">
+        <div className="space-y-5 text-xs p-4 sm:p-6 overflow-y-auto flex-1">
           {/* Alerta de Complemento de Dados Pendente (Bloco 3) */}
           {isAguardandoDados && (
             <div className="p-3.5 bg-amber-50 border-2 border-amber-300 rounded-lg space-y-2">
@@ -449,11 +482,16 @@ export function ModalDetalhesContratoServico({
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 gap-1.5"
                   >
                     {assinandoAdmin ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Assinando... ({segundosAssinando}s / 30s)</span>
+                      </>
                     ) : (
-                      <Check className="w-3.5 h-3.5" />
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Assinar como Administrador</span>
+                      </>
                     )}
-                    Assinar como Administrador
                   </Button>
                 </div>
               ) : (
@@ -624,7 +662,7 @@ export function ModalDetalhesContratoServico({
           </div>
         </div>
 
-        <DialogFooter className="mt-4 border-t pt-3">
+        <DialogFooter className="p-4 border-t bg-slate-50 shrink-0">
           <Button
             type="button"
             variant="outline"

@@ -267,10 +267,10 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
       >
         {' '}
         <DialogContent
-          className="w-[96vw] max-w-4xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6"
+          className="w-[96vw] sm:max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden"
           onCloseAutoFocus={() => restoreBodyPointerEvents()}
         >
-          <DialogHeader>
+          <DialogHeader className="p-4 sm:p-6 pb-3 border-b shrink-0 bg-white">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 border-b pb-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -384,712 +384,740 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
               </div>
             </div>
           </DialogHeader>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="pt-2 w-full">
-            <div className="overflow-x-auto pb-1">
-              <TabsList className="bg-slate-100 p-1 w-full sm:w-auto flex justify-start">
-                <TabsTrigger value="documento" className="text-xs gap-1.5 whitespace-nowrap">
-                  <FileText className="w-4 h-4" />
-                  Documento da Proposta
-                </TabsTrigger>
-                <TabsTrigger value="historico" className="text-xs gap-1.5 whitespace-nowrap">
-                  <History className="w-4 h-4" />
-                  Histórico de Revisões ({proposta.historico_revisoes?.length || 0})
-                </TabsTrigger>
-                <TabsTrigger value="status" className="text-xs gap-1.5 whitespace-nowrap">
-                  <Clock className="w-4 h-4" />
-                  Timeline & Auditoria
-                </TabsTrigger>
-              </TabsList>
-            </div>
+          <div className="overflow-y-auto flex-1 p-4 sm:p-6 pt-2">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="pt-2 w-full">
+              <div className="overflow-x-auto pb-1">
+                <TabsList className="bg-slate-100 p-1 w-full sm:w-auto flex justify-start">
+                  <TabsTrigger value="documento" className="text-xs gap-1.5 whitespace-nowrap">
+                    <FileText className="w-4 h-4" />
+                    Documento da Proposta
+                  </TabsTrigger>
+                  <TabsTrigger value="historico" className="text-xs gap-1.5 whitespace-nowrap">
+                    <History className="w-4 h-4" />
+                    Histórico de Revisões ({proposta.historico_revisoes?.length || 0})
+                  </TabsTrigger>
+                  <TabsTrigger value="status" className="text-xs gap-1.5 whitespace-nowrap">
+                    <Clock className="w-4 h-4" />
+                    Timeline & Auditoria
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
-            {/* ABA DOCUMENTO */}
-            <TabsContent value="documento" className="space-y-6 pt-3">
-              {/* PAINEL DESTACADO: Devolutiva do Cliente (quando status em_negociacao ou com devolutiva) */}
-              {proposta.status === 'em_negociacao' && proposta.solicitacao_alteracao_texto && (
-                <div className="bg-gradient-to-r from-purple-50 via-amber-50 to-purple-50 border-2 border-purple-300 rounded-lg p-4 shadow-sm space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-purple-100 text-purple-700 rounded-md">
-                        <MessageSquareWarning className="w-5 h-5 text-purple-700" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-bold text-purple-950">
-                            Devolutiva do Cliente (Negociação Aberta)
-                          </h4>
-                          <Badge className="bg-purple-600 hover:bg-purple-700 text-white font-mono text-[10px]">
-                            {proposta.revisao || 'Rev.00'}
-                          </Badge>
+              {/* ABA DOCUMENTO */}
+              <TabsContent value="documento" className="space-y-6 pt-3">
+                {/* PAINEL DESTACADO: Devolutiva do Cliente (quando status em_negociacao ou com devolutiva) */}
+                {proposta.status === 'em_negociacao' && proposta.solicitacao_alteracao_texto && (
+                  <div className="bg-gradient-to-r from-purple-50 via-amber-50 to-purple-50 border-2 border-purple-300 rounded-lg p-4 shadow-sm space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-purple-100 text-purple-700 rounded-md">
+                          <MessageSquareWarning className="w-5 h-5 text-purple-700" />
                         </div>
-                        <p className="text-[11px] text-purple-700">
-                          {proposta.data_solicitacao_alteracao
-                            ? `Recebida em ${formatDateTimeBr(proposta.data_solicitacao_alteracao)} via link público`
-                            : 'Solicitação de ajustes registrada pelo cliente'}
-                        </p>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-bold text-purple-950">
+                              Devolutiva do Cliente (Negociação Aberta)
+                            </h4>
+                            <Badge className="bg-purple-600 hover:bg-purple-700 text-white font-mono text-[10px]">
+                              {proposta.revisao || 'Rev.00'}
+                            </Badge>
+                          </div>
+                          <p className="text-[11px] text-purple-700">
+                            {proposta.data_solicitacao_alteracao
+                              ? `Recebida em ${formatDateTimeBr(proposta.data_solicitacao_alteracao)} via link público`
+                              : 'Solicitação de ajustes registrada pelo cliente'}
+                          </p>
+                        </div>
                       </div>
+
+                      {canEdit && onCriarRevisao && (
+                        <Button
+                          size="sm"
+                          onClick={() => onCriarRevisao(proposta)}
+                          className="h-7 text-xs bg-purple-700 hover:bg-purple-800 text-white gap-1 shrink-0 font-medium"
+                        >
+                          <History className="w-3.5 h-3.5" />
+                          Gerar Nova Revisão
+                        </Button>
+                      )}
                     </div>
 
-                    {canEdit && onCriarRevisao && (
-                      <Button
-                        size="sm"
-                        onClick={() => onCriarRevisao(proposta)}
-                        className="h-7 text-xs bg-purple-700 hover:bg-purple-800 text-white gap-1 shrink-0 font-medium"
-                      >
-                        <History className="w-3.5 h-3.5" />
-                        Gerar Nova Revisão
-                      </Button>
-                    )}
-                  </div>
+                    {/* Texto integral da solicitação atual */}
+                    <div className="bg-white/90 border border-purple-200 rounded-md p-3 text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
+                      <span className="font-semibold text-purple-900 block mb-1 text-[11px] uppercase tracking-wider">
+                        Texto Integral do Cliente:
+                      </span>
+                      {proposta.solicitacao_alteracao_texto}
+                    </div>
 
-                  {/* Texto integral da solicitação atual */}
-                  <div className="bg-white/90 border border-purple-200 rounded-md p-3 text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
-                    <span className="font-semibold text-purple-900 block mb-1 text-[11px] uppercase tracking-wider">
-                      Texto Integral do Cliente:
-                    </span>
-                    {proposta.solicitacao_alteracao_texto}
-                  </div>
+                    {/* Histórico retrátil de devolutivas anteriores */}
+                    {proposta.historico_devolutivas &&
+                      proposta.historico_devolutivas.length > 0 && (
+                        <div className="border-t border-purple-200/80 pt-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandirHistoricoDevolutivas(!expandirHistoricoDevolutivas)
+                            }
+                            className="flex items-center gap-1.5 text-[11px] font-semibold text-purple-900 hover:text-purple-950 focus:outline-none"
+                          >
+                            {expandirHistoricoDevolutivas ? (
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            )}
+                            Histórico de Devolutivas Anteriores (
+                            {proposta.historico_devolutivas.length})
+                          </button>
 
-                  {/* Histórico retrátil de devolutivas anteriores */}
-                  {proposta.historico_devolutivas && proposta.historico_devolutivas.length > 0 && (
-                    <div className="border-t border-purple-200/80 pt-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandirHistoricoDevolutivas(!expandirHistoricoDevolutivas)
-                        }
-                        className="flex items-center gap-1.5 text-[11px] font-semibold text-purple-900 hover:text-purple-950 focus:outline-none"
-                      >
-                        {expandirHistoricoDevolutivas ? (
-                          <ChevronUp className="w-3.5 h-3.5" />
-                        ) : (
-                          <ChevronDown className="w-3.5 h-3.5" />
-                        )}
-                        Histórico de Devolutivas Anteriores ({proposta.historico_devolutivas.length}
-                        )
-                      </button>
-
-                      {expandirHistoricoDevolutivas && (
-                        <div className="mt-2 space-y-2">
-                          {proposta.historico_devolutivas.map((dev, idx) => (
-                            <div
-                              key={idx}
-                              className="bg-purple-50/60 border border-purple-200/60 rounded p-2.5 text-xs text-slate-700"
-                            >
-                              <div className="flex items-center justify-between text-[10px] text-purple-800 font-semibold mb-1">
-                                <span>
-                                  {dev.versao || 'Versão anterior'} — {formatDateTimeBr(dev.data)}
-                                </span>
-                                <span className="text-slate-500 font-normal">
-                                  {dev.autor || 'Cliente'}
-                                </span>
-                              </div>
-                              <p className="whitespace-pre-wrap text-slate-800 leading-snug">
-                                {dev.texto}
-                              </p>
+                          {expandirHistoricoDevolutivas && (
+                            <div className="mt-2 space-y-2">
+                              {proposta.historico_devolutivas.map((dev, idx) => (
+                                <div
+                                  key={idx}
+                                  className="bg-purple-50/60 border border-purple-200/60 rounded p-2.5 text-xs text-slate-700"
+                                >
+                                  <div className="flex items-center justify-between text-[10px] text-purple-800 font-semibold mb-1">
+                                    <span>
+                                      {dev.versao || 'Versão anterior'} —{' '}
+                                      {formatDateTimeBr(dev.data)}
+                                    </span>
+                                    <span className="text-slate-500 font-normal">
+                                      {dev.autor || 'Cliente'}
+                                    </span>
+                                  </div>
+                                  <p className="whitespace-pre-wrap text-slate-800 leading-snug">
+                                    {dev.texto}
+                                  </p>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-              {/* Bloco de Rastreabilidade Projeto-Pacote se proposta tiver projetos ou itens convertidos */}
-              {(projetosGerados.length > 0 || percentualConvertido > 0) && (
-                <div className="bg-orange-50/70 border border-orange-200 rounded-lg p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
-                  <div>
-                    <div className="font-semibold text-orange-950 flex items-center gap-1.5">
-                      <Briefcase className="w-4 h-4 text-orange-600" />
-                      Rastreabilidade: Projeto-Pacote Vinculado
-                    </div>
-                    <div className="text-slate-600 mt-0.5">
-                      {projetosGerados.length > 0 ? (
-                        <span>
-                          Projetos gerados:{' '}
-                          {projetosGerados.map((p) => (
-                            <strong key={p.id} className="text-slate-900 font-mono mr-2">
-                              {p.codigo} ({p.nome})
-                            </strong>
-                          ))}
-                        </span>
-                      ) : (
-                        <span>Projeto associado em processamento</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block">
-                        Escopo Convertido
-                      </span>
-                      <span className="font-mono font-bold text-sm text-orange-700">
-                        {percentualConvertido}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {/* Cabeçalho do Documento */}
-              <div className="bg-slate-50 border rounded-lg p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div>
-                  <span className="text-slate-500 font-semibold block uppercase tracking-wider text-[10px]">
-                    Contratante / Destinatário
-                  </span>
-                  {proposta.expand?.empresa ? (
-                    <div className="mt-1">
-                      <div className="font-bold text-slate-900 text-sm">
-                        {proposta.expand.empresa.razao_social}
-                      </div>
-                      <div className="text-slate-600">CNPJ: {proposta.expand.empresa.cnpj}</div>
-                      {(proposta.expand.empresa.municipio || proposta.expand.empresa.uf) && (
-                        <div className="text-slate-500">
-                          {[proposta.expand.empresa.municipio, proposta.expand.empresa.uf]
-                            .filter(Boolean)
-                            .join(' / ')}
-                        </div>
-                      )}
-                    </div>
-                  ) : proposta.expand?.cliente_pf ? (
-                    <div className="mt-1">
-                      <div className="font-bold text-slate-900 text-sm">
-                        {proposta.expand.cliente_pf.nome}
-                      </div>
-                      <div className="text-slate-600">
-                        CPF: {proposta.expand.cliente_pf.cpf || 'Não informado'}
-                      </div>
-                      {proposta.expand.cliente_pf.endereco && (
-                        <div className="text-slate-500">{proposta.expand.cliente_pf.endereco}</div>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-slate-400">Cliente não especificado</span>
-                  )}
-                </div>
-
-                <div>
-                  <span className="text-slate-500 font-semibold block uppercase tracking-wider text-[10px]">
-                    Contrato Público / Referência
-                  </span>
-                  {proposta.expand?.contrato ? (
-                    <div className="mt-1">
-                      <div className="font-semibold text-slate-900">
-                        {proposta.expand.contrato.numero} - {proposta.expand.contrato.orgao}
-                      </div>
-                      <div className="text-slate-600">
-                        Valor Contrato: {formatCurrencyBr(proposta.expand.contrato.valor)}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-slate-400 mt-1">Serviço Direto / Sem contrato prévio</div>
-                  )}
-                </div>
-              </div>
-
-              {/* Escopo Técnico */}
-              <div className="space-y-1">
-                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                  1. Escopo Técnico e Atividades
-                </h4>
-                <div className="bg-white border rounded-lg p-4 text-xs whitespace-pre-wrap leading-relaxed text-slate-700">
-                  {proposta.escopo || 'Nenhum escopo detalhado.'}
-                </div>
-              </div>
-
-              {/* Disciplinas e Entregáveis */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    2. Disciplinas Envolvidas
-                  </h4>
-                  <div className="bg-slate-50 border rounded-lg p-3 text-xs text-slate-700">
-                    {proposta.disciplinas || 'Não especificadas'}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    3. Entregáveis Técnicos
-                  </h4>
-                  <div className="bg-slate-50 border rounded-lg p-3 text-xs text-slate-700">
-                    {proposta.entregaveis || 'Memoriais, pranchas e arquivos digitais'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Planilha de Itens de Serviço & Pré-Cotação Vinculante */}
-              <div className="space-y-1.5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <span>4. Planilha Orçamentária de Serviços</span>
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      (Cotações preliminares vinculantes)
-                    </span>
-                  </h4>
-
-                  {canEdit && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={preCotandoTodos}
-                      onClick={async () => {
-                        const itensParaCota =
-                          itensBanco.length > 0 ? itensBanco : proposta.itens_json || []
-                        if (itensParaCota.length === 0) {
-                          toast({
-                            title: 'Nenhum item',
-                            description: 'Não há itens na proposta para pré-cotar.',
-                            variant: 'destructive',
-                          })
-                          return
-                        }
-                        setPreCotandoTodos(true)
-                        try {
-                          const res = await preCotacaoService.abrirTodos(proposta.id, itensParaCota)
-                          toast({
-                            title: 'Pré-cotação em lote finalizada',
-                            description: `${res.sucessos.length} itens abertos, ${res.semElegiveis.length} sem elegíveis (mantido catálogo), ${res.erros.length} erros.`,
-                          })
-                          recarregarItens()
-                        } catch (err: any) {
-                          toast({
-                            title: 'Erro na cotação em lote',
-                            description: err.message,
-                            variant: 'destructive',
-                          })
-                        } finally {
-                          setPreCotandoTodos(false)
-                        }
-                      }}
-                      className="h-7 text-xs bg-orange-50 border-orange-200 text-[#D95A2B] hover:bg-orange-100 font-semibold gap-1"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      {preCotandoTodos ? 'Pré-cotando itens...' : 'Pré-cotar Todos os Itens'}
-                    </Button>
-                  )}
-                </div>
-
-                <div className="border rounded-lg overflow-hidden overflow-x-auto">
-                  <table className="w-full min-w-[720px] text-left text-xs">
-                    <thead className="bg-slate-100 text-slate-700 font-semibold border-b">
-                      <tr>
-                        <th className="py-2 px-3">Item / Serviço</th>
-                        <th className="py-2 px-3">Disciplina</th>
-                        <th className="py-2 px-3 text-center">Origem / Selo</th>
-                        <th className="py-2 px-3 text-center">Unid.</th>
-                        <th className="py-2 px-3 text-center">Qtd.</th>
-                        <th className="py-2 px-3 text-right">Custo Total</th>
-                        <th className="py-2 px-3 text-right">Preço Venda Total</th>
-                        <th className="py-2 px-3 text-center">Pré-Cotação</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {(itensBanco.length > 0 ? itensBanco : proposta.itens_json || []).length >
-                      0 ? (
-                        <>
-                          {(itensBanco.length > 0 ? itensBanco : proposta.itens_json || []).map(
-                            (it, idx) => {
-                              const bdi = Number(it.bdi_percentual ?? proposta.margem ?? 0)
-                              const qtd = Number(it.quantidade) || 1
-                              const precoTotalItem =
-                                it.preco_total != null
-                                  ? Math.round(Number(it.preco_total) * 100) / 100
-                                  : Math.round(Number(it.custo_total) * (1 + bdi / 100) * 100) / 100
-
-                              // Encontrar item do banco se for exibido da itens_json
-                              const itemEfetivo =
-                                itensBanco.find(
-                                  (ib) => ib.id === it.id || ib.descricao === it.descricao,
-                                ) || it
-
-                              return (
-                                <tr key={idx} className="hover:bg-slate-50">
-                                  <td className="py-2 px-3 font-medium text-slate-900">
-                                    {it.descricao}
-                                  </td>
-                                  <td className="py-2 px-3 text-slate-600">
-                                    {it.disciplina || '-'}
-                                  </td>
-                                  <td className="py-2 px-3 text-center">
-                                    {itemEfetivo.origem_custo === 'pre_cotacao' ? (
-                                      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold text-[10px] gap-1">
-                                        <Lock className="w-2.5 h-2.5" />
-                                        Custo Cotado
-                                      </Badge>
-                                    ) : itemEfetivo.origem_custo === 'sem_cotacao' ? (
-                                      <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
-                                        Sem Cotação
-                                      </Badge>
-                                    ) : itemEfetivo.origem_custo === 'manual_auditado' ? (
-                                      <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-[10px]">
-                                        Manual Auditado
-                                      </Badge>
-                                    ) : (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-slate-500 text-[10px]"
-                                      >
-                                        Catálogo
-                                      </Badge>
-                                    )}
-                                  </td>
-                                  <td className="py-2 px-3 text-center text-slate-600">
-                                    {it.unidade || 'un'}
-                                  </td>
-                                  <td className="py-2 px-3 text-center font-mono">
-                                    {it.quantidade}
-                                  </td>
-                                  <td className="py-2 px-3 text-right font-mono text-slate-800 font-medium">
-                                    {formatCurrencyBr(
-                                      itemEfetivo.custo_total || it.custo_total || 0,
-                                    )}
-                                  </td>
-                                  <td className="py-2 px-3 text-right font-mono font-semibold text-slate-900">
-                                    {formatCurrencyBr(precoTotalItem)}
-                                  </td>
-                                  <td className="py-2 px-3 text-center">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => {
-                                        setItemSelecionadoPreCotacao(itemEfetivo)
-                                        setModalPreCotacaoOpen(true)
-                                      }}
-                                      className="h-6 text-[11px] px-2 text-[#D95A2B] hover:text-[#b84820] hover:bg-orange-50 border-orange-200 gap-1 font-semibold"
-                                    >
-                                      <Send className="w-2.5 h-2.5" />
-                                      Pré-cotar
-                                    </Button>
-                                  </td>
-                                </tr>
-                              )
-                            },
                           )}
-                          <tr className="bg-slate-50 font-semibold border-t-2 border-slate-300">
-                            <td colSpan={6} className="py-2 px-3 text-right text-slate-700">
-                              Total da Planilha de Venda:
-                            </td>
-                            <td className="py-2 px-3 text-right font-mono font-bold text-orange-700">
-                              {formatCurrencyBr(
-                                Math.round(
-                                  proposta.itens_json.reduce((acc, it) => {
-                                    const bdi = Number(it.bdi_percentual ?? proposta.margem ?? 0)
-                                    const precoTotalItem =
-                                      it.preco_total != null
-                                        ? Math.round(Number(it.preco_total) * 100) / 100
-                                        : Math.round(
-                                            Number(it.custo_total) * (1 + bdi / 100) * 100,
-                                          ) / 100
-                                    return acc + precoTotalItem
-                                  }, 0) * 100,
-                                ) / 100,
-                              )}
-                            </td>
-                          </tr>
-                        </>
-                      ) : (
-                        <tr>
-                          <td colSpan={7} className="py-4 text-center text-slate-400">
-                            Nenhum item discriminado individualmente.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Preço e Condições */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-slate-50 border rounded-lg p-4 space-y-2 text-xs">
-                  <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[10px]">
-                    5. Prazo e Pagamento
-                  </h4>
-                  <div>
-                    <span className="text-slate-500 font-medium">Prazo de Execução:</span>{' '}
-                    <span className="font-semibold text-slate-900">
-                      {proposta.prazo || '30 dias corridos'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 font-medium">Condições de Pagamento:</span>{' '}
-                    <span className="font-semibold text-slate-900">
-                      {normalizarCondicoesPagamento(proposta.condicoes_pagamento) || 'A combinar'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 font-medium">Validade da Proposta:</span>{' '}
-                    <span className="font-semibold text-slate-900">
-                      {proposta.validade ? formatDateBr(proposta.validade) : '15 dias corridos'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2 text-xs">
-                  <h4 className="font-bold text-blue-900 uppercase tracking-wider text-[10px]">
-                    6. Resumo Financeiro & BDI
-                  </h4>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Custo Direto:</span>
-                    <span className="font-mono text-slate-800">
-                      {formatCurrencyBr(proposta.custo || 0)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Margem Comercial:</span>
-                    <span className="font-mono text-slate-800">{proposta.margem || 0}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Exigência de Nota Fiscal:</span>
-                    <span className="font-semibold text-slate-800">
-                      {proposta.requer_nota ? 'Sim (com nota)' : 'Não (sem nota)'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Tributos e Impostos:</span>
-                    <span className="font-mono text-slate-800">
-                      {proposta.requer_nota ? `${proposta.impostos || 0}%` : '0% (desligado)'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-t border-blue-200 pt-2 text-sm font-bold text-blue-900">
-                    <span>Preço Total da Proposta:</span>
-                    <span className="font-mono text-base">{formatCurrencyBr(proposta.preco)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Premissas e Exclusões */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div className="space-y-1">
-                  <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[10px]">
-                    7. Premissas Técnicas
-                  </h4>
-                  <div className="p-3 bg-slate-50 border rounded text-slate-600">
-                    {proposta.premissas || 'Nenhuma premissa adicional.'}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[10px]">
-                    8. Exclusões de Escopo
-                  </h4>
-                  <div className="p-3 bg-slate-50 border rounded text-slate-600">
-                    {proposta.exclusoes || 'Nenhuma exclusão registrada.'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Se recusada, exibir motivo */}
-              {proposta.status === 'recusada' && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-xs space-y-1">
-                  <div className="font-bold text-red-800 flex items-center gap-1.5">
-                    <AlertCircle className="w-4 h-4 text-red-600" />
-                    Proposta Recusada pelo Cliente
-                  </div>
-                  <div className="text-red-700">
-                    <strong>Motivo:</strong> {proposta.motivo_recusa || 'Não especificado'}
-                  </div>
-                  {proposta.detalhe_recusa && (
-                    <div className="text-red-600">
-                      <strong>Detalhe:</strong> {proposta.detalhe_recusa}
-                    </div>
-                  )}
-                  {proposta.data_recusa && (
-                    <div className="text-[11px] text-red-500">
-                      Registrado em {formatDateTimeBr(proposta.data_recusa)}
-                    </div>
-                  )}
-                </div>
-              )}
-            </TabsContent>
-
-            {/* ABA HISTÓRICO DE REVISÕES */}
-            <TabsContent value="historico" className="space-y-4 pt-3 text-xs">
-              {proposta.historico_revisoes && proposta.historico_revisoes.length > 0 ? (
-                <div className="space-y-3">
-                  {proposta.historico_revisoes.map((rev, idx) => (
-                    <div key={idx} className="border rounded-lg p-4 bg-slate-50 space-y-2">
-                      <div className="flex items-center justify-between border-b pb-2">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="font-mono font-bold bg-white">
-                            {rev.revisao}
-                          </Badge>
-                          <span className="text-slate-600 font-medium">
-                            Arquivada em {formatDateTimeBr(rev.data)}
-                          </span>
                         </div>
-                        <span className="font-mono font-bold text-slate-900">
-                          {formatCurrencyBr(rev.preco)}
+                      )}
+                  </div>
+                )}
+                {/* Bloco de Rastreabilidade Projeto-Pacote se proposta tiver projetos ou itens convertidos */}
+                {(projetosGerados.length > 0 || percentualConvertido > 0) && (
+                  <div className="bg-orange-50/70 border border-orange-200 rounded-lg p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+                    <div>
+                      <div className="font-semibold text-orange-950 flex items-center gap-1.5">
+                        <Briefcase className="w-4 h-4 text-orange-600" />
+                        Rastreabilidade: Projeto-Pacote Vinculado
+                      </div>
+                      <div className="text-slate-600 mt-0.5">
+                        {projetosGerados.length > 0 ? (
+                          <span>
+                            Projetos gerados:{' '}
+                            {projetosGerados.map((p) => (
+                              <strong key={p.id} className="text-slate-900 font-mono mr-2">
+                                {p.codigo} ({p.nome})
+                              </strong>
+                            ))}
+                          </span>
+                        ) : (
+                          <span>Projeto associado em processamento</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-500 uppercase tracking-wider block">
+                          Escopo Convertido
+                        </span>
+                        <span className="font-mono font-bold text-sm text-orange-700">
+                          {percentualConvertido}%
                         </span>
                       </div>
-
-                      <div className="text-slate-700">
-                        <strong>Escopo registrado:</strong>
-                        <p className="line-clamp-2 text-slate-600 mt-0.5">
-                          {rev.conteudo_snapshot?.escopo}
-                        </p>
-                      </div>
-
-                      <div className="flex gap-4 text-[11px] text-slate-500">
-                        <span>Custo: {formatCurrencyBr(rev.custo)}</span>
-                        <span>Margem: {rev.margem}%</span>
-                        <span>Impostos: {rev.impostos}%</span>
-                        {rev.responsavel_nome && <span>Por: {rev.responsavel_nome}</span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-8 text-center text-slate-400">
-                  Esta proposta ainda está na versão original (Rev.00) e não possui revisões
-                  anteriores arquivadas.
-                </div>
-              )}
-            </TabsContent>
-
-            {/* ABA TIMELINE & AUDITORIA */}
-            <TabsContent value="status" className="space-y-3 pt-3 text-xs">
-              <div className="border rounded-lg divide-y bg-white">
-                <div className="p-3 flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-slate-800">Criação da Proposta</div>
-                    <div className="text-slate-500 text-[11px]">
-                      {formatDateTimeBr(proposta.created)} por{' '}
-                      {proposta.expand?.criado_por?.name || 'Sistema'}
                     </div>
                   </div>
-                  <Badge variant="outline">Início</Badge>
-                </div>
-
-                {proposta.data_aprovacao_financeira && (
-                  <div className="p-3 flex items-center justify-between bg-emerald-50/50">
-                    <div>
-                      <div className="font-semibold text-emerald-900">
-                        Parecer Financeiro Emitido
-                      </div>
-                      <div className="text-emerald-700 text-[11px]">
-                        {formatDateTimeBr(proposta.data_aprovacao_financeira)} por{' '}
-                        {proposta.expand?.aprovador_financeiro?.name || 'Financeiro'}
-                      </div>
-                      {proposta.parecer_financeiro && (
-                        <div className="text-slate-600 text-[11px] mt-1 italic">
-                          "{proposta.parecer_financeiro}"
+                )}
+                {/* Cabeçalho do Documento */}
+                <div className="bg-slate-50 border rounded-lg p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <span className="text-slate-500 font-semibold block uppercase tracking-wider text-[10px]">
+                      Contratante / Destinatário
+                    </span>
+                    {proposta.expand?.empresa ? (
+                      <div className="mt-1">
+                        <div className="font-bold text-slate-900 text-sm">
+                          {proposta.expand.empresa.razao_social}
                         </div>
-                      )}
-                    </div>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  </div>
-                )}
-
-                {proposta.data_aprovacao_admin && (
-                  <div className="p-3 flex items-center justify-between bg-blue-50/50">
-                    <div>
-                      <div className="font-semibold text-blue-900">
-                        Aprovação de Alçada (Diretoria/Admin)
+                        <div className="text-slate-600">CNPJ: {proposta.expand.empresa.cnpj}</div>
+                        {(proposta.expand.empresa.municipio || proposta.expand.empresa.uf) && (
+                          <div className="text-slate-500">
+                            {[proposta.expand.empresa.municipio, proposta.expand.empresa.uf]
+                              .filter(Boolean)
+                              .join(' / ')}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-blue-700 text-[11px]">
-                        {formatDateTimeBr(proposta.data_aprovacao_admin)} por{' '}
-                        {proposta.expand?.aprovador_admin?.name || 'Administrador'}
+                    ) : proposta.expand?.cliente_pf ? (
+                      <div className="mt-1">
+                        <div className="font-bold text-slate-900 text-sm">
+                          {proposta.expand.cliente_pf.nome}
+                        </div>
+                        <div className="text-slate-600">
+                          CPF: {proposta.expand.cliente_pf.cpf || 'Não informado'}
+                        </div>
+                        {proposta.expand.cliente_pf.endereco && (
+                          <div className="text-slate-500">
+                            {proposta.expand.cliente_pf.endereco}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                  </div>
-                )}
-
-                {proposta.data_visualizacao && (
-                  <div className="p-3 flex items-center justify-between bg-indigo-50/50">
-                    <div>
-                      <div className="font-semibold text-indigo-900">
-                        Primeira Visualização pelo Cliente
-                      </div>
-                      <div className="text-indigo-700 text-[11px]">
-                        Acessada via link público único em{' '}
-                        {formatDateTimeBr(proposta.data_visualizacao)}
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="bg-indigo-100 text-indigo-800">
-                      Visualizada
-                    </Badge>
-                  </div>
-                )}
-
-                {proposta.data_aceite && (
-                  <div className="p-3 flex items-center justify-between bg-emerald-100/60">
-                    <div>
-                      <div className="font-semibold text-emerald-950">
-                        Proposta Aceita pelo Cliente
-                      </div>
-                      <div className="text-emerald-800 text-[11px]">
-                        Aceite digital registrado em {formatDateTimeBr(proposta.data_aceite)}.
-                        <br />
-                        <strong>Tríplice Consequência Disparada:</strong> Projeto gerado, Conta a
-                        receber criada, Empresa convertida em Parceira.
-                      </div>
-                    </div>
-                    <CheckCircle2 className="w-5 h-5 text-emerald-700" />
-                  </div>
-                )}
-
-                {proposta.data_recusa && (
-                  <div className="p-3 flex items-center justify-between bg-red-50">
-                    <div>
-                      <div className="font-semibold text-red-900">
-                        Proposta Recusada pelo Cliente
-                      </div>
-                      <div className="text-red-700 text-[11px]">
-                        Registrado em {formatDateTimeBr(proposta.data_recusa)}.
-                        <br />
-                        Motivo obrigatório: {proposta.motivo_recusa}
-                      </div>
-                    </div>
-                    <AlertCircle className="w-4 h-4 text-red-600" />
-                  </div>
-                )}
-              </div>
-
-              {/* Ações manuais de status para o Comercial */}
-              {canEdit && proposta.status !== 'aceita' && proposta.status !== 'recusada' && (
-                <div className="p-3 bg-slate-50 border rounded-lg flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-slate-800">Mudar Status Manualmente</div>
-                    <div className="text-[11px] text-slate-500">
-                      Controle de fluxo de negociação do Comercial
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {proposta.status !== 'em_negociacao' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onMudarStatus && onMudarStatus(proposta, 'em_negociacao')}
-                        className="text-xs h-7 text-purple-700 hover:bg-purple-50"
-                      >
-                        Marcar Em Negociação
-                      </Button>
+                    ) : (
+                      <span className="text-slate-400">Cliente não especificado</span>
                     )}
+                  </div>
 
-                    {proposta.status === 'rascunho' && (
+                  <div>
+                    <span className="text-slate-500 font-semibold block uppercase tracking-wider text-[10px]">
+                      Contrato Público / Referência
+                    </span>
+                    {proposta.expand?.contrato ? (
+                      <div className="mt-1">
+                        <div className="font-semibold text-slate-900">
+                          {proposta.expand.contrato.numero} - {proposta.expand.contrato.orgao}
+                        </div>
+                        <div className="text-slate-600">
+                          Valor Contrato: {formatCurrencyBr(proposta.expand.contrato.valor)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-slate-400 mt-1">
+                        Serviço Direto / Sem contrato prévio
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Escopo Técnico */}
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    1. Escopo Técnico e Atividades
+                  </h4>
+                  <div className="bg-white border rounded-lg p-4 text-xs whitespace-pre-wrap leading-relaxed text-slate-700">
+                    {proposta.escopo || 'Nenhum escopo detalhado.'}
+                  </div>
+                </div>
+
+                {/* Disciplinas e Entregáveis */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                      2. Disciplinas Envolvidas
+                    </h4>
+                    <div className="bg-slate-50 border rounded-lg p-3 text-xs text-slate-700">
+                      {proposta.disciplinas || 'Não especificadas'}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                      3. Entregáveis Técnicos
+                    </h4>
+                    <div className="bg-slate-50 border rounded-lg p-3 text-xs text-slate-700">
+                      {proposta.entregaveis || 'Memoriais, pranchas e arquivos digitais'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Planilha de Itens de Serviço & Pré-Cotação Vinculante */}
+                <div className="space-y-1.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                      <span>4. Planilha Orçamentária de Serviços</span>
+                      <span className="text-[10px] text-slate-400 font-normal">
+                        (Cotações preliminares vinculantes)
+                      </span>
+                    </h4>
+
+                    {canEdit && (
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          if (onAbrirAprovacao) {
-                            onAbrirAprovacao(proposta)
-                          } else if (onMudarStatus) {
-                            onMudarStatus(proposta, 'aprovada')
+                        disabled={preCotandoTodos}
+                        onClick={async () => {
+                          const itensParaCota =
+                            itensBanco.length > 0 ? itensBanco : proposta.itens_json || []
+                          if (itensParaCota.length === 0) {
+                            toast({
+                              title: 'Nenhum item',
+                              description: 'Não há itens na proposta para pré-cotar.',
+                              variant: 'destructive',
+                            })
+                            return
+                          }
+                          setPreCotandoTodos(true)
+                          try {
+                            const res = await preCotacaoService.abrirTodos(
+                              proposta.id,
+                              itensParaCota,
+                            )
+                            toast({
+                              title: 'Pré-cotação em lote finalizada',
+                              description: `${res.sucessos.length} itens abertos, ${res.semElegiveis.length} sem elegíveis (mantido catálogo), ${res.erros.length} erros.`,
+                            })
+                            recarregarItens()
+                          } catch (err: any) {
+                            toast({
+                              title: 'Erro na cotação em lote',
+                              description: err.message,
+                              variant: 'destructive',
+                            })
+                          } finally {
+                            setPreCotandoTodos(false)
                           }
                         }}
-                        className="text-xs h-7 text-amber-700 hover:bg-amber-50"
+                        className="h-7 text-xs bg-orange-50 border-orange-200 text-[#D95A2B] hover:bg-orange-100 font-semibold gap-1"
                       >
-                        Aprovar Proposta
+                        <Sparkles className="w-3 h-3" />
+                        {preCotandoTodos ? 'Pré-cotando itens...' : 'Pré-cotar Todos os Itens'}
                       </Button>
                     )}
                   </div>
+
+                  <div className="border rounded-lg overflow-hidden overflow-x-auto">
+                    <table className="w-full min-w-[720px] text-left text-xs">
+                      <thead className="bg-slate-100 text-slate-700 font-semibold border-b">
+                        <tr>
+                          <th className="py-2 px-3">Item / Serviço</th>
+                          <th className="py-2 px-3">Disciplina</th>
+                          <th className="py-2 px-3 text-center">Origem / Selo</th>
+                          <th className="py-2 px-3 text-center">Unid.</th>
+                          <th className="py-2 px-3 text-center">Qtd.</th>
+                          <th className="py-2 px-3 text-right">Custo Total</th>
+                          <th className="py-2 px-3 text-right">Preço Venda Total</th>
+                          <th className="py-2 px-3 text-center">Pré-Cotação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {(itensBanco.length > 0 ? itensBanco : proposta.itens_json || []).length >
+                        0 ? (
+                          <>
+                            {(itensBanco.length > 0 ? itensBanco : proposta.itens_json || []).map(
+                              (it, idx) => {
+                                const bdi = Number(it.bdi_percentual ?? proposta.margem ?? 0)
+                                const qtd = Number(it.quantidade) || 1
+                                const precoTotalItem =
+                                  it.preco_total != null
+                                    ? Math.round(Number(it.preco_total) * 100) / 100
+                                    : Math.round(Number(it.custo_total) * (1 + bdi / 100) * 100) /
+                                      100
+
+                                // Encontrar item do banco se for exibido da itens_json
+                                const itemEfetivo =
+                                  itensBanco.find(
+                                    (ib) => ib.id === it.id || ib.descricao === it.descricao,
+                                  ) || it
+
+                                return (
+                                  <tr key={idx} className="hover:bg-slate-50">
+                                    <td className="py-2 px-3 font-medium text-slate-900">
+                                      {it.descricao}
+                                    </td>
+                                    <td className="py-2 px-3 text-slate-600">
+                                      {it.disciplina || '-'}
+                                    </td>
+                                    <td className="py-2 px-3 text-center">
+                                      {itemEfetivo.origem_custo === 'pre_cotacao' ? (
+                                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold text-[10px] gap-1">
+                                          <Lock className="w-2.5 h-2.5" />
+                                          Custo Cotado
+                                        </Badge>
+                                      ) : itemEfetivo.origem_custo === 'sem_cotacao' ? (
+                                        <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
+                                          Sem Cotação
+                                        </Badge>
+                                      ) : itemEfetivo.origem_custo === 'manual_auditado' ? (
+                                        <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-[10px]">
+                                          Manual Auditado
+                                        </Badge>
+                                      ) : (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-slate-500 text-[10px]"
+                                        >
+                                          Catálogo
+                                        </Badge>
+                                      )}
+                                    </td>
+                                    <td className="py-2 px-3 text-center text-slate-600">
+                                      {it.unidade || 'un'}
+                                    </td>
+                                    <td className="py-2 px-3 text-center font-mono">
+                                      {it.quantidade}
+                                    </td>
+                                    <td className="py-2 px-3 text-right font-mono text-slate-800 font-medium">
+                                      {formatCurrencyBr(
+                                        itemEfetivo.custo_total || it.custo_total || 0,
+                                      )}
+                                    </td>
+                                    <td className="py-2 px-3 text-right font-mono font-semibold text-slate-900">
+                                      {formatCurrencyBr(precoTotalItem)}
+                                    </td>
+                                    <td className="py-2 px-3 text-center">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setItemSelecionadoPreCotacao(itemEfetivo)
+                                          setModalPreCotacaoOpen(true)
+                                        }}
+                                        className="h-6 text-[11px] px-2 text-[#D95A2B] hover:text-[#b84820] hover:bg-orange-50 border-orange-200 gap-1 font-semibold"
+                                      >
+                                        <Send className="w-2.5 h-2.5" />
+                                        Pré-cotar
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                )
+                              },
+                            )}
+                            <tr className="bg-slate-50 font-semibold border-t-2 border-slate-300">
+                              <td colSpan={6} className="py-2 px-3 text-right text-slate-700">
+                                Total da Planilha de Venda:
+                              </td>
+                              <td className="py-2 px-3 text-right font-mono font-bold text-orange-700">
+                                {formatCurrencyBr(
+                                  Math.round(
+                                    proposta.itens_json.reduce((acc, it) => {
+                                      const bdi = Number(it.bdi_percentual ?? proposta.margem ?? 0)
+                                      const precoTotalItem =
+                                        it.preco_total != null
+                                          ? Math.round(Number(it.preco_total) * 100) / 100
+                                          : Math.round(
+                                              Number(it.custo_total) * (1 + bdi / 100) * 100,
+                                            ) / 100
+                                      return acc + precoTotalItem
+                                    }, 0) * 100,
+                                  ) / 100,
+                                )}
+                              </td>
+                            </tr>
+                          </>
+                        ) : (
+                          <tr>
+                            <td colSpan={7} className="py-4 text-center text-slate-400">
+                              Nenhum item discriminado individualmente.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
+
+                {/* Preço e Condições */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-slate-50 border rounded-lg p-4 space-y-2 text-xs">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[10px]">
+                      5. Prazo e Pagamento
+                    </h4>
+                    <div>
+                      <span className="text-slate-500 font-medium">Prazo de Execução:</span>{' '}
+                      <span className="font-semibold text-slate-900">
+                        {proposta.prazo || '30 dias corridos'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium">Condições de Pagamento:</span>{' '}
+                      <span className="font-semibold text-slate-900">
+                        {normalizarCondicoesPagamento(proposta.condicoes_pagamento) || 'A combinar'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium">Validade da Proposta:</span>{' '}
+                      <span className="font-semibold text-slate-900">
+                        {proposta.validade ? formatDateBr(proposta.validade) : '15 dias corridos'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2 text-xs">
+                    <h4 className="font-bold text-blue-900 uppercase tracking-wider text-[10px]">
+                      6. Resumo Financeiro & BDI
+                    </h4>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Custo Direto:</span>
+                      <span className="font-mono text-slate-800">
+                        {formatCurrencyBr(proposta.custo || 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Margem Comercial:</span>
+                      <span className="font-mono text-slate-800">{proposta.margem || 0}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Exigência de Nota Fiscal:</span>
+                      <span className="font-semibold text-slate-800">
+                        {proposta.requer_nota ? 'Sim (com nota)' : 'Não (sem nota)'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Tributos e Impostos:</span>
+                      <span className="font-mono text-slate-800">
+                        {proposta.requer_nota ? `${proposta.impostos || 0}%` : '0% (desligado)'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-t border-blue-200 pt-2 text-sm font-bold text-blue-900">
+                      <span>Preço Total da Proposta:</span>
+                      <span className="font-mono text-base">
+                        {formatCurrencyBr(proposta.preco)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Premissas e Exclusões */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[10px]">
+                      7. Premissas Técnicas
+                    </h4>
+                    <div className="p-3 bg-slate-50 border rounded text-slate-600">
+                      {proposta.premissas || 'Nenhuma premissa adicional.'}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[10px]">
+                      8. Exclusões de Escopo
+                    </h4>
+                    <div className="p-3 bg-slate-50 border rounded text-slate-600">
+                      {proposta.exclusoes || 'Nenhuma exclusão registrada.'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Se recusada, exibir motivo */}
+                {proposta.status === 'recusada' && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-xs space-y-1">
+                    <div className="font-bold text-red-800 flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 text-red-600" />
+                      Proposta Recusada pelo Cliente
+                    </div>
+                    <div className="text-red-700">
+                      <strong>Motivo:</strong> {proposta.motivo_recusa || 'Não especificado'}
+                    </div>
+                    {proposta.detalhe_recusa && (
+                      <div className="text-red-600">
+                        <strong>Detalhe:</strong> {proposta.detalhe_recusa}
+                      </div>
+                    )}
+                    {proposta.data_recusa && (
+                      <div className="text-[11px] text-red-500">
+                        Registrado em {formatDateTimeBr(proposta.data_recusa)}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* ABA HISTÓRICO DE REVISÕES */}
+              <TabsContent value="historico" className="space-y-4 pt-3 text-xs">
+                {proposta.historico_revisoes && proposta.historico_revisoes.length > 0 ? (
+                  <div className="space-y-3">
+                    {proposta.historico_revisoes.map((rev, idx) => (
+                      <div key={idx} className="border rounded-lg p-4 bg-slate-50 space-y-2">
+                        <div className="flex items-center justify-between border-b pb-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="font-mono font-bold bg-white">
+                              {rev.revisao}
+                            </Badge>
+                            <span className="text-slate-600 font-medium">
+                              Arquivada em {formatDateTimeBr(rev.data)}
+                            </span>
+                          </div>
+                          <span className="font-mono font-bold text-slate-900">
+                            {formatCurrencyBr(rev.preco)}
+                          </span>
+                        </div>
+
+                        <div className="text-slate-700">
+                          <strong>Escopo registrado:</strong>
+                          <p className="line-clamp-2 text-slate-600 mt-0.5">
+                            {rev.conteudo_snapshot?.escopo}
+                          </p>
+                        </div>
+
+                        <div className="flex gap-4 text-[11px] text-slate-500">
+                          <span>Custo: {formatCurrencyBr(rev.custo)}</span>
+                          <span>Margem: {rev.margem}%</span>
+                          <span>Impostos: {rev.impostos}%</span>
+                          {rev.responsavel_nome && <span>Por: {rev.responsavel_nome}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center text-slate-400">
+                    Esta proposta ainda está na versão original (Rev.00) e não possui revisões
+                    anteriores arquivadas.
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* ABA TIMELINE & AUDITORIA */}
+              <TabsContent value="status" className="space-y-3 pt-3 text-xs">
+                <div className="border rounded-lg divide-y bg-white">
+                  <div className="p-3 flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold text-slate-800">Criação da Proposta</div>
+                      <div className="text-slate-500 text-[11px]">
+                        {formatDateTimeBr(proposta.created)} por{' '}
+                        {proposta.expand?.criado_por?.name || 'Sistema'}
+                      </div>
+                    </div>
+                    <Badge variant="outline">Início</Badge>
+                  </div>
+
+                  {proposta.data_aprovacao_financeira && (
+                    <div className="p-3 flex items-center justify-between bg-emerald-50/50">
+                      <div>
+                        <div className="font-semibold text-emerald-900">
+                          Parecer Financeiro Emitido
+                        </div>
+                        <div className="text-emerald-700 text-[11px]">
+                          {formatDateTimeBr(proposta.data_aprovacao_financeira)} por{' '}
+                          {proposta.expand?.aprovador_financeiro?.name || 'Financeiro'}
+                        </div>
+                        {proposta.parecer_financeiro && (
+                          <div className="text-slate-600 text-[11px] mt-1 italic">
+                            "{proposta.parecer_financeiro}"
+                          </div>
+                        )}
+                      </div>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    </div>
+                  )}
+
+                  {proposta.data_aprovacao_admin && (
+                    <div className="p-3 flex items-center justify-between bg-blue-50/50">
+                      <div>
+                        <div className="font-semibold text-blue-900">
+                          Aprovação de Alçada (Diretoria/Admin)
+                        </div>
+                        <div className="text-blue-700 text-[11px]">
+                          {formatDateTimeBr(proposta.data_aprovacao_admin)} por{' '}
+                          {proposta.expand?.aprovador_admin?.name || 'Administrador'}
+                        </div>
+                      </div>
+                      <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                    </div>
+                  )}
+
+                  {proposta.data_visualizacao && (
+                    <div className="p-3 flex items-center justify-between bg-indigo-50/50">
+                      <div>
+                        <div className="font-semibold text-indigo-900">
+                          Primeira Visualização pelo Cliente
+                        </div>
+                        <div className="text-indigo-700 text-[11px]">
+                          Acessada via link público único em{' '}
+                          {formatDateTimeBr(proposta.data_visualizacao)}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="bg-indigo-100 text-indigo-800">
+                        Visualizada
+                      </Badge>
+                    </div>
+                  )}
+
+                  {proposta.data_aceite && (
+                    <div className="p-3 flex items-center justify-between bg-emerald-100/60">
+                      <div>
+                        <div className="font-semibold text-emerald-950">
+                          Proposta Aceita pelo Cliente
+                        </div>
+                        <div className="text-emerald-800 text-[11px]">
+                          Aceite digital registrado em {formatDateTimeBr(proposta.data_aceite)}.
+                          <br />
+                          <strong>Tríplice Consequência Disparada:</strong> Projeto gerado, Conta a
+                          receber criada, Empresa convertida em Parceira.
+                        </div>
+                      </div>
+                      <CheckCircle2 className="w-5 h-5 text-emerald-700" />
+                    </div>
+                  )}
+
+                  {proposta.data_recusa && (
+                    <div className="p-3 flex items-center justify-between bg-red-50">
+                      <div>
+                        <div className="font-semibold text-red-900">
+                          Proposta Recusada pelo Cliente
+                        </div>
+                        <div className="text-red-700 text-[11px]">
+                          Registrado em {formatDateTimeBr(proposta.data_recusa)}.
+                          <br />
+                          Motivo obrigatório: {proposta.motivo_recusa}
+                        </div>
+                      </div>
+                      <AlertCircle className="w-4 h-4 text-red-600" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Ações manuais de status para o Comercial */}
+                {canEdit && proposta.status !== 'aceita' && proposta.status !== 'recusada' && (
+                  <div className="p-3 bg-slate-50 border rounded-lg flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold text-slate-800">Mudar Status Manualmente</div>
+                      <div className="text-[11px] text-slate-500">
+                        Controle de fluxo de negociação do Comercial
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {proposta.status !== 'em_negociacao' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onMudarStatus && onMudarStatus(proposta, 'em_negociacao')}
+                          className="text-xs h-7 text-purple-700 hover:bg-purple-50"
+                        >
+                          Marcar Em Negociação
+                        </Button>
+                      )}
+
+                      {proposta.status === 'rascunho' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (onAbrirAprovacao) {
+                              onAbrirAprovacao(proposta)
+                            } else if (onMudarStatus) {
+                              onMudarStatus(proposta, 'aprovada')
+                            }
+                          }}
+                          className="text-xs h-7 text-amber-700 hover:bg-amber-50"
+                        >
+                          Aprovar Proposta
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          <div className="p-3 border-t bg-slate-50 flex justify-end shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                restoreBodyPointerEvents()
+                onOpenChange(false)
+              }}
+            >
+              Fechar
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

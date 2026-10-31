@@ -97,6 +97,30 @@ interface SelfcheckResultados {
       erro?: string
     }
   }
+  item16_scorecards_isolamento?: {
+    todas_conformes?: boolean
+    detalhes?: {
+      colecoes_configuradas?: boolean
+      scorecards_isolamento_prestador?: boolean
+      parametros_versionados_imutaveis?: boolean
+      parametros_ativos_configurados?: boolean
+      erro?: string
+    }
+  }
+  item17_ifc_bcf_issues?: {
+    todas_conformes?: boolean
+    detalhes?: {
+      campo_resumo_ifc?: boolean
+      campo_hash_sha256?: boolean
+      campo_tamanho?: boolean
+      colecao_issues_revisao?: boolean
+      viewpoint_protegido?: boolean
+      issues_isolamento_prestador?: boolean
+      parametro_teto_ifc?: boolean
+      teto_ifc_mb?: string
+      erro?: string
+    }
+  }
   conformidade_geral?: boolean
 }
 
@@ -560,6 +584,63 @@ export const PainelSmtpSeguranca: React.FC = () => {
                       {res?.item15_custo_interno_real?.detalhes?.apontamentos_isolamento_prestador
                         ? 'Sim'
                         : 'Não'}
+                    </strong>
+                  </p>
+                </div>
+
+                {/* 16. Scorecards & Parâmetros Versionados (Rodada 16) */}
+                <div className="p-3 border rounded-lg bg-white space-y-1">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span>16. Scorecards & Isolamento</span>
+                    {res?.item16_scorecards_isolamento?.todas_conformes ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    )}
+                  </div>
+                  <p className="text-slate-500 text-[11px]">
+                    Isolamento do prestador:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item16_scorecards_isolamento?.detalhes?.scorecards_isolamento_prestador
+                        ? 'Conforme'
+                        : 'Não'}
+                    </strong>{' '}
+                    | Parâmetros versionados:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item16_scorecards_isolamento?.detalhes?.parametros_versionados_imutaveis
+                        ? 'Sim'
+                        : 'Não'}
+                    </strong>
+                  </p>
+                </div>
+
+                {/* 17. IFC / BCF & Issues de Revisão (Rodada 17) */}
+                <div className="p-3 border rounded-lg bg-white space-y-1 ring-1 ring-blue-500/40">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span className="text-blue-700">17. IFC / BCF & Issues de Revisão</span>
+                    {res?.item17_ifc_bcf_issues?.todas_conformes ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    )}
+                  </div>
+                  <p className="text-slate-500 text-[11px]">
+                    Hash SHA-256 & Resumo IFC:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item17_ifc_bcf_issues?.detalhes?.campo_hash_sha256 &&
+                      res?.item17_ifc_bcf_issues?.detalhes?.campo_resumo_ifc
+                        ? 'Sim'
+                        : 'Não'}
+                    </strong>{' '}
+                    | Isolamento Prestador:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item17_ifc_bcf_issues?.detalhes?.issues_isolamento_prestador
+                        ? 'Conforme'
+                        : 'Não'}
+                    </strong>{' '}
+                    | Teto IFC:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item17_ifc_bcf_issues?.detalhes?.teto_ifc_mb || '150'} MB
                     </strong>
                   </p>
                 </div>

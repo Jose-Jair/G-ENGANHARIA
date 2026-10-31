@@ -87,56 +87,56 @@ onRecordValidate((e) => {
         }
       }
     }
+  }
 
-    // Validação em entregaveis_versoes
-    if (colName === 'entregaveis_versoes') {
-      const stVersao = rec.getString('status')
-      const entIdVersao = rec.getString('entregavel')
+  // Validação em entregaveis_versoes
+  if (colName === 'entregaveis_versoes') {
+    const stVersao = rec.getString('status')
+    const entIdVersao = rec.getString('entregavel')
 
-      if (stVersao === 'devolvido') {
-        const motivo = (rec.getString('motivo_devolucao') || '').trim()
-        let temIssuesVersao = false
-        if (entIdVersao) {
-          try {
-            const issuesV = $app.findRecordsByFilter(
-              'issues_revisao',
-              "versao = '" + rec.id + "' || entregavel = '" + entIdVersao + "'",
-              '',
-              1,
-              0,
-            )
-            temIssuesVersao = issuesV.length > 0
-          } catch (_) {}
-        }
-        if (!motivo && !temIssuesVersao) {
-          throw new BadRequestError(
-            'BLOQUEIO: Devolver versão exige issue ou texto explicativo de reprovação.',
+    if (stVersao === 'devolvido') {
+      const motivo = (rec.getString('motivo_devolucao') || '').trim()
+      let temIssuesVersao = false
+      if (entIdVersao) {
+        try {
+          const issuesV = $app.findRecordsByFilter(
+            'issues_revisao',
+            "versao = '" + rec.id + "' || entregavel = '" + entIdVersao + "'",
+            '',
+            1,
+            0,
           )
-        }
+          temIssuesVersao = issuesV.length > 0
+        } catch (_) {}
       }
+      if (!motivo && !temIssuesVersao) {
+        throw new BadRequestError(
+          'BLOQUEIO: Devolver versão exige issue ou texto explicativo de reprovação.',
+        )
+      }
+    }
 
-      if (stVersao === 'aprovado') {
-        if (entIdVersao) {
-          try {
-            const issuesImpeditivas = $app.findRecordsByFilter(
-              'issues_revisao',
-              "(versao = '" +
-                rec.id +
-                "' || entregavel = '" +
-                entIdVersao +
-                "') && (status = 'aberta' || status = 'atribuida' || status = 'corrigida')",
-              '',
-              10,
-              0,
+    if (stVersao === 'aprovado') {
+      if (entIdVersao) {
+        try {
+          const issuesImpeditivas = $app.findRecordsByFilter(
+            'issues_revisao',
+            "(versao = '" +
+              rec.id +
+              "' || entregavel = '" +
+              entIdVersao +
+              "') && (status = 'aberta' || status = 'atribuida' || status = 'corrigida')",
+            '',
+            10,
+            0,
+          )
+          if (issuesImpeditivas.length > 0) {
+            throw new BadRequestError(
+              'BLOQUEIO: Aprovação de versão só é permitida com todas as issues verificadas ou rejeitadas.',
             )
-            if (issuesImpeditivas.length > 0) {
-              throw new BadRequestError(
-                'BLOQUEIO: Aprovação de versão só é permitida com todas as issues verificadas ou rejeitadas.',
-              )
-            }
-          } catch (errIv) {
-            if (errIv instanceof BadRequestError) throw errIv
           }
+        } catch (errIv) {
+          if (errIv instanceof BadRequestError) throw errIv
         }
       }
     }

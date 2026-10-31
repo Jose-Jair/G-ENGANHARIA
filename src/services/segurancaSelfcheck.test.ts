@@ -140,5 +140,17 @@ describe('Endpoint de Autochecagem de Segurança (/backend/v1/seguranca/selfchec
     expect(
       res.resultados.item16_scorecards_isolamento.detalhes.parametros_ativos_configurados,
     ).toBe(true)
+
+    // Item 17: IFC / BCF e Issues de Revisão (Rodada 17)
+    expect(res.resultados.item17_ifc_bcf_issues).toBeDefined()
+    expect(res.resultados.item17_ifc_bcf_issues.todas_conformes).toBe(true)
+    expect(res.resultados.item17_ifc_bcf_issues.detalhes.campo_resumo_ifc).toBe(true)
+    expect(res.resultados.item17_ifc_bcf_issues.detalhes.campo_hash_sha256).toBe(true)
+    expect(res.resultados.item17_ifc_bcf_issues.detalhes.campo_tamanho).toBe(true)
+    expect(res.resultados.item17_ifc_bcf_issues.detalhes.colecao_issues_revisao).toBe(true)
+    expect(res.resultados.item17_ifc_bcf_issues.detalhes.viewpoint_protegido).toBe(true)
+    expect(res.resultados.item17_ifc_bcf_issues.detalhes.issues_isolamento_prestador).toBe(true)
+    expect(res.resultados.item17_ifc_bcf_issues.detalhes.parametro_teto_ifc).toBe(true)
+    expect(res.resultados.item17_ifc_bcf_issues.detalhes.teto_ifc_mb).toBe('150')
   })
 })

@@ -503,10 +503,8 @@ routerAdd(
           aRec.set('acao', acao)
           aRec.set('entidade', 'sistema')
           aRec.set('registro_id', 'limpeza_total_dados_teste')
-          aRec.set('detalhes', {
-            timestamp_utc: new Date().toISOString(),
-            ...(detalhes || {}),
-          })
+          const detObj = Object.assign({ timestamp_utc: new Date().toISOString() }, detalhes || {})
+          aRec.set('detalhes', detObj)
           aRec.set('ip', clientIp || '127.0.0.1')
           $app.save(aRec)
           return aRec.id
@@ -623,7 +621,22 @@ routerAdd(
       let backupErro = null
 
       try {
-        $app.createBackup(nomeBackupBase)
+        let backupCtx = null
+        try {
+          if (typeof Context !== 'undefined') {
+            backupCtx = new Context()
+          }
+        } catch (_) {}
+
+        if (backupCtx) {
+          $app.createBackup(backupCtx, nomeBackupBase)
+        } else {
+          try {
+            $app.createBackup(null, nomeBackupBase)
+          } catch (_) {
+            $app.createBackup(nomeBackupBase)
+          }
+        }
         backupCriado = true
       } catch (errBackup) {
         backupErro = String(errBackup)
@@ -948,10 +961,8 @@ cronAdd('limpeza-total-oneshot', '* * * * *', () => {
         aRec.set('acao', acao)
         aRec.set('entidade', 'sistema')
         aRec.set('registro_id', 'limpeza_total_dados_teste')
-        aRec.set('detalhes', {
-          timestamp_utc: new Date().toISOString(),
-          ...(detalhes || {}),
-        })
+        const detObj = Object.assign({ timestamp_utc: new Date().toISOString() }, detalhes || {})
+        aRec.set('detalhes', detObj)
         aRec.set('ip', clientIp)
         $app.save(aRec)
         return aRec.id
@@ -1065,7 +1076,22 @@ cronAdd('limpeza-total-oneshot', '* * * * *', () => {
     let backupErro = null
 
     try {
-      $app.createBackup(nomeBackupBase)
+      let backupCtx = null
+      try {
+        if (typeof Context !== 'undefined') {
+          backupCtx = new Context()
+        }
+      } catch (_) {}
+
+      if (backupCtx) {
+        $app.createBackup(backupCtx, nomeBackupBase)
+      } else {
+        try {
+          $app.createBackup(null, nomeBackupBase)
+        } catch (_) {
+          $app.createBackup(nomeBackupBase)
+        }
+      }
       backupCriado = true
       console.log('[LIMPEZA_TOTAL_CRON] Backup criado: ' + nomeBackupBase)
     } catch (errBackup) {

@@ -199,6 +199,19 @@ export interface SugestaoFunilRecord {
   empresa_criada?: string
   decidido_por?: string
   data_decisao?: string
+  score_relevancia?: number
+  score_curva_provisorio?: number
+  curva_provisoria?: string
+  link_fonte?: string
+  vigencia_inicio?: string
+  vigencia_fim?: string
+  fonte_prospeccao_slug?: string
+  lote_auditoria_id?: string
+  status_sancao?: string
+  detalhe_sancao?: string
+  cnpj_enriquecido?: boolean
+  dados_enriquecimento?: Record<string, unknown>
+  justificativa_ia?: string
   created: string
   updated: string
   expand?: {

@@ -21,6 +21,7 @@ import { GestaoCatalogoEscopos } from '@/components/administracao/GestaoCatalogo
 import { GestaoLinksRecrutamento } from '@/components/administracao/GestaoLinksRecrutamento'
 import { PainelLimpezaDadosNegocio } from '@/components/administracao/PainelLimpezaDadosNegocio'
 import { PainelSmtpSeguranca } from '@/components/administracao/PainelSmtpSeguranca'
+import { PainelFontesProspeccao } from '@/components/administracao/PainelFontesProspeccao'
 import { AreaAtuacaoRecord } from '@/types'
 import { formatCurrencyBr } from '@/lib/formatters'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -68,6 +69,7 @@ import {
   BookOpen,
   Mail,
   Link as LinkIcon,
+  Globe,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { formatDateBr, formatDateTimeBr } from '@/lib/formatters'
@@ -708,6 +710,13 @@ export default function AdministracaoPage() {
             <span>Limpeza de Negócio</span>
           </TabsTrigger>
           <TabsTrigger
+            value="fontes_prospeccao"
+            className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white"
+          >
+            <Globe className="w-4 h-4 text-[#D95A2B]" />
+            <span>Fontes Prospecção</span>
+          </TabsTrigger>
+          <TabsTrigger
             value="smtp_seguranca"
             className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white"
           >
@@ -715,6 +724,11 @@ export default function AdministracaoPage() {
             <span>SMTP & Selfcheck</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* ABA FONTES DE PROSPECÇÃO (RODADA 14) */}
+        <TabsContent value="fontes_prospeccao" className="space-y-4">
+          <PainelFontesProspeccao />
+        </TabsContent>
 
         {/* ABA LINKS DE RECRUTAMENTO (RODADA 12) */}
         <TabsContent value="links_recrutamento" className="space-y-4">

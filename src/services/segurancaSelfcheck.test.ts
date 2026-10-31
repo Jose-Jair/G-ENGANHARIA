@@ -101,5 +101,13 @@ describe('Endpoint de Autochecagem de Segurança (/backend/v1/seguranca/selfchec
     expect(
       res.resultados.item13_recrutamento_triagem_documentos.detalhes.parametros_administracao,
     ).toBe(true)
+
+    // Item 14: Prospecção Automática (Rodada 14)
+    expect(res.resultados.item14_prospeccao_automatica).toBeDefined()
+    expect(res.resultados.item14_prospeccao_automatica.todas_conformes).toBe(true)
+    expect(res.resultados.item14_prospeccao_automatica.detalhes.colecoes_configuradas).toBe(true)
+    expect(res.resultados.item14_prospeccao_automatica.detalhes.pncp_configurada).toBe(true)
+    // Se chave ausente, nunca finge sucesso: status 'pendente'
+    expect(res.resultados.item14_prospeccao_automatica.detalhes.transparencia_status).toBeDefined()
   })
 })

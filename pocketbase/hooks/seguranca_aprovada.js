@@ -1233,6 +1233,70 @@ routerAdd(
         detalhes: detalheRecrutamento,
       }
 
+      // REQUISITO 14 (RODADA 14): SELFCHECK ESTENDIDO — PROSPECÇÃO AUTOMÁTICA
+      // Valida:
+      // - Coleções fontes_prospeccao e lotes_prospeccao_auditoria existem e ativas
+      // - Chave da Transparência ausente -> reporta 'pendente_chave' (nunca finge sucesso)
+      // - Fontes configuradas (PNCP ativa, Comprasnet CSV ativa, Transparência desligada)
+      let prospeccaoOk = true
+      const detalheProspeccao = {}
+      try {
+        const fontesCol = $app.findCollectionByNameOrId('fontes_prospeccao')
+        const lotesCol = $app.findCollectionByNameOrId('lotes_prospeccao_auditoria')
+        detalheProspeccao.colecoes_configuradas = Boolean(fontesCol && lotesCol)
+
+        const fPncp = $app.findRecordsByFilter(
+          'fontes_prospeccao',
+          "slug = 'pncp_contratos'",
+          '',
+          1,
+          0,
+        )
+        const fComp = $app.findRecordsByFilter(
+          'fontes_prospeccao',
+          "slug = 'comprasnet_contratos'",
+          '',
+          1,
+          0,
+        )
+        const fTransp = $app.findRecordsByFilter(
+          'fontes_prospeccao',
+          "slug = 'portal_transparencia'",
+          '',
+          1,
+          0,
+        )
+
+        detalheProspeccao.pncp_configurada = fPncp.length > 0 && fPncp[0].getBool('ativo')
+        detalheProspeccao.comprasnet_csv_configurada = fComp.length > 0 && fComp[0].getBool('ativo')
+
+        const chaveTransp = $os.getenv('PORTAL_TRANSPARENCIA_API_KEY') || ''
+        if (chaveTransp && chaveTransp.trim().length > 0) {
+          detalheProspeccao.transparencia_chave = 'configurada'
+          detalheProspeccao.transparencia_status = 'operante'
+        } else {
+          detalheProspeccao.transparencia_chave = 'ausente'
+          detalheProspeccao.transparencia_status = 'pendente' // Nunca finge sucesso
+          detalheProspeccao.transparencia_aviso =
+            'Chave PORTAL_TRANSPARENCIA_API_KEY não configurada no painel. Fonte desligada por padrão.'
+        }
+
+        detalheProspeccao.transparencia_desligada_por_padrao =
+          fTransp.length > 0 && !fTransp[0].getBool('ativo')
+
+        if (!detalheProspeccao.colecoes_configuradas || !detalheProspeccao.pncp_configurada) {
+          prospeccaoOk = false
+        }
+      } catch (eProsp) {
+        prospeccaoOk = false
+        detalheProspeccao.erro = String(eProsp)
+      }
+
+      resultados.item14_prospeccao_automatica = {
+        todas_conformes: prospeccaoOk,
+        detalhes: detalheProspeccao,
+      }
+
       resultados.conformidade_geral =
         resultados.item1_api_rules.cotacoes_segura &&
         resultados.item1_api_rules.subcontratos_segura &&
@@ -1248,7 +1312,8 @@ routerAdd(
         monitoramentoOk &&
         iaOperacaoOk &&
         smtpOk &&
-        recrutamentoTriagemOk
+        recrutamentoTriagemOk &&
+        prospeccaoOk
 
       return e.json(200, {
         status: 'OK',

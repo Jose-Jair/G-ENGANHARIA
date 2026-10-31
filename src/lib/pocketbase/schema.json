@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T00:31:33.395Z",
+  "generatedAt": "2026-10-31T00:54:13.690Z",
   "collections": [
     {
       "name": "users",
@@ -559,6 +559,30 @@
           "required": false,
           "system": false,
           "collectionRef": "clientes_pf"
+        },
+        {
+          "name": "status_sancao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sancao_detalhe",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cadencia_bloqueada_sancao",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fonte_prospeccao_origem",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -2920,6 +2944,84 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "score_relevancia",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "score_curva_provisorio",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "curva_provisoria",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "link_fonte",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "vigencia_inicio",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "vigencia_fim",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fonte_prospeccao_slug",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lote_auditoria_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_sancao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "detalhe_sancao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cnpj_enriquecido",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dados_enriquecimento",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "justificativa_ia",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -6871,6 +6973,295 @@
         "CREATE INDEX idx_pcresp_prestador ON pre_cotacao_respostas (prestador)",
         "CREATE INDEX idx_pcresp_status ON pre_cotacao_respostas (status)",
         "CREATE INDEX idx_pcresp_codigo ON pre_cotacao_respostas (codigo_pre_cotacao)"
+      ]
+    },
+    {
+      "name": "fontes_prospeccao",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "create": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "update": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "slug",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["api_externa", "importador_csv", "transparencia_sancoes"]
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cron_expressao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dias_janela",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ufs",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "municipios",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "palavras_chave",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cnaes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "limite_por_execucao",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "endpoint_base",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requer_chave",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "chave_configurada",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aviso_configuracao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultima_execucao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_lidos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_sugeridos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_incorporados",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultimo_erro",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "config_extra",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_fontes_slug ON fontes_prospeccao (slug)",
+        "CREATE INDEX idx_fontes_ativo ON fontes_prospeccao (ativo)"
+      ]
+    },
+    {
+      "name": "lotes_prospeccao_auditoria",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "update": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "fonte_slug",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "fonte_nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo_execucao",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["cron_automatico", "manual_admin", "importacao_csv"]
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["em_andamento", "sucesso", "erro_parcial", "falha"]
+        },
+        {
+          "name": "data_inicio",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_fim",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_lidos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_descartados_cpf",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_duplicados_dedupe",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_reativacoes_sugeridas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_novas_sugestoes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_incorporados",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "creditos_ia_gastos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "erro_detalhe",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "parametros_aplicados",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "executado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_lotes_fonte ON lotes_prospeccao_auditoria (fonte_slug)",
+        "CREATE INDEX idx_lotes_status ON lotes_prospeccao_auditoria (status)",
+        "CREATE INDEX idx_lotes_data_inicio ON lotes_prospeccao_auditoria (data_inicio DESC)"
       ]
     }
   ]

@@ -208,9 +208,34 @@ routerAdd(
         const capLivre = capMax - osAtivas.length
         if (capLivre <= 0) continue
 
-        // Cálculo de pontuação composta: Nota (50%) + Capacidade (20%) + Softwares (15%) + Faixa Preço (15%)
+        // RODADA 16: CONSULTAR SCORECARD DA ENTIDADE PARA INTEGRAR AO RANKING
+        let scRecord = null
+        try {
+          const scList = $app.findRecordsByFilter(
+            'scorecards',
+            "registro_id = '" + p.id + "' && is_snapshot != true",
+            '-created',
+            1,
+            0,
+          )
+          if (scList.length > 0) scRecord = scList[0]
+        } catch (_) {}
+
+        const temScorecard = Boolean(
+          scRecord &&
+          !scRecord.getBool('dados_insuficientes') &&
+          scRecord.get('indice_composto') !== null,
+        )
+        const indiceComposto = temScorecard ? scRecord.getFloat('indice_composto') : null
         const nota = p.getFloat('nota_geral') || 5.0
-        let score = nota * 10 + capLivre * 4
+
+        // Se tem scorecard, compõe a partir do índice (0-100). Se dados insuficientes, usa nota antiga sem derrubar.
+        let score = 50
+        if (temScorecard && indiceComposto !== null) {
+          score = indiceComposto * 0.5 + capLivre * 4
+        } else {
+          score = nota * 10 + capLivre * 4
+        }
 
         // Aderência de softwares (Rodada 12)
         const softwaresPrest = (p.getString('softwares') || '').toLowerCase()
@@ -233,6 +258,7 @@ routerAdd(
           prestador: p,
           capacidadeLivre: capLivre,
           notaGeral: nota,
+          scorecardComposto: indiceComposto,
           scoreFinal: score,
         })
       }

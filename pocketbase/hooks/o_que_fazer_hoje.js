@@ -424,6 +424,147 @@ routerAdd(
       }
 
       // -----------------------------------------------------------------------
+      // RODADA 16: ALERTAS DE SCORECARDS NA CENTRAL DE AÇÕES
+      // 1. Queda de 15 pontos ou mais no composto em 60 dias
+      // 2. Atraso médio de pagamento do parceiro acima da meta
+      // 3. Ocupação do prestador interno acima de 100%
+      // 4. Sugestão de suspensão do prestador quando composto abaixo do mínimo (APENAS sugestão)
+      // -----------------------------------------------------------------------
+      const alertasScorecardsAcoes = []
+      if (role === 'admin' || role === 'gestor' || role === 'financeiro') {
+        try {
+          const scorecardsAtivos = $app.findRecordsByFilter(
+            'scorecards',
+            'is_snapshot != true',
+            '-data_calculo',
+            100,
+            0,
+          )
+
+          for (let scIdx = 0; scIdx < scorecardsAtivos.length; scIdx++) {
+            const sc = scorecardsAtivos[scIdx]
+            const tipoEnt = sc.getString('tipo_entidade')
+            const regId = sc.getString('registro_id')
+            const nomeEnt = sc.getString('nome_entidade') || 'Entidade'
+            const compostoAtual = sc.get('indice_composto')
+            const dadosInsuf = sc.getBool('dados_insuficientes')
+
+            if (dadosInsuf || compostoAtual === null || compostoAtual === undefined) {
+              continue
+            }
+
+            // Alerta 4: Sugestão de suspensão de prestador (quando flag ativo)
+            if (sc.getBool('sugestao_suspensao')) {
+              const acaoSusp = {
+                tipo: 'sugestao_suspensao_scorecard',
+                prioridade: 'alta',
+                titulo: 'Sugestão de Suspensão Técnica: ' + nomeEnt,
+                descricao:
+                  'O prestador está com índice composto de ' +
+                  compostoAtual +
+                  '/100, abaixo do mínimo configurado. Avalie suspensão preventiva da convocação (nunca aplicada automaticamente).',
+                scorecard_id: sc.id,
+                registro_id: regId,
+                tipo_entidade: tipoEnt,
+                indice_composto: compostoAtual,
+                acao_sugerida: 'Revisar ficha de scorecard e histórico de entregas',
+              }
+              alertasScorecardsAcoes.push(acaoSusp)
+              acoesDoDia.push(acaoSusp)
+            }
+
+            // Alerta 1: Queda de 15 pontos ou mais em relação a snapshot de até 60 dias
+            try {
+              const snapsAnteriores = $app.findRecordsByFilter(
+                'scorecards',
+                "is_snapshot = true && registro_id = '" + regId + "'",
+                '-mes_referencia',
+                3,
+                0,
+              )
+              if (snapsAnteriores.length > 0) {
+                const snapAnt = snapsAnteriores[0]
+                const compAnt = snapAnt.get('indice_composto')
+                if (compAnt !== null && compAnt !== undefined) {
+                  const queda = Number(compAnt) - Number(compostoAtual)
+                  if (queda >= 15) {
+                    const acaoQueda = {
+                      tipo: 'queda_brusca_scorecard',
+                      prioridade: 'alta',
+                      titulo:
+                        'Queda Brusca de Desempenho: ' +
+                        nomeEnt +
+                        ' (-' +
+                        Math.round(queda) +
+                        ' pts)',
+                      descricao:
+                        'O índice composto caiu de ' +
+                        compAnt +
+                        ' para ' +
+                        compostoAtual +
+                        ' nos últimos 60 dias. Verifique retrabalhos ou atrasos recentes.',
+                      scorecard_id: sc.id,
+                      registro_id: regId,
+                      tipo_entidade: tipoEnt,
+                      queda_pontos: Math.round(queda),
+                      acao_sugerida: 'Consultar ficha de scorecard e planejar alinhamento técnico',
+                    }
+                    alertasScorecardsAcoes.push(acaoQueda)
+                    acoesDoDia.push(acaoQueda)
+                  }
+                }
+              }
+            } catch (_) {}
+
+            // Alerta 2: Parceiro com atraso de pagamento acima da meta
+            if (tipoEnt === 'empresa_parceira') {
+              const metricas = sc.get('metricas_detalhadas') || {}
+              const mediaAtraso = metricas.media_dias_atraso_pagamento || 0
+              if (mediaAtraso > 30) {
+                const acaoAtrasoParceiro = {
+                  tipo: 'atraso_pagamento_parceiro',
+                  prioridade: 'media',
+                  titulo: 'Atraso Médio de Pagamento: ' + nomeEnt + ' (' + mediaAtraso + ' dias)',
+                  descricao:
+                    'A empresa parceira apresenta atraso médio de pagamento de marcos contratuais superior à meta de 30 dias.',
+                  scorecard_id: sc.id,
+                  registro_id: regId,
+                  tipo_entidade: tipoEnt,
+                  media_dias_atraso: mediaAtraso,
+                  acao_sugerida: 'Alinhar fluxo financeiro com o gestor de contas do parceiro',
+                }
+                alertasScorecardsAcoes.push(acaoAtrasoParceiro)
+                acoesDoDia.push(acaoAtrasoParceiro)
+              }
+            }
+
+            // Alerta 3: Prestador interno com ocupação acima de 100%
+            if (tipoEnt === 'prestador_interno') {
+              const ocupacao = sc.get('int_ocupacao')
+              if (ocupacao !== null && ocupacao > 100) {
+                const acaoSobrecarga = {
+                  tipo: 'sobrecarga_prestador_interno',
+                  prioridade: 'media',
+                  titulo: 'Sobrecarga de Equipe Interna: ' + nomeEnt + ' (' + ocupacao + '%)',
+                  descricao:
+                    'A carga de trabalho do profissional interno ultrapassou 100% da capacidade mensal programada.',
+                  scorecard_id: sc.id,
+                  registro_id: regId,
+                  tipo_entidade: tipoEnt,
+                  ocupacao_percentual: ocupacao,
+                  acao_sugerida: 'Redistribuir OSs internas ou avaliar subcontratação externa',
+                }
+                alertasScorecardsAcoes.push(acaoSobrecarga)
+                acoesDoDia.push(acaoSobrecarga)
+              }
+            }
+          }
+        } catch (eScAlert) {
+          console.log('Aviso ao gerar alertas de scorecards no o-que-fazer-hoje: ' + eScAlert)
+        }
+      }
+
+      // -----------------------------------------------------------------------
       // TOTALIZADOR CONSOLIDADO POR PERFIL
       // -----------------------------------------------------------------------
       return e.json(200, {

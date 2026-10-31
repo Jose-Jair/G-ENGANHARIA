@@ -126,5 +126,19 @@ describe('Endpoint de Autochecagem de Segurança (/backend/v1/seguranca/selfchec
     ).toBe(true)
     expect(res.resultados.item15_custo_interno_real.detalhes.os_campos_custo_interno).toBe(true)
     expect(res.resultados.item15_custo_interno_real.detalhes.parametros_administracao).toBe(true)
+
+    // Item 16: Scorecards, Parâmetros Versionados e Isolamento (Rodada 16)
+    expect(res.resultados.item16_scorecards_isolamento).toBeDefined()
+    expect(res.resultados.item16_scorecards_isolamento.todas_conformes).toBe(true)
+    expect(res.resultados.item16_scorecards_isolamento.detalhes.colecoes_configuradas).toBe(true)
+    expect(
+      res.resultados.item16_scorecards_isolamento.detalhes.scorecards_isolamento_prestador,
+    ).toBe(true)
+    expect(
+      res.resultados.item16_scorecards_isolamento.detalhes.parametros_versionados_imutaveis,
+    ).toBe(true)
+    expect(
+      res.resultados.item16_scorecards_isolamento.detalhes.parametros_ativos_configurados,
+    ).toBe(true)
   })
 })

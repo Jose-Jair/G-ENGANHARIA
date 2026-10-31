@@ -1195,7 +1195,10 @@ export interface ItemRankingCotacao {
   observacoes?: string
   escolhida: boolean
   nota_geral: number
+  scorecard_composto?: number | null
+  scorecard_dados_insuficientes?: boolean
   tendencia: 'melhorou' | 'estavel' | 'piorou'
+  justificativa_ia?: string
   capacidade_maxima: number
   carga_atual: number
   capacidade_livre: number
@@ -2308,4 +2311,110 @@ export interface AtualizarMeuPerfilPrestadorResponse {
   sucesso: boolean
   mensagem: string
   prestador: Partial<PrestadorRecord>
+}
+
+// =============================================================================
+// RODADA 16 — SCORECARDS & PARÂMETROS VERSIONADOS
+// =============================================================================
+
+export type TipoEntidadeScorecard = 'prestador_externo' | 'prestador_interno' | 'empresa_parceira'
+
+export type TendenciaScorecard = 'melhorou' | 'estavel' | 'piorou' | 'dados_insuficientes'
+
+export interface ItemHistoricoScorecard {
+  os_id?: string
+  numero?: string
+  atraso_dias?: number
+  pontual?: boolean
+  data?: string
+  dias_executados?: number
+  meta_dias?: number
+  dentro_meta?: boolean
+  conta_id?: string
+  valor?: number
+}
+
+export interface ScorecardRecord {
+  id: string
+  tipo_entidade: TipoEntidadeScorecard
+  registro_id: string
+  prestador_email?: string
+  nome_entidade?: string
+  is_snapshot?: boolean
+  mes_referencia?: string
+  data_calculo: string
+  versao_pesos: number
+  dados_insuficientes: boolean
+  motivo_insuficiencia?: string
+  total_trabalhos_janela: number
+  indice_composto: number | null
+  tendencia_5_trabalhos: TendenciaScorecard
+  historico_ultimos_5?: ItemHistoricoScorecard[]
+  ext_pontualidade?: number | null
+  ext_retrabalho?: number | null
+  ext_qualidade?: number | null
+  ext_aderencia_preco?: number | null
+  ext_responsividade?: number | null
+  ext_conformidade?: number | null
+  int_lead_time?: number | null
+  int_ciclos_revisao?: number | null
+  int_horas_entregavel?: number | null
+  int_ocupacao?: number | null
+  int_pontualidade?: number | null
+  par_prazo_pagamento?: number | null
+  par_taxa_aceite?: number | null
+  par_devolucoes_cliente?: number | null
+  par_frequencia_demanda?: number | null
+  par_margem_media?: number | null
+  par_inversoes_fluxo?: number | null
+  metricas_detalhadas?: Record<string, any>
+  sugestao_suspensao?: boolean
+  created: string
+  updated: string
+}
+
+export interface ParametroScorecardRecord {
+  id: string
+  tipo_entidade: TipoEntidadeScorecard
+  versao: number
+  descricao?: string
+  ativo: boolean
+  pesos_json: Record<string, number>
+  metas_json?: Record<string, any>
+  minimo_sugestao_suspensao?: number
+  autor_alteracao?: string
+  criado_em: string
+  created: string
+  updated: string
+}
+
+export interface ScorecardEntidadeResponse {
+  scorecard: ScorecardRecord | null
+  snapshots: ScorecardRecord[]
+}
+
+export interface PortalMeuScorecardResponse {
+  prestador_id: string
+  prestador_nome: string
+  tipo: TipoEntidadeScorecard
+  scorecard: Partial<ScorecardRecord> | null
+  snapshots: Array<{
+    mes_referencia: string
+    indice_composto: number | null
+    tendencia: TendenciaScorecard
+    dados_insuficientes: boolean
+  }>
+}
+
+export interface NovaVersaoParametrosPayload {
+  tipo_entidade: TipoEntidadeScorecard
+  descricao?: string
+  pesos_json: Record<string, number>
+  metas_json?: Record<string, any>
+  minimo_sugestao_suspensao?: number
+}
+
+export interface RecalcularScorecardPayload {
+  tipo_entidade: TipoEntidadeScorecard
+  registro_id: string
 }

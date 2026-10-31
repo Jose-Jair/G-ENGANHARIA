@@ -1381,6 +1381,78 @@ routerAdd(
         detalhes: detalheCustoInterno,
       }
 
+      // REQUISITO 16 (RODADA 16): SELFCHECK ESTENDIDO — SCORECARDS E ISOLAMENTO
+      // Valida:
+      // - Coleções scorecards e parametros_scorecards existem e ativas
+      // - parametros_scorecards: versionamento com deleteRule = null (proibido apagar)
+      // - scorecards: listRule restringe executor a prestador_email = @request.auth.email
+      // - scorecards: createRule/updateRule nulos (apenas servidor/hooks)
+      // - parâmetros ativos versionados para os 3 tipos de entidade (prestador_externo, interno, parceira)
+      let scorecardsOk = true
+      const detalheScorecards = {}
+      try {
+        const scCol = $app.findCollectionByNameOrId('scorecards')
+        const psCol = $app.findCollectionByNameOrId('parametros_scorecards')
+
+        detalheScorecards.colecoes_configuradas = Boolean(scCol && psCol)
+
+        // scorecards: RLS seguro (executor só vê seu próprio email)
+        const scListRuleSegura =
+          scCol.listRule &&
+          scCol.listRule.includes('prestador_email = @request.auth.email') &&
+          scCol.createRule === null &&
+          scCol.updateRule === null
+        detalheScorecards.scorecards_isolamento_prestador = Boolean(scListRuleSegura)
+
+        // parametros_scorecards: deleteRule nulo para garantir imutabilidade de versões
+        const psImutavel = psCol.deleteRule === null
+        detalheScorecards.parametros_versionados_imutaveis = Boolean(psImutavel)
+
+        // Verificar versões ativas dos parâmetros
+        const pExt = $app.findRecordsByFilter(
+          'parametros_scorecards',
+          "tipo_entidade = 'prestador_externo' && ativo = true",
+          '',
+          1,
+          0,
+        )
+        const pInt = $app.findRecordsByFilter(
+          'parametros_scorecards',
+          "tipo_entidade = 'prestador_interno' && ativo = true",
+          '',
+          1,
+          0,
+        )
+        const pParc = $app.findRecordsByFilter(
+          'parametros_scorecards',
+          "tipo_entidade = 'empresa_parceira' && ativo = true",
+          '',
+          1,
+          0,
+        )
+
+        detalheScorecards.parametros_ativos_configurados = Boolean(
+          pExt.length > 0 && pInt.length > 0 && pParc.length > 0,
+        )
+
+        if (
+          !detalheScorecards.colecoes_configuradas ||
+          !detalheScorecards.scorecards_isolamento_prestador ||
+          !detalheScorecards.parametros_versionados_imutaveis ||
+          !detalheScorecards.parametros_ativos_configurados
+        ) {
+          scorecardsOk = false
+        }
+      } catch (eSc) {
+        scorecardsOk = false
+        detalheScorecards.erro = String(eSc)
+      }
+
+      resultados.item16_scorecards_isolamento = {
+        todas_conformes: scorecardsOk,
+        detalhes: detalheScorecards,
+      }
+
       resultados.conformidade_geral =
         resultados.item1_api_rules.cotacoes_segura &&
         resultados.item1_api_rules.subcontratos_segura &&
@@ -1398,7 +1470,8 @@ routerAdd(
         smtpOk &&
         recrutamentoTriagemOk &&
         prospeccaoOk &&
-        custoInternoOk
+        custoInternoOk &&
+        scorecardsOk
 
       return e.json(200, {
         status: 'OK',

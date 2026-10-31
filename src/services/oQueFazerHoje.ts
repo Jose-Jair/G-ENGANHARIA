@@ -77,6 +77,25 @@ export interface AlertaSemCotacaoUnificado {
   link_recrutamento?: string
 }
 
+export interface AlertaScorecardUnificado {
+  tipo:
+    | 'sugestao_suspensao_scorecard'
+    | 'queda_brusca_scorecard'
+    | 'atraso_pagamento_parceiro'
+    | 'sobrecarga_prestador_interno'
+  prioridade: 'alta' | 'media' | 'baixa'
+  titulo: string
+  descricao: string
+  scorecard_id: string
+  registro_id: string
+  tipo_entidade: string
+  indice_composto?: number
+  queda_pontos?: number
+  media_dias_atraso?: number
+  ocupacao_percentual?: number
+  acao_sugerida: string
+}
+
 export interface OQueFazerHojeResponse {
   success: boolean
   perfil: string
@@ -100,6 +119,7 @@ export interface OQueFazerHojeResponse {
     propostas_pendentes: number
     entregaveis_atrasados: number
     sem_cotacao?: number
+    alertas_scorecards?: number
   }
   acoes_do_dia: AcaoDoDiaUnificada[]
   sugestoes_nutricao: SugestaoNutricaoUnificada[]
@@ -107,6 +127,7 @@ export interface OQueFazerHojeResponse {
   propostas_pendentes: PropostaPendenteUnificada[]
   entregaveis_atrasados: EntregavelAtrasadoUnificada[]
   sem_cotacao?: AlertaSemCotacaoUnificado[]
+  alertas_scorecards?: AlertaScorecardUnificado[]
 }
 
 export interface ItemOQueFazerHoje {

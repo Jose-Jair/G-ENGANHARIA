@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T02:30:04.280Z",
+  "generatedAt": "2026-10-31T03:03:52.208Z",
   "collections": [
     {
       "name": "users",
@@ -7632,6 +7632,325 @@
         "CREATE INDEX idx_apt_prestador ON apontamentos (prestador)",
         "CREATE INDEX idx_apt_data ON apontamentos (data)",
         "CREATE INDEX idx_apt_status ON apontamentos (status)"
+      ]
+    },
+    {
+      "name": "parametros_scorecards",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro')",
+        "create": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "update": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "tipo_entidade",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["prestador_externo", "prestador_interno", "empresa_parceira"]
+        },
+        {
+          "name": "versao",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pesos_json",
+          "type": "json",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "metas_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "minimo_sugestao_suspensao",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "autor_alteracao",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "criado_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_param_score_tipo_versao ON parametros_scorecards (tipo_entidade, versao)",
+        "CREATE INDEX idx_param_score_ativo ON parametros_scorecards (tipo_entidade, ativo)"
+      ]
+    },
+    {
+      "name": "scorecards",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && prestador_email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro' || (@request.auth.role = 'executor' && prestador_email = @request.auth.email))",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "tipo_entidade",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["prestador_externo", "prestador_interno", "empresa_parceira"]
+        },
+        {
+          "name": "registro_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "prestador_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nome_entidade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_snapshot",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mes_referencia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_calculo",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "versao_pesos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dados_insuficientes",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "motivo_insuficiencia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_trabalhos_janela",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "indice_composto",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tendencia_5_trabalhos",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["melhorou", "estavel", "piorou", "dados_insuficientes"]
+        },
+        {
+          "name": "historico_ultimos_5",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ext_pontualidade",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ext_retrabalho",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ext_qualidade",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ext_aderencia_preco",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ext_responsividade",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ext_conformidade",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "int_lead_time",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "int_ciclos_revisao",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "int_horas_entregavel",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "int_ocupacao",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "int_pontualidade",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "par_prazo_pagamento",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "par_taxa_aceite",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "par_devolucoes_cliente",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "par_frequencia_demanda",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "par_margem_media",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "par_inversoes_fluxo",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "metricas_detalhadas",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sugestao_suspensao",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_scorecards_entidade ON scorecards (tipo_entidade, registro_id, is_snapshot)",
+        "CREATE INDEX idx_scorecards_email ON scorecards (prestador_email)",
+        "CREATE INDEX idx_scorecards_snapshot ON scorecards (registro_id, mes_referencia)"
       ]
     }
   ]

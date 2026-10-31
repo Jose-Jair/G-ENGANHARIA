@@ -722,8 +722,33 @@ routerAdd(
         }
 
         const capLivre = Math.max(0, capMax - osAtivasQtd)
-        let tendencia = 'estavel'
+
+        // RODADA 16: CONSULTAR SCORECARD DA ENTIDADE PARA INTEGRAR AO RANKING
+        let scRecord = null
         if (prestId) {
+          try {
+            const scList = $app.findRecordsByFilter(
+              'scorecards',
+              "registro_id = '" + prestId + "' && is_snapshot != true",
+              '-created',
+              1,
+              0,
+            )
+            if (scList.length > 0) scRecord = scList[0]
+          } catch (_) {}
+        }
+
+        const temScorecard = Boolean(
+          scRecord &&
+          !scRecord.getBool('dados_insuficientes') &&
+          scRecord.get('indice_composto') !== null,
+        )
+        const indiceCompostoScorecard = temScorecard ? scRecord.getFloat('indice_composto') : null
+        let tendencia = temScorecard
+          ? scRecord.getString('tendencia_5_trabalhos') || 'estavel'
+          : 'estavel'
+
+        if (!temScorecard && prestId) {
           const osHist = $app.findRecordsByFilter(
             'ordens_servico',
             "prestador = '" + prestId + "' && (status = 'encerrada' || status = 'concluida')",
@@ -750,7 +775,16 @@ routerAdd(
 
         const ultrapassaReferencia = valorReferencia > 0 && preco > valorReferencia
 
-        let score = nota * 10
+        // CÁLCULO DO SCORE FINAL DO RANKING:
+        // Se possui scorecard válido (0-100), compõe com base no composto (peso 50%) + capacidade (15%) + preço (35%)
+        // Se dados insuficientes, não derruba o prestador: usa nota legada (5.0 * 20 = 100)
+        let score = 50
+        if (temScorecard && indiceCompostoScorecard !== null) {
+          score = indiceCompostoScorecard * 0.5
+        } else {
+          score = nota * 10
+        }
+
         score += capLivre * 5
         if (tendencia === 'melhorou') score += 8
         if (tendencia === 'piorou') score -= 12
@@ -761,10 +795,36 @@ routerAdd(
           score += (economia / valorReferencia) * 20
         }
 
+        // JUSTIFICATIVA "POR QUE ESTE?" NATIVA (citando scorecard e tendência)
+        let justificativaIa = ''
+        const pNome = prestador ? prestador.getString('nome') : 'Prestador'
+        if (temScorecard) {
+          justificativaIa =
+            pNome +
+            ' apresenta Scorecard consolidado de ' +
+            indiceCompostoScorecard +
+            '/100 (tendência ' +
+            tendencia +
+            ') com capacidade livre de ' +
+            capLivre +
+            ' OS(s).'
+        } else {
+          justificativaIa =
+            pNome +
+            ' possui nota de histórico ' +
+            nota.toFixed(1) +
+            '/5.0 (scorecard em fase de amostragem) com ' +
+            capLivre +
+            ' vaga(s) simultânea(s).'
+        }
+        if (preco > 0 && valorReferencia > 0 && preco <= valorReferencia) {
+          justificativaIa += ' Proposta atende ao teto de referência de engenharia.'
+        }
+
         ranking.push({
           cotacao_id: c.id,
           prestador_id: prestId,
-          prestador_nome: prestador ? prestador.getString('nome') : 'Prestador',
+          prestador_nome: pNome,
           prestador_tipo: prestador ? prestador.getString('tipo') : 'pf_externo',
           status: c.getString('status'),
           preco_ofertado: preco,
@@ -773,7 +833,10 @@ routerAdd(
           observacoes: c.getString('observacoes'),
           escolhida: Boolean(c.getBool('escolhida')),
           nota_geral: nota,
+          scorecard_composto: indiceCompostoScorecard,
+          scorecard_dados_insuficientes: !temScorecard,
           tendencia: tendencia,
+          justificativa_ia: justificativaIa,
           capacidade_maxima: capMax,
           carga_atual: osAtivasQtd,
           capacidade_livre: capLivre,

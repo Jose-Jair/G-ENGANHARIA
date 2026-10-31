@@ -387,3 +387,912 @@ routerAdd(
   },
   $apis.requireAuth(),
 )
+
+// =============================================================================
+// LIMPEZA TOTAL DOS DADOS DE TESTE (RODADA DE PRODUÇÃO / v0.0.176)
+// Autorizado expressamente pelo dono do sistema para zerar dados fictícios de teste.
+//
+// Componentes adicionados:
+// 1. Função núcleo de limpeza total executarLimpezaTotalEngine()
+// 2. Rota interna restrita: POST /backend/v1/sistema/limpeza-total-executar (Admin)
+// 3. Cron de execução única: cronAdd('limpeza-total-oneshot', '* * * * *', ...)
+// =============================================================================
+
+// ROTA INTERNA COMPLEMENTAR (Admin)
+routerAdd(
+  'POST',
+  '/backend/v1/sistema/limpeza-total-executar',
+  (e) => {
+    try {
+      const auth = e.auth
+      if (!auth) {
+        return e.json(401, { success: false, error: 'Autenticação necessária.' })
+      }
+      const role = auth.getString('role')
+      if (role !== 'admin') {
+        return e.json(403, { success: false, error: 'Apenas Administrador pode executar.' })
+      }
+      const reqInfo = e.requestInfo()
+      const clientIp =
+        reqInfo && reqInfo.headers
+          ? reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'] || '127.0.0.1'
+          : '127.0.0.1'
+
+      const userEmail = auth.getString('email') || 'admin@sistema'
+      const origemChamada = 'rota_interna_admin'
+
+      // Janela limite de execução: 2 horas a partir de 2026-04-02T11:40Z (Timestamp estático absoluto)
+      const LIMPEZA_TOTAL_JANELA_ATE = 1775148000000 + 2 * 60 * 60 * 1000
+
+      const COLECOES_LIMPEZA_TOTAL = [
+        'entregavel_comentarios',
+        'mensagens_os',
+        'eventos_cobranca',
+        'notificacoes',
+        'resumos_diarios_gestor',
+        'portal_entregaveis',
+        'portal_documentos',
+        'portal_os',
+        'entregaveis_versoes',
+        'entregaveis',
+        'apontamentos',
+        'medicoes',
+        'avaliacoes_executor',
+        'avaliacoes',
+        'ordens_servico',
+        'contratos_mestre',
+        'subcontratos',
+        'cotacoes',
+        'pre_cotacao_respostas',
+        'pre_cotacoes',
+        'custos_profissional',
+        'scorecards',
+        'issues_revisao',
+        'decisoes_acoes',
+        'documentos',
+        'riscos',
+        'projeto_etapas',
+        'grupos_projetos',
+        'projetos',
+        'contas',
+        'contratos_servico',
+        'proposta_parcelas',
+        'proposta_itens',
+        'propostas',
+        'campanha_envios',
+        'campanhas',
+        'toques',
+        'reativacoes_sugeridas',
+        'sugestoes_funil',
+        'contratos',
+        'contatos',
+        'erros_sistema',
+        'lotes_prospeccao_auditoria',
+        'prestadores_documentos',
+        'profissionais_prestador',
+        'prestadores',
+        'executores',
+        'clientes_pf',
+        'empresas',
+      ]
+
+      const COLECOES_LIMPEZA_TOTAL_PRESERVADAS = [
+        'users',
+        'audit_logs',
+        'parametros',
+        'parametros_scorecards',
+        'modelos',
+        'motivos',
+        'catalogo_servicos',
+        'catalogo_escopos',
+        'areas_atuacao',
+        'subservicos',
+        'entregaveis_padrao',
+        'fontes_prospeccao',
+        'links_recrutamento',
+      ]
+
+      const COLECOES_PRESERVADAS_DUVIDA = ['nao_contatar', 'exclusoes_prospeccao']
+
+      function registrarAudit(acao, detalhes) {
+        try {
+          const auditCol = $app.findCollectionByNameOrId('audit_logs')
+          const aRec = new Record(auditCol)
+          aRec.set('user_email', userEmail || 'SISTEMA-CRON-AUTORIZADO-DONO')
+          aRec.set('acao', acao)
+          aRec.set('entidade', 'sistema')
+          aRec.set('registro_id', 'limpeza_total_dados_teste')
+          aRec.set('detalhes', {
+            timestamp_utc: new Date().toISOString(),
+            ...(detalhes || {}),
+          })
+          aRec.set('ip', clientIp || '127.0.0.1')
+          $app.save(aRec)
+          return aRec.id
+        } catch (err) {
+          console.log('[LIMPEZA_TOTAL] Erro ao gravar audit_logs: ' + err)
+          return null
+        }
+      }
+
+      function contarRegistros(tabela) {
+        try {
+          if (!$app.hasTable(tabela)) return 0
+          const qCount = $app.db().newQuery('SELECT COUNT(*) as total FROM ' + tabela)
+          const res = {}
+          qCount.one(res)
+          return parseInt(res.total, 10) || 0
+        } catch (_) {
+          try {
+            return $app.countRecords(tabela)
+          } catch (_) {
+            return 0
+          }
+        }
+      }
+
+      function safeSql(sql) {
+        try {
+          $app.db().newQuery(sql).execute()
+        } catch (err) {
+          console.log('[LIMPEZA_TOTAL] Aviso SQL: ' + err)
+        }
+      }
+
+      function fmtTimestamp(d) {
+        const pad = (n) => String(n).padStart(2, '0')
+        return (
+          d.getFullYear() +
+          pad(d.getMonth() + 1) +
+          pad(d.getDate()) +
+          '-' +
+          pad(d.getHours()) +
+          pad(d.getMinutes()) +
+          pad(d.getSeconds())
+        )
+      }
+
+      function obterParamConcluido() {
+        try {
+          if (!$app.hasTable('parametros')) return null
+          return $app.findFirstRecordByFilter('parametros', "chave = 'limpeza_total_concluida'")
+        } catch (_) {
+          return null
+        }
+      }
+
+      function salvarParamConcluido(statusInfo) {
+        try {
+          if (!$app.hasTable('parametros')) return
+          let rec = obterParamConcluido()
+          if (!rec) {
+            const pCol = $app.findCollectionByNameOrId('parametros')
+            rec = new Record(pCol)
+            rec.set('chave', 'limpeza_total_concluida')
+            rec.set('nome', 'Flag de Limpeza Total Concluída')
+            rec.set(
+              'descricao',
+              'Indica que a limpeza total autorizada de dados de teste já foi executada.',
+            )
+            rec.set('tipo', 'json')
+            rec.set('categoria', 'sistema')
+          }
+          rec.set('valor', typeof statusInfo === 'string' ? statusInfo : JSON.stringify(statusInfo))
+          $app.save(rec)
+        } catch (err) {
+          console.log('[LIMPEZA_TOTAL] Erro ao salvar parametro: ' + err)
+        }
+      }
+
+      function gravarErro(origem, msg) {
+        try {
+          if (!$app.hasTable('erros_sistema')) return
+          const col = $app.findCollectionByNameOrId('erros_sistema')
+          const rec = new Record(col)
+          rec.set('origem', origem || 'limpeza_total')
+          rec.set('mensagem', String(msg || ''))
+          $app.save(rec)
+        } catch (_) {}
+      }
+
+      const agora = Date.now()
+
+      // (G1) Guarda de janela de tempo
+      if (agora > LIMPEZA_TOTAL_JANELA_ATE) {
+        return e.json(400, {
+          executado: false,
+          motivo: 'Janela de execução expirada',
+          limite_ate: new Date(LIMPEZA_TOTAL_JANELA_ATE).toISOString(),
+        })
+      }
+
+      // (G2) Guarda de execução prévia
+      const paramExistente = obterParamConcluido()
+      if (paramExistente) {
+        return e.json(200, {
+          executado: false,
+          motivo: 'Limpeza já foi executada anteriormente (flag limpeza_total_concluida presente)',
+        })
+      }
+
+      // (G3) BACKUP PRIMEIRO
+      const timestampStr = fmtTimestamp(new Date())
+      const nomeBackupBase = 'pre-limpeza-total-' + timestampStr
+      const nomeBackupZip = nomeBackupBase + '.zip'
+      let backupCriado = false
+      let backupConfirmadoStat = false
+      let backupErro = null
+
+      try {
+        $app.createBackup(nomeBackupBase)
+        backupCriado = true
+      } catch (errBackup) {
+        backupErro = String(errBackup)
+        gravarErro('limpeza_total_backup', 'Falha ao criar backup obrigatório: ' + backupErro)
+        registrarAudit('LIMPEZA_TOTAL_FALHA', {
+          etapa_falha: 'criacao_backup',
+          erro_backup: backupErro,
+          mensagem: 'Limpeza ABORTADA: o backup prévio falhou e nada foi apagado.',
+          origem: origemChamada,
+        })
+        return e.json(500, {
+          executado: false,
+          sucesso: false,
+          erro: 'Falha na criação do backup obrigatório: ' + backupErro,
+        })
+      }
+
+      if (backupCriado) {
+        try {
+          const pathsToTest = [
+            'pb_data/backups/' + nomeBackupZip,
+            'pb_data/backups/' + nomeBackupBase,
+          ]
+          for (let p = 0; p < pathsToTest.length; p++) {
+            try {
+              const info = $os.stat(pathsToTest[p])
+              if (info) {
+                backupConfirmadoStat = true
+                break
+              }
+            } catch (_) {}
+          }
+        } catch (_) {}
+      }
+
+      // Snapshot ANTES
+      const contagensAntes = {}
+      let totalRegistrosAntes = 0
+      for (let i = 0; i < COLECOES_LIMPEZA_TOTAL.length; i++) {
+        const col = COLECOES_LIMPEZA_TOTAL[i]
+        const c = contarRegistros(col)
+        contagensAntes[col] = c
+        totalRegistrosAntes += c
+      }
+
+      const contagensPreservadasAntes = {}
+      for (let p = 0; p < COLECOES_LIMPEZA_TOTAL_PRESERVADAS.length; p++) {
+        const colP = COLECOES_LIMPEZA_TOTAL_PRESERVADAS[p]
+        contagensPreservadasAntes[colP] = contarRegistros(colP)
+      }
+      for (let pd = 0; pd < COLECOES_PRESERVADAS_DUVIDA.length; pd++) {
+        const colPd = COLECOES_PRESERVADAS_DUVIDA[pd]
+        contagensPreservadasAntes[colPd] = contarRegistros(colPd)
+      }
+
+      registrarAudit('LIMPEZA_TOTAL_INICIADA', {
+        nome_backup: nomeBackupBase,
+        backup_criado: backupCriado,
+        backup_confirmado_stat: backupConfirmadoStat,
+        total_registros_antes: totalRegistrosAntes,
+        contagens_antes: contagensAntes,
+        contagens_preservadas_antes: contagensPreservadasAntes,
+        origem: origemChamada,
+      })
+
+      // (G4) Só então apagar:
+      if ($app.hasTable('propostas')) {
+        safeSql("UPDATE propostas SET contrato_servico = '', contrato = '', modelo = ''")
+      }
+      if ($app.hasTable('contratos_servico')) {
+        safeSql("UPDATE contratos_servico SET projeto = '', proposta = ''")
+      }
+      if ($app.hasTable('projetos')) {
+        safeSql(
+          "UPDATE projetos SET grupo = '', contrato_servico = '', proposta = '', contrato = ''",
+        )
+      }
+      if ($app.hasTable('grupos_projetos')) {
+        safeSql("UPDATE grupos_projetos SET contrato_servico = '', proposta = ''")
+      }
+      if ($app.hasTable('ordens_servico')) {
+        safeSql(
+          "UPDATE ordens_servico SET projeto = '', contrato_mestre = '', subcontrato_legado = ''",
+        )
+      }
+      if ($app.hasTable('subcontratos')) {
+        safeSql(
+          "UPDATE subcontratos SET projeto = '', grupo = '', contrato_servico_origem = '', cotacao = ''",
+        )
+      }
+      if ($app.hasTable('projeto_etapas')) {
+        safeSql(
+          "UPDATE projeto_etapas SET projeto = '', proposta_item_origem = '', parcela_origem = '', ordem_servico_ativa = ''",
+        )
+      }
+      if ($app.hasTable('proposta_itens')) {
+        safeSql("UPDATE proposta_itens SET proposta = '', projeto_gerado = '', etapa_gerada = ''")
+      }
+      if ($app.hasTable('contas')) {
+        safeSql(
+          "UPDATE contas SET projeto = '', proposta = '', etapa = '', subcontrato = '', contrato_servico = '', ordem_servico = '', parcela_origem = '', marco_origem = ''",
+        )
+      }
+      if ($app.hasTable('medicoes')) {
+        safeSql("UPDATE medicoes SET subcontrato = '', projeto = ''")
+      }
+      if ($app.hasTable('avaliacoes_executor')) {
+        safeSql("UPDATE avaliacoes_executor SET subcontrato = '', projeto = ''")
+      }
+      if ($app.hasTable('cotacoes')) {
+        safeSql("UPDATE cotacoes SET projeto = '', grupo = '', etapa = '', pacote = ''")
+      }
+      if ($app.hasTable('contratos')) {
+        safeSql("UPDATE contratos SET sugestao_origem = ''")
+      }
+      if ($app.hasTable('profissionais_prestador')) {
+        safeSql("UPDATE profissionais_prestador SET prestador = ''")
+      }
+      if ($app.hasTable('prestadores_documentos')) {
+        safeSql("UPDATE prestadores_documentos SET prestador = ''")
+      }
+      if ($app.hasTable('contatos')) {
+        safeSql("UPDATE contatos SET empresa = ''")
+      }
+
+      const apagadosPorColecao = {}
+      let totalGeralApagado = 0
+      let erroOcorrido = null
+      let colecaoFalha = null
+
+      const conjuntoPreservado = {}
+      for (let z = 0; z < COLECOES_LIMPEZA_TOTAL_PRESERVADAS.length; z++) {
+        conjuntoPreservado[COLECOES_LIMPEZA_TOTAL_PRESERVADAS[z]] = true
+      }
+      for (let zd = 0; zd < COLECOES_PRESERVADAS_DUVIDA.length; zd++) {
+        conjuntoPreservado[COLECOES_PRESERVADAS_DUVIDA[zd]] = true
+      }
+
+      for (let k = 0; k < COLECOES_LIMPEZA_TOTAL.length; k++) {
+        const colAtual = COLECOES_LIMPEZA_TOTAL[k]
+        if (conjuntoPreservado[colAtual]) continue
+        if (!$app.hasTable(colAtual)) {
+          apagadosPorColecao[colAtual] = 0
+          continue
+        }
+
+        const qtdAntes = contagensAntes[colAtual] || 0
+        try {
+          $app
+            .db()
+            .newQuery('DELETE FROM ' + colAtual)
+            .execute()
+          const qtdDepois = contarRegistros(colAtual)
+          const delta = Math.max(0, qtdAntes - qtdDepois)
+          apagadosPorColecao[colAtual] = delta
+          totalGeralApagado += delta
+        } catch (errDel) {
+          erroOcorrido = String(errDel)
+          colecaoFalha = colAtual
+          apagadosPorColecao[colAtual] = 0
+          gravarErro('limpeza_total_delete_' + colAtual, erroOcorrido)
+          break
+        }
+      }
+
+      const contagensDepois = {}
+      for (let d = 0; d < COLECOES_LIMPEZA_TOTAL.length; d++) {
+        const colD = COLECOES_LIMPEZA_TOTAL[d]
+        contagensDepois[colD] = contarRegistros(colD)
+      }
+
+      const contagensPreservadasDepois = {}
+      for (let p2 = 0; p2 < COLECOES_LIMPEZA_TOTAL_PRESERVADAS.length; p2++) {
+        const colP2 = COLECOES_LIMPEZA_TOTAL_PRESERVADAS[p2]
+        contagensPreservadasDepois[colP2] = contarRegistros(colP2)
+      }
+      for (let pd2 = 0; pd2 < COLECOES_PRESERVADAS_DUVIDA.length; pd2++) {
+        const colPd2 = COLECOES_PRESERVADAS_DUVIDA[pd2]
+        contagensPreservadasDepois[colPd2] = contarRegistros(colPd2)
+      }
+
+      const statusParam = {
+        concluido_em: new Date().toISOString(),
+        sucesso: !erroOcorrido,
+        nome_backup: nomeBackupBase,
+        backup_confirmado: backupConfirmadoStat,
+        total_apagados: totalGeralApagado,
+        erro: erroOcorrido,
+        colecao_falha: colecaoFalha,
+        origem: origemChamada,
+      }
+      salvarParamConcluido(statusParam)
+
+      const acaoFinal = erroOcorrido ? 'LIMPEZA_TOTAL_FALHA' : 'LIMPEZA_TOTAL_CONCLUIDA'
+      registrarAudit(acaoFinal, {
+        sucesso: !erroOcorrido,
+        nome_backup: nomeBackupBase,
+        backup_confirmado_stat: backupConfirmadoStat,
+        erro: erroOcorrido,
+        colecao_falha: colecaoFalha,
+        total_apagados: totalGeralApagado,
+        apagados_por_colecao: apagadosPorColecao,
+        contagens_antes: contagensAntes,
+        contagens_depois: contagensDepois,
+        contagens_preservadas_antes: contagensPreservadasAntes,
+        contagens_preservadas_depois: contagensPreservadasDepois,
+        colecoes_preservadas_duvida: COLECOES_PRESERVADAS_DUVIDA,
+        data_hora: new Date().toISOString(),
+        origem: origemChamada,
+      })
+
+      return e.json(200, {
+        success: true,
+        resultado: {
+          executado: true,
+          sucesso: !erroOcorrido,
+          nome_backup: nomeBackupBase,
+          backup_confirmado_stat: backupConfirmadoStat,
+          total_apagados: totalGeralApagado,
+          contagens_antes: contagensAntes,
+          contagens_depois: contagensDepois,
+          contagens_preservadas_depois: contagensPreservadasDepois,
+          erro: erroOcorrido,
+          colecao_falha: colecaoFalha,
+        },
+      })
+    } catch (err) {
+      return e.json(500, { success: false, error: String(err) })
+    }
+  },
+  $apis.requireAuth(),
+)
+
+// CRON DE EXECUÇÃO ÚNICA (One-shot)
+// Roda a cada minuto; graças às guardas G1 e G2, executa exatamente 1 vez logo após o deploy
+// e depois é no-op silencioso permanente.
+cronAdd('limpeza-total-oneshot', '* * * * *', () => {
+  try {
+    const userEmail = 'SISTEMA-CRON-AUTORIZADO-DONO'
+    const clientIp = '127.0.0.1'
+    const origemChamada = 'cron_limpeza_total_oneshot'
+
+    // Janela limite de execução: 2 horas a partir de 2026-04-02T11:40Z (Timestamp estático absoluto)
+    const LIMPEZA_TOTAL_JANELA_ATE = 1775148000000 + 2 * 60 * 60 * 1000
+
+    const COLECOES_LIMPEZA_TOTAL = [
+      'entregavel_comentarios',
+      'mensagens_os',
+      'eventos_cobranca',
+      'notificacoes',
+      'resumos_diarios_gestor',
+      'portal_entregaveis',
+      'portal_documentos',
+      'portal_os',
+      'entregaveis_versoes',
+      'entregaveis',
+      'apontamentos',
+      'medicoes',
+      'avaliacoes_executor',
+      'avaliacoes',
+      'ordens_servico',
+      'contratos_mestre',
+      'subcontratos',
+      'cotacoes',
+      'pre_cotacao_respostas',
+      'pre_cotacoes',
+      'custos_profissional',
+      'scorecards',
+      'issues_revisao',
+      'decisoes_acoes',
+      'documentos',
+      'riscos',
+      'projeto_etapas',
+      'grupos_projetos',
+      'projetos',
+      'contas',
+      'contratos_servico',
+      'proposta_parcelas',
+      'proposta_itens',
+      'propostas',
+      'campanha_envios',
+      'campanhas',
+      'toques',
+      'reativacoes_sugeridas',
+      'sugestoes_funil',
+      'contratos',
+      'contatos',
+      'erros_sistema',
+      'lotes_prospeccao_auditoria',
+      'prestadores_documentos',
+      'profissionais_prestador',
+      'prestadores',
+      'executores',
+      'clientes_pf',
+      'empresas',
+    ]
+
+    const COLECOES_LIMPEZA_TOTAL_PRESERVADAS = [
+      'users',
+      'audit_logs',
+      'parametros',
+      'parametros_scorecards',
+      'modelos',
+      'motivos',
+      'catalogo_servicos',
+      'catalogo_escopos',
+      'areas_atuacao',
+      'subservicos',
+      'entregaveis_padrao',
+      'fontes_prospeccao',
+      'links_recrutamento',
+    ]
+
+    const COLECOES_PRESERVADAS_DUVIDA = ['nao_contatar', 'exclusoes_prospeccao']
+
+    function registrarAudit(acao, detalhes) {
+      try {
+        const auditCol = $app.findCollectionByNameOrId('audit_logs')
+        const aRec = new Record(auditCol)
+        aRec.set('user_email', userEmail)
+        aRec.set('acao', acao)
+        aRec.set('entidade', 'sistema')
+        aRec.set('registro_id', 'limpeza_total_dados_teste')
+        aRec.set('detalhes', {
+          timestamp_utc: new Date().toISOString(),
+          ...(detalhes || {}),
+        })
+        aRec.set('ip', clientIp)
+        $app.save(aRec)
+        return aRec.id
+      } catch (err) {
+        console.log('[LIMPEZA_TOTAL] Erro ao gravar audit_logs: ' + err)
+        return null
+      }
+    }
+
+    function contarRegistros(tabela) {
+      try {
+        if (!$app.hasTable(tabela)) return 0
+        const qCount = $app.db().newQuery('SELECT COUNT(*) as total FROM ' + tabela)
+        const res = {}
+        qCount.one(res)
+        return parseInt(res.total, 10) || 0
+      } catch (_) {
+        try {
+          return $app.countRecords(tabela)
+        } catch (_) {
+          return 0
+        }
+      }
+    }
+
+    function safeSql(sql) {
+      try {
+        $app.db().newQuery(sql).execute()
+      } catch (err) {
+        console.log('[LIMPEZA_TOTAL] Aviso SQL: ' + err)
+      }
+    }
+
+    function fmtTimestamp(d) {
+      const pad = (n) => String(n).padStart(2, '0')
+      return (
+        d.getFullYear() +
+        pad(d.getMonth() + 1) +
+        pad(d.getDate()) +
+        '-' +
+        pad(d.getHours()) +
+        pad(d.getMinutes()) +
+        pad(d.getSeconds())
+      )
+    }
+
+    function obterParamConcluido() {
+      try {
+        if (!$app.hasTable('parametros')) return null
+        return $app.findFirstRecordByFilter('parametros', "chave = 'limpeza_total_concluida'")
+      } catch (_) {
+        return null
+      }
+    }
+
+    function salvarParamConcluido(statusInfo) {
+      try {
+        if (!$app.hasTable('parametros')) return
+        let rec = obterParamConcluido()
+        if (!rec) {
+          const pCol = $app.findCollectionByNameOrId('parametros')
+          rec = new Record(pCol)
+          rec.set('chave', 'limpeza_total_concluida')
+          rec.set('nome', 'Flag de Limpeza Total Concluída')
+          rec.set(
+            'descricao',
+            'Indica que a limpeza total autorizada de dados de teste já foi executada.',
+          )
+          rec.set('tipo', 'json')
+          rec.set('categoria', 'sistema')
+        }
+        rec.set('valor', typeof statusInfo === 'string' ? statusInfo : JSON.stringify(statusInfo))
+        $app.save(rec)
+      } catch (err) {
+        console.log('[LIMPEZA_TOTAL] Erro ao salvar parametro: ' + err)
+      }
+    }
+
+    function gravarErro(origem, msg) {
+      try {
+        if (!$app.hasTable('erros_sistema')) return
+        const col = $app.findCollectionByNameOrId('erros_sistema')
+        const rec = new Record(col)
+        rec.set('origem', origem || 'limpeza_total')
+        rec.set('mensagem', String(msg || ''))
+        $app.save(rec)
+      } catch (_) {}
+    }
+
+    const agora = Date.now()
+
+    // (G1) Guarda de janela de tempo
+    if (agora > LIMPEZA_TOTAL_JANELA_ATE) {
+      console.log('[LIMPEZA_TOTAL] Janela expirada no cron. Abortando.')
+      return
+    }
+
+    // (G2) Guarda de execução prévia: se parametros(chave='limpeza_total_concluida') já existir, no-op silencioso
+    const paramExistente = obterParamConcluido()
+    if (paramExistente) {
+      // no-op silencioso
+      return
+    }
+
+    console.log('[LIMPEZA_TOTAL_CRON] Executando limpeza total oneshot autorizada...')
+
+    // (G3) BACKUP PRIMEIRO: $app.createBackup('pre-limpeza-total-' + timestamp AAAAMMDD-HHMMSS)
+    const timestampStr = fmtTimestamp(new Date())
+    const nomeBackupBase = 'pre-limpeza-total-' + timestampStr
+    const nomeBackupZip = nomeBackupBase + '.zip'
+    let backupCriado = false
+    let backupConfirmadoStat = false
+    let backupErro = null
+
+    try {
+      $app.createBackup(nomeBackupBase)
+      backupCriado = true
+      console.log('[LIMPEZA_TOTAL_CRON] Backup criado: ' + nomeBackupBase)
+    } catch (errBackup) {
+      backupErro = String(errBackup)
+      console.log('[LIMPEZA_TOTAL_CRON] FALHA CRÍTICA NO BACKUP: ' + backupErro)
+      gravarErro('limpeza_total_backup', 'Falha ao criar backup obrigatório: ' + backupErro)
+      registrarAudit('LIMPEZA_TOTAL_FALHA', {
+        etapa_falha: 'criacao_backup',
+        erro_backup: backupErro,
+        mensagem: 'Limpeza ABORTADA: o backup prévio falhou e nada foi apagado.',
+        origem: origemChamada,
+      })
+      return
+    }
+
+    // Confirmar com $os.stat
+    if (backupCriado) {
+      try {
+        const pathsToTest = [
+          'pb_data/backups/' + nomeBackupZip,
+          'pb_data/backups/' + nomeBackupBase,
+        ]
+        for (let p = 0; p < pathsToTest.length; p++) {
+          try {
+            const info = $os.stat(pathsToTest[p])
+            if (info) {
+              backupConfirmadoStat = true
+              console.log('[LIMPEZA_TOTAL_CRON] Backup confirmado no disco: ' + pathsToTest[p])
+              break
+            }
+          } catch (_) {}
+        }
+      } catch (errStat) {
+        console.log('[LIMPEZA_TOTAL_CRON] Aviso ao verificar $os.stat: ' + errStat)
+      }
+    }
+
+    // Snapshot ANTES
+    const contagensAntes = {}
+    let totalRegistrosAntes = 0
+    for (let i = 0; i < COLECOES_LIMPEZA_TOTAL.length; i++) {
+      const col = COLECOES_LIMPEZA_TOTAL[i]
+      const c = contarRegistros(col)
+      contagensAntes[col] = c
+      totalRegistrosAntes += c
+    }
+
+    const contagensPreservadasAntes = {}
+    for (let p = 0; p < COLECOES_LIMPEZA_TOTAL_PRESERVADAS.length; p++) {
+      const colP = COLECOES_LIMPEZA_TOTAL_PRESERVADAS[p]
+      contagensPreservadasAntes[colP] = contarRegistros(colP)
+    }
+    for (let pd = 0; pd < COLECOES_PRESERVADAS_DUVIDA.length; pd++) {
+      const colPd = COLECOES_PRESERVADAS_DUVIDA[pd]
+      contagensPreservadasAntes[colPd] = contarRegistros(colPd)
+    }
+
+    registrarAudit('LIMPEZA_TOTAL_INICIADA', {
+      nome_backup: nomeBackupBase,
+      backup_criado: backupCriado,
+      backup_confirmado_stat: backupConfirmadoStat,
+      total_registros_antes: totalRegistrosAntes,
+      contagens_antes: contagensAntes,
+      contagens_preservadas_antes: contagensPreservadasAntes,
+      origem: origemChamada,
+    })
+
+    // (G4) Só então apagar:
+    // Zera referências cruzadas
+    console.log('[LIMPEZA_TOTAL_CRON] Zerando referências cruzadas...')
+    if ($app.hasTable('propostas')) {
+      safeSql("UPDATE propostas SET contrato_servico = '', contrato = '', modelo = ''")
+    }
+    if ($app.hasTable('contratos_servico')) {
+      safeSql("UPDATE contratos_servico SET projeto = '', proposta = ''")
+    }
+    if ($app.hasTable('projetos')) {
+      safeSql("UPDATE projetos SET grupo = '', contrato_servico = '', proposta = '', contrato = ''")
+    }
+    if ($app.hasTable('grupos_projetos')) {
+      safeSql("UPDATE grupos_projetos SET contrato_servico = '', proposta = ''")
+    }
+    if ($app.hasTable('ordens_servico')) {
+      safeSql(
+        "UPDATE ordens_servico SET projeto = '', contrato_mestre = '', subcontrato_legado = ''",
+      )
+    }
+    if ($app.hasTable('subcontratos')) {
+      safeSql(
+        "UPDATE subcontratos SET projeto = '', grupo = '', contrato_servico_origem = '', cotacao = ''",
+      )
+    }
+    if ($app.hasTable('projeto_etapas')) {
+      safeSql(
+        "UPDATE projeto_etapas SET projeto = '', proposta_item_origem = '', parcela_origem = '', ordem_servico_ativa = ''",
+      )
+    }
+    if ($app.hasTable('proposta_itens')) {
+      safeSql("UPDATE proposta_itens SET proposta = '', projeto_gerado = '', etapa_gerada = ''")
+    }
+    if ($app.hasTable('contas')) {
+      safeSql(
+        "UPDATE contas SET projeto = '', proposta = '', etapa = '', subcontrato = '', contrato_servico = '', ordem_servico = '', parcela_origem = '', marco_origem = ''",
+      )
+    }
+    if ($app.hasTable('medicoes')) {
+      safeSql("UPDATE medicoes SET subcontrato = '', projeto = ''")
+    }
+    if ($app.hasTable('avaliacoes_executor')) {
+      safeSql("UPDATE avaliacoes_executor SET subcontrato = '', projeto = ''")
+    }
+    if ($app.hasTable('cotacoes')) {
+      safeSql("UPDATE cotacoes SET projeto = '', grupo = '', etapa = '', pacote = ''")
+    }
+    if ($app.hasTable('contratos')) {
+      safeSql("UPDATE contratos SET sugestao_origem = ''")
+    }
+    if ($app.hasTable('profissionais_prestador')) {
+      safeSql("UPDATE profissionais_prestador SET prestador = ''")
+    }
+    if ($app.hasTable('prestadores_documentos')) {
+      safeSql("UPDATE prestadores_documentos SET prestador = ''")
+    }
+    if ($app.hasTable('contatos')) {
+      safeSql("UPDATE contatos SET empresa = ''")
+    }
+
+    // Execução da exclusão respeitando a ordem filhos -> pais
+    const apagadosPorColecao = {}
+    let totalGeralApagado = 0
+    let erroOcorrido = null
+    let colecaoFalha = null
+
+    const conjuntoPreservado = {}
+    for (let z = 0; z < COLECOES_LIMPEZA_TOTAL_PRESERVADAS.length; z++) {
+      conjuntoPreservado[COLECOES_LIMPEZA_TOTAL_PRESERVADAS[z]] = true
+    }
+    for (let zd = 0; zd < COLECOES_PRESERVADAS_DUVIDA.length; zd++) {
+      conjuntoPreservado[COLECOES_PRESERVADAS_DUVIDA[zd]] = true
+    }
+
+    for (let k = 0; k < COLECOES_LIMPEZA_TOTAL.length; k++) {
+      const colAtual = COLECOES_LIMPEZA_TOTAL[k]
+
+      if (conjuntoPreservado[colAtual]) {
+        continue
+      }
+
+      if (!$app.hasTable(colAtual)) {
+        apagadosPorColecao[colAtual] = 0
+        continue
+      }
+
+      const qtdAntes = contagensAntes[colAtual] || 0
+      try {
+        $app
+          .db()
+          .newQuery('DELETE FROM ' + colAtual)
+          .execute()
+        const qtdDepois = contarRegistros(colAtual)
+        const delta = Math.max(0, qtdAntes - qtdDepois)
+        apagadosPorColecao[colAtual] = delta
+        totalGeralApagado += delta
+        console.log(
+          '[LIMPEZA_TOTAL_CRON] ' + colAtual + ': antes=' + qtdAntes + ' depois=' + qtdDepois,
+        )
+      } catch (errDel) {
+        console.log('[LIMPEZA_TOTAL_CRON] Erro ao deletar ' + colAtual + ': ' + errDel)
+        erroOcorrido = String(errDel)
+        colecaoFalha = colAtual
+        apagadosPorColecao[colAtual] = 0
+        gravarErro('limpeza_total_delete_' + colAtual, erroOcorrido)
+        break
+      }
+    }
+
+    const contagensDepois = {}
+    for (let d = 0; d < COLECOES_LIMPEZA_TOTAL.length; d++) {
+      const colD = COLECOES_LIMPEZA_TOTAL[d]
+      contagensDepois[colD] = contarRegistros(colD)
+    }
+
+    const contagensPreservadasDepois = {}
+    for (let p2 = 0; p2 < COLECOES_LIMPEZA_TOTAL_PRESERVADAS.length; p2++) {
+      const colP2 = COLECOES_LIMPEZA_TOTAL_PRESERVADAS[p2]
+      contagensPreservadasDepois[colP2] = contarRegistros(colP2)
+    }
+    for (let pd2 = 0; pd2 < COLECOES_PRESERVADAS_DUVIDA.length; pd2++) {
+      const colPd2 = COLECOES_PRESERVADAS_DUVIDA[pd2]
+      contagensPreservadasDepois[colPd2] = contarRegistros(colPd2)
+    }
+
+    // Gravar / Atualizar parametros(chave='limpeza_total_concluida')
+    const statusParam = {
+      concluido_em: new Date().toISOString(),
+      sucesso: !erroOcorrido,
+      nome_backup: nomeBackupBase,
+      backup_confirmado: backupConfirmadoStat,
+      total_apagados: totalGeralApagado,
+      erro: erroOcorrido,
+      colecao_falha: colecaoFalha,
+      origem: origemChamada,
+    }
+    salvarParamConcluido(statusParam)
+
+    const acaoFinal = erroOcorrido ? 'LIMPEZA_TOTAL_FALHA' : 'LIMPEZA_TOTAL_CONCLUIDA'
+    registrarAudit(acaoFinal, {
+      sucesso: !erroOcorrido,
+      nome_backup: nomeBackupBase,
+      backup_confirmado_stat: backupConfirmadoStat,
+      erro: erroOcorrido,
+      colecao_falha: colecaoFalha,
+      total_apagados: totalGeralApagado,
+      apagados_por_colecao: apagadosPorColecao,
+      contagens_antes: contagensAntes,
+      contagens_depois: contagensDepois,
+      contagens_preservadas_antes: contagensPreservadasAntes,
+      contagens_preservadas_depois: contagensPreservadasDepois,
+      colecoes_preservadas_duvida: COLECOES_PRESERVADAS_DUVIDA,
+      data_hora: new Date().toISOString(),
+      origem: origemChamada,
+    })
+
+    console.log('[LIMPEZA_TOTAL_CRON] Concluído com sucesso! Total apagados: ' + totalGeralApagado)
+  } catch (errCron) {
+    console.log('[LIMPEZA_TOTAL_CRON] Erro não capturado no cron: ' + errCron)
+  }
+})

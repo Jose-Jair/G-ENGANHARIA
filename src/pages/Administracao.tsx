@@ -662,95 +662,115 @@ export default function AdministracaoPage() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 lg:grid-cols-11 bg-slate-200/80 p-1 h-auto gap-1">
-          <TabsTrigger value="usuarios" className="gap-1.5 text-xs font-medium">
-            <Users className="w-4 h-4" />
-            <span>Usuários ({usersList.length})</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="links_recrutamento"
-            className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white"
-          >
-            <LinkIcon className="w-4 h-4 text-[#D95A2B]" />
-            <span>Recrutamento</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="modelo_proposta"
-            className="gap-1.5 text-xs font-medium text-blue-700 data-[state=active]:bg-white"
-          >
-            <FileText className="w-4 h-4 text-blue-600" />
-            <span>Modelo Proposta</span>
-          </TabsTrigger>
-          <TabsTrigger value="areas_atuacao" className="gap-1.5 text-xs font-medium">
-            <Layers className="w-4 h-4 text-orange-600" />
-            <span>Áreas & Subserviços</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="catalogo_escopos"
-            className="gap-1.5 text-xs font-medium text-[#D95A2B] data-[state=active]:bg-white"
-          >
-            <BookOpen className="w-4 h-4 text-[#D95A2B]" />
-            <span>Catálogo Escopos</span>
-          </TabsTrigger>
-          <TabsTrigger value="catalogo" className="gap-1.5 text-xs font-medium">
-            <Wrench className="w-4 h-4" />
-            <span>Catálogo ({catalogoList.length})</span>
-          </TabsTrigger>
-          <TabsTrigger value="parametros" className="gap-1.5 text-xs font-medium">
-            <Sliders className="w-4 h-4" />
-            <span>Parâmetros ({parametrosList.length})</span>
-          </TabsTrigger>
-          <TabsTrigger value="modelos" className="gap-1.5 text-xs font-medium">
-            <FileCode2 className="w-4 h-4" />
-            <span>Modelos E-mail ({modelosList.length})</span>
-          </TabsTrigger>
-          <TabsTrigger value="motivos" className="gap-1.5 text-xs font-medium">
-            <ListFilter className="w-4 h-4" />
-            <span>Motivos ({motivosList.length})</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="limpeza_negocio"
-            className="gap-1.5 text-xs font-semibold text-red-700 hover:text-red-800 data-[state=active]:bg-red-50 data-[state=active]:text-red-900 data-[state=active]:border-red-300"
-          >
-            <Trash2 className="w-4 h-4 text-red-600" />
-            <span>Limpeza de Negócio</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="fontes_prospeccao"
-            className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white"
-          >
-            <Globe className="w-4 h-4 text-[#D95A2B]" />
-            <span>Fontes Prospecção</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="fazer_dentro_fora"
-            className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white"
-          >
-            <Scale className="w-4 h-4 text-[#D95A2B]" />
-            <span>Fazer Dentro ou Fora</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="scorecards_parametros"
-            className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white"
-          >
-            <Award className="w-4 h-4 text-[#D95A2B]" />
-            <span>Scorecards & Metas</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="smtp_seguranca"
-            className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white"
-          >
-            <Mail className="w-4 h-4 text-[#D95A2B]" />
-            <span>SMTP & Selfcheck</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="operacao_crons"
-            className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white"
-          >
-            <Clock className="w-4 h-4 text-[#D95A2B]" />
-            <span>Operação & Crons</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-300">
+          <TabsList className="inline-flex flex-nowrap min-w-max bg-slate-200/80 p-1 h-auto gap-1 rounded-lg">
+            <TabsTrigger
+              value="usuarios"
+              className="gap-1.5 text-xs font-medium whitespace-nowrap px-3 py-1.5"
+            >
+              <Users className="w-4 h-4 shrink-0" />
+              <span>Usuários ({usersList.length})</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="links_recrutamento"
+              className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white whitespace-nowrap px-3 py-1.5"
+            >
+              <LinkIcon className="w-4 h-4 text-[#D95A2B] shrink-0" />
+              <span>Recrutamento</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="modelo_proposta"
+              className="gap-1.5 text-xs font-medium text-blue-700 data-[state=active]:bg-white whitespace-nowrap px-3 py-1.5"
+            >
+              <FileText className="w-4 h-4 text-blue-600 shrink-0" />
+              <span>Modelo Proposta</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="areas_atuacao"
+              className="gap-1.5 text-xs font-medium whitespace-nowrap px-3 py-1.5"
+            >
+              <Layers className="w-4 h-4 text-orange-600 shrink-0" />
+              <span>Áreas & Subserviços</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="catalogo_escopos"
+              className="gap-1.5 text-xs font-medium text-[#D95A2B] data-[state=active]:bg-white whitespace-nowrap px-3 py-1.5"
+            >
+              <BookOpen className="w-4 h-4 text-[#D95A2B] shrink-0" />
+              <span>Catálogo Escopos</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="catalogo"
+              className="gap-1.5 text-xs font-medium whitespace-nowrap px-3 py-1.5"
+            >
+              <Wrench className="w-4 h-4 shrink-0" />
+              <span>Catálogo ({catalogoList.length})</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="parametros"
+              className="gap-1.5 text-xs font-medium whitespace-nowrap px-3 py-1.5"
+            >
+              <Sliders className="w-4 h-4 shrink-0" />
+              <span>Parâmetros ({parametrosList.length})</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="modelos"
+              className="gap-1.5 text-xs font-medium whitespace-nowrap px-3 py-1.5"
+            >
+              <FileCode2 className="w-4 h-4 shrink-0" />
+              <span>Modelos E-mail ({modelosList.length})</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="motivos"
+              className="gap-1.5 text-xs font-medium whitespace-nowrap px-3 py-1.5"
+            >
+              <ListFilter className="w-4 h-4 shrink-0" />
+              <span>Motivos ({motivosList.length})</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="limpeza_negocio"
+              className="gap-1.5 text-xs font-semibold text-red-700 hover:text-red-800 data-[state=active]:bg-red-50 data-[state=active]:text-red-900 data-[state=active]:border-red-300 whitespace-nowrap px-3 py-1.5"
+            >
+              <Trash2 className="w-4 h-4 text-red-600 shrink-0" />
+              <span>Limpeza de Negócio</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="fontes_prospeccao"
+              className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white whitespace-nowrap px-3 py-1.5"
+            >
+              <Globe className="w-4 h-4 text-[#D95A2B] shrink-0" />
+              <span>Fontes Prospecção</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="fazer_dentro_fora"
+              className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white whitespace-nowrap px-3 py-1.5"
+            >
+              <Scale className="w-4 h-4 text-[#D95A2B] shrink-0" />
+              <span>Fazer Dentro ou Fora</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="scorecards_parametros"
+              className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white whitespace-nowrap px-3 py-1.5"
+            >
+              <Award className="w-4 h-4 text-[#D95A2B] shrink-0" />
+              <span>Scorecards & Metas</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="smtp_seguranca"
+              className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white whitespace-nowrap px-3 py-1.5"
+            >
+              <Mail className="w-4 h-4 text-[#D95A2B] shrink-0" />
+              <span>SMTP & Selfcheck</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="operacao_crons"
+              className="gap-1.5 text-xs font-semibold text-[#D95A2B] data-[state=active]:bg-white whitespace-nowrap px-3 py-1.5"
+            >
+              <Clock className="w-4 h-4 text-[#D95A2B] shrink-0" />
+              <span>Operação & Crons</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ABA PARÂMETROS E PESOS DE SCORECARD (RODADA 16) */}
         <TabsContent value="scorecards_parametros" className="space-y-4">

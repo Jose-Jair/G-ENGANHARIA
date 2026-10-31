@@ -864,8 +864,8 @@ routerAdd(
         ]
 
         function checarCamposColecao(col, nomes) {
-          const schema = col.fields ? col.fields : []
-          return nomes.every((nome) => schema.some((f) => f.name === nome))
+          if (!col) return false
+          return nomes.every((nome) => Boolean(col.fields && col.fields.getByName(nome)))
         }
 
         detalheAssinatura.ordens_servico_campos = checarCamposColecao(colOS, camposEsperados)

@@ -86,6 +86,32 @@ interface SelfcheckResultados {
       erro?: string
     }
   }
+  item13_recrutamento_triagem_documentos?: {
+    todas_conformes?: boolean
+    detalhes?: {
+      links_recrutamento_regras?: boolean
+      documentos_isolamento_dono?: boolean
+      documentos_arquivo_protegido?: boolean
+      campos_prestador_adicionados?: boolean
+      parametros_administracao?: boolean
+      erro?: string
+    }
+  }
+  item14_prospeccao_automatica?: {
+    todas_conformes?: boolean
+    detalhes?: {
+      colecoes_configuradas?: boolean
+      pncp_configurada?: boolean
+      comprasnet_csv_configurada?: boolean
+      tce_ce_configurada?: boolean
+      ceara_transparente_csv_configurada?: boolean
+      transparencia_chave?: string
+      transparencia_status?: string
+      transparencia_aviso?: string
+      transparencia_desligada_por_padrao?: boolean
+      erro?: string
+    }
+  }
   item15_custo_interno_real?: {
     todas_conformes?: boolean
     detalhes?: {
@@ -132,6 +158,17 @@ interface SelfcheckResultados {
       parametro_token_expiracao?: boolean
       parametro_token_tentativas?: boolean
       parametro_sla_decisoes?: boolean
+      erro?: string
+    }
+  }
+  item19_operacao_erros_crons?: {
+    todas_conformes?: boolean
+    detalhes?: {
+      colecao_erros_sistema?: boolean
+      total_erros_sistema?: number
+      parametros_upload_presentes?: boolean
+      parametro_crons_ultimo_sucesso?: boolean
+      rotinas_crons_ativas?: number
       erro?: string
     }
   }
@@ -206,7 +243,7 @@ export const PainelSmtpSeguranca: React.FC = () => {
       setSelfcheckData(res)
       toast({
         title: 'Selfcheck executado',
-        description: `12 itens verificados no backend (${new Date().toLocaleTimeString('pt-BR')}).`,
+        description: `19 itens verificados no backend (${new Date().toLocaleTimeString('pt-BR')}).`,
       })
     } catch (err: unknown) {
       toast({
@@ -305,19 +342,20 @@ export const PainelSmtpSeguranca: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* CARD DO SELFCHECK DE SEGURANÇA (12 ITENS) */}
+      {/* CARD DO SELFCHECK DE SEGURANÇA (19 ITENS) */}
       <Card className="border-slate-200">
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <CardTitle className="text-base flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-blue-600" />
-                Autochecagem de Segurança & Integridade (18 Itens)
+                Autochecagem de Segurança & Integridade (19 Itens)
               </CardTitle>
               <CardDescription className="text-xs">
                 Varredura profunda executada diretamente no backend
                 (/backend/v1/seguranca/selfcheck). Verifica isolamento por API rules, tokens,
-                telefones, IA, monitoramento, scorecards, IFC/BCF e matriz de sigilo por perfil.
+                telefones, IA, monitoramento, recrutamento, prospecção, scorecards, IFC/BCF, matriz
+                de sigilo e operação/crons.
               </CardDescription>
             </div>
             <Button
@@ -346,7 +384,7 @@ export const PainelSmtpSeguranca: React.FC = () => {
             <div className="py-6 text-center text-slate-400 border border-dashed rounded-lg bg-slate-50/50">
               <Server className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p className="text-xs">
-                Nenhum selfcheck carregado nesta sessão. Clique no botão acima para verificar os 18
+                Nenhum selfcheck carregado nesta sessão. Clique no botão acima para verificar os 19
                 itens.
               </p>
             </div>
@@ -377,7 +415,7 @@ export const PainelSmtpSeguranca: React.FC = () => {
                 </span>
               </div>
 
-              {/* LISTA DOS 12 ITENS */}
+              {/* LISTA DOS 19 ITENS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 {/* 1. API Rules */}
                 <div className="p-3 border rounded-lg bg-white space-y-1">
@@ -576,6 +614,76 @@ export const PainelSmtpSeguranca: React.FC = () => {
                   </p>
                 </div>
 
+                {/* 13. Recrutamento Público, Triagem e Documentos (Rodada 12) */}
+                <div className="p-3 border rounded-lg bg-white space-y-1">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span>13. Recrutamento, Triagem & Docs</span>
+                    {res?.item13_recrutamento_triagem_documentos?.todas_conformes ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    )}
+                  </div>
+                  <p className="text-slate-500 text-[11px]">
+                    Links restritos:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item13_recrutamento_triagem_documentos?.detalhes
+                        ?.links_recrutamento_regras
+                        ? 'Sim'
+                        : 'Não'}
+                    </strong>{' '}
+                    | Isolamento docs:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item13_recrutamento_triagem_documentos?.detalhes
+                        ?.documentos_isolamento_dono
+                        ? 'Dono/Gestão'
+                        : 'Não'}
+                    </strong>{' '}
+                    | Parâmetros triagem:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item13_recrutamento_triagem_documentos?.detalhes
+                        ?.parametros_administracao
+                        ? 'Configurados'
+                        : 'Pendente'}
+                    </strong>
+                  </p>
+                </div>
+
+                {/* 14. Prospecção Automática (Rodada 14) */}
+                <div className="p-3 border rounded-lg bg-white space-y-1">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span>14. Prospecção Automática & Fontes</span>
+                    {res?.item14_prospeccao_automatica?.todas_conformes ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    )}
+                  </div>
+                  <p className="text-slate-500 text-[11px]">
+                    PNCP:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item14_prospeccao_automatica?.detalhes?.pncp_configurada
+                        ? 'Ativa'
+                        : 'Inativa'}
+                    </strong>{' '}
+                    | Ceará CSV/TCE:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item14_prospeccao_automatica?.detalhes?.tce_ce_configurada &&
+                      res?.item14_prospeccao_automatica?.detalhes
+                        ?.ceara_transparente_csv_configurada
+                        ? 'Configuradas'
+                        : 'Pendente'}
+                    </strong>{' '}
+                    | Transparência:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item14_prospeccao_automatica?.detalhes?.transparencia_status ===
+                      'operante'
+                        ? 'Operante'
+                        : 'Pendente Chave'}
+                    </strong>
+                  </p>
+                </div>
+
                 {/* 15. Custo Interno Real (Novo Rodada 15) */}
                 <div className="p-3 border rounded-lg bg-white space-y-1 ring-1 ring-[#D95A2B]/30">
                   <div className="flex items-center justify-between font-semibold">
@@ -691,6 +799,39 @@ export const PainelSmtpSeguranca: React.FC = () => {
                       res?.item18_matriz_perfil_sigilo?.detalhes?.parametro_sla_decisoes
                         ? 'Configurados'
                         : 'Pendente'}
+                    </strong>
+                  </p>
+                </div>
+
+                {/* 19. Operação, Erros de Sistema & Crons (Rodada 19) */}
+                <div className="p-3 border rounded-lg bg-white space-y-1 ring-1 ring-slate-400/40">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span className="text-slate-800">
+                      19. Operação, Erros de Sistema & Crons (Rodada 19)
+                    </span>
+                    {res?.item19_operacao_erros_crons?.todas_conformes ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    )}
+                  </div>
+                  <p className="text-slate-500 text-[11px]">
+                    Coleção erros:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item19_operacao_erros_crons?.detalhes?.colecao_erros_sistema
+                        ? 'Ativa'
+                        : 'Pendente'}
+                    </strong>{' '}
+                    | Parâmetros upload:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item19_operacao_erros_crons?.detalhes?.parametros_upload_presentes
+                        ? 'IFC/DWG/PDF/IMG'
+                        : 'Pendente'}
+                    </strong>{' '}
+                    | Crons ativas:{' '}
+                    <strong className="text-slate-700">
+                      {res?.item19_operacao_erros_crons?.detalhes?.rotinas_crons_ativas ?? 4}{' '}
+                      rotinas
                     </strong>
                   </p>
                 </div>

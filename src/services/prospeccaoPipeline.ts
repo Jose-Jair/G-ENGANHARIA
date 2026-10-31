@@ -144,16 +144,25 @@ export interface SugestaoSimulada {
   status: string
 }
 
+export interface ExclusaoProspeccaoSimulada {
+  cnpj?: string
+  cnae?: string
+  objeto_termo?: string
+  ativo: boolean
+}
+
 /**
- * Função de processamento puro para teste unitário do pipeline de dedupe, descarte de CPF e idempotência
+ * Função de processamento puro para teste unitário do pipeline de dedupe, descarte de CPF, exclusões e idempotência
  */
 export function processarLoteProspeccaoPuro(
   itens: ContratoBrutoProspeccao[],
   empresasExistentes: EmpresaSimulada[],
   contratosExistentes: ContratoSimulado[],
   sugestoesExistentes: SugestaoSimulada[],
+  exclusoesExistentes: ExclusaoProspeccaoSimulada[] = [],
 ) {
   let descartadosCpf = 0
+  let descartadosExclusao = 0
   let duplicadosDedupe = 0
   const novosContratos: ContratoSimulado[] = []
   const novasReativacoes: ReativacaoSimulada[] = []
@@ -161,6 +170,13 @@ export function processarLoteProspeccaoPuro(
 
   const contratosMap = new Set(contratosExistentes.map((c) => `${c.empresa}_${c.numero}`))
   const sugestoesMap = new Set(sugestoesExistentes.map((s) => `${s.cnpj}_${s.numero_contrato}`))
+  const cnpjsExcluidos = new Set(
+    exclusoesExistentes.filter((e) => e.ativo && e.cnpj).map((e) => limparCnpj(e.cnpj)),
+  )
+  const termosExcluidos = exclusoesExistentes
+    .filter((e) => e.ativo && e.objeto_termo)
+    .map((e) => (e.objeto_termo || '').toLowerCase().trim())
+    .filter(Boolean)
 
   for (const item of itens) {
     const cnpjLimpo = limparCnpj(item.cnpj)
@@ -173,7 +189,26 @@ export function processarLoteProspeccaoPuro(
 
     if (!cnpjLimpo || cnpjLimpo.length !== 14) continue
 
-    // 2. Dedupe com empresas existentes
+    // 2. Verificação de Lista de Exclusão de Prospeccao
+    if (cnpjsExcluidos.has(cnpjLimpo)) {
+      descartadosExclusao++
+      continue
+    }
+
+    const objLower = (item.objeto || '').toLowerCase()
+    let casamentoTermo = false
+    for (const termo of termosExcluidos) {
+      if (termo && objLower.includes(termo)) {
+        casamentoTermo = true
+        break
+      }
+    }
+    if (casamentoTermo) {
+      descartadosExclusao++
+      continue
+    }
+
+    // 3. Dedupe com empresas existentes
     const emp = empresasExistentes.find((e) => e.cnpj === cnpjLimpo)
     if (emp) {
       duplicadosDedupe++
@@ -229,6 +264,7 @@ export function processarLoteProspeccaoPuro(
 
   return {
     descartadosCpf,
+    descartadosExclusao,
     duplicadosDedupe,
     novosContratos,
     novasReativacoes,

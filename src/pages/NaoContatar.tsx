@@ -367,6 +367,7 @@ export default function NaoContatarPage() {
                 <tr>
                   <th className="py-3 px-4">E-mail Bloqueado</th>
                   <th className="py-3 px-4">Empresa Associada</th>
+                  <th className="py-3 px-4">Origem / Natureza</th>
                   <th className="py-3 px-4">Motivo do Bloqueio</th>
                   <th className="py-3 px-3">Data Inclusão</th>
                   <th className="py-3 px-4 text-right">Ação</th>
@@ -398,6 +399,27 @@ export default function NaoContatarPage() {
                         </div>
                       ) : (
                         <span className="text-slate-400 italic">E-mail Avulso / Geral</span>
+                      )}
+                    </td>
+
+                    {/* Origem / Natureza */}
+                    <td className="py-3 px-4">
+                      {it.origem === 'descarte_prospeccao_legado' ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]"
+                          title="Registro legado proveniente de descarte de prospecção anterior (mantido para revisão manual)"
+                        >
+                          Descarte Prospecção (Legado)
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]"
+                          title="Opt-out legítimo do titular ou solicitação formal de descadastro"
+                        >
+                          Opt-out Titular (LGPD)
+                        </Badge>
                       )}
                     </td>
 

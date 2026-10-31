@@ -251,12 +251,31 @@ export interface NaoContatarRecord {
   empresa?: string
   email: string
   motivo?: string
+  origem?: string
   data_inclusao?: string
   created: string
   updated: string
   expand?: {
     empresa?: EmpresaRecord
   }
+}
+
+export interface ExclusaoProspeccaoRecord {
+  id: string
+  cnpj?: string
+  cnae?: string
+  objeto_termo?: string
+  razao_social?: string
+  tipo_chave?: string
+  motivo_descarte: string
+  fonte_origem?: string
+  sugestao_origem_id?: string
+  descartado_por?: string
+  data_descarte?: string
+  ativo: boolean
+  observacoes?: string
+  created: string
+  updated: string
 }
 
 export interface PesosScoreCurva {

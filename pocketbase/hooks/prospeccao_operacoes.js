@@ -342,6 +342,42 @@ routerAdd(
         const valorNum = Number(item.valor) || 0
         const scoreCurva = calcularScoreCurvaProvisorio(valorNum, mesesVig)
 
+        // VERIFICAÇÃO NA LISTA DE EXCLUSÃO DE PROSPECÇÃO (CNPJ E OBJETO)
+        let excluidoProspeccao = false
+        try {
+          const excCnpj = $app.findRecordsByFilter(
+            'exclusoes_prospeccao',
+            "cnpj = '" + cnpjLimpo + "' && ativo = true",
+            '',
+            1,
+            0,
+          )
+          if (excCnpj.length > 0) {
+            excluidoProspeccao = true
+          } else if (item.objeto) {
+            const objLow = item.objeto.toLowerCase()
+            const excObj = $app.findRecordsByFilter(
+              'exclusoes_prospeccao',
+              "objeto_termo != '' && ativo = true",
+              '',
+              200,
+              0,
+            )
+            for (let eIdx = 0; eIdx < excObj.length; eIdx++) {
+              const termoExc = (excObj[eIdx].get('objeto_termo') || '').toLowerCase().trim()
+              if (termoExc && objLow.includes(termoExc)) {
+                excluidoProspeccao = true
+                break
+              }
+            }
+          }
+        } catch (_) {}
+
+        if (excluidoProspeccao) {
+          duplicadosDedupe++
+          continue
+        }
+
         // DEDUPE POR CNPJ (EMPRESAS EXISTENTES)
         let empresaExistente = null
         try {
@@ -619,7 +655,7 @@ routerAdd(
 
     const empCol = $app.findCollectionByNameOrId('empresas')
     const contratosCol = $app.findCollectionByNameOrId('contratos')
-    const naoContatarCol = $app.findCollectionByNameOrId('nao_contatar')
+    const exclusoesCol = $app.findCollectionByNameOrId('exclusoes_prospeccao')
 
     const resultados = {
       processados: 0,
@@ -649,24 +685,49 @@ routerAdd(
           sug.set('data_decisao', new Date().toISOString())
           $app.save(sug)
 
-          const emailSug = sug.get('email')
-          if (emailSug && emailSug.includes('@')) {
-            try {
-              const jaNc = $app.findRecordsByFilter(
-                'nao_contatar',
-                "email = '" + emailSug + "'",
+          // REGRA GESTÃO G+: Descarte de sugestão de prospecção alimenta a lista própria exclusoes_prospeccao,
+          // NUNCA a lista nao_contatar (que é opt-out LGPD do titular).
+          const cnpjSug = limparCnpj(sug.get('cnpj'))
+          const cnaeSug = sug.get('cnae') || ''
+          const objetoSug = sug.get('objeto_contrato') || ''
+          const razaoSug = sug.get('razao_social') || sug.get('nome_fantasia') || ''
+          const fonteSlugSug = sug.get('fonte_prospeccao_slug') || sug.get('fonte') || 'prospeccao'
+
+          try {
+            // Verificar se já existe exclusão ativa para este CNPJ ou objeto
+            let jaExcluido = false
+            if (cnpjSug) {
+              const registrosExistentes = $app.findRecordsByFilter(
+                'exclusoes_prospeccao',
+                "cnpj = '" + cnpjSug + "' && ativo = true",
                 '',
                 1,
                 0,
               )
-              if (jaNc.length === 0) {
-                const nc = new Record(naoContatarCol)
-                nc.set('email', emailSug)
-                nc.set('motivo', 'Descarte prospecção: ' + motivoFinal)
-                nc.set('data_inclusao', new Date().toISOString())
-                $app.save(nc)
-              }
-            } catch (_) {}
+              if (registrosExistentes.length > 0) jaExcluido = true
+            }
+
+            if (!jaExcluido) {
+              const excRec = new Record(exclusoesCol)
+              if (cnpjSug) excRec.set('cnpj', cnpjSug)
+              if (cnaeSug) excRec.set('cnae', cnaeSug)
+              if (objetoSug) excRec.set('objeto_termo', objetoSug.slice(0, 500))
+              if (razaoSug) excRec.set('razao_social', razaoSug)
+              excRec.set('tipo_chave', cnpjSug ? 'cnpj' : objetoSug ? 'objeto_termo' : 'misto')
+              excRec.set('motivo_descarte', motivoFinal)
+              excRec.set('fonte_origem', fonteSlugSug)
+              excRec.set('sugestao_origem_id', sugId)
+              if (usuarioId) excRec.set('descartado_por', usuarioId)
+              excRec.set('data_descarte', new Date().toISOString())
+              excRec.set('ativo', true)
+              excRec.set(
+                'observacoes',
+                'Exclusão operacional de prospecção. Não constitui opt-out LGPD.',
+              )
+              $app.save(excRec)
+            }
+          } catch (errExc) {
+            console.log('Aviso ao registrar exclusao de prospeccao para ' + sugId + ': ' + errExc)
           }
 
           resultados.descartados.push(sugId)
@@ -881,6 +942,42 @@ routerAdd(
       }
 
       if (!cnpjLimpo || cnpjLimpo.length !== 14 || !obj) continue
+
+      // VERIFICAÇÃO NA LISTA DE EXCLUSÃO DE PROSPECÇÃO
+      let excluidoComprasnet = false
+      try {
+        const excC = $app.findRecordsByFilter(
+          'exclusoes_prospeccao',
+          "cnpj = '" + cnpjLimpo + "' && ativo = true",
+          '',
+          1,
+          0,
+        )
+        if (excC.length > 0) {
+          excluidoComprasnet = true
+        } else if (obj) {
+          const objLow = obj.toLowerCase()
+          const excObj = $app.findRecordsByFilter(
+            'exclusoes_prospeccao',
+            "objeto_termo != '' && ativo = true",
+            '',
+            200,
+            0,
+          )
+          for (let eIdx = 0; eIdx < excObj.length; eIdx++) {
+            const termoExc = (excObj[eIdx].get('objeto_termo') || '').toLowerCase().trim()
+            if (termoExc && objLow.includes(termoExc)) {
+              excluidoComprasnet = true
+              break
+            }
+          }
+        }
+      } catch (_) {}
+
+      if (excluidoComprasnet) {
+        duplicadosDedupe++
+        continue
+      }
 
       const scoreCurva = calcularScoreCurvaProvisorio(val, 12)
 
@@ -1170,6 +1267,42 @@ routerAdd(
       }
 
       if (!cnpjLimpo || cnpjLimpo.length !== 14 || !obj) continue
+
+      // VERIFICAÇÃO NA LISTA DE EXCLUSÃO DE PROSPECÇÃO
+      let excluidoCsvDinamico = false
+      try {
+        const excCd = $app.findRecordsByFilter(
+          'exclusoes_prospeccao',
+          "cnpj = '" + cnpjLimpo + "' && ativo = true",
+          '',
+          1,
+          0,
+        )
+        if (excCd.length > 0) {
+          excluidoCsvDinamico = true
+        } else if (obj) {
+          const objLow = obj.toLowerCase()
+          const excObj = $app.findRecordsByFilter(
+            'exclusoes_prospeccao',
+            "objeto_termo != '' && ativo = true",
+            '',
+            200,
+            0,
+          )
+          for (let eIdx = 0; eIdx < excObj.length; eIdx++) {
+            const termoExc = (excObj[eIdx].get('objeto_termo') || '').toLowerCase().trim()
+            if (termoExc && objLow.includes(termoExc)) {
+              excluidoCsvDinamico = true
+              break
+            }
+          }
+        }
+      } catch (_) {}
+
+      if (excluidoCsvDinamico) {
+        duplicadosDedupe++
+        continue
+      }
 
       const scoreCurva = calcularScoreCurvaProvisorio(val, 12)
 

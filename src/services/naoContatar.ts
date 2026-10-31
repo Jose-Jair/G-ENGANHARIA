@@ -5,6 +5,7 @@ export interface CreateNaoContatarData {
   email: string
   empresa?: string
   motivo: string
+  origem?: string
   data_inclusao?: string
 }
 
@@ -33,6 +34,7 @@ export const naoContatarService = {
     return await pb.collection('nao_contatar').create<NaoContatarRecord>({
       ...data,
       email: data.email.trim().toLowerCase(),
+      origem: data.origem || 'opt_out_titular',
       data_inclusao: data.data_inclusao || new Date().toISOString(),
     })
   },

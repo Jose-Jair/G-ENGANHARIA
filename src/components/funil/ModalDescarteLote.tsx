@@ -44,17 +44,20 @@ export function ModalDescarteLote({
           </div>
           <DialogDescription className="text-xs text-slate-500 pt-1">
             Você está descartando <strong>{totalSelecionados}</strong> sugestão(ões) selecionada(s).
-            O motivo informado será registrado nos logs de auditoria e os e-mails associados serão
-            alimentados na lista <strong>Não Contatar (LGPD)</strong>.
+            Os dados identificadores (CNPJ, CNAE e objeto) serão registrados na{' '}
+            <strong>Lista de Exclusão de Prospecção</strong> para não serem recriados em varreduras
+            futuras.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 py-2 text-xs">
-          <div className="p-2.5 rounded bg-rose-50 border border-rose-200 text-rose-800 text-[11px] flex items-start gap-2">
-            <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+          <div className="p-2.5 rounded bg-amber-50 border border-amber-200 text-amber-900 text-[11px] flex items-start gap-2">
+            <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <span>
-              Ao descartar, os e-mails válidos das empresas não receberão novos toques nem campanhas
-              futuras.
+              <strong>Aviso de Conformidade:</strong> O descarte de sugestão é uma decisão
+              operacional de triagem que exclui o CNPJ/CNAE/objeto da prospecção futura e{' '}
+              <strong>NÃO é opt-out LGPD</strong>. Este descarte não alimenta a lista "Não Contatar"
+              (destinada exclusivamente à manifestação do titular de dados).
             </span>
           </div>
 

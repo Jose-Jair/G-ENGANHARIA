@@ -362,7 +362,7 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
       {
         titulo: '4. Triagem em Lote (Aprovar, Descartar e Incorporar)',
         descricao:
-          'Selecione múltiplas sugestões e execute ações em massa: "Aprovar Selecionadas" (para validação prévia), "Incorporar ao Funil" (cria a empresa na etapa Identificada do Funil Comercial e gera rascunho de contrato pré-preenchido) ou "Descartar com Motivo". Ao descartar, o operador obrigatoriamente preenche o motivo auditado e os e-mails associados alimentam a lista "Não Contatar" para proteger a conformidade LGPD da empresa.',
+          'Selecione múltiplas sugestões e execute ações em massa: "Aprovar Selecionadas" (para validação prévia), "Incorporar ao Funil" (cria a empresa na etapa Identificada do Funil Comercial e gera rascunho de contrato pré-preenchido) ou "Descartar com Motivo". Ao descartar, o operador obrigatoriamente preenche o motivo auditado e o CNPJ/CNAE/objeto alimenta a Lista de Exclusão de Prospecção para que varreduras futuras não recriem a oportunidade (sem afetar a lista Não Contatar LGPD).',
       },
       {
         titulo: '5. Conformidade e Badge de Sanção (CEIS / CNEP)',
@@ -380,7 +380,7 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
       'Descarte automático de CPFs: contratos firmados com pessoas físicas são descartados da prospecção de empresas.',
       'Enriquecimento automático via BrasilAPI: consulta dados cadastrais, CNAE e situação na Receita Federal.',
       'Bloqueio de cadência para empresas com sanção confirmada (flag cadencia_bloqueada_sancao).',
-      'Descartes em lote alimentam compulsoriamente a lista Não Contatar.',
+      'Descartes em lote alimentam a lista própria de exclusão de prospecção e não misturam com opt-out LGPD.',
     ],
   },
   {

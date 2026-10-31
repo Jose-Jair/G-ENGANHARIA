@@ -292,7 +292,7 @@ export default function FunilSugestoesPage() {
       })
       toast({
         title: 'Sugestões Descartadas',
-        description: `${res.descartados.length} sugestão(ões) descartada(s). E-mails alimentados na lista Não Contatar.`,
+        description: `${res.descartados.length} sugestão(ões) descartada(s). Gravadas na Lista de Exclusão de Prospecção (não afeta lista Não Contatar LGPD).`,
       })
       setModalDescarteLoteOpen(false)
       loadSugestoes()
@@ -367,7 +367,7 @@ export default function FunilSugestoesPage() {
       })
       toast({
         title: 'Sugestão descartada',
-        description: 'Registro arquivado e e-mail adicionado à lista Não Contatar.',
+        description: 'Registro arquivado e incluído na Lista de Exclusão de Prospecção.',
       })
       setSugestaoDescartarIndividual(null)
       setMotivoDescarteIndividual('')
@@ -623,7 +623,7 @@ export default function FunilSugestoesPage() {
           <p className="text-xs text-slate-500 mt-1">
             Qualificação contínua de oportunidades detectadas por varreduras automáticas (PNCP,
             TCE-CE) ou planilhas externas. Filtros avançados, triagem em lote e descarte com lista
-            Não Contatar.
+            própria de exclusão de prospecção.
           </p>
         </div>
 
@@ -1201,7 +1201,8 @@ export default function FunilSugestoesPage() {
                 {sugestaoDescartarIndividual?.nome_fantasia ||
                   sugestaoDescartarIndividual?.razao_social}
               </strong>
-              ". O motivo será registrado em auditoria e o e-mail alimentará a lista Não Contatar.
+              ". O CNPJ/objeto será gravado na lista de exclusão de prospecção e NÃO na lista Não
+              Contatar (LGPD).
             </DialogDescription>
           </DialogHeader>
 

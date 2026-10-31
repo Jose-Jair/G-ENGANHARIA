@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T01:25:03.321Z",
+  "generatedAt": "2026-10-31T01:45:24.451Z",
   "collections": [
     {
       "name": "users",
@@ -1042,6 +1042,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "origem",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": ["CREATE INDEX idx_nao_contatar_email ON nao_contatar (email)"]
@@ -7274,6 +7280,111 @@
         "CREATE INDEX idx_lotes_fonte ON lotes_prospeccao_auditoria (fonte_slug)",
         "CREATE INDEX idx_lotes_status ON lotes_prospeccao_auditoria (status)",
         "CREATE INDEX idx_lotes_data_inicio ON lotes_prospeccao_auditoria (data_inicio DESC)"
+      ]
+    },
+    {
+      "name": "exclusoes_prospeccao",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "cnpj",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cnae",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "objeto_termo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "razao_social",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tipo_chave",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "motivo_descarte",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fonte_origem",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sugestao_origem_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "descartado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "data_descarte",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_exclusoes_prospeccao_cnpj ON exclusoes_prospeccao (cnpj)",
+        "CREATE INDEX idx_exclusoes_prospeccao_cnae ON exclusoes_prospeccao (cnae)",
+        "CREATE INDEX idx_exclusoes_prospeccao_ativo ON exclusoes_prospeccao (ativo)"
       ]
     }
   ]

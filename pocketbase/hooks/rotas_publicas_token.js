@@ -16,6 +16,124 @@
 // -----------------------------------------------------------------------------
 // 1. Proposta Pública (validação com expiração, uso único e tentativas)
 // -----------------------------------------------------------------------------
+// Endpoint seguro para carregar proposta pública com cliente PF / PJ expandido
+routerAdd('POST', '/backend/v1/publico/proposta/detalhes-completos', (e) => {
+  const info = e.requestInfo()
+  const body = info.body || {}
+  const token = (body.token || info.query.token || '').toString().trim()
+  if (!token) {
+    return e.json(400, { erro: 'Token não fornecido' })
+  }
+
+  try {
+    let prop
+    try {
+      prop = $app.findFirstRecordByFilter(
+        'propostas',
+        "token_aceite = '" + token.replace(/'/g, "\\'") + "'",
+      )
+    } catch (_) {}
+
+    if (!prop) {
+      return e.json(404, { erro: 'Proposta não localizada pelo token informado' })
+    }
+
+    const expand = {}
+
+    // Expandir empresa se houver
+    const empresaId = prop.getString('empresa')
+    if (empresaId) {
+      try {
+        const emp = $app.findRecordById('empresas', empresaId)
+        if (emp) {
+          expand.empresa = {
+            id: emp.id,
+            razao_social: emp.getString('razao_social'),
+            nome_fantasia: emp.getString('nome_fantasia'),
+            cnpj: emp.getString('cnpj'),
+            municipio: emp.getString('municipio'),
+            uf: emp.getString('uf'),
+            email: emp.getString('email'),
+            telefone: emp.getString('telefone'),
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Expandir cliente_pf se houver
+    const pfId = prop.getString('cliente_pf')
+    if (pfId) {
+      try {
+        const pf = $app.findRecordById('clientes_pf', pfId)
+        if (pf) {
+          expand.cliente_pf = {
+            id: pf.id,
+            nome: pf.getString('nome'),
+            cpf: pf.getString('cpf'),
+            email: pf.getString('email'),
+            telefone: pf.getString('telefone'),
+            endereco: pf.getString('endereco'),
+            logradouro: pf.getString('logradouro'),
+            numero: pf.getString('numero'),
+            municipio: pf.getString('municipio'),
+            uf: pf.getString('uf'),
+            cep: pf.getString('cep'),
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Expandir contrato se houver
+    const contratoId = prop.getString('contrato')
+    if (contratoId) {
+      try {
+        const ctr = $app.findRecordById('contratos', contratoId)
+        if (ctr) {
+          expand.contrato = {
+            id: ctr.id,
+            numero: ctr.getString('numero'),
+            orgao: ctr.getString('orgao'),
+          }
+        }
+      } catch (_) {}
+    }
+
+    const data = {
+      id: prop.id,
+      numero: prop.getString('numero'),
+      revisao: prop.getString('revisao'),
+      status: prop.getString('status'),
+      preco: prop.getFloat('preco'),
+      custo: prop.getFloat('custo'),
+      margem: prop.getFloat('margem'),
+      impostos: prop.getFloat('impostos'),
+      escopo: prop.getString('escopo'),
+      disciplinas: prop.getString('disciplinas'),
+      entregaveis: prop.getString('entregaveis'),
+      prazo: prop.getString('prazo'),
+      condicoes_pagamento: prop.getString('condicoes_pagamento'),
+      validade: prop.getString('validade'),
+      premissas: prop.getString('premissas'),
+      exclusoes: prop.getString('exclusoes'),
+      itens_json: prop.get('itens_json'),
+      historico_revisoes: prop.get('historico_revisoes'),
+      token_aceite: prop.getString('token_aceite'),
+      data_aceite: prop.getString('data_aceite'),
+      aceite_hash: prop.getString('aceite_hash'),
+      empresa: empresaId,
+      cliente_pf: pfId,
+      contrato: contratoId,
+      created: prop.getString('created'),
+      updated: prop.getString('updated'),
+      expand: expand,
+    }
+
+    return e.json(200, { sucesso: true, proposta: data })
+  } catch (err) {
+    return e.json(500, { erro: 'Erro ao carregar proposta: ' + err })
+  }
+})
+
 routerAdd('POST', '/backend/v1/publico/proposta/validar-e-obter', (e) => {
   function obterParams() {
     let expHoras = 48

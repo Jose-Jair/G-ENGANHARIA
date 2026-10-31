@@ -116,8 +116,23 @@ export const propostasService = {
 
   async getByToken(token: string): Promise<PropostaRecord | null> {
     try {
-      // Passar o token tanto no query filter quanto como query param ?token= e header x-token-aceite
-      // para satisfazer a viewRule/listRule de propostas sem autenticação
+      // 1. Tentar carregar via endpoint dedicado de token público (ignora restrição de expansão do cliente_pf)
+      try {
+        const publicRes = await pb.send<{ sucesso: boolean; proposta: any }>(
+          '/backend/v1/publico/proposta/detalhes-completos',
+          {
+            method: 'POST',
+            body: { token },
+          },
+        )
+        if (publicRes && publicRes.sucesso && publicRes.proposta) {
+          return publicRes.proposta as PropostaRecord
+        }
+      } catch (_) {
+        // Fallback para getFullList se endpoint não responder
+      }
+
+      // 2. Fallback padrão via getFullList com headers do token
       const records = await pb.collection('propostas').getFullList<PropostaRecord>({
         filter: `token_aceite = '${token}'`,
         expand: 'empresa,cliente_pf,contrato',

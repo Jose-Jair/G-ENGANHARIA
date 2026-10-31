@@ -395,9 +395,21 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
             0,
           )
           for (let ci = 0; ci < contatosEmpresa.length; ci++) {
-            const cNome = (contatosEmpresa[ci].getString('nome') || '').trim()
-            if (cNome) {
+            const cRec = contatosEmpresa[ci]
+            const cNome = (cRec.getString('nome') || '').trim()
+            const cCpf = fnCleanDigits(
+              cRec.getString('cpf') ||
+                cRec.getString('documento') ||
+                cRec.getString('observacao') ||
+                '',
+            )
+            if (cNome && !repNome) {
               repNome = cNome
+            }
+            if (cCpf && fnIsValidCpf(cCpf) && !repCpfClean) {
+              repCpfClean = cCpf
+            }
+            if (repNome && repCpfClean) {
               break
             }
           }
@@ -606,10 +618,10 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
       contratoCriado.getString('token_complemento_dados')
     ) {
       const appUrl =
-        $os.getenv('SITE_URL') ||
-        $os.getenv('PB_INSTANCE_URL') ||
-        ($app.settings().meta && $app.settings().meta.appUrl) ||
-        'https://gestao-de-projetos-de-engenharia-be59d.shrd00.internal.goskip.dev'
+        typeof getAppBaseUrl === 'function'
+          ? getAppBaseUrl()
+          : $os.getenv('PUBLIC_APP_URL') ||
+            'https://gestao-de-projetos-de-engenharia-be59d.goskip.app'
       const tokenComp = contratoCriado.getString('token_complemento_dados')
       linkComplemento = appUrl + '/completar-cadastro/' + tokenComp
 
@@ -2290,9 +2302,10 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
     }
 
     if (contrato.getString('data_assinatura_cliente')) {
-      return e.json(200, {
-        success: true,
-        message: 'Este contrato já foi assinado pelo cliente.',
+      return e.json(409, {
+        success: false,
+        message: 'Este contrato já foi assinado anteriormente pelo cliente.',
+        data_assinatura_cliente: contrato.getString('data_assinatura_cliente'),
         contrato_id: contrato.id,
       })
     }
@@ -3834,7 +3847,11 @@ routerAdd(
       }
 
       // URL pública do contrato para assinatura eletrônica
-      const baseUrl = $os.getenv('PUBLIC_APP_URL') || 'https://gestao-gmais.skip.app'
+      const baseUrl =
+        typeof getAppBaseUrl === 'function'
+          ? getAppBaseUrl()
+          : $os.getenv('PUBLIC_APP_URL') ||
+            'https://gestao-de-projetos-de-engenharia-be59d.goskip.app'
       const tokenAssinatura = contrato.getString('token_assinatura_cliente')
       const linkPublico = baseUrl + '/contrato/' + tokenAssinatura
       const linkDescadastro =

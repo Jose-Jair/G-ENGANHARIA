@@ -166,15 +166,16 @@ routerAdd(
       // 4. PREPARAR LINK DE DESCADASTRO OBRIGATÓRIO
       // URL base da aplicação
       let baseUrl =
-        $os.getenv('SITE_URL') ||
-        $os.getenv('PB_INSTANCE_URL') ||
-        ($app.settings().meta && $app.settings().meta.appUrl)
+        typeof getAppBaseUrl === 'function'
+          ? getAppBaseUrl()
+          : $os.getenv('PUBLIC_APP_URL') ||
+            'https://gestao-de-projetos-de-engenharia-be59d.goskip.app'
       if (!baseUrl) {
         let hostHeader = reqInfo.headers['x-forwarded-host'] || reqInfo.headers['host'] || ''
         let protoHeader = reqInfo.headers['x-forwarded-proto'] || 'https'
         baseUrl = hostHeader
           ? protoHeader + '://' + hostHeader
-          : 'https://gestao-de-projetos-de-engenharia-be59d.shrd00.internal.goskip.dev'
+          : 'https://gestao-de-projetos-de-engenharia-be59d.goskip.app'
       }
       let linkDescadastro =
         baseUrl +

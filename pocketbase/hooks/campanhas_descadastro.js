@@ -12,6 +12,83 @@
 //    - Pausa nutrição para a empresa
 //    - Audita retorno ao funil
 
+routerAdd('GET', '/backend/v1/descadastro/info-email', (e) => {
+  try {
+    const rawEmail = (e.request.url.query().get('email') || '').toString().trim().toLowerCase()
+    if (!rawEmail || rawEmail.indexOf('@') === -1) {
+      return e.json(400, { message: 'E-mail inválido ou não informado.' })
+    }
+
+    // Checar se já consta na lista nao_contatar
+    let jaDescadastrado = false
+    let dataDescadastro = ''
+    try {
+      const ncList = $app.findRecordsByFilter(
+        'nao_contatar',
+        "email = '" + rawEmail.replace(/'/g, "\\'") + "'",
+        '-created',
+        1,
+        0,
+      )
+      if (ncList.length > 0) {
+        jaDescadastrado = true
+        dataDescadastro = ncList[0].getString('data_inclusao') || ncList[0].getString('created')
+      }
+    } catch (_) {}
+
+    // Buscar nome associado em empresas, contatos ou clientes_pf
+    let empresaNome = 'Destinatário Comercial'
+    let destinatarioNome = ''
+    try {
+      const contatos = $app.findRecordsByFilter(
+        'contatos',
+        "email = '" + rawEmail.replace(/'/g, "\\'") + "'",
+        '-created',
+        1,
+        0,
+      )
+      if (contatos.length > 0) {
+        destinatarioNome = contatos[0].getString('nome') || ''
+        const empId = contatos[0].getString('empresa')
+        if (empId) {
+          const emp = $app.findRecordById('empresas', empId)
+          if (emp)
+            empresaNome =
+              emp.getString('nome_fantasia') || emp.getString('razao_social') || empresaNome
+        }
+      }
+    } catch (_) {}
+
+    if (!destinatarioNome) {
+      try {
+        const pfs = $app.findRecordsByFilter(
+          'clientes_pf',
+          "email = '" + rawEmail.replace(/'/g, "\\'") + "'",
+          '-created',
+          1,
+          0,
+        )
+        if (pfs.length > 0) {
+          destinatarioNome = pfs[0].getString('nome') || ''
+          empresaNome = 'Pessoa Física / Contratante'
+        }
+      } catch (_) {}
+    }
+
+    return e.json(200, {
+      token: '',
+      email: rawEmail,
+      destinatario_nome: destinatarioNome || undefined,
+      empresa_nome: empresaNome,
+      ja_descadastrado: jaDescadastrado,
+      data_descadastro: dataDescadastro || undefined,
+    })
+  } catch (err) {
+    console.log('Erro ao consultar info por email: ' + err)
+    return e.json(500, { message: 'Erro ao consultar descadastro por e-mail: ' + err })
+  }
+})
+
 routerAdd('GET', '/backend/v1/descadastro/info/{token}', (e) => {
   try {
     const token = e.request.pathValue('token')
@@ -60,28 +137,37 @@ routerAdd('POST', '/backend/v1/descadastro/confirmar', (e) => {
   try {
     const body = e.requestInfo().body || {}
     const token = body.token
+    const emailDireto = (body.email || '').toString().trim().toLowerCase()
     const motivoCliente =
       body.motivo || 'Descadastro solicitado pelo destinatário via link de e-mail (LGPD)'
 
-    if (!token) {
-      return e.json(400, { message: 'Token de descadastro obrigatório' })
+    if (!token && !emailDireto) {
+      return e.json(400, { message: 'Token ou e-mail de descadastro obrigatório' })
     }
 
-    const envios = $app.findRecordsByFilter(
-      'campanha_envios',
-      "token_rastreamento = '" + token + "'",
-      '-created',
-      1,
-      0,
-    )
-    if (envios.length === 0) {
-      return e.json(404, { message: 'Registro não localizado' })
+    let email = emailDireto
+    let empresaId = ''
+    let envio = null
+
+    if (token) {
+      const envios = $app.findRecordsByFilter(
+        'campanha_envios',
+        "token_rastreamento = '" + token + "'",
+        '-created',
+        1,
+        0,
+      )
+      if (envios.length > 0) {
+        envio = envios[0]
+        email = (envio.getString('destinatario_email') || '').trim()
+        empresaId = envio.getString('empresa')
+      } else if (!emailDireto) {
+        return e.json(404, { message: 'Registro não localizado pelo token' })
+      }
     }
 
-    const envio = envios[0]
-    const email = (envio.getString('destinatario_email') || '').trim()
-    const empresaId = envio.getString('empresa')
-    const jaDescadastrado = envio.getString('descadastro_em')
+    const nowIso = new Date().toISOString()
+    const jaDescadastrado = envio ? envio.getString('descadastro_em') : false
 
     if (!jaDescadastrado) {
       // 1. Atualizar envio

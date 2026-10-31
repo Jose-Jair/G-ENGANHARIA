@@ -487,7 +487,10 @@ routerAdd('POST', '/backend/v1/propostas/enviar-email', (e) => {
   }
 
   // 2. Parâmetros e URLs
-  const baseUrl = $os.getenv('PUBLIC_APP_URL') || 'https://gestao-gmais.skip.app'
+  const baseUrl =
+    typeof getAppBaseUrl === 'function'
+      ? getAppBaseUrl()
+      : $os.getenv('PUBLIC_APP_URL') || 'https://gestao-de-projetos-de-engenharia-be59d.goskip.app'
   const tokenAceite = proposta.get('token_aceite') || ''
   const linkPublico = baseUrl + '/proposta/' + tokenAceite
   const linkDescadastro = baseUrl + '/descadastro?email=' + encodeURIComponent(destinatarioEmail)
@@ -803,7 +806,10 @@ routerAdd('POST', '/backend/v1/gmais/propostas/{id}/enviar-email', (e) => {
     console.warn('[propostas_envio] Erro ao checar lista nao_contatar:', ncErr)
   }
 
-  const baseUrl = $os.getenv('PUBLIC_APP_URL') || 'https://gestao-gmais.skip.app'
+  const baseUrl =
+    typeof getAppBaseUrl === 'function'
+      ? getAppBaseUrl()
+      : $os.getenv('PUBLIC_APP_URL') || 'https://gestao-de-projetos-de-engenharia-be59d.goskip.app'
   const tokenAceite = proposta.get('token_aceite') || ''
   const linkPublico = baseUrl + '/proposta/' + tokenAceite
   const linkDescadastro = baseUrl + '/descadastro?email=' + encodeURIComponent(destinatarioEmail)

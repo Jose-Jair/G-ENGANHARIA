@@ -993,7 +993,15 @@ export function PropostaPublicaPage() {
                 <strong>Contratante:</strong>{' '}
                 {proposta.expand?.empresa?.razao_social ||
                   proposta.expand?.cliente_pf?.nome ||
+                  (proposta.cliente_pf_dados && proposta.cliente_pf_dados.nome) ||
                   'Cliente Titular'}
+              </div>
+              <div>
+                <strong>CPF/CNPJ:</strong>{' '}
+                {proposta.expand?.empresa?.cnpj ||
+                  proposta.expand?.cliente_pf?.cpf ||
+                  (proposta.cliente_pf_dados && proposta.cliente_pf_dados.cpf) ||
+                  'Documento não informado'}
               </div>
               <div>
                 <strong>Valor Global Proposto:</strong> {formatCurrencyBr(proposta.preco)}

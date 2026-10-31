@@ -19,17 +19,24 @@ export default function DescadastroPage() {
   const [sucesso, setSucesso] = useState(false)
   const [motivo, setMotivo] = useState('')
 
-  // Efetuar busca da informação do token
+  const emailParam = searchParams.get('email') || ''
+
+  // Efetuar busca da informação do token ou e-mail
   useEffect(() => {
     const carregarInfo = async () => {
-      if (!token) {
-        setErrorMsg('Token de descadastro não informado na URL.')
+      if (!token && !emailParam) {
+        setErrorMsg('Identificador de descadastro (token ou e-mail) não informado na URL.')
         setLoading(false)
         return
       }
 
       try {
-        const res = await descadastroService.getInfo(token)
+        let res: DescadastroInfo
+        if (token) {
+          res = await descadastroService.getInfo(token)
+        } else {
+          res = await descadastroService.getInfoPorEmail(emailParam)
+        }
         setInfo(res)
         if (res.ja_descadastrado) {
           setSucesso(true)
@@ -46,16 +53,17 @@ export default function DescadastroPage() {
     }
 
     carregarInfo()
-  }, [token])
+  }, [token, emailParam])
 
   const handleConfirmar = async () => {
-    if (!token) return
+    if (!token && !emailParam) return
     setSubmitting(true)
     setErrorMsg(null)
 
     try {
       await descadastroService.confirmar({
-        token,
+        token: token || undefined,
+        email: !token ? emailParam || info?.email : undefined,
         motivo: motivo.trim() || 'Solicitação de opt-out via página de descadastro',
       })
       setSucesso(true)

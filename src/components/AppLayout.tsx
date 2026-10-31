@@ -823,12 +823,12 @@ export default function AppLayout() {
             </a>
             <button
               type="button"
-              onClick={() => openWhatsAppWithFallback({ phone: '5588921886547' })}
+              onClick={() => openWhatsAppWithFallback({ phone: '5588999441685' })}
               className="text-slate-300 hover:text-emerald-300 flex items-center gap-1.5 transition-colors text-left cursor-pointer w-full"
               title="Abrir WhatsApp Oficial no aplicativo desktop (ou WhatsApp Web)"
             >
               <MessageSquare className="w-3 h-3 text-emerald-400 shrink-0" />
-              <span>+55 88 92188-6547</span>
+              <span>+55 88 9 9944-1685</span>
             </button>
           </div>
         </div>

@@ -10,15 +10,26 @@ export interface DescadastroInfo {
 }
 
 export interface ConfirmarDescadastroPayload {
-  token: string
+  token?: string
+  email?: string
   motivo?: string
 }
 
 export const descadastroService = {
-  // Consultar dados seguros do token (público)
+  // Consultar dados seguros do token ou e-mail (público)
   async getInfo(token: string): Promise<DescadastroInfo> {
     return await pb.send<DescadastroInfo>(
       `/backend/v1/descadastro/info/${encodeURIComponent(token)}`,
+      {
+        method: 'GET',
+      },
+    )
+  },
+
+  // Consultar status de descadastro por e-mail (público)
+  async getInfoPorEmail(email: string): Promise<DescadastroInfo> {
+    return await pb.send<DescadastroInfo>(
+      `/backend/v1/descadastro/info-email?email=${encodeURIComponent(email)}`,
       {
         method: 'GET',
       },

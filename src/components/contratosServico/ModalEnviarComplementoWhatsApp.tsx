@@ -159,13 +159,22 @@ export function ModalEnviarComplementoWhatsApp({
       })
 
       const waUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(mensagem)}`
-      window.open(waUrl, '_blank')
+      const popupWindow = window.open(waUrl, '_blank', 'noopener,noreferrer')
 
-      toast({
-        title: 'WhatsApp Aberto',
-        description:
-          'O link de complemento foi aberto no WhatsApp e o disparo foi auditado no sistema com sucesso.',
-      })
+      if (!popupWindow || popupWindow.closed || typeof popupWindow.closed === 'undefined') {
+        toast({
+          title: 'Aviso: Popup Bloqueado',
+          description:
+            'O navegador bloqueou a abertura automática do WhatsApp. Por favor, autorize popups ou copie o link para abrir manualmente.',
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: 'WhatsApp Aberto',
+          description:
+            'O link de complemento foi aberto no WhatsApp e o disparo foi auditado no sistema com sucesso.',
+        })
+      }
 
       if (onEnvioConcluido) {
         onEnvioConcluido()

@@ -1,5 +1,6 @@
 import React from 'react'
 import { MessageSquare } from 'lucide-react'
+import { buildWaMeUrl } from '@/lib/phone'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
@@ -38,11 +39,10 @@ export function EmpresaWhatsAppModal({
 
   const handleConfirm = () => {
     if (!telefoneRaw) return
-    window.open(
-      `https://wa.me/${telefoneRaw}?text=${encodeURIComponent(message)}`,
-      '_blank',
-      'noopener,noreferrer',
-    )
+    const waUrl = buildWaMeUrl(telefoneRaw, message)
+    if (waUrl) {
+      window.open(waUrl, '_blank', 'noopener,noreferrer')
+    }
     onClose()
   }
 

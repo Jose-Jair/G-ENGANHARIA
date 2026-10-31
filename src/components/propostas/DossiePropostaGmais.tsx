@@ -60,20 +60,29 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
     window.print()
   }
 
-  // Dados do proponente / G+
-  const proponenteNome = 'G+ GESTÃO E ENGENHARIA LTDA'
-  const proponenteCnpj = '00.000.000/0001-00'
-  const proponenteEmail = 'contato@gmaisengenharia.com.br'
+  // Dados oficiais do proponente / GMAIS ENGENHARIA LTDA
+  const proponenteNome = 'GMAIS ENGENHARIA LTDA'
+  const proponenteCnpj = '66.862.835/0001-69'
+  const proponenteEmail = 'grupomais.sae@gmail.com'
+  const proponenteEndereco =
+    'Av. Juvenco Gomes de Freitas, 354, Planalto Nelândia, Tauá – CE, CEP 63.660-000'
+  const proponenteWhats = '(88) 9 9944-1685'
+  const proponenteRespTecnico = 'Eng. Civil José Jair Oliveira Alves, CREA-CE 346391'
+  const proponenteSlogan = 'Conectando ideias, somando resultados'
 
   // Dados do contratante
   const contratanteNome =
     proposta.expand?.empresa?.razao_social ||
     proposta.expand?.empresa?.nome_fantasia ||
     proposta.expand?.cliente_pf?.nome ||
+    (proposta.cliente_pf_dados && proposta.cliente_pf_dados.nome) ||
     'Cliente Não Informado'
 
   const contratanteDoc =
-    proposta.expand?.empresa?.cnpj || proposta.expand?.cliente_pf?.cpf || 'Documento não informado'
+    proposta.expand?.empresa?.cnpj ||
+    proposta.expand?.cliente_pf?.cpf ||
+    (proposta.cliente_pf_dados && proposta.cliente_pf_dados.cpf) ||
+    'Documento não informado'
 
   const contratanteEndereco =
     (proposta.expand?.empresa?.municipio
@@ -208,7 +217,14 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
               </span>
               <div className="font-bold text-slate-900 text-xs mt-0.5">{proponenteNome}</div>
               <div className="text-[11px] text-slate-600">CNPJ: {proponenteCnpj}</div>
-              <div className="text-[11px] text-slate-600">{proponenteEmail}</div>
+              <div className="text-[11px] text-slate-600">
+                {proponenteEmail} • WhatsApp: {proponenteWhats}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">{proponenteEndereco}</div>
+              <div className="text-[10px] text-slate-600 font-medium mt-1">
+                RT: {proponenteRespTecnico}
+              </div>
+              <div className="text-[10px] text-orange-700 italic mt-0.5">"{proponenteSlogan}"</div>
             </div>
 
             <div>

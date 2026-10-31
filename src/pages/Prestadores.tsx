@@ -73,6 +73,7 @@ import {
   Inbox,
   Clock,
   DollarSign,
+  AlertCircle,
 } from 'lucide-react'
 import { exportService } from '@/services/exportService'
 import { ModalMensagensOsGestor } from '@/components/prestadores/ModalMensagensOsGestor'

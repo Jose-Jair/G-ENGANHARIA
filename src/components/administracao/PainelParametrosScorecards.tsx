@@ -98,15 +98,15 @@ export const PainelParametrosScorecards: React.FC = () => {
     }
 
     setSalvando(true)
-try {
-  await scorecardsService.criarNovaVersaoParametros({
-    tipo_entidade: perfilAtivo,
-    pesos_json: pesosForm,
-    metas_json: metasForm,
-    descricao: motivoVersao.trim() || 'Ajuste de pesos e metas aprovado pela gestão técnica',
-  })
+    try {
+      await scorecardsService.criarNovaVersaoParametros({
+        tipo_entidade: perfilAtivo,
+        pesos_json: pesosForm,
+        metas_json: metasForm,
+        descricao: motivoVersao.trim() || 'Ajuste de pesos e metas aprovado pela gestão técnica',
+      })
 
-  toast({
+      toast({
         title: 'Nova Versão de Parâmetros Publicada!',
         description: 'A versão anterior foi arquivada e o histórico mantido intacto.',
       })
@@ -213,8 +213,8 @@ try {
                     Criada em{' '}
                     {versaoAtiva?.criado_em
                       ? formatDateTimeBr(versaoAtiva.criado_em)
-                      : 'Inicial'}{' '}
-                    • Motivo: "{versaoAtiva?.descricao || 'Parâmetros iniciais homologados'}"
+                      : 'Inicial'} •
+                    Motivo: "{versaoAtiva?.descricao || 'Parâmetros iniciais homologados'}"
                   </CardDescription>
                 </div>
               </CardHeader>

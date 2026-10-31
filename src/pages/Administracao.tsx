@@ -73,6 +73,7 @@ import {
   Link as LinkIcon,
   Globe,
   Scale,
+  Award,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { formatDateBr, formatDateTimeBr } from '@/lib/formatters'

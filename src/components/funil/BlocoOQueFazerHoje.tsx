@@ -4,6 +4,7 @@ import {
   oQueFazerHojeService,
   ItemOQueFazerHoje,
   AcaoNutricaoOQueFazerHoje,
+  AlertaSemCotacaoUnificado,
   AlertaScorecardUnificado,
 } from '@/services/oQueFazerHoje'
 import { CardAlertaScorecard } from '@/components/funil/CardAlertaScorecard'

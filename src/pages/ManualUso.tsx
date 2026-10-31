@@ -79,22 +79,27 @@ const CAPITULOS_MANUAL: CapituloManual[] = [
         dica: 'Nas cotações e pré-cotações, participantes com dados insuficientes concorrem de forma neutra até acumularem entregas homologadas.',
       },
       {
-        titulo: '3. Tendência dos Últimos 5 Trabalhos & Gráfico Mensal',
+        titulo: '3. Tendência dos Últimos 5 Trabalhos & Gráfico Mensal nas Fichas',
         descricao:
-          'O scorecard analisa a inclinação das últimas 5 entregas e classifica a tendência em "Melhorou" (verde), "Estável" (cinza) ou "Piorou" (vermelho). Adicionalmente, a ficha técnica e o portal exibem um gráfico de linha com os snapshots mensais preservados, permitindo visualizar a evolução ao longo do ano.',
+          'O scorecard analisa a inclinação das últimas 5 entregas e classifica a tendência em "Melhorou" (verde), "Estável" (cinza) ou "Piorou" (vermelho). Adicionalmente, as fichas completas de Prestador (em Prestadores) e de Parceiro (em Parceiros e Empresas) exibem o gráfico mensal de evolução histórica, radar de competências e detalhamento de cada índice que compõe a nota.',
       },
       {
-        titulo: '4. Parâmetros, Pesos e Versionamento Imutável na Administração (Admin)',
+        titulo: '4. Aba "Equipe Interna" nos Projetos & Desempenho Operacional',
+        descricao:
+          'Nos Projetos, a aba "Equipe Interna" apresenta os índices agregados de lead time real contra metas por disciplina, ciclos médios de revisão técnica antes da aprovação e taxa de ocupação da equipe própria alocada no projeto, permitindo calibrar prazos futuros com precisão.',
+      },
+      {
+        titulo: '5. Parâmetros, Pesos e Versionamento Imutável na Administração (Admin)',
         descricao:
           'Em Administração › Scorecards & Metas, o Administrador gerencia as ponderações de cada indicador para os três perfis. A soma dos pesos deve totalizar exatamente 100%. Nenhuma alteração sobrescreve dados: cada ajuste gera uma nova versão auditada (v1, v2, v3...), preservando o histórico de versões anteriores apenas para leitura histórica.',
       },
       {
-        titulo: '5. Cartões de Alerta na Central de Ações & Decisão Humana Obrigatória',
+        titulo: '6. Cartões de Alerta na Central de Ações & Decisão Humana Obrigatória',
         descricao:
           'O robô de scorecards alimenta a Central de Ações ("O que fazer hoje") com cartões de alerta preventivo: queda de 15 pontos em relação ao trimestre anterior, atraso de pagamento de marcos pelo parceiro e sobrecarga de equipe interna acima de 100%. Em caso de "Sugestão de Suspensão Técnica", o sistema NUNCA suspende automaticamente: exige intervenção expressa do gestor com botões para "Confirmar Suspensão" ou "Manter Ativo (Rejeitar Suspensão)", registrando a decisão em auditoria.',
       },
       {
-        titulo: '6. Aba "Meu Desempenho" no Portal do Prestador (Sem Comparação e Sem Finanças)',
+        titulo: '7. Aba "Meu Desempenho" no Portal do Prestador (Sem Comparação e Sem Finanças)',
         descricao:
           'O profissional credenciado (externo ou interno) acessa a aba "Meu Desempenho" no Portal do Prestador. O painel exibe com total transparência seus próprios índices, nota composta, tendência e gráfico histórico mensal. REGRA RÍGIDA DE SEGURANÇA: o portal NUNCA compara com outros prestadores e NUNCA expõe custo-hora, salário, margem financeira ou valores contratuais de clientes.',
       },

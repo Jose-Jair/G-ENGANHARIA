@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T12:27:09.529Z",
+  "generatedAt": "2026-10-31T12:51:48.425Z",
   "collections": [
     {
       "name": "users",
@@ -6668,8 +6668,8 @@
       "name": "links_recrutamento",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
-        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
+        "list": "(ativo = true && (expira_em = '' || expira_em > @now)) || (@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor'))",
+        "view": "(ativo = true && (expira_em = '' || expira_em > @now)) || (@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor'))",
         "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
         "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor')",
         "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"

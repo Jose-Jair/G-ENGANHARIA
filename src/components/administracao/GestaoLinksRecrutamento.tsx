@@ -184,6 +184,38 @@ export const GestaoLinksRecrutamento: React.FC = () => {
     }, 2500)
   }
 
+  const existeLinkGeralAtivo = links.some((l) => {
+    if (l.slug.toLowerCase() !== 'geral') return false
+    if (!l.ativo) return false
+    if (l.expira_em && new Date(l.expira_em).getTime() < Date.now()) return false
+    return true
+  })
+
+  const handleCriarLinkGeral = async () => {
+    setSalvando(true)
+    try {
+      await recrutamentoService.createLink({
+        slug: 'geral',
+        titulo: 'Banco de Talentos e Especialistas — G+ Engenharia',
+        disciplina_alvo: '',
+        ativo: true,
+      })
+      toast({
+        title: 'Link geral de recrutamento criado com sucesso!',
+        description: 'Acesse /pre-cadastro/geral publicamente sem necessidade de login.',
+      })
+      carregarDados()
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao criar link geral de recrutamento',
+        description: err.message || 'Verifique se já existe um registro com slug geral.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSalvando(false)
+    }
+  }
+
   const linksFiltrados = links.filter((l) => {
     const termo = busca.toLowerCase()
     return (
@@ -210,14 +242,60 @@ export const GestaoLinksRecrutamento: React.FC = () => {
             </CardDescription>
           </div>
 
-          <Button
-            onClick={handleAbrirCriar}
-            className="bg-[#D95A2B] hover:bg-[#b84820] text-white text-xs gap-1.5 shadow-xs"
-          >
-            <Plus className="w-4 h-4" />
-            Novo Link de Recrutamento
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {!existeLinkGeralAtivo && (
+              <Button
+                onClick={handleCriarLinkGeral}
+                disabled={salvando}
+                variant="outline"
+                className="border-[#D95A2B] text-[#D95A2B] hover:bg-orange-50 text-xs gap-1.5 shadow-xs font-semibold"
+                title="Criar o link canônico público /pre-cadastro/geral para recepção de especialistas"
+              >
+                {salvando ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4 text-[#D95A2B]" />
+                )}
+                Criar link geral de recrutamento
+              </Button>
+            )}
+
+            <Button
+              onClick={handleAbrirCriar}
+              className="bg-[#D95A2B] hover:bg-[#b84820] text-white text-xs gap-1.5 shadow-xs"
+            >
+              <Plus className="w-4 h-4" />
+              Novo Link de Recrutamento
+            </Button>
+          </div>
         </div>
+
+        {!existeLinkGeralAtivo && (
+          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start justify-between gap-3 text-xs text-amber-900">
+            <div className="flex items-start gap-2">
+              <Clock className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+              <div>
+                <strong>Atenção:</strong> Não há um link de recrutamento com slug{' '}
+                <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[11px]">
+                  geral
+                </code>{' '}
+                ativo. O link público{' '}
+                <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[11px]">
+                  /pre-cadastro/geral
+                </code>{' '}
+                está indisponível até que o registro seja criado.
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={handleCriarLinkGeral}
+              disabled={salvando}
+              className="bg-[#D95A2B] hover:bg-[#b84820] text-white text-[11px] h-7 shrink-0 font-medium"
+            >
+              Criar link geral de recrutamento
+            </Button>
+          </div>
+        )}
 
         {/* Busca */}
         <div className="pt-4">

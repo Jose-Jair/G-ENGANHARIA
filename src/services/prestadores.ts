@@ -428,13 +428,41 @@ export const recrutamentoService = {
   },
 
   /**
-   * Obter link de recrutamento por id ou slug (Admin / Gestor)
+   * Obter link de recrutamento por slug (Público ou Admin / Gestor).
+   * Prioriza o endpoint público /backend/v1/recrutamento/link-publico/:slug para acesso sem token.
+   * Se o usuário estiver autenticado ou a rota falhar, faz fallback para coleção links_recrutamento.
    */
   async getLinkBySlug(slug: string): Promise<LinkRecrutamentoRecord | null> {
-    const list = await pb.collection('links_recrutamento').getList<LinkRecrutamentoRecord>(1, 1, {
-      filter: `slug = '${slug.replace(/'/g, "\\'")}'`,
-    })
-    return list.items[0] || null
+    const safeSlug = (slug || '').trim()
+    if (!safeSlug) return null
+
+    // 1. Tentar primeiro o endpoint público dedicado via pb.send (sem token / seguro contra vazamento de campos internos)
+    try {
+      const data = await pb.send<{ valido: boolean; link: LinkRecrutamentoRecord }>(
+        `/backend/v1/recrutamento/link-publico/${encodeURIComponent(safeSlug)}`,
+        { method: 'GET' },
+      )
+      if (data && data.valido && data.link) {
+        return data.link
+      }
+    } catch (e) {
+      console.warn('Fallback para coleção links_recrutamento após falha no endpoint público:', e)
+    }
+
+    // 2. Fallback via SDK PocketBase (habilitado pela regra pública ativa da migração 0113)
+    try {
+      const list = await pb.collection('links_recrutamento').getList<LinkRecrutamentoRecord>(1, 1, {
+        filter: `slug = '${safeSlug.replace(/'/g, "\\'")}' && ativo = true`,
+      })
+      const link = list.items[0] || null
+      if (link && link.expira_em) {
+        const expirado = new Date(link.expira_em).getTime() < Date.now()
+        if (expirado) return null
+      }
+      return link
+    } catch {
+      return null
+    }
   },
 
   /**

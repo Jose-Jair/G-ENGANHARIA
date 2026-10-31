@@ -134,9 +134,10 @@ export const PreCadastroPublicoPage: React.FC = () => {
           }
         }
       } catch (e: any) {
-        // Se a coleção não tiver acesso leitura pública, o POST ainda valida o slug no backend.
-        // Permitimos prosseguir assumindo o slug informado.
-        setTituloLink('Banco de Talentos e Especialistas')
+        if (!ativo) return
+        setLinkInvalido(
+          'Não foi possível carregar o link de recrutamento. Tente novamente mais tarde.',
+        )
       } finally {
         if (ativo) setCarregandoLink(false)
       }

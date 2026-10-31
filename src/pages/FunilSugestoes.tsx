@@ -514,18 +514,25 @@ export default function FunilSugestoesPage() {
       const res = await pncpService.consultarContratacoes({
         termo: pncpTermo.trim() || undefined,
         uf: pncpUf !== 'todas' ? pncpUf : undefined,
-        tamanhoPagina: 15,
+        tamanhoPagina: 50,
       })
 
-      if (res.aviso) {
-        setPncpAviso(res.aviso)
+      if (res.erro || res.aviso) {
+        setPncpAviso(res.erro || res.aviso || '')
       }
 
       setPncpResults(res.items)
 
-      if (res.items.length === 0 && !res.aviso) {
-        setPncpAviso('Nenhuma contratação recente encontrada no PNCP para o termo informado.')
+      if (res.items.length === 0 && !res.erro) {
+        const termoTxt = pncpTermo.trim() ? `para o termo "${pncpTermo.trim()}"` : ''
+        const ufTxt = pncpUf !== 'todas' ? `no estado ${pncpUf}` : ''
+        setPncpAviso(
+          `Nenhuma contratação recente encontrada no PNCP ${termoTxt} ${ufTxt} (últimos 7 dias). Tente ampliar o termo ou buscar em Todas as UFs.`,
+        )
       }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setPncpAviso(`Erro ao consultar PNCP: ${msg}`)
     } finally {
       setPncpLoading(false)
     }

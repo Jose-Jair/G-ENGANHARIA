@@ -1,8 +1,9 @@
 // =============================================================================
 // GESTÃO G+ — RECRUTAMENTO PÚBLICO E TRIAGEM DE PRESTADORES (RODADA 12)
 // Endpoints dedicados (todas as funções e variáveis declaradas INLINE nos callbacks):
-// 1. POST /backend/v1/recrutamento/{slug} — Rota pública de pré-cadastro (sem login)
-// 2. POST /backend/v1/prestadores/{id}/triagem/aprovar — Admin/Gestor
+// 1. GET  /backend/v1/recrutamento/link-publico/{slug} — Consulta pública de link ativo/não expirado (sem login)
+// 2. POST /backend/v1/recrutamento/{slug} — Rota pública de pré-cadastro (sem login)
+// 3. POST /backend/v1/prestadores/{id}/triagem/aprovar — Admin/Gestor
 // 3. POST /backend/v1/prestadores/{id}/triagem/recusar — Admin/Gestor
 // 4. POST /backend/v1/prestadores/{id}/triagem/pedir-complemento — Admin/Gestor
 // 5. GET  /backend/v1/prestadores/obter-por-token-complemento/{token} — Público
@@ -11,7 +12,79 @@
 // =============================================================================
 
 // -----------------------------------------------------------------------------
-// 1. ROTA PÚBLICA DE PRÉ-CADASTRO: POST /backend/v1/recrutamento/{slug}
+// 1. ROTA PÚBLICA DE CONSULTA DE LINK: GET /backend/v1/recrutamento/link-publico/{slug}
+// Expõe estritamente os campos necessários: slug, titulo, disciplina_alvo, expira_em, ativo
+// NUNCA expõe campos internos ou sensíveis.
+// -----------------------------------------------------------------------------
+routerAdd('GET', '/backend/v1/recrutamento/link-publico/{slug}', (e) => {
+  try {
+    const slug = (e.request.pathValue('slug') || '').trim()
+    if (!slug) {
+      return e.json(400, { error: 'Slug do link de recrutamento não fornecido.' })
+    }
+
+    let linkRec = null
+    try {
+      const links = $app.findRecordsByFilter(
+        'links_recrutamento',
+        "slug = '" + slug.replace(/'/g, "\\'") + "'",
+        '',
+        1,
+        0,
+      )
+      if (links.length > 0) {
+        linkRec = links[0]
+      }
+    } catch (_) {}
+
+    if (!linkRec) {
+      return e.json(404, {
+        valido: false,
+        error: 'Link de recrutamento não encontrado ou inexistente.',
+      })
+    }
+
+    if (!linkRec.getBool('ativo')) {
+      return e.json(410, {
+        valido: false,
+        ativo: false,
+        error: 'Este link de recrutamento foi desativado pela G+ Engenharia.',
+      })
+    }
+
+    const expiraStr = linkRec.getString('expira_em')
+    if (expiraStr) {
+      const expTime = new Date(expiraStr).getTime()
+      if (Date.now() > expTime) {
+        return e.json(410, {
+          valido: false,
+          expirado: true,
+          error: 'Este link de recrutamento expirou. Solicite um novo link à G+ Engenharia.',
+        })
+      }
+    }
+
+    return e.json(200, {
+      valido: true,
+      link: {
+        id: linkRec.id,
+        slug: linkRec.getString('slug'),
+        titulo: linkRec.getString('titulo') || 'Banco de Talentos e Especialistas — G+ Engenharia',
+        disciplina_alvo: linkRec.getString('disciplina_alvo') || '',
+        ativo: true,
+        expira_em: expiraStr || null,
+      },
+    })
+  } catch (err) {
+    return e.json(500, {
+      valido: false,
+      error: 'Erro ao consultar link público: ' + (err.message || String(err)),
+    })
+  }
+})
+
+// -----------------------------------------------------------------------------
+// 2. ROTA PÚBLICA DE PRÉ-CADASTRO: POST /backend/v1/recrutamento/{slug}
 // -----------------------------------------------------------------------------
 routerAdd('POST', '/backend/v1/recrutamento/{slug}', (e) => {
   try {

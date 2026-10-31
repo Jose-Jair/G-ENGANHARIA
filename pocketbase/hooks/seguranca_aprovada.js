@@ -1158,12 +1158,13 @@ routerAdd(
         const pdocsCol = $app.findCollectionByNameOrId('prestadores_documentos')
         const prestCol = $app.findCollectionByNameOrId('prestadores')
 
-        // 1. links_recrutamento: leitura/escrita restrita a Admin/Gestor (sem acesso público aberto via API)
+        // 1. links_recrutamento: leitura restrita a Admin/Gestor ou registros ativos/não expirados (sem write público)
         const linksRestrito =
           linksCol.listRule &&
           linksCol.listRule.includes("@request.auth.role = 'admin'") &&
           linksCol.listRule.includes("@request.auth.role = 'gestor'") &&
-          !linksCol.listRule.includes('true')
+          linksCol.createRule !== '' &&
+          linksCol.deleteRule !== ''
         detalheRecrutamento.links_recrutamento_regras = Boolean(linksRestrito)
 
         // 2. prestadores_documentos: leitura SOMENTE pelo dono (prestador logado) e por Admin/Gestor

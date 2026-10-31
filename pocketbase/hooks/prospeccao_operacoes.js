@@ -1466,6 +1466,93 @@ routerAdd(
 )
 
 // -----------------------------------------------------------------------------
+// ROTA: GET /backend/v1/prospeccao/pncp/consultar-publicacoes
+// Proxy seguro para a API do PNCP (evita bloqueios CORS e registra erros em erros_sistema)
+// -----------------------------------------------------------------------------
+routerAdd('GET', '/backend/v1/prospeccao/pncp/consultar-publicacoes', (e) => {
+  try {
+    const q = e.request.url.query()
+    const dataInicial = (q.get('dataInicial') || '').trim()
+    const dataFinal = (q.get('dataFinal') || '').trim()
+    const codigoModalidade = (q.get('codigoModalidadeContratacao') || '6').trim()
+    const pagina = (q.get('pagina') || '1').trim()
+    const rawTam = parseInt(q.get('tamanhoPagina') || '50', 10)
+    const tamanhoPagina = Math.max(1, Math.min(50, isNaN(rawTam) ? 50 : rawTam))
+    const uf = (q.get('uf') || '').trim().toUpperCase()
+
+    let urlPncp =
+      'https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?dataInicial=' +
+      encodeURIComponent(dataInicial) +
+      '&dataFinal=' +
+      encodeURIComponent(dataFinal) +
+      '&codigoModalidadeContratacao=' +
+      encodeURIComponent(codigoModalidade) +
+      '&pagina=' +
+      encodeURIComponent(pagina) +
+      '&tamanhoPagina=' +
+      encodeURIComponent(String(tamanhoPagina))
+
+    if (uf && uf !== 'TODAS') {
+      urlPncp += '&uf=' + encodeURIComponent(uf)
+    }
+
+    const res = $http.send({
+      url: urlPncp,
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'GESTAO-GPLUS/1.0',
+      },
+      timeout: 12,
+    })
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      // Registrar erro real na coleção erros_sistema
+      try {
+        const errosCol = $app.findCollectionByNameOrId('erros_sistema')
+        const errRec = new Record(errosCol)
+        errRec.set('modulo', 'prospeccao_pncp')
+        errRec.set('gravidade', 'medio')
+        errRec.set(
+          'mensagem',
+          'PNCP retornou HTTP ' + res.statusCode + ' para ' + urlPncp + ': ' + (res.raw || ''),
+        )
+        errRec.set('stack', res.raw || '')
+        errRec.set('resolvido', false)
+        errRec.set('dados_contexto', {
+          url: urlPncp,
+          statusCode: res.statusCode,
+          body: (res.raw || '').slice(0, 1000),
+        })
+        $app.save(errRec)
+      } catch (_) {}
+
+      return e.json(res.statusCode, {
+        error: 'Falha na resposta do PNCP: HTTP ' + res.statusCode,
+        details: res.raw || '',
+      })
+    }
+
+    return e.json(200, res.json || { data: [], totalRegistros: 0 })
+  } catch (err) {
+    try {
+      const errosCol = $app.findCollectionByNameOrId('erros_sistema')
+      const errRec = new Record(errosCol)
+      errRec.set('modulo', 'prospeccao_pncp')
+      errRec.set('gravidade', 'medio')
+      errRec.set('mensagem', 'Erro ao conectar à API PNCP: ' + err)
+      errRec.set('stack', String(err))
+      errRec.set('resolvido', false)
+      $app.save(errRec)
+    } catch (_) {}
+
+    return e.json(500, {
+      error: 'Erro ao consultar API do PNCP: ' + err,
+    })
+  }
+})
+
+// -----------------------------------------------------------------------------
 // ROTA: GET /backend/v1/prospeccao/tce-ce/municipios
 // Lista municípios do Ceará consultando a API do TCE-CE ou cache fixo
 // -----------------------------------------------------------------------------

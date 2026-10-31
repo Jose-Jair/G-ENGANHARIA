@@ -19,7 +19,11 @@ onRecordAfterUpdateSuccess((e) => {
       const isExterno = tipoNovo === 'terceirizada' || tipoNovo === 'externo'
       const jaEraExterno = tipoAntigo === 'terceirizada' || tipoAntigo === 'externo'
 
-      if (isExterno && (!jaEraExterno || !rec.getString('ordem_servico_ativa'))) {
+      // RODADA 13: Se o pacote já nasceu ou possui ordem_servico_ativa (ex: preço travado na pré-cotação),
+      // BLOQUEAR TERMINANTEMENTE o disparo da cotação automática!
+      const temOsAtiva = Boolean(rec.getString('ordem_servico_ativa'))
+
+      if (isExterno && !temOsAtiva && !jaEraExterno) {
         // Idempotência: verificar se já existe cotação aberta
         const cotacoesExistentes = $app.findRecordsByFilter(
           'cotacoes',
@@ -276,6 +280,12 @@ onRecordAfterCreateSuccess((e) => {
   const rec = e.record
   if (rec.collection().name === 'projeto_etapas') {
     try {
+      // RODADA 13: Se o pacote já nasceu com ordem_servico_ativa (preço travado), BLOQUEAR disparo
+      if (rec.getString('ordem_servico_ativa')) {
+        e.next()
+        return
+      }
+
       const tipoNovo = (rec.getString('tipo_execucao') || '').toLowerCase()
       if (tipoNovo === 'terceirizada' || tipoNovo === 'externo') {
         const reqInfo = e.requestInfo ? e.requestInfo() : null

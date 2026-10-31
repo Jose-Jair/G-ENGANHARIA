@@ -363,6 +363,67 @@ routerAdd(
       }
 
       // -----------------------------------------------------------------------
+      // RODADA 13: ALERTA DE ITENS DE PROPOSTA SEM COTAÇÃO / SEM ELEGÍVEIS
+      // -----------------------------------------------------------------------
+      const itensSemCotacaoAcoes = []
+      if (role === 'admin' || role === 'gestor' || role === 'comercial') {
+        try {
+          const itensSemCot = $app.findRecordsByFilter(
+            'proposta_itens',
+            "origem_custo = 'sem_cotacao'",
+            '-created',
+            20,
+            0,
+          )
+          for (let sc = 0; sc < itensSemCot.length; sc++) {
+            const itSc = itensSemCot[sc]
+            const propId = itSc.getString('proposta')
+            let propNum = 'Proposta'
+            if (propId) {
+              try {
+                const pr = $app.findRecordById('propostas', propId)
+                if (pr) propNum = pr.getString('numero')
+              } catch (_) {}
+            }
+            const discSc = itSc.getString('disciplina') || 'Geral'
+            const descSc = itSc.getString('descricao') || 'Item técnico'
+
+            // Link de recrutamento correspondente
+            let linkRecrutamento = '/recrutamento/geral'
+            try {
+              const linksR = $app.findRecordsByFilter(
+                'links_recrutamento',
+                "ativo = true && (disciplina_alvo ~ '" + discSc + "' || disciplina_alvo = 'Geral')",
+                '-created',
+                1,
+                0,
+              )
+              if (linksR.length > 0) {
+                linkRecrutamento = '/recrutamento/' + linksR[0].getString('slug')
+              }
+            } catch (_) {}
+
+            const acaoSemCot = {
+              tipo: 'recrutamento_necessario',
+              prioridade: 'alta',
+              titulo: 'Recrutamento Sugerido: ' + discSc + ' (' + propNum + ')',
+              descricao:
+                'O item "' +
+                descSc +
+                '" está sem prestadores elegíveis. Custo fixado pelo catálogo. Abra recrutamento para compor o banco de prestadores.',
+              item_id: itSc.id,
+              proposta_id: propId,
+              disciplina: discSc,
+              link_recrutamento: linkRecrutamento,
+              acao_sugerida: 'Compartilhar link de recrutamento ' + linkRecrutamento,
+            }
+            itensSemCotacaoAcoes.push(acaoSemCot)
+            acoesDoDia.push(acaoSemCot)
+          }
+        } catch (_) {}
+      }
+
+      // -----------------------------------------------------------------------
       // TOTALIZADOR CONSOLIDADO POR PERFIL
       // -----------------------------------------------------------------------
       return e.json(200, {
@@ -387,12 +448,14 @@ routerAdd(
           empresas_estagnadas: empresasEstagnadas.length,
           propostas_pendentes: propostasAtencao.length,
           entregaveis_atrasados: entregaveisAtrasados.length,
+          recrutamentos_necessarios: itensSemCotacaoAcoes.length,
         },
         acoes_do_dia: acoesDoDia,
         sugestoes_nutricao: sugestoesNutricao,
         empresas_estagnadas: empresasEstagnadas,
         propostas_pendentes: propostasAtencao,
         entregaveis_atrasados: entregaveisAtrasados,
+        itens_sem_cotacao: itensSemCotacaoAcoes,
       })
     } catch (err) {
       console.log('Erro no endpoint unificado o-que-fazer-hoje: ' + err)

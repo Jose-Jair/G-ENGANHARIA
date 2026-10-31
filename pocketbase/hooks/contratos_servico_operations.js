@@ -2669,6 +2669,11 @@ routerAdd(
                 valor: it.getFloat('preco_total') || 0,
                 custo: it.getFloat('custo_total') || 0,
                 subservicos: it.get('subservicos') || [],
+                origem_custo: it.getString('origem_custo'),
+                preco_travado: it.getFloat('preco_travado') || 0,
+                prazo_travado_dias: it.getInt('prazo_travado_dias') || 0,
+                prestador_vencedor: it.getString('prestador_vencedor'),
+                pre_cotacao_vencedora: it.getString('pre_cotacao_vencedora'),
               }))
           }
         } catch (_) {}
@@ -2928,7 +2933,59 @@ routerAdd(
             novaEtapa.set('nome', 'Pacote: ' + (areaNome || item.descricao))
             novaEtapa.set('disciplina', item.disciplina || 'Geral')
             novaEtapa.set('ordem', 1)
-            novaEtapa.set('tipo_execucao', 'direta')
+
+            // RODADA 13: Se o item tiver preço travado e prestador vencedor vindo de pré-cotação
+            let itemTemPrecoTravadoValido = false
+            let prestadorVencedorId = item.prestador_vencedor || item.pre_cotacao_vencedora
+            let precoTravadoValor = item.preco_travado || item.custo || 0
+
+            if (
+              item.origem_custo === 'pre_cotacao' &&
+              precoTravadoValor > 0 &&
+              prestadorVencedorId
+            ) {
+              // Checar se a pré-cotação ainda está dentro da validade
+              let precotValida = true
+              try {
+                const pcs = $app.findRecordsByFilter(
+                  'pre_cotacoes',
+                  "item_proposta = '" + item.id + "'",
+                  '-created',
+                  1,
+                  0,
+                )
+                if (pcs.length > 0) {
+                  const pc = pcs[0]
+                  const dtLimite = pc.getString('data_limite')
+                  if (dtLimite && new Date(dtLimite) < new Date()) {
+                    precotValida = false
+                  }
+                }
+              } catch (_) {}
+
+              if (precotValida) {
+                itemTemPrecoTravadoValido = true
+              } else {
+                // Fora da validade: avisa o Gestor na auditoria/saúde e não trava
+                try {
+                  const aRec = new Record(auditCol)
+                  aRec.set('user', null)
+                  aRec.set('user_email', 'SISTEMA')
+                  aRec.set('acao', 'PRE_COTACAO_EXPIRADA_NA_ATIVACAO')
+                  aRec.set('entidade', 'contratos_servico')
+                  aRec.set('registro_id', contratoId)
+                  aRec.set('detalhes', {
+                    item_id: item.id,
+                    disciplina: item.disciplina,
+                    aviso:
+                      'Pré-cotação vinculante expirou antes da assinatura bilateral. Cotação será reaberta.',
+                  })
+                  $app.save(aRec)
+                } catch (_) {}
+              }
+            }
+
+            novaEtapa.set('tipo_execucao', itemTemPrecoTravadoValido ? 'terceirizada' : 'direta')
             novaEtapa.set('status', 'atribuido')
             novaEtapa.set('custo_estimado', item.custo || 0)
             novaEtapa.set('is_pacote_trabalho', true)
@@ -2965,6 +3022,77 @@ routerAdd(
                 item.record.set('etapa_gerada', novaEtapa.id)
                 $app.save(item.record)
               } catch (_) {}
+            }
+
+            // RODADA 13: Se o item tiver preço travado e prestador vencedor válido,
+            // Gerar imediatamente a Ordem de Serviço com o preço travado e vincular ao pacote,
+            // BLOQUEANDO o disparo da cotação automática!
+            if (itemTemPrecoTravadoValido && prestadorVencedorId) {
+              try {
+                let cmAssinado = null
+                const cms = $app.findRecordsByFilter(
+                  'contratos_mestre',
+                  "prestador = '" + prestadorVencedorId + "' && status = 'assinado'",
+                  '-created',
+                  1,
+                  0,
+                )
+                if (cms.length > 0) cmAssinado = cms[0]
+
+                if (cmAssinado) {
+                  const osCol = $app.findCollectionByNameOrId('ordens_servico')
+                  const osTravada = new Record(osCol)
+                  osTravada.set('projeto', prjParaItem.id)
+                  osTravada.set('prestador', prestadorVencedorId)
+                  osTravada.set('contrato_mestre', cmAssinado.id)
+                  osTravada.set('tipo_prestador', 'externo')
+                  osTravada.set('disciplina', item.disciplina || 'Geral')
+                  osTravada.set(
+                    'escopo_tecnico',
+                    item.descricao || 'Execução técnica de escopo travado',
+                  )
+                  const pDias = item.prazo_travado_dias || 30
+                  osTravada.set('prazo_dias', pDias)
+                  osTravada.set('valor_os', precoTravadoValor)
+                  osTravada.set('status', 'minuta')
+
+                  const dIni = new Date()
+                  const dFim = new Date(dIni.getTime() + pDias * 24 * 60 * 60 * 1000)
+                  osTravada.set(
+                    'data_inicio',
+                    dIni.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+                  )
+                  osTravada.set(
+                    'data_previsao_fim',
+                    dFim.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+                  )
+                  $app.save(osTravada)
+
+                  // Vincula a OS ativa ao pacote gerado (bloqueia o disparo de cotação automática)
+                  novaEtapa.set('ordem_servico_ativa', osTravada.id)
+                  $app.save(novaEtapa)
+
+                  // Audita a trava do preço na OS
+                  try {
+                    const aRec = new Record(auditCol)
+                    aRec.set('user', null)
+                    aRec.set('user_email', 'SISTEMA')
+                    aRec.set('acao', 'OS_NASCIDA_PRECO_TRAVADO_PRE_COTACAO')
+                    aRec.set('entidade', 'ordens_servico')
+                    aRec.set('registro_id', osTravada.id)
+                    aRec.set('detalhes', {
+                      pacote_id: novaEtapa.id,
+                      prestador_id: prestadorVencedorId,
+                      valor_os_travado: precoTravadoValor,
+                      prazo_dias_travado: pDias,
+                      contrato_id: contratoId,
+                    })
+                    $app.save(aRec)
+                  } catch (_) {}
+                }
+              } catch (errOsTravada) {
+                console.log('Erro ao gerar OS com preço travado da pré-cotação: ' + errOsTravada)
+              }
             }
 
             let entregaveisDoEscopo = []

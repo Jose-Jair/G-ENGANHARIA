@@ -1927,6 +1927,7 @@ export interface PortalEntregavelRecord {
   descricao?: string
   status?: string
   versao?: string
+  versao_atual?: number
   prazo_entrega?: string
   arquivo?: string
   created: string

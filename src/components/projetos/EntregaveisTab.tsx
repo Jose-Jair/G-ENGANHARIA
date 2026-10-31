@@ -55,6 +55,10 @@ import { useAuth } from '@/contexts/AuthContext'
 import { EntregavelVersaoComentarios } from './EntregavelVersaoComentarios'
 import { ModalOQueMudou } from './ModalOQueMudou'
 import { ModalPreRevisaoEntregavel } from '@/components/ia/ModalPreRevisaoEntregavel'
+import { VisualizadorIfc } from './VisualizadorIfc'
+import { PainelIssuesRevisao } from './PainelIssuesRevisao'
+import { ModalChecklistEnvioIfc } from './ModalChecklistEnvioIfc'
+import { Box, CheckSquare } from 'lucide-react'
 import { iaOperacaoService, type IaPreRevisaoEntregavelResponse } from '@/services/iaOperacao'
 import { parametrosService } from '@/services/parametros'
 import { Sparkles } from 'lucide-react'
@@ -147,6 +151,17 @@ export const EntregaveisTab: React.FC<EntregaveisTabProps> = ({
   const [decisaoAvaliacao, setDecisaoAvaliacao] = useState<'aprovado' | 'devolvido'>('aprovado')
   const [motivoDevolucao, setMotivoDevolucao] = useState('')
   const [processandoCiclo, setProcessandoCiclo] = useState(false)
+
+  // Estados Rodada 17: Visualizador IFC, Issues BCF e Checklist Envio
+  const [entregavelVisualizandoIfc, setEntregavelVisualizandoIfc] =
+    useState<EntregavelRecord | null>(null)
+  const [entregavelIssuesAberto, setEntregavelIssuesAberto] = useState<EntregavelRecord | null>(
+    null,
+  )
+  const [modalChecklistEnvioAberto, setModalChecklistEnvioAberto] = useState(false)
+  const [entregavelParaEnvioIfc, setEntregavelParaEnvioIfc] = useState<EntregavelRecord | null>(
+    null,
+  )
 
   // IA: Pré-revisão de Entregáveis (visível apenas se ia_pre_revisao ativada)
   const [iaPreRevisaoAtiva, setIaPreRevisaoAtiva] = useState(false)
@@ -502,6 +517,46 @@ export const EntregaveisTab: React.FC<EntregaveisTabProps> = ({
 
                     {/* Ações de Transição de Ciclo */}
                     <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+                      {/* Botão Visualizador IFC 3D */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEntregavelVisualizandoIfc(
+                            entregavelVisualizandoIfc?.id === item.id ? null : item,
+                          )
+                        }}
+                        className={`h-8 text-xs gap-1.5 ${
+                          entregavelVisualizandoIfc?.id === item.id
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'text-blue-700 border-blue-200 hover:bg-blue-50'
+                        }`}
+                        title="Abrir visualizador BIM 3D do modelo IFC"
+                      >
+                        <Box className="w-3.5 h-3.5" />
+                        <span>Visualizador IFC</span>
+                      </Button>
+
+                      {/* Botão Painel de Issues de Revisão (BCF) */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEntregavelIssuesAberto(
+                            entregavelIssuesAberto?.id === item.id ? null : item,
+                          )
+                        }}
+                        className={`h-8 text-xs gap-1.5 ${
+                          entregavelIssuesAberto?.id === item.id
+                            ? 'bg-[#1E2A4A] text-white border-[#1E2A4A]'
+                            : 'text-slate-700 border-slate-300 hover:bg-slate-50'
+                        }`}
+                        title="Ver e gerenciar issues e apontamentos de revisão"
+                      >
+                        <CheckSquare className="w-3.5 h-3.5 text-orange-600" />
+                        <span>Issues</span>
+                      </Button>
+
                       <Button
                         variant="outline"
                         size="sm"
@@ -517,19 +572,22 @@ export const EntregaveisTab: React.FC<EntregaveisTabProps> = ({
                         <span>O que mudou</span>
                       </Button>
 
-                      {/* Botão Submeter Nova Versão (Prestador ou Gestor) */}
+                      {/* Botão Submeter Nova Versão com Checklist IFC de Entrada */}
                       {(item.status === 'atribuido' ||
                         item.status === 'em_producao' ||
                         item.status === 'devolvido' ||
                         item.status === 'elaborando') && (
                         <Button
                           size="sm"
-                          onClick={() => abrirModalSubmeter(item)}
+                          onClick={() => {
+                            setEntregavelParaEnvioIfc(item)
+                            setModalChecklistEnvioAberto(true)
+                          }}
                           className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
                         >
                           <Send className="w-3.5 h-3.5" />
                           {item.status === 'devolvido'
-                            ? 'Submeter Nova Versão'
+                            ? 'Submeter Nova Versão (IFC)'
                             : 'Enviar p/ Revisão'}
                         </Button>
                       )}
@@ -612,6 +670,40 @@ export const EntregaveisTab: React.FC<EntregaveisTabProps> = ({
                     </span>
                   </div>
                 </div>
+
+                {/* VISUALIZADOR IFC INTEGRADO AO CARD */}
+                {entregavelVisualizandoIfc?.id === item.id && (
+                  <div className="p-3 bg-slate-50 border-t border-slate-200 space-y-2">
+                    <VisualizadorIfc
+                      tituloEntregavel={item.nome || item.titulo}
+                      versaoNumero={item.versao_atual || 1}
+                      disciplinaAtual={etapaRel?.nome || 'Projetos'}
+                    />
+                  </div>
+                )}
+
+                {/* PAINEL DE ISSUES DE REVISÃO INTEGRADO AO CARD */}
+                {entregavelIssuesAberto?.id === item.id && (
+                  <div className="p-4 bg-slate-50/90 border-t border-slate-200 space-y-2">
+                    <div className="flex items-center justify-between pb-1 border-b border-slate-200">
+                      <div className="flex items-center gap-2">
+                        <CheckSquare className="w-4 h-4 text-orange-600" />
+                        <h4 className="text-xs font-bold text-slate-800">
+                          Issues de Revisão & Tópicos BCF — {item.nome}
+                        </h4>
+                      </div>
+                      <Badge variant="outline" className="text-[10px]">
+                        Versão v{item.versao_atual || 1}.0
+                      </Badge>
+                    </div>
+
+                    <PainelIssuesRevisao
+                      entregavelId={item.id}
+                      somenteLeitura={false}
+                      onIssueAtualizada={onRefresh}
+                    />
+                  </div>
+                )}
 
                 {/* HISTÓRICO DE VERSÕES EXPANSÍVEL */}
                 {versoesExpandidas[item.id] && (
@@ -901,6 +993,23 @@ export const EntregaveisTab: React.FC<EntregaveisTabProps> = ({
         tituloEntregavel={entregavelParaOQueMudou?.nome || entregavelParaOQueMudou?.titulo}
         versaoAtualNum={versaoOQueMudouNum}
       />
+
+      {/* MODAL CHECKLIST DE ENTRADA & ENVIO IFC (RODADA 17) */}
+      {entregavelParaEnvioIfc && (
+        <ModalChecklistEnvioIfc
+          open={modalChecklistEnvioAberto}
+          onOpenChange={setModalChecklistEnvioAberto}
+          entregavelId={entregavelParaEnvioIfc.id}
+          entregavelNome={
+            entregavelParaEnvioIfc.nome || entregavelParaEnvioIfc.titulo || 'Entregável'
+          }
+          disciplinaSugerida={etapas.find((e) => e.id === entregavelParaEnvioIfc.etapa)?.nome}
+          onSucesso={() => {
+            onRefresh()
+            setModalChecklistEnvioAberto(false)
+          }}
+        />
+      )}
 
       {/* MODAL PRÉ-REVISÃO IA (INFORMATIVO, SEM ALTERAÇÃO DE STATUS) */}
       <ModalPreRevisaoEntregavel

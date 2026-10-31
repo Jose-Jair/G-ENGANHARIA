@@ -1253,6 +1253,10 @@ export default function AdministracaoPage() {
                               titulo: 'Apontamento: Carga Horária Padrão Diária (horas/dia)',
                               badge: 'Custo Interno Real',
                             },
+                            tamanho_maximo_ifc_mb: {
+                              titulo: 'Modelos BIM: Limite Máximo de Arquivo IFC (MB)',
+                              badge: 'BIM / IFC (Rodada 17)',
+                            },
                           }
                         const infoAmigavel = rotulosAmigaveis[param.chave]
 

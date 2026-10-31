@@ -57,6 +57,57 @@ interface CapituloManual {
 // Lista de capítulos do manual de uso da plataforma GESTÃO G+
 const CAPITULOS_MANUAL: CapituloManual[] = [
   {
+    id: 'bim-ifc-bcf-fluxo',
+    titulo: 'Modelos BIM, Visualizador IFC & Gestão de Issues BCF (Rodada 17)',
+    subtitulo:
+      'Validação de entrada, árvore espacial 3D, propriedades técnicas, sobreposição multidisciplinar e rastreamento BCF',
+    icone: Layers,
+    corIcone: 'text-blue-600',
+    perfisPermitidos: ['admin', 'gestor', 'executor'],
+    descricao:
+      'Fluxo técnico completo para gestão e coordenação de projetos em BIM (Building Information Modeling). Inclui checklist de entrada que analisa arquivos IFC2x3 e IFC4 antes do upload, bloqueia modelos malformados, transmite o resumo validado por hash SHA-256 ao servidor, visualizador 3D com isolamento de pavimentos e propriedades, ferramenta "O que mudou" com diff por GlobalId, painel de issues de revisão com importação BCF 2.1/3.0 e integração estrita com o Portal do Prestador.',
+    passos: [
+      {
+        titulo: '1. Checklist de Entrada no Envio de Versão IFC',
+        descricao:
+          'Ao submeter uma nova versão de modelo técnico (.ifc), o navegador executa um checklist prévio completo: checagem de schema (IFC2x3 ou IFC4), presença de pavimentos nomeados (IfcBuildingStorey), unidade métrica (.METRE. / MILLIMETRE), compatibilidade de classes com a disciplina e percentual de elementos com vínculo espacial. Arquivos fora do padrão são bloqueados com exibição detalhada dos motivos. Para arquivos válidos, o resumo técnico é calculado junto ao hash criptográfico SHA-256 e transmitido ao endpoint seguro resumo-ifc.',
+        dica: 'O tamanho máximo do arquivo IFC em megabytes é parametrizável pelo Admin em Administração › Parâmetros do Sistema (chave tamanho_maximo_ifc_mb).',
+      },
+      {
+        titulo: '2. Visualizador IFC 3D & Árvore Espacial',
+        descricao:
+          'Na aba Entregáveis do Projeto e no Portal do Prestador (exclusivo para a própria OS), o usuário clica em "Visualizador IFC" para interagir com o modelo 3D. A ferramenta disponibiliza: navegação pela árvore espacial (IfcProject > IfcBuilding > Pavimentos > Elementos), seleção de elementos com exibição instantânea do PropertySet técnico, isolamento de pavimentos e disciplinas, e suporte para orbitar, transladar (pan) e zoom com alta performance.',
+      },
+      {
+        titulo: '3. Sobreposição Federada de até 3 Modelos',
+        descricao:
+          'Na aba "Federação" do visualizador, o coordenador pode ativar e sobrepor simultaneamente até 3 modelos de disciplinas diferentes (ex: Estrutural + Hidráulica + Elétrica) com códigos de cores distintos, permitindo detectar interferências geométricas (clash detection visual) de forma ágil.',
+      },
+      {
+        titulo: '4. Comparativo "O Que Mudou" por GlobalId',
+        descricao:
+          'Ao acionar o botão "O que mudou" entre duas versões de um modelo IFC, o sistema realiza a comparação por GlobalId (GUID imutável de 22 caracteres do padrão IFC). Os elementos são catalogados em três categorias: Adicionados (+), Removidos (-) e Alterados (~), indicando modificações de classe, nome ou parâmetros técnicos.',
+      },
+      {
+        titulo: '5. Painel de Issues de Revisão & Importação BCF (2.1 / 3.0)',
+        descricao:
+          'Gestores e revisores gerenciam apontamentos na aba de Issues de Revisão. É possível cadastrar issues manualmente ou importar arquivos BCF (.bcfzip ou .bcf XML) exportados de softwares como Solibri, Navisworks ou Revit. O servidor desduplica os tópicos por GUID, preserva o snapshot 3D (viewpoint), severidade (crítica, alta, média, baixa), pavimento e prazo.',
+      },
+      {
+        titulo: '6. Portal do Prestador: Aba "Issues" & Feedback com Viewpoint',
+        descricao:
+          'O profissional credenciado acessa a aba "Issues" vinculada à sua Ordem de Serviço. Ele visualiza as capturas de tela (viewpoints) dos problemas apontados pelos revisores da G+ e os GlobalIds dos elementos envolvidos. Ao solucionar o problema, clica em "Marcar Corrigida", sinalizando que a correção foi contemplada na nova versão submetida.',
+        dica: 'SEGURANÇA E PRIVACIDADE: O Portal do Prestador é blindado por API rules no servidor. O prestador nunca vê dados de cliente, contratos de receita, outros prestadores ou valores globais do projeto.',
+      },
+    ],
+    regrasAutomaticas: [
+      'Validação de integridade no cliente com cálculo do hash SHA-256 e gravação segura no servidor.',
+      'Bloqueio automático de uploads malformados que não atendam às normas de interoperabilidade.',
+      'Deduplicação de tópicos BCF por GUID para impedir retrabalho ou registros redundantes.',
+      'Isolamento estrito do Portal do Prestador via RLS, bloqueando qualquer informação comercial.',
+    ],
+  },
+  {
     id: 'scorecards-desempenho',
     titulo: 'Scorecards de Desempenho & Governança (Rodada 16)',
     subtitulo:

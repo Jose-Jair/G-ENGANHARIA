@@ -46,7 +46,11 @@ import { prestadoresService } from '@/services/prestadores'
 import { PrestadorRecord } from '@/types'
 import { EntregavelVersaoComentarios } from '@/components/projetos/EntregavelVersaoComentarios'
 import { ModalOQueMudou } from '@/components/projetos/ModalOQueMudou'
+import { VisualizadorIfc } from '@/components/projetos/VisualizadorIfc'
+import { PainelIssuesRevisao } from '@/components/projetos/PainelIssuesRevisao'
+import { ModalChecklistEnvioIfc } from '@/components/projetos/ModalChecklistEnvioIfc'
 import { mensagensOsService } from '@/services/mensagensOs'
+import { Box } from 'lucide-react'
 
 export const PortalPrestadorPage: React.FC = () => {
   const { user, logout } = useAuth()
@@ -67,6 +71,13 @@ export const PortalPrestadorPage: React.FC = () => {
     useState<PortalEntregavelRecord | null>(null)
   const [obsSubmissaoPrestador, setObsSubmissaoPrestador] = useState('')
   const [submetendoVersao, setSubmetendoVersao] = useState(false)
+
+  // Estados Rodada 17: Visualizador IFC e Checklist Envio no Portal do Prestador
+  const [entregavelVisualizandoIfc, setEntregavelVisualizandoIfc] =
+    useState<PortalEntregavelRecord | null>(null)
+  const [modalChecklistEnvioOpen, setModalChecklistEnvioOpen] = useState(false)
+  const [entregavelParaEnvioIfc, setEntregavelParaEnvioIfc] =
+    useState<PortalEntregavelRecord | null>(null)
 
   // Modal de Assinatura da OS
   const [modalAssinarOpen, setModalAssinarOpen] = useState(false)
@@ -498,6 +509,7 @@ export const PortalPrestadorPage: React.FC = () => {
                           <TabsTrigger value="entregaveis">
                             Entregáveis ({entregaveis.length})
                           </TabsTrigger>
+                          <TabsTrigger value="issues">Issues de Revisão</TabsTrigger>
                           <TabsTrigger value="documentos">
                             Arquivos ({documentos.length})
                           </TabsTrigger>
@@ -573,6 +585,25 @@ export const PortalPrestadorPage: React.FC = () => {
                                     </div>
 
                                     <div className="flex items-center gap-2 shrink-0">
+                                      {/* Visualizador IFC 3D da própria OS */}
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setEntregavelVisualizandoIfc(
+                                            entregavelVisualizandoIfc?.id === ent.id ? null : ent,
+                                          )
+                                        }}
+                                        className={`h-7 text-xs gap-1 ${
+                                          entregavelVisualizandoIfc?.id === ent.id
+                                            ? 'bg-blue-600 text-white'
+                                            : 'text-blue-700 border-blue-200 hover:bg-blue-50'
+                                        }`}
+                                      >
+                                        <Box className="w-3.5 h-3.5" />
+                                        <span>Visualizador IFC</span>
+                                      </Button>
+
                                       <Button
                                         variant="outline"
                                         size="sm"
@@ -594,18 +625,69 @@ export const PortalPrestadorPage: React.FC = () => {
                                         <Button
                                           size="sm"
                                           onClick={() => {
-                                            setEntregavelSelecionadoSubmissao(ent)
-                                            setObsSubmissaoPrestador('')
-                                            setModalSubmeterVersaoOpen(true)
+                                            setEntregavelParaEnvioIfc(ent)
+                                            setModalChecklistEnvioOpen(true)
                                           }}
                                           className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1"
                                         >
                                           <FileDown className="w-3.5 h-3.5" />
-                                          Enviar Versão
+                                          Enviar Versão (IFC)
                                         </Button>
                                       )}
                                     </div>
                                   </div>
+
+                                  {/* Visualizador IFC 3D Embutido da OS */}
+                                  {entregavelVisualizandoIfc?.id === ent.id && (
+                                    <div className="mt-3 pt-3 border-t border-slate-200">
+                                      <VisualizadorIfc
+                                        tituloEntregavel={ent.nome}
+                                        versaoNumero={ent.versao_atual || 1}
+                                        isPrestador={true}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </TabsContent>
+
+                        {/* ABA DE ISSUES NO PORTAL DO PRESTADOR */}
+                        <TabsContent value="issues" className="pt-3">
+                          {entregaveis.length === 0 ? (
+                            <p className="text-xs text-slate-400 text-center py-6 bg-slate-50 rounded-lg">
+                              Nenhum entregável cadastrado para esta OS.
+                            </p>
+                          ) : (
+                            <div className="space-y-4">
+                              <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-lg text-xs text-blue-900">
+                                <p className="font-semibold">
+                                  Apontamentos de Revisão e Não-Conformidades Técnicas
+                                </p>
+                                <p className="text-[11px] text-blue-700 mt-0.5">
+                                  Veja abaixo os tópicos BCF e feedbacks registrados pelos
+                                  revisores. Cada issue exibe o viewpoint (captura de tela 3D) e
+                                  você pode marcar como corrigida indicando a versão de correção.
+                                </p>
+                              </div>
+
+                              {entregaveis.map((ent) => (
+                                <div
+                                  key={ent.id}
+                                  className="p-3 bg-white border border-slate-200 rounded-lg space-y-2 shadow-sm"
+                                >
+                                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                    <h5 className="font-bold text-xs text-slate-800">{ent.nome}</h5>
+                                    <Badge variant="outline" className="text-[10px]">
+                                      v{ent.versao_atual || 1}.0
+                                    </Badge>
+                                  </div>
+                                  <PainelIssuesRevisao
+                                    entregavelId={ent.id}
+                                    somenteLeitura={false}
+                                    isPrestador={true}
+                                  />
                                 </div>
                               ))}
                             </div>
@@ -748,6 +830,23 @@ export const PortalPrestadorPage: React.FC = () => {
         entregavelId={entregavelParaOQueMudou?.id || null}
         tituloEntregavel={entregavelParaOQueMudou?.nome}
       />
+
+      {/* Modal Checklist de Entrada IFC no Portal do Prestador */}
+      {entregavelParaEnvioIfc && (
+        <ModalChecklistEnvioIfc
+          open={modalChecklistEnvioOpen}
+          onOpenChange={setModalChecklistEnvioOpen}
+          entregavelId={entregavelParaEnvioIfc.id}
+          entregavelNome={entregavelParaEnvioIfc.nome || 'Entregável'}
+          onSucesso={async () => {
+            if (osSelecionada) {
+              const ents = await portalPrestadorService.listEntregaveis(osSelecionada.os_id)
+              setEntregaveis(ents)
+            }
+            setModalChecklistEnvioOpen(false)
+          }}
+        />
+      )}
 
       {/* Modal de Assinatura da OS com OTP de 6 dígitos */}
       <ModalAssinaturaEletronicaOS

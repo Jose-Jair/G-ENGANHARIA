@@ -44,15 +44,88 @@ routerAdd('GET', '/backend/v1/decisoes/fila', (e) => {
     )
     for (let i = 0; i < vencedores.length; i++) {
       const rec = vencedores[i]
+      const executorId = rec.getString('executor') || ''
+      let prestadorId = rec.getString('prestador') || ''
+      let prestadorNome = ''
+      let executorNome = ''
+
+      if (executorId) {
+        try {
+          const exRec = $app.findRecordById('executores', executorId)
+          if (exRec) {
+            executorNome = exRec.getString('nome') || ''
+            if (!prestadorId) {
+              const cpfCnpj = exRec.getString('cpf_cnpj') || ''
+              const email = exRec.getString('email') || ''
+              if (cpfCnpj || email) {
+                try {
+                  let fPrest = ''
+                  if (cpfCnpj && email) {
+                    fPrest = "cpf_cnpj = '" + cpfCnpj + "' || email = '" + email + "'"
+                  } else if (cpfCnpj) {
+                    fPrest = "cpf_cnpj = '" + cpfCnpj + "'"
+                  } else {
+                    fPrest = "email = '" + email + "'"
+                  }
+                  const pRecs = $app.findRecordsByFilter('prestadores', fPrest, '', 1, 0)
+                  if (pRecs && pRecs.length > 0) {
+                    prestadorId = pRecs[0].id
+                    prestadorNome = pRecs[0].getString('nome') || ''
+                  }
+                } catch (_) {}
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (prestadorId && !prestadorNome) {
+        try {
+          const pRec = $app.findRecordById('prestadores', prestadorId)
+          if (pRec) prestadorNome = pRec.getString('nome') || ''
+        } catch (_) {}
+      }
+
+      const projetoId = rec.getString('projeto') || ''
+      let projetoCodigo = ''
+      if (projetoId) {
+        try {
+          const prjRec = $app.findRecordById('projetos', projetoId)
+          if (prjRec) projetoCodigo = prjRec.getString('codigo') || prjRec.getString('nome') || ''
+        } catch (_) {}
+      }
+
+      const etapaId = rec.getString('etapa') || ''
+      const codigoCot = rec.getString('codigo') || 'COT-' + rec.id.slice(0, 6).toUpperCase()
+      const ehLegadoSemVinculo = !prestadorId && !executorId
+
       itens.push({
         tipo_item: 'vencedor_cotacao',
         item_id: rec.id,
         impacto: 90,
         titulo: 'Vencedor de cotação aguardando designação de OS',
+        origem: 'cotacoes',
+        origem_id: rec.id,
+        origem_url: projetoId
+          ? '/projetos?projetoId=' + projetoId + '&cotacaoId=' + rec.id
+          : '/projetos?cotacaoId=' + rec.id,
+        legado_sem_vinculo: ehLegadoSemVinculo,
         contexto: {
-          codigo: rec.getString('codigo'),
-          prestador_id: rec.getString('prestador'),
-          status: rec.getString('status'),
+          codigo: codigoCot,
+          prestador_id: prestadorId,
+          prestador_nome: prestadorNome || (prestadorId ? 'Prestador ' + prestadorId : ''),
+          executor_id: executorId,
+          executor_nome: executorNome || (executorId ? 'Executor ' + executorId : ''),
+          projeto_id: projetoId,
+          projeto_codigo: projetoCodigo,
+          etapa_id: etapaId,
+          valor: rec.getFloat('valor_proposto') || 0,
+          prazo_dias: rec.getInt('prazo_dias') || 0,
+          status: rec.getString('status') || 'vencedora',
+          congelada: true,
+          observacao: ehLegadoSemVinculo
+            ? 'Registro de cotação legado sem prestador/executor vinculado.'
+            : '',
         },
       })
     }

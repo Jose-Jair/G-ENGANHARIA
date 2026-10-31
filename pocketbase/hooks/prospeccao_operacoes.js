@@ -143,6 +143,8 @@ routerAdd(
         const munCodigo = reqBody.municipio || fonteRec.get('municipios') || '044' // Padrão Fortaleza
         const exercicioConfig = reqBody.exercicio || fonteRec.get('exercicio') || 2024
 
+        let totalContratosVarridos = 0
+
         // Intervalo de datas: YYYY-MM-DD
         const dataFimStr = `${exercicioConfig}-12-31`
         const dataIniStr = `${exercicioConfig}-01-01`
@@ -172,6 +174,7 @@ routerAdd(
         }
 
         const elementsArr = (resTce.json && resTce.json.elements) || []
+        totalContratosVarridos = elementsArr.length
 
         for (let i = 0; i < elementsArr.length; i++) {
           const item = elementsArr[i]
@@ -223,63 +226,82 @@ routerAdd(
           .toISOString()
           .slice(0, 10)
           .replace(/-/g, '')
-        const urlPncp =
-          'https://pncp.gov.br/api/consulta/v1/contratos?dataInicial=' +
-          dIni +
-          '&dataFinal=' +
-          dFim +
-          '&pagina=1&tamanhoPagina=' +
-          Math.max(10, limite)
 
-        const res = $http.send({
-          url: urlPncp,
-          method: 'GET',
-          headers: { Accept: 'application/json', 'User-Agent': 'GESTAO-GPLUS/1.0' },
-          timeout: 15,
-        })
+        const maxPaginas = 8
 
-        if (res.statusCode < 200 || res.statusCode >= 300) {
-          fonteRec.set(
-            'ultimo_erro',
-            'HTTP ' + res.statusCode + ' ao consultar PNCP: ' + (res.raw || ''),
-          )
-          $app.save(fonteRec)
-          return e.json(502, { message: 'Falha na resposta do PNCP: HTTP ' + res.statusCode })
-        }
+        for (let pag = 1; pag <= maxPaginas; pag++) {
+          const urlPncp =
+            'https://pncp.gov.br/api/consulta/v1/contratos?dataInicial=' +
+            dIni +
+            '&dataFinal=' +
+            dFim +
+            '&pagina=' +
+            pag +
+            '&tamanhoPagina=500'
 
-        const dataArr = (res.json && res.json.data) || []
+          const res = $http.send({
+            url: urlPncp,
+            method: 'GET',
+            headers: { Accept: 'application/json', 'User-Agent': 'GESTAO-GPLUS/1.0' },
+            timeout: 15,
+          })
 
-        for (let i = 0; i < dataArr.length; i++) {
-          const c = dataArr[i]
-          const obj = c.objetoContrato || ''
-          const objLower = obj.toLowerCase()
-
-          let aderente = palavrasChave.length === 0
-          if (!aderente) {
-            for (let k = 0; k < palavrasChave.length; k++) {
-              if (objLower.includes(palavrasChave[k])) {
-                aderente = true
-                break
-              }
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            if (pag === 1) {
+              fonteRec.set(
+                'ultimo_erro',
+                'HTTP ' + res.statusCode + ' ao consultar PNCP: ' + (res.raw || ''),
+              )
+              $app.save(fonteRec)
+              return e.json(502, { message: 'Falha na resposta do PNCP: HTTP ' + res.statusCode })
             }
+            break
           }
 
-          if (!aderente) continue
+          const dataArr = (res.json && res.json.data) || []
+          totalContratosVarridos += dataArr.length
+          if (dataArr.length === 0) break
 
-          itensMapeados.push({
-            cnpj: c.niFornecedor || '',
-            razaoSocial: c.nomeRazaoSocialFornecedor || '',
-            tipoPessoa: c.tipoPessoa || 'PJ',
-            orgao: (c.orgaoEntidade && c.orgaoEntidade.razaoSocial) || 'Órgão Público',
-            numero: c.numeroContratoEmpenho || 'CTR-' + (c.anoContrato || '2026') + '-' + i,
-            objeto: obj,
-            valor: c.valorInicial || c.valorGlobal || 0,
-            vigenciaInicio: c.dataVigenciaInicio || '',
-            vigenciaFim: c.dataVigenciaFim || '',
-            link: 'https://pncp.gov.br/app/contratos/' + (c.numeroControlePncpCompra || ''),
-            uf: (c.orgaoEntidade && c.orgaoEntidade.ufSigla) || '',
-            municipio: (c.orgaoEntidade && c.orgaoEntidade.municipioNome) || '',
-          })
+          for (let i = 0; i < dataArr.length; i++) {
+            const c = dataArr[i]
+            const obj = c.objetoContrato || ''
+            const objLower = obj.toLowerCase()
+
+            let aderente = palavrasChave.length === 0
+            if (!aderente) {
+              for (let k = 0; k < palavrasChave.length; k++) {
+                if (objLower.includes(palavrasChave[k])) {
+                  aderente = true
+                  break
+                }
+              }
+            }
+
+            if (!aderente) continue
+
+            itensMapeados.push({
+              cnpj: c.niFornecedor || '',
+              razaoSocial: c.nomeRazaoSocialFornecedor || '',
+              tipoPessoa: c.tipoPessoa || 'PJ',
+              orgao: (c.orgaoEntidade && c.orgaoEntidade.razaoSocial) || 'Órgão Público',
+              numero: c.numeroContratoEmpenho || 'CTR-' + (c.anoContrato || '2026') + '-' + i,
+              objeto: obj,
+              valor: c.valorInicial || c.valorGlobal || 0,
+              vigenciaInicio: c.dataVigenciaInicio || '',
+              vigenciaFim: c.dataVigenciaFim || '',
+              link: 'https://pncp.gov.br/app/contratos/' + (c.numeroControlePncpCompra || ''),
+              uf:
+                (c.unidadeOrgao && c.unidadeOrgao.ufSigla) ||
+                (c.orgaoEntidade && c.orgaoEntidade.ufSigla) ||
+                '',
+              municipio:
+                (c.unidadeOrgao && c.unidadeOrgao.municipioNome) ||
+                (c.orgaoEntidade && c.orgaoEntidade.municipioNome) ||
+                '',
+            })
+
+            if (itensMapeados.length >= limite) break
+          }
 
           if (itensMapeados.length >= limite) break
         }
@@ -293,7 +315,7 @@ routerAdd(
       loteRec.set('tipo_execucao', 'manual_admin')
       loteRec.set('status', 'em_andamento')
       loteRec.set('data_inicio', new Date().toISOString())
-      loteRec.set('total_lidos', itensMapeados.length)
+      loteRec.set('total_lidos', totalContratosVarridos || itensMapeados.length)
       if (e.auth?.id) loteRec.set('executado_por', e.auth.id)
       $app.save(loteRec)
 
@@ -550,7 +572,10 @@ routerAdd(
       $app.save(loteRec)
 
       fonteRec.set('ultima_execucao', new Date().toISOString())
-      fonteRec.set('total_lidos', (fonteRec.get('total_lidos') || 0) + itensMapeados.length)
+      fonteRec.set(
+        'total_lidos',
+        (fonteRec.get('total_lidos') || 0) + (totalContratosVarridos || itensMapeados.length),
+      )
       fonteRec.set('total_sugeridos', (fonteRec.get('total_sugeridos') || 0) + novasSugestoes)
       fonteRec.set('ultimo_erro', '')
       $app.save(fonteRec)
@@ -560,7 +585,8 @@ routerAdd(
         fonte: fonteRec.get('nome'),
         resultado: {
           lote_id: loteRec.id,
-          total_lidos: itensMapeados.length,
+          total_lidos: totalContratosVarridos || itensMapeados.length,
+          total_aderentes: itensMapeados.length,
           descartados_cpf: descartadosCpf,
           duplicados_dedupe: duplicadosDedupe,
           reativacoes_sugeridas: reativacoesCriadas,
@@ -1525,8 +1551,7 @@ cronAdd('prospeccao_diaria_pncp', '0 3 * * *', () => {
       dIni +
       '&dataFinal=' +
       dFim +
-      '&pagina=1&tamanhoPagina=' +
-      Math.max(10, limite)
+      '&pagina=1&tamanhoPagina=500'
 
     const res = $http.send({
       url: url,

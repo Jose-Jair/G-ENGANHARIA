@@ -681,7 +681,7 @@ export default function AppLayout() {
                 }
               >
                 <Kanban className="w-4 h-4 text-sky-400" />
-                <span>Funil (9 Etapas)</span>
+                <span>Funil (5 Etapas)</span>
               </NavLink>
 
               <NavLink

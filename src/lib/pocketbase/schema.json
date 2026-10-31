@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T23:36:44.935Z",
+  "generatedAt": "2026-10-31T00:08:13.512Z",
   "collections": [
     {
       "name": "users",
@@ -3351,6 +3351,45 @@
           "required": false,
           "system": false,
           "collectionRef": "projeto_etapas"
+        },
+        {
+          "name": "origem_custo",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["catalogo", "pre_cotacao", "manual_auditado", "sem_cotacao"]
+        },
+        {
+          "name": "motivo_edicao_custo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pre_cotacao_vencedora",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "prestadores"
+        },
+        {
+          "name": "preco_travado",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prazo_travado_dias",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prestador_vencedor",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "prestadores"
         }
       ],
       "indexes": ["CREATE INDEX idx_proposta_itens_proposta ON proposta_itens (proposta)"]
@@ -6542,6 +6581,296 @@
       "indexes": [
         "CREATE INDEX idx_pdocs_prestador ON prestadores_documentos (prestador)",
         "CREATE INDEX idx_pdocs_tipo ON prestadores_documentos (tipo)"
+      ]
+    },
+    {
+      "name": "pre_cotacoes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || @request.auth.role = 'financeiro')",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "codigo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "proposta",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "propostas"
+        },
+        {
+          "name": "item_proposta",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "proposta_itens"
+        },
+        {
+          "name": "disciplina",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "escopo_anonimizado",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "entregaveis_texto",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prazo_desejado_dias",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validade_dias",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_limite",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["aberta", "respondida", "encerrada", "convertida", "expirada"]
+        },
+        {
+          "name": "resposta_escolhida_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "motivo_encerramento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_precot_codigo ON pre_cotacoes (codigo)",
+        "CREATE INDEX idx_precot_proposta ON pre_cotacoes (proposta)",
+        "CREATE INDEX idx_precot_item ON pre_cotacoes (item_proposta)",
+        "CREATE INDEX idx_precot_status ON pre_cotacoes (status)",
+        "CREATE INDEX idx_precot_disciplina ON pre_cotacoes (disciplina)"
+      ]
+    },
+    {
+      "name": "pre_cotacao_respostas",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || @request.auth.role = 'comercial')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && prestador.email = @request.auth.email))",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "pre_cotacao",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "pre_cotacoes"
+        },
+        {
+          "name": "prestador",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "prestadores"
+        },
+        {
+          "name": "codigo_pre_cotacao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "disciplina",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "escopo_resumo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "entregaveis_resumo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prazo_desejado_dias",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_limite_resposta",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "preco_ofertado",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prazo_ofertado_dias",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "premissas",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aceite_vinculante",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aceite_hash",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aceite_ip",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aceite_user_agent",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aceite_timestamp",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["convite_enviado", "enviada", "travada", "liberada", "expirada"]
+        },
+        {
+          "name": "escolhida",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lembrete_enviado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aviso_liberacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_resposta",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_liberacao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pcresp_precot ON pre_cotacao_respostas (pre_cotacao)",
+        "CREATE INDEX idx_pcresp_prestador ON pre_cotacao_respostas (prestador)",
+        "CREATE INDEX idx_pcresp_status ON pre_cotacao_respostas (status)",
+        "CREATE INDEX idx_pcresp_codigo ON pre_cotacao_respostas (codigo_pre_cotacao)"
       ]
     }
   ]

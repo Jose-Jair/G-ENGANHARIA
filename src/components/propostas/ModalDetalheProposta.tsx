@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { getAppBaseUrl } from '@/lib/appBaseUrl'
 import {
   Dialog,
   DialogContent,
@@ -166,7 +167,7 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
   const isAprovadaParaEnvio = proposta.status !== 'rascunho' && Boolean(proposta.token_aceite)
 
   const publicLink = isAprovadaParaEnvio
-    ? `${window.location.origin}/proposta/${proposta.token_aceite}`
+    ? `${getAppBaseUrl()}/proposta/${proposta.token_aceite}`
     : ''
 
   const handleCopiarLink = () => {

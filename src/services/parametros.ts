@@ -22,16 +22,24 @@ export const parametrosService = {
 
   async getByKey(chave: string): Promise<ParametroRecord | null> {
     try {
-      return await pb
+      const p = await pb
         .collection('parametros')
         .getFirstListItem<ParametroRecord>(`chave = "${chave}"`)
+      if (p && chave === 'url_publica_app' && p.valor) {
+        try {
+          localStorage.setItem('gplus_url_publica_app', p.valor)
+        } catch {
+          /* intentionally ignored */
+        }
+      }
+      return p
     } catch (_) {
       return null
     }
   },
 
-  async get(chave: string, defaultValue: string = ''): Promise<string> {
+  async get(chave: string, defaultValue = ''): Promise<string> {
     const p = await this.getByKey(chave)
-    return p?.valor || defaultValue
+    return p ? p.valor : defaultValue
   },
 }

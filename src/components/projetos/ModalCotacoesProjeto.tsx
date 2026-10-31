@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { getAppBaseUrl } from '@/lib/appBaseUrl'
 import {
   CotacaoRecord,
   ProjetoRecord,
@@ -470,7 +471,7 @@ export const ModalCotacoesProjeto: React.FC<ModalCotacoesProjetoProps> = ({
   // Copiar link de cotação pública
   const handleCopiarLinkPublico = (token?: string) => {
     if (!token) return
-    const url = `${window.location.origin}/cotacao/${token}`
+    const url = `${getAppBaseUrl()}/cotacao/${token}`
     navigator.clipboard.writeText(url)
     toast({
       title: 'Link copiado!',
@@ -483,7 +484,7 @@ export const ModalCotacoesProjeto: React.FC<ModalCotacoesProjetoProps> = ({
     const ex = c.expand?.executor
     if (!ex) return
     const tel = ex.telefone || ''
-    const link = `${window.location.origin}/cotacao/${c.token}`
+    const link = `${getAppBaseUrl()}/cotacao/${c.token}`
     let texto =
       textoPadraoWhatsApp ||
       'Olá, {executor_nome}! A G+ Engenharia solicita cotação para o projeto {projeto_codigo} ({projeto_nome}). Prazo limite de resposta: {data_limite}. Acesse o link exclusivo para visualizar o escopo detalhado e enviar sua proposta: {link_cotacao}'
@@ -515,7 +516,7 @@ export const ModalCotacoesProjeto: React.FC<ModalCotacoesProjetoProps> = ({
       return
     }
 
-    const linkBase = `${window.location.origin}/projetos`
+    const linkBase = `${getAppBaseUrl()}/projetos`
     let texto =
       textoPadraoWhatsApp ||
       'Olá, {executor_nome}! A G+ Engenharia solicita cotação para o projeto {projeto_codigo} ({projeto_nome}). Prazo limite de resposta: {data_limite}. Acesse o link exclusivo para visualizar o escopo detalhado e enviar sua proposta: {link_cotacao}'

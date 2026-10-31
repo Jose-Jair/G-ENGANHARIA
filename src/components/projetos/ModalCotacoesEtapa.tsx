@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { getAppBaseUrl } from '@/lib/appBaseUrl'
 import { CotacaoRecord, ProjetoEtapaRecord, ExecutorRecord, StatusCotacao } from '@/types'
 import { cotacoesService, CreateCotacaoData } from '@/services/executores'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
@@ -119,7 +120,7 @@ export const ModalCotacoesEtapa: React.FC<ModalCotacoesEtapaProps> = ({
 
   const handleCopiarLinkPublico = (token?: string) => {
     if (!token) return
-    const url = `${window.location.origin}/cotacao/${token}`
+    const url = `${getAppBaseUrl()}/cotacao/${token}`
     navigator.clipboard.writeText(url)
     toast({
       title: 'Link copiado!',

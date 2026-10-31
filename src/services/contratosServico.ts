@@ -222,11 +222,13 @@ export const contratosServicoService = {
    * Assinatura eletrônica pelo Administrador (autenticado)
    */
   async assinarComoAdmin(contratoId: string, declaracao: boolean): Promise<any> {
+    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : ''
     const res = await pb.send('/backend/v1/contratos-servico/assinar-admin', {
       method: 'POST',
       body: {
         contrato_id: contratoId,
         declaracao,
+        userAgent,
       },
     })
     return res
@@ -236,9 +238,13 @@ export const contratosServicoService = {
    * Assinatura eletrônica pelo Cliente através do link com token público
    */
   async assinarComoCliente(payload: AssinarContratoClientePayload): Promise<any> {
+    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : ''
     const res = await pb.send('/backend/v1/contratos-servico/assinar-cliente', {
       method: 'POST',
-      body: payload,
+      body: {
+        ...payload,
+        userAgent: (payload as any).userAgent || userAgent,
+      },
     })
     return res
   },

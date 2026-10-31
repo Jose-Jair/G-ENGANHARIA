@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { getAppBaseUrl } from '@/lib/appBaseUrl'
 import {
   Dialog,
   DialogContent,
@@ -57,7 +58,7 @@ export function ModalEnviarContratoWhatsApp({
     const emp = contrato.expand?.empresa as any
     const pf = contrato.expand?.cliente_pf as any
 
-    const linkAssinatura = `${window.location.origin}/contrato-servico/${contrato.token_assinatura_cliente || ''}`
+    const linkAssinatura = `${getAppBaseUrl()}/contrato-servico/${contrato.token_assinatura_cliente || ''}`
 
     const buildMensagem = (nomeAlvo: string) => {
       return (
@@ -127,7 +128,7 @@ export function ModalEnviarContratoWhatsApp({
     if (!contrato) return
     setContatoSelecionadoId(contatoId)
     const emp = contrato.expand?.empresa as any
-    const linkAssinatura = `${window.location.origin}/contrato-servico/${contrato.token_assinatura_cliente || ''}`
+    const linkAssinatura = `${getAppBaseUrl()}/contrato-servico/${contrato.token_assinatura_cliente || ''}`
 
     const buildMsg = (nome: string) =>
       `Olá, ${nome}! Tudo bem?\n\n` +

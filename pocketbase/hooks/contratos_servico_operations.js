@@ -173,7 +173,7 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
         typeof e.request.getHeader === 'function' &&
         (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
       (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
-      '127.0.0.1'
+      'nao_capturado'
     const clientUserAgent = (reqInfo.headers && reqInfo.headers['user-agent']) || 'Navegador Web'
     const nowIso = new Date().toISOString()
 
@@ -1642,6 +1642,23 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
           prjAlterado = true
         }
 
+        if (!prjParaItem.getString('prazo_final')) {
+          try {
+            const pDiasContrato = rec.getInt('prazo_dias') || 30
+            const dtBaseAssinatura =
+              rec.getString('data_assinatura_cliente') ||
+              rec.getString('data_assinatura_admin') ||
+              new Date().toISOString()
+            const dtPrazoFinalPrj = new Date(dtBaseAssinatura)
+            dtPrazoFinalPrj.setDate(dtPrazoFinalPrj.getDate() + pDiasContrato)
+            prjParaItem.set(
+              'prazo_final',
+              dtPrazoFinalPrj.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+            )
+            prjAlterado = true
+          } catch (_) {}
+        }
+
         const statusAtual = prjParaItem.getString('status')
         if (statusAtual === 'contratacao' || statusAtual === 'Em Contratação' || !statusAtual) {
           prjParaItem.set('status', 'aguardando_definicao')
@@ -1684,6 +1701,21 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
         novoPrj.set('status', 'aguardando_definicao')
         novoPrj.set('modo_execucao', null)
         novoPrj.set('disciplinas', item.disciplina)
+
+        // Prazo final do projeto PRJ criado = data_assinatura + prazo_dias
+        try {
+          const pDiasContrato = rec.getInt('prazo_dias') || 30
+          const dtBaseAssinatura =
+            rec.getString('data_assinatura_cliente') ||
+            rec.getString('data_assinatura_admin') ||
+            new Date().toISOString()
+          const dtPrazoFinalPrj = new Date(dtBaseAssinatura)
+          dtPrazoFinalPrj.setDate(dtPrazoFinalPrj.getDate() + pDiasContrato)
+          novoPrj.set(
+            'prazo_final',
+            dtPrazoFinalPrj.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+          )
+        } catch (_) {}
 
         $app.save(novoPrj)
         prjParaItem = novoPrj
@@ -1887,7 +1919,12 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
     // 5. CONTAS A RECEBER
     try {
       const projetoRefId = projetosGerados.length > 0 ? projetosGerados[0].id : null
-      let filtroContas = "tipo = 'receber' && (descricao ~ 'Contrato " + contratoNumero + "'"
+      let filtroContas =
+        "tipo = 'receber' && (contrato_servico = '" +
+        contratoId +
+        "' || descricao ~ 'Contrato " +
+        contratoNumero +
+        "'"
       if (propostaId) {
         filtroContas += " || proposta = '" + propostaId + "'"
       }
@@ -1896,26 +1933,84 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
 
       if (contasExistentes.length === 0) {
         let parcelas = []
-        if (propostaId) {
+        // Prioridade L1: parcelas_json do próprio contrato
+        try {
+          const rawParcelasJson = rec.get('parcelas_json')
+          if (Array.isArray(rawParcelasJson) && rawParcelasJson.length > 0) {
+            parcelas = rawParcelasJson.map((p, idx) => ({
+              id: 'json_' + (idx + 1),
+              ordem: p.ordem || idx + 1,
+              percentual: Number(p.percentual) || 0,
+              valor: Number(p.valor) || (valorTotalContrato * (Number(p.percentual) || 0)) / 100,
+              descricao:
+                p.descricao || 'Parcela ' + (p.ordem || idx + 1) + '/' + rawParcelasJson.length,
+              gatilho: p.gatilho || 'marco',
+              dias_vencimento: p.dias_vencimento || (idx === 0 ? 15 : (idx + 1) * 30),
+            }))
+          }
+        } catch (_) {}
+
+        // Fallback: proposta_parcelas apenas se parcelas_json vazio
+        if (parcelas.length === 0 && propostaId) {
           try {
-            parcelas = $app.findRecordsByFilter(
+            const parcsDb = $app.findRecordsByFilter(
               'proposta_parcelas',
               "proposta = '" + propostaId + "'",
               'ordem',
               50,
               0,
             )
+            if (parcsDb && parcsDb.length > 0) {
+              parcelas = parcsDb.map((p, idx) => ({
+                id: p.id,
+                ordem: p.getInt('ordem') || idx + 1,
+                percentual: p.getFloat('percentual') || 0,
+                valor:
+                  p.getFloat('valor') ||
+                  (valorTotalContrato * (p.getFloat('percentual') || 0)) / 100,
+                descricao:
+                  p.getString('descricao') ||
+                  'Parcela ' + (p.getInt('ordem') || idx + 1) + '/' + parcsDb.length,
+                gatilho: p.getString('gatilho') || 'marco',
+                dias_vencimento: idx === 0 ? 15 : (idx + 1) * 30,
+              }))
+            }
           } catch (_) {}
         }
 
         if (parcelas && parcelas.length > 0) {
           for (let i = 0; i < parcelas.length; i++) {
             const parc = parcelas[i]
-            const ordem = parc.getInt('ordem') || i + 1
-            const perc = parc.getFloat('percentual') || 0
-            const valorParc = parc.getFloat('valor') || (valorTotalContrato * perc) / 100
-            const descParc = parc.getString('descricao') || `Parcela ${ordem}/${parcelas.length}`
-            const gatilho = parc.getString('gatilho') || 'marco'
+            const ordem =
+              typeof parc.ordem === 'number'
+                ? parc.ordem
+                : parc.getInt
+                  ? parc.getInt('ordem')
+                  : i + 1
+            const perc =
+              typeof parc.percentual === 'number'
+                ? parc.percentual
+                : parc.getFloat
+                  ? parc.getFloat('percentual')
+                  : 0
+            const valorParc =
+              typeof parc.valor === 'number'
+                ? parc.valor
+                : parc.getFloat
+                  ? parc.getFloat('valor')
+                  : (valorTotalContrato * perc) / 100
+            const descParc =
+              typeof parc.descricao === 'string'
+                ? parc.descricao
+                : parc.getString
+                  ? parc.getString('descricao')
+                  : 'Parcela ' + ordem + '/' + parcelas.length
+            const gatilho =
+              typeof parc.gatilho === 'string'
+                ? parc.gatilho
+                : parc.getString
+                  ? parc.getString('gatilho')
+                  : 'marco'
 
             const novaConta = new Record(contasCol)
             novaConta.set('tipo', 'receber')
@@ -2872,6 +2967,23 @@ routerAdd(
             prjAlterado = true
           }
 
+          if (!prjParaItem.getString('prazo_final')) {
+            try {
+              const pDiasContrato = rec.getInt('prazo_dias') || 30
+              const dtBaseAssinatura =
+                rec.getString('data_assinatura_cliente') ||
+                rec.getString('data_assinatura_admin') ||
+                new Date().toISOString()
+              const dtPrazoFinalPrj = new Date(dtBaseAssinatura)
+              dtPrazoFinalPrj.setDate(dtPrazoFinalPrj.getDate() + pDiasContrato)
+              prjParaItem.set(
+                'prazo_final',
+                dtPrazoFinalPrj.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+              )
+              prjAlterado = true
+            } catch (_) {}
+          }
+
           const statusAtual = prjParaItem.getString('status')
           if (statusAtual === 'contratacao' || statusAtual === 'Em Contratação' || !statusAtual) {
             prjParaItem.set('status', 'aguardando_definicao')
@@ -2914,6 +3026,21 @@ routerAdd(
           novoPrj.set('status', 'aguardando_definicao')
           novoPrj.set('modo_execucao', null)
           novoPrj.set('disciplinas', item.disciplina)
+
+          // Prazo final do projeto PRJ criado = data_assinatura + prazo_dias
+          try {
+            const pDiasContrato = rec.getInt('prazo_dias') || 30
+            const dtBaseAssinatura =
+              rec.getString('data_assinatura_cliente') ||
+              rec.getString('data_assinatura_admin') ||
+              new Date().toISOString()
+            const dtPrazoFinalPrj = new Date(dtBaseAssinatura)
+            dtPrazoFinalPrj.setDate(dtPrazoFinalPrj.getDate() + pDiasContrato)
+            novoPrj.set(
+              'prazo_final',
+              dtPrazoFinalPrj.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+            )
+          } catch (_) {}
 
           $app.save(novoPrj)
           prjParaItem = novoPrj
@@ -3238,7 +3365,12 @@ routerAdd(
       // 5. CONTAS A RECEBER
       try {
         const projetoRefId = projetosGerados.length > 0 ? projetosGerados[0].id : null
-        let filtroContas = "tipo = 'receber' && (descricao ~ 'Contrato " + contratoNumero + "'"
+        let filtroContas =
+          "tipo = 'receber' && (contrato_servico = '" +
+          contratoId +
+          "' || descricao ~ 'Contrato " +
+          contratoNumero +
+          "'"
         if (propostaId) {
           filtroContas += " || proposta = '" + propostaId + "'"
         }
@@ -3247,26 +3379,84 @@ routerAdd(
 
         if (contasExistentes.length === 0) {
           let parcelas = []
-          if (propostaId) {
+          // Prioridade L1: parcelas_json do próprio contrato
+          try {
+            const rawParcelasJson = rec.get('parcelas_json')
+            if (Array.isArray(rawParcelasJson) && rawParcelasJson.length > 0) {
+              parcelas = rawParcelasJson.map((p, idx) => ({
+                id: 'json_' + (idx + 1),
+                ordem: p.ordem || idx + 1,
+                percentual: Number(p.percentual) || 0,
+                valor: Number(p.valor) || (valorTotalContrato * (Number(p.percentual) || 0)) / 100,
+                descricao:
+                  p.descricao || 'Parcela ' + (p.ordem || idx + 1) + '/' + rawParcelasJson.length,
+                gatilho: p.gatilho || 'marco',
+                dias_vencimento: p.dias_vencimento || (idx === 0 ? 15 : (idx + 1) * 30),
+              }))
+            }
+          } catch (_) {}
+
+          // Fallback: proposta_parcelas apenas se parcelas_json vazio
+          if (parcelas.length === 0 && propostaId) {
             try {
-              parcelas = $app.findRecordsByFilter(
+              const parcsDb = $app.findRecordsByFilter(
                 'proposta_parcelas',
                 "proposta = '" + propostaId + "'",
                 'ordem',
                 50,
                 0,
               )
+              if (parcsDb && parcsDb.length > 0) {
+                parcelas = parcsDb.map((p, idx) => ({
+                  id: p.id,
+                  ordem: p.getInt('ordem') || idx + 1,
+                  percentual: p.getFloat('percentual') || 0,
+                  valor:
+                    p.getFloat('valor') ||
+                    (valorTotalContrato * (p.getFloat('percentual') || 0)) / 100,
+                  descricao:
+                    p.getString('descricao') ||
+                    'Parcela ' + (p.getInt('ordem') || idx + 1) + '/' + parcsDb.length,
+                  gatilho: p.getString('gatilho') || 'marco',
+                  dias_vencimento: idx === 0 ? 15 : (idx + 1) * 30,
+                }))
+              }
             } catch (_) {}
           }
 
           if (parcelas && parcelas.length > 0) {
             for (let i = 0; i < parcelas.length; i++) {
               const parc = parcelas[i]
-              const ordem = parc.getInt('ordem') || i + 1
-              const perc = parc.getFloat('percentual') || 0
-              const valorParc = parc.getFloat('valor') || (valorTotalContrato * perc) / 100
-              const descParc = parc.getString('descricao') || `Parcela ${ordem}/${parcelas.length}`
-              const gatilho = parc.getString('gatilho') || 'marco'
+              const ordem =
+                typeof parc.ordem === 'number'
+                  ? parc.ordem
+                  : parc.getInt
+                    ? parc.getInt('ordem')
+                    : i + 1
+              const perc =
+                typeof parc.percentual === 'number'
+                  ? parc.percentual
+                  : parc.getFloat
+                    ? parc.getFloat('percentual')
+                    : 0
+              const valorParc =
+                typeof parc.valor === 'number'
+                  ? parc.valor
+                  : parc.getFloat
+                    ? parc.getFloat('valor')
+                    : (valorTotalContrato * perc) / 100
+              const descParc =
+                typeof parc.descricao === 'string'
+                  ? parc.descricao
+                  : parc.getString
+                    ? parc.getString('descricao')
+                    : 'Parcela ' + ordem + '/' + parcelas.length
+              const gatilho =
+                typeof parc.gatilho === 'string'
+                  ? parc.gatilho
+                  : parc.getString
+                    ? parc.getString('gatilho')
+                    : 'marco'
 
               const novaConta = new Record(contasCol)
               novaConta.set('tipo', 'receber')
@@ -3656,13 +3846,59 @@ routerAdd(
         })
       }
 
-      const clientIp =
-        (e.request &&
-          typeof e.request.getHeader === 'function' &&
-          (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
-        (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
-        '127.0.0.1'
-      const clientUserAgent = (reqInfo.headers && reqInfo.headers['user-agent']) || 'Navegador Web'
+      // Captura de IP: ler x-forwarded-for e depois x-real-ip na entrada; se vazio, 'nao_capturado' (NUNCA 127.0.0.1) e registrar em erros_sistema
+      let rawIp = ''
+      try {
+        if (e.request && e.request.header && typeof e.request.header.get === 'function') {
+          rawIp = e.request.header.get('x-forwarded-for') || e.request.header.get('x-real-ip') || ''
+        }
+        if (!rawIp && e.request && typeof e.request.getHeader === 'function') {
+          rawIp = e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip') || ''
+        }
+        if (!rawIp && reqInfo.headers) {
+          rawIp = reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'] || ''
+        }
+      } catch (_) {}
+
+      if (rawIp && typeof rawIp === 'string') {
+        rawIp = rawIp.split(',')[0].trim()
+      }
+
+      let clientIp = rawIp && rawIp !== '127.0.0.1' ? rawIp : 'nao_capturado'
+      if (clientIp === 'nao_capturado') {
+        try {
+          const errCol = $app.findCollectionByNameOrId('erros_sistema')
+          if (errCol) {
+            const errRec = new Record(errCol)
+            errRec.set('rota', '/backend/v1/contratos-servico/assinar-admin')
+            errRec.set(
+              'mensagem',
+              'IP nao capturado na rota assinar-admin (headers x-forwarded-for e x-real-ip ausentes ou locais)',
+            )
+            errRec.set('hora', new Date().toISOString())
+            errRec.set('ip', 'nao_capturado')
+            if (reqInfo && reqInfo.auth) {
+              errRec.set('usuario', reqInfo.auth.id)
+              errRec.set('usuario_email', reqInfo.auth.getString('email'))
+            }
+            errRec.set('detalhes', {
+              contrato_id: contrato.id,
+              contrato_numero: contrato.getString('numero'),
+              raw_ip: rawIp,
+            })
+            $app.save(errRec)
+          }
+        } catch (_) {}
+      }
+
+      // User Agent: prioriza body.userAgent enviado pelo front; fallback para header
+      const clientUserAgent =
+        (
+          body.userAgent ||
+          body.user_agent ||
+          (reqInfo.headers && reqInfo.headers['user-agent']) ||
+          ''
+        ).trim() || 'Navegador Web'
       const nowIso = new Date().toISOString()
 
       const hashPayload =

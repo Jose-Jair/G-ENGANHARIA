@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { getAppBaseUrl } from '@/lib/appBaseUrl'
 import {
   Dialog,
   DialogContent,
@@ -197,7 +198,7 @@ export function ModalEnviarPropostaCliente({
 
       let template = await parametrosService.get(chave, '')
 
-      const linkPublico = `${window.location.origin}/proposta/${proposta.token_aceite || ''}`
+      const linkPublico = `${getAppBaseUrl()}/proposta/${proposta.token_aceite || ''}`
       const precoFmt = formatCurrencyBr(proposta.preco)
       const validadeData = proposta.validade ? formatDateBr(proposta.validade) : '15 dias'
 
@@ -350,7 +351,7 @@ export function ModalEnviarPropostaCliente({
 
   if (!proposta) return null
 
-  const linkProposta = `${window.location.origin}/proposta/${proposta.token_aceite || ''}`
+  const linkProposta = `${getAppBaseUrl()}/proposta/${proposta.token_aceite || ''}`
   const emp = proposta.expand?.empresa as any
   const pf = proposta.expand?.cliente_pf as any
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { getAppBaseUrl } from '@/lib/appBaseUrl'
 import {
   Dialog,
   DialogContent,
@@ -206,9 +207,9 @@ export function ModalDetalhesContratoServico({
   if (!contrato) return null
 
   const isAguardandoDados = contrato.status === 'aguardando_dados_cliente'
-  const linkAssinaturaCliente = `${window.location.origin}/contrato-servico/${contrato.token_assinatura_cliente || ''}`
+  const linkAssinaturaCliente = `${getAppBaseUrl()}/contrato-servico/${contrato.token_assinatura_cliente || ''}`
   const linkComplementoDados = contrato.token_complemento_dados
-    ? `${window.location.origin}/completar-cadastro/${contrato.token_complemento_dados}`
+    ? `${getAppBaseUrl()}/completar-cadastro/${contrato.token_complemento_dados}`
     : ''
 
   return (

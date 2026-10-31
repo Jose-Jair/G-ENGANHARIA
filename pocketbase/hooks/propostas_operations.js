@@ -359,6 +359,7 @@ onRecordAfterUpdateSuccess((e) => {
       const newStatus = rec.getString('status')
 
       if (newStatus === 'assinado' && oldStatus !== 'assinado') {
+        // Ativação desacoplada agora é gerenciada pelo endpoint assinar-* ou rotina/cron agendada
         try {
           executarAtivacaoContratoServico(rec)
         } catch (errAtiv) {
@@ -434,12 +435,6 @@ onRecordAfterUpdateSuccess((e) => {
       )
       if (gruposExistentes.length > 0) {
         grupoCriado = gruposExistentes[0]
-        console.log(
-          'Grupo de projetos já existe para contrato ' +
-            contratoNumero +
-            ': ' +
-            grupoCriado.getString('codigo'),
-        )
       } else {
         const anoAtual = new Date().getFullYear()
         const prefixoGPR = 'GPR-' + anoAtual + '-'
@@ -721,6 +716,23 @@ onRecordAfterUpdateSuccess((e) => {
           prjAlterado = true
         }
 
+        if (!prjParaItem.getString('prazo_final')) {
+          try {
+            const pDiasContrato = rec.getInt('prazo_dias') || 30
+            const dtBaseAssinatura =
+              rec.getString('data_assinatura_cliente') ||
+              rec.getString('data_assinatura_admin') ||
+              new Date().toISOString()
+            const dtPrazoFinalPrj = new Date(dtBaseAssinatura)
+            dtPrazoFinalPrj.setDate(dtPrazoFinalPrj.getDate() + pDiasContrato)
+            prjParaItem.set(
+              'prazo_final',
+              dtPrazoFinalPrj.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+            )
+            prjAlterado = true
+          } catch (_) {}
+        }
+
         // Regra canônica: projetos ativados por contrato assinado nascem com status 'aguardando_definicao' e modo_execucao null
         const statusAtual = prjParaItem.getString('status')
         if (statusAtual === 'contratacao' || statusAtual === 'Em Contratação' || !statusAtual) {
@@ -764,6 +776,21 @@ onRecordAfterUpdateSuccess((e) => {
         novoPrj.set('status', 'aguardando_definicao')
         novoPrj.set('modo_execucao', null)
         novoPrj.set('disciplinas', item.disciplina)
+
+        // Prazo final do projeto PRJ criado = data_assinatura + prazo_dias
+        try {
+          const pDiasContrato = rec.getInt('prazo_dias') || 30
+          const dtBaseAssinatura =
+            rec.getString('data_assinatura_cliente') ||
+            rec.getString('data_assinatura_admin') ||
+            new Date().toISOString()
+          const dtPrazoFinalPrj = new Date(dtBaseAssinatura)
+          dtPrazoFinalPrj.setDate(dtPrazoFinalPrj.getDate() + pDiasContrato)
+          novoPrj.set(
+            'prazo_final',
+            dtPrazoFinalPrj.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+          )
+        } catch (_) {}
 
         $app.save(novoPrj)
         prjParaItem = novoPrj
@@ -899,7 +926,12 @@ onRecordAfterUpdateSuccess((e) => {
     // 5. CONTAS A RECEBER NO NÍVEL DO CONTRATO/GRUPO (espelho das parcelas com campos canônicos completos)
     try {
       const projetoRefId = projetosGerados.length > 0 ? projetosGerados[0].id : null
-      let filtroContas = "tipo = 'receber' && (descricao ~ 'Contrato " + contratoNumero + "'"
+      let filtroContas =
+        "tipo = 'receber' && (contrato_servico = '" +
+        contratoId +
+        "' || descricao ~ 'Contrato " +
+        contratoNumero +
+        "'"
       if (propostaId) {
         filtroContas += " || proposta = '" + propostaId + "'"
       }
@@ -908,26 +940,84 @@ onRecordAfterUpdateSuccess((e) => {
 
       if (contasExistentes.length === 0) {
         let parcelas = []
-        if (propostaId) {
+        // Prioridade L1: parcelas_json do próprio contrato
+        try {
+          const rawParcelasJson = rec.get('parcelas_json')
+          if (Array.isArray(rawParcelasJson) && rawParcelasJson.length > 0) {
+            parcelas = rawParcelasJson.map((p, idx) => ({
+              id: 'json_' + (idx + 1),
+              ordem: p.ordem || idx + 1,
+              percentual: Number(p.percentual) || 0,
+              valor: Number(p.valor) || (valorTotalContrato * (Number(p.percentual) || 0)) / 100,
+              descricao:
+                p.descricao || 'Parcela ' + (p.ordem || idx + 1) + '/' + rawParcelasJson.length,
+              gatilho: p.gatilho || 'marco',
+              dias_vencimento: p.dias_vencimento || (idx === 0 ? 15 : (idx + 1) * 30),
+            }))
+          }
+        } catch (_) {}
+
+        // Fallback: proposta_parcelas apenas se parcelas_json vazio
+        if (parcelas.length === 0 && propostaId) {
           try {
-            parcelas = $app.findRecordsByFilter(
+            const parcsDb = $app.findRecordsByFilter(
               'proposta_parcelas',
               "proposta = '" + propostaId + "'",
               'ordem',
               50,
               0,
             )
+            if (parcsDb && parcsDb.length > 0) {
+              parcelas = parcsDb.map((p, idx) => ({
+                id: p.id,
+                ordem: p.getInt('ordem') || idx + 1,
+                percentual: p.getFloat('percentual') || 0,
+                valor:
+                  p.getFloat('valor') ||
+                  (valorTotalContrato * (p.getFloat('percentual') || 0)) / 100,
+                descricao:
+                  p.getString('descricao') ||
+                  'Parcela ' + (p.getInt('ordem') || idx + 1) + '/' + parcsDb.length,
+                gatilho: p.getString('gatilho') || 'marco',
+                dias_vencimento: idx === 0 ? 15 : (idx + 1) * 30,
+              }))
+            }
           } catch (_) {}
         }
 
         if (parcelas && parcelas.length > 0) {
           for (let i = 0; i < parcelas.length; i++) {
             const parc = parcelas[i]
-            const ordem = parc.getInt('ordem') || i + 1
-            const perc = parc.getFloat('percentual') || 0
-            const valorParc = parc.getFloat('valor') || (valorTotalContrato * perc) / 100
-            const descParc = parc.getString('descricao') || `Parcela ${ordem}/${parcelas.length}`
-            const gatilho = parc.getString('gatilho') || 'marco'
+            const ordem =
+              typeof parc.ordem === 'number'
+                ? parc.ordem
+                : parc.getInt
+                  ? parc.getInt('ordem')
+                  : i + 1
+            const perc =
+              typeof parc.percentual === 'number'
+                ? parc.percentual
+                : parc.getFloat
+                  ? parc.getFloat('percentual')
+                  : 0
+            const valorParc =
+              typeof parc.valor === 'number'
+                ? parc.valor
+                : parc.getFloat
+                  ? parc.getFloat('valor')
+                  : (valorTotalContrato * perc) / 100
+            const descParc =
+              typeof parc.descricao === 'string'
+                ? parc.descricao
+                : parc.getString
+                  ? parc.getString('descricao')
+                  : 'Parcela ' + ordem + '/' + parcelas.length
+            const gatilho =
+              typeof parc.gatilho === 'string'
+                ? parc.gatilho
+                : parc.getString
+                  ? parc.getString('gatilho')
+                  : 'marco'
 
             const novaConta = new Record(contasCol)
             novaConta.set('tipo', 'receber')

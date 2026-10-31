@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { getAppBaseUrl } from '@/lib/appBaseUrl'
 import {
   Dialog,
   DialogContent,
@@ -41,7 +42,7 @@ export function ModalEnviarComplementoWhatsApp({
   const [enviando, setEnviando] = useState(false)
 
   const publicLink = contrato.token_complemento_dados
-    ? `${window.location.origin}/completar-cadastro/${contrato.token_complemento_dados}`
+    ? `${getAppBaseUrl()}/completar-cadastro/${contrato.token_complemento_dados}`
     : ''
 
   useEffect(() => {

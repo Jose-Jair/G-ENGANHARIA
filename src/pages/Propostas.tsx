@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { getAppBaseUrl } from '@/lib/appBaseUrl'
 import {
   FileText,
   Plus,
@@ -727,7 +728,7 @@ export const PropostasPage: React.FC = () => {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                const link = `${window.location.origin}/proposta/${p.token_aceite}`
+                                const link = `${getAppBaseUrl()}/proposta/${p.token_aceite}`
                                 navigator.clipboard.writeText(link)
                                 toast({
                                   title: 'Link copiado!',

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { getAppBaseUrl } from '@/lib/appBaseUrl'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -108,7 +109,7 @@ export function ContratosServicoPage() {
       })
       return
     }
-    const link = `${window.location.origin}/contrato-servico/${c.token_assinatura_cliente}`
+    const link = `${getAppBaseUrl()}/contrato-servico/${c.token_assinatura_cliente}`
     navigator.clipboard.writeText(link)
     toast({
       title: 'Link copiado!',

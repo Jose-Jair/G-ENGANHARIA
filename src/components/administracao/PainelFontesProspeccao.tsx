@@ -46,17 +46,34 @@ export function PainelFontesProspeccao() {
   const [editandoFonte, setEditandoFonte] = useState<FonteProspeccaoRecord | null>(null)
   const [salvandoFonte, setSalvandoFonte] = useState(false)
 
+  const [ativandoFonteId, setAtivandoFonteId] = useState<string | null>(null)
+
   const carregarDados = async () => {
     setLoading(true)
     try {
-      const [listaFontes, listaLotes, resMuns] = await Promise.all([
+      const [listaFontes, listaLotes, resMuns, statusFontesRes] = await Promise.all([
         prospeccaoService.listarFontes(),
         prospeccaoService.listarAuditoriaLotes(15),
         prospeccaoService.listarMunicipiosCeara().catch(() => ({ municipios: [], fonte: '' })),
+        prospeccaoService.obterStatusFontes().catch(() => null),
       ])
-      setFontes(listaFontes)
+
+      // Se o servidor confirmou presença da chave PORTAL_TRANSPARENCIA_API_KEY, sincroniza dinamicamente
+      const fontesAjustadas = listaFontes.map((f) => {
+        if (f.slug === 'portal_transparencia' && statusFontesRes?.portal_transparencia) {
+          const temChave = statusFontesRes.portal_transparencia.chave_presente
+          return {
+            ...f,
+            chave_configurada: temChave,
+            aviso_configuracao: temChave ? '' : f.aviso_configuracao,
+          }
+        }
+        return f
+      })
+
+      setFontes(fontesAjustadas)
       setLotes(listaLotes)
-      if (resMuns.municipios && resMuns.municipios.length > 0) {
+      if (resMuns && resMuns.municipios && resMuns.municipios.length > 0) {
         setMunicipiosCe(resMuns.municipios)
       }
     } catch (err) {
@@ -74,6 +91,28 @@ export function PainelFontesProspeccao() {
     carregarDados()
   }, [])
 
+  const handleAtivarFonte = async (fonte: FonteProspeccaoRecord) => {
+    setAtivandoFonteId(fonte.id)
+    try {
+      await prospeccaoService.atualizarFonte(fonte.id, {
+        ativo: true,
+      })
+      toast({
+        title: 'Fonte Ativada',
+        description: `A fonte ${fonte.nome} foi ativada com sucesso pelo Administrador.`,
+      })
+      await carregarDados()
+    } catch (err) {
+      toast({
+        title: 'Falha ao ativar fonte',
+        description: String(err),
+        variant: 'destructive',
+      })
+    } finally {
+      setAtivandoFonteId(null)
+    }
+  }
+
   const handleDispararFonte = async (fonte: FonteProspeccaoRecord) => {
     // Se for portal_transparencia e estiver desligado por falta de chave
     if (fonte.slug === 'portal_transparencia' && !fonte.chave_configurada) {
@@ -82,6 +121,16 @@ export function PainelFontesProspeccao() {
         description:
           fonte.aviso_configuracao ||
           'Chave PORTAL_TRANSPARENCIA_API_KEY ausente no servidor. Configure a chave de API da CGU para ativar a consulta de sanções.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Se estiver desativada na Administração, avisa para ativar primeiro
+    if (!fonte.ativo) {
+      toast({
+        title: 'Fonte Desligada',
+        description: `A fonte ${fonte.nome} está desligada. Clique em "Ativar fonte" antes de rodar.`,
         variant: 'destructive',
       })
       return
@@ -365,6 +414,27 @@ export function PainelFontesProspeccao() {
                     </div>
                   )}
 
+                  {/* Confirmação de Chave Ativa no Servidor para Transparência */}
+                  {isTransp && f.chave_configurada && (
+                    <div className="p-2 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] leading-tight flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Chave de API da CGU detectada no servidor</span>
+                      </div>
+                      {!f.ativo && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAtivarFonte(f)}
+                          disabled={Boolean(ativandoFonteId)}
+                          className="h-6 text-[10px] border-emerald-300 text-emerald-800 hover:bg-emerald-100 font-semibold"
+                        >
+                          {ativandoFonteId === f.id ? 'Ativando...' : 'Ativar fonte'}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
                   {/* Informação Comprasnet */}
                   {isComprasnet && (
                     <div className="p-2.5 rounded bg-blue-50 border border-blue-200 text-blue-800 text-[11px] leading-tight">
@@ -464,28 +534,41 @@ export function PainelFontesProspeccao() {
                         ? 'Consulta sob demanda'
                         : 'Disparo da API'}
                   </span>
-                  <Button
-                    size="sm"
-                    variant={isTransp && !f.chave_configurada ? 'outline' : 'default'}
-                    onClick={() => handleDispararFonte(f)}
-                    disabled={Boolean(executandoFonteSlug)}
-                    className={
-                      isTransp && !f.chave_configurada
-                        ? 'text-amber-700 border-amber-300 hover:bg-amber-50 h-7 text-xs gap-1'
+                  <div className="flex items-center gap-1.5">
+                    {isTransp && !f.ativo && f.chave_configurada && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleAtivarFonte(f)}
+                        disabled={Boolean(ativandoFonteId)}
+                        className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 h-7 text-xs font-semibold"
+                      >
+                        {ativandoFonteId === f.id ? 'Ativando...' : 'Ativar fonte'}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant={isTransp && !f.chave_configurada ? 'outline' : 'default'}
+                      onClick={() => handleDispararFonte(f)}
+                      disabled={Boolean(executandoFonteSlug)}
+                      className={
+                        isTransp && !f.chave_configurada
+                          ? 'text-amber-700 border-amber-300 hover:bg-amber-50 h-7 text-xs gap-1'
+                          : isComprasnet || isCearaTransp
+                            ? 'bg-slate-800 hover:bg-slate-900 text-white h-7 text-xs gap-1'
+                            : 'bg-[#D95A2B] hover:bg-[#c24e24] text-white h-7 text-xs gap-1'
+                      }
+                    >
+                      <Play
+                        className={`w-3 h-3 ${executandoFonteSlug === f.slug ? 'animate-spin' : ''}`}
+                      />
+                      {executandoFonteSlug === f.slug
+                        ? 'Executando...'
                         : isComprasnet || isCearaTransp
-                          ? 'bg-slate-800 hover:bg-slate-900 text-white h-7 text-xs gap-1'
-                          : 'bg-[#D95A2B] hover:bg-[#c24e24] text-white h-7 text-xs gap-1'
-                    }
-                  >
-                    <Play
-                      className={`w-3 h-3 ${executandoFonteSlug === f.slug ? 'animate-spin' : ''}`}
-                    />
-                    {executandoFonteSlug === f.slug
-                      ? 'Executando...'
-                      : isComprasnet || isCearaTransp
-                        ? 'Abrir Importador'
-                        : 'Rodar agora'}
-                  </Button>
+                          ? 'Abrir Importador'
+                          : 'Rodar agora'}
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

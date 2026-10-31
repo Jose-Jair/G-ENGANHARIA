@@ -246,6 +246,33 @@ export const prospeccaoService = {
   },
 
   /**
+   * Obtém status dinâmico das fontes (ex: presença da chave no servidor)
+   */
+  async obterStatusFontes(): Promise<{
+    portal_transparencia: { chave_presente: boolean; requer_chave: boolean }
+  }> {
+    return await pb.send('/backend/v1/prospeccao/status-fontes', {
+      method: 'GET',
+    })
+  },
+
+  /**
+   * Executa teste e prova real do Portal da Transparência (CEIS e CNEP)
+   */
+  async testarPortalTransparencia(): Promise<{
+    ok: boolean
+    chave_presente: boolean
+    ceis: { status_http: number; registros_lidos: number }
+    cnep: { status_http: number; registros_lidos: number }
+    total_lidos: number
+    message?: string
+  }> {
+    return await pb.send('/backend/v1/prospeccao/testar-portal-transparencia', {
+      method: 'POST',
+    })
+  },
+
+  /**
    * Consolida métricas de prospecção por fonte a partir das fontes cadastradas e lotes de auditoria
    */
   async obterMetricasConsolidadas(): Promise<MetricPorFonte[]> {

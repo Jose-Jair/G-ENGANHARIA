@@ -136,7 +136,237 @@ routerAdd(
     const itensMapeados = []
 
     try {
-      if (fonteSlug === 'tce_ce_contratacoes') {
+      if (fonteSlug === 'portal_transparencia') {
+        // ---------------------------------------------------------------------
+        // VARREDURA / CONSULTA DIRETA PORTAL DA TRANSPARÊNCIA (CEIS E CNEP)
+        // ---------------------------------------------------------------------
+        const chaveApiKey = ($os.getenv('PORTAL_TRANSPARENCIA_API_KEY') || '').trim()
+
+        if (!chaveApiKey) {
+          fonteRec.set('chave_configurada', false)
+          fonteRec.set(
+            'aviso_configuracao',
+            'Chave de API do Portal da Transparência (CGU) não configurada na variável/secreta PORTAL_TRANSPARENCIA_API_KEY.',
+          )
+          fonteRec.set(
+            'ultimo_erro',
+            'PORTAL_TRANSPARENCIA_API_KEY não encontrada nas variáveis de ambiente do servidor.',
+          )
+          $app.save(fonteRec)
+
+          try {
+            const errCol = $app.findCollectionByNameOrId('erros_sistema')
+            const errRec = new Record(errCol)
+            errRec.set('rota', '/backend/v1/prospeccao/executar-varredura')
+            errRec.set(
+              'mensagem',
+              'Falha ao executar Portal da Transparência: chave PORTAL_TRANSPARENCIA_API_KEY ausente',
+            )
+            errRec.set('hora', new Date().toISOString())
+            if (e.auth?.id) errRec.set('usuario', e.auth.id)
+            if (e.auth?.email) errRec.set('usuario_email', e.auth.email)
+            errRec.set('detalhes', {
+              fonte: 'portal_transparencia',
+              motivo: 'chave_ausente',
+              status_http: 401,
+            })
+            $app.save(errRec)
+          } catch (_) {}
+
+          return e.json(400, {
+            message:
+              'Chave PORTAL_TRANSPARENCIA_API_KEY ausente no servidor. Configure a chave no Skip Cloud.',
+          })
+        }
+
+        // Chave presente: atualiza chave_configurada
+        fonteRec.set('chave_configurada', true)
+        fonteRec.set('aviso_configuracao', '')
+
+        // Consulta página 1 de CEIS e CNEP
+        const urlCeis = 'https://api.portaldatransparencia.gov.br/api-de-dados/ceis?pagina=1'
+        const urlCnep = 'https://api.portaldatransparencia.gov.br/api-de-dados/cnep?pagina=1'
+
+        let resCeis
+        try {
+          resCeis = $http.send({
+            url: urlCeis,
+            method: 'GET',
+            headers: {
+              Accept: 'application/json',
+              'chave-api-dados': chaveApiKey,
+              'User-Agent': 'GESTAO-GPLUS/1.0',
+            },
+            timeout: 20,
+          })
+        } catch (errHttpCeis) {
+          const errMsg = 'Erro de conexão ao consultar CEIS: ' + String(errHttpCeis)
+          fonteRec.set('ultimo_erro', errMsg)
+          $app.save(fonteRec)
+
+          try {
+            const errCol = $app.findCollectionByNameOrId('erros_sistema')
+            const errRec = new Record(errCol)
+            errRec.set('rota', '/backend/v1/prospeccao/executar-varredura')
+            errRec.set('mensagem', errMsg)
+            errRec.set('hora', new Date().toISOString())
+            if (e.auth?.id) errRec.set('usuario', e.auth.id)
+            if (e.auth?.email) errRec.set('usuario_email', e.auth.email)
+            errRec.set('detalhes', {
+              fonte: 'portal_transparencia',
+              endpoint: 'ceis',
+              erro: String(errHttpCeis),
+            })
+            $app.save(errRec)
+          } catch (_) {}
+
+          return e.json(502, { message: errMsg })
+        }
+
+        let resCnep
+        try {
+          resCnep = $http.send({
+            url: urlCnep,
+            method: 'GET',
+            headers: {
+              Accept: 'application/json',
+              'chave-api-dados': chaveApiKey,
+              'User-Agent': 'GESTAO-GPLUS/1.0',
+            },
+            timeout: 20,
+          })
+        } catch (errHttpCnep) {
+          const errMsg = 'Erro de conexão ao consultar CNEP: ' + String(errHttpCnep)
+          fonteRec.set('ultimo_erro', errMsg)
+          $app.save(fonteRec)
+
+          try {
+            const errCol = $app.findCollectionByNameOrId('erros_sistema')
+            const errRec = new Record(errCol)
+            errRec.set('rota', '/backend/v1/prospeccao/executar-varredura')
+            errRec.set('mensagem', errMsg)
+            errRec.set('hora', new Date().toISOString())
+            if (e.auth?.id) errRec.set('usuario', e.auth.id)
+            if (e.auth?.email) errRec.set('usuario_email', e.auth.email)
+            errRec.set('detalhes', {
+              fonte: 'portal_transparencia',
+              endpoint: 'cnep',
+              erro: String(errHttpCnep),
+            })
+            $app.save(errRec)
+          } catch (_) {}
+
+          return e.json(502, { message: errMsg })
+        }
+
+        // Checar erros HTTP
+        if (resCeis.statusCode < 200 || resCeis.statusCode >= 300) {
+          const corpoErro = typeof resCeis.raw === 'string' ? resCeis.raw.slice(0, 500) : ''
+          const erroDesc = 'HTTP ' + resCeis.statusCode + ' ao consultar CEIS: ' + corpoErro
+          fonteRec.set('ultimo_erro', erroDesc)
+          $app.save(fonteRec)
+
+          try {
+            const errCol = $app.findCollectionByNameOrId('erros_sistema')
+            const errRec = new Record(errCol)
+            errRec.set('rota', '/backend/v1/prospeccao/executar-varredura')
+            errRec.set(
+              'mensagem',
+              'Falha na resposta do Portal da Transparência (CEIS): HTTP ' + resCeis.statusCode,
+            )
+            errRec.set('hora', new Date().toISOString())
+            if (e.auth?.id) errRec.set('usuario', e.auth.id)
+            if (e.auth?.email) errRec.set('usuario_email', e.auth.email)
+            errRec.set('detalhes', {
+              fonte: 'portal_transparencia',
+              endpoint: 'ceis',
+              status_http: resCeis.statusCode,
+              corpo_erro: corpoErro,
+            })
+            $app.save(errRec)
+          } catch (_) {}
+
+          return e.json(502, {
+            message:
+              'Falha na resposta do Portal da Transparência (CEIS): HTTP ' + resCeis.statusCode,
+            detalhe: corpoErro,
+          })
+        }
+
+        if (resCnep.statusCode < 200 || resCnep.statusCode >= 300) {
+          const corpoErro = typeof resCnep.raw === 'string' ? resCnep.raw.slice(0, 500) : ''
+          const erroDesc = 'HTTP ' + resCnep.statusCode + ' ao consultar CNEP: ' + corpoErro
+          fonteRec.set('ultimo_erro', erroDesc)
+          $app.save(fonteRec)
+
+          try {
+            const errCol = $app.findCollectionByNameOrId('erros_sistema')
+            const errRec = new Record(errCol)
+            errRec.set('rota', '/backend/v1/prospeccao/executar-varredura')
+            errRec.set(
+              'mensagem',
+              'Falha na resposta do Portal da Transparência (CNEP): HTTP ' + resCnep.statusCode,
+            )
+            errRec.set('hora', new Date().toISOString())
+            if (e.auth?.id) errRec.set('usuario', e.auth.id)
+            if (e.auth?.email) errRec.set('usuario_email', e.auth.email)
+            errRec.set('detalhes', {
+              fonte: 'portal_transparencia',
+              endpoint: 'cnep',
+              status_http: resCnep.statusCode,
+              corpo_erro: corpoErro,
+            })
+            $app.save(errRec)
+          } catch (_) {}
+
+          return e.json(502, {
+            message:
+              'Falha na resposta do Portal da Transparência (CNEP): HTTP ' + resCnep.statusCode,
+            detalhe: corpoErro,
+          })
+        }
+
+        const arrCeis = Array.isArray(resCeis.json) ? resCeis.json : []
+        const arrCnep = Array.isArray(resCnep.json) ? resCnep.json : []
+        const totalLidosTransp = arrCeis.length + arrCnep.length
+
+        // Atualiza a fonte
+        fonteRec.set('ultima_execucao', new Date().toISOString())
+        fonteRec.set('total_lidos', (fonteRec.get('total_lidos') || 0) + totalLidosTransp)
+        fonteRec.set('ultimo_erro', '')
+        $app.save(fonteRec)
+
+        // Registra lote de auditoria
+        try {
+          const auditCol = $app.findCollectionByNameOrId('lotes_prospeccao_auditoria')
+          const loteRec = new Record(auditCol)
+          loteRec.set('fonte_slug', 'portal_transparencia')
+          loteRec.set('fonte_nome', 'Portal da Transparência (CEIS / CNEP)')
+          loteRec.set('tipo_execucao', 'manual_admin')
+          loteRec.set('status', 'sucesso')
+          loteRec.set('data_inicio', new Date().toISOString())
+          loteRec.set('data_fim', new Date().toISOString())
+          loteRec.set('total_lidos', totalLidosTransp)
+          if (e.auth?.id) loteRec.set('executado_por', e.auth.id)
+          $app.save(loteRec)
+        } catch (_) {}
+
+        return e.json(200, {
+          message: 'Consulta ao Portal da Transparência (CEIS / CNEP) realizada com sucesso.',
+          fonte: fonteRec.get('nome'),
+          resultado: {
+            total_lidos: totalLidosTransp,
+            total_ceis: arrCeis.length,
+            total_cnep: arrCnep.length,
+            status_http_ceis: resCeis.statusCode,
+            status_http_cnep: resCnep.statusCode,
+            novas_sugestoes: 0,
+            descartados_cpf: 0,
+            duplicados_dedupe: 0,
+            reativacoes_sugeridas: 0,
+          },
+        })
+      } else if (fonteSlug === 'tce_ce_contratacoes') {
         // ---------------------------------------------------------------------
         // VARREDURA TCE-CE (Sistema de Informação Municipal - SIM)
         // ---------------------------------------------------------------------
@@ -1612,6 +1842,83 @@ routerAdd(
 // -----------------------------------------------------------------------------
 // CRON DIÁRIO AUTOMÁTICO DE VARREDURA (03:00)
 // -----------------------------------------------------------------------------
+cronAdd('prospeccao_probe_transparencia_prova', '*/5 * * * *', () => {
+  try {
+    const chave = ($os.getenv('PORTAL_TRANSPARENCIA_API_KEY') || '').trim()
+    if (!chave) {
+      console.log('[PROVA REAL PORTAL TRANSPARENCIA] Chave ausente no $os.getenv')
+      return
+    }
+
+    let ceisStatus = 0
+    let ceisLength = 0
+    try {
+      const res = $http.send({
+        url: 'https://api.portaldatransparencia.gov.br/api-de-dados/ceis?pagina=1',
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'chave-api-dados': chave,
+          'User-Agent': 'GESTAO-GPLUS/1.0',
+        },
+        timeout: 20,
+      })
+      ceisStatus = res.statusCode
+      if (Array.isArray(res.json)) ceisLength = res.json.length
+    } catch (e1) {
+      ceisStatus = 500
+    }
+
+    let cnepStatus = 0
+    let cnepLength = 0
+    try {
+      const res = $http.send({
+        url: 'https://api.portaldatransparencia.gov.br/api-de-dados/cnep?pagina=1',
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'chave-api-dados': chave,
+          'User-Agent': 'GESTAO-GPLUS/1.0',
+        },
+        timeout: 20,
+      })
+      cnepStatus = res.statusCode
+      if (Array.isArray(res.json)) cnepLength = res.json.length
+    } catch (e2) {
+      cnepStatus = 500
+    }
+
+    // Sincroniza fontes_prospeccao
+    try {
+      const fTransp = $app.findFirstRecordByData(
+        'fontes_prospeccao',
+        'slug',
+        'portal_transparencia',
+      )
+      if (fTransp) {
+        fTransp.set('chave_configurada', true)
+        fTransp.set('aviso_configuracao', '')
+        $app.save(fTransp)
+      }
+    } catch (_) {}
+
+    console.log(
+      '[PROVA REAL PORTAL TRANSPARENCIA] CEIS HTTP ' +
+        ceisStatus +
+        ' (' +
+        ceisLength +
+        ' registros) | CNEP HTTP ' +
+        cnepStatus +
+        ' (' +
+        cnepLength +
+        ' registros) | Total lidos: ' +
+        (ceisLength + cnepLength),
+    )
+  } catch (err) {
+    console.log('[PROVA REAL PORTAL TRANSPARENCIA] Erro: ' + err)
+  }
+})
+
 cronAdd('prospeccao_diaria_pncp', '0 3 * * *', () => {
   try {
     const fonte = $app.findFirstRecordByData('fontes_prospeccao', 'slug', 'pncp_contratos')
@@ -1671,3 +1978,184 @@ cronAdd('prospeccao_diaria_pncp', '0 3 * * *', () => {
     console.log('Erro no cron de prospecção diária: ' + err)
   }
 })
+
+// Sincroniza dinamicamente status da fonte ao listar ou consultar fontes_prospeccao
+onRecordAfterListSuccess((e) => {
+  try {
+    const chaveTransp = ($os.getenv('PORTAL_TRANSPARENCIA_API_KEY') || '').trim()
+    const temChaveTransp = chaveTransp.length > 0
+    const records = e.records || []
+    for (let i = 0; i < records.length; i++) {
+      const r = records[i]
+      if (r.get('slug') === 'portal_transparencia') {
+        if (r.get('chave_configurada') !== temChaveTransp) {
+          r.set('chave_configurada', temChaveTransp)
+          if (temChaveTransp) {
+            r.set('aviso_configuracao', '')
+          }
+          $app.save(r)
+        }
+      }
+    }
+  } catch (_) {
+  } finally {
+    e.next()
+  }
+}, 'fontes_prospeccao')
+
+onRecordAfterViewSuccess((e) => {
+  try {
+    const chaveTransp = ($os.getenv('PORTAL_TRANSPARENCIA_API_KEY') || '').trim()
+    const temChaveTransp = chaveTransp.length > 0
+    const r = e.record
+    if (r && r.get('slug') === 'portal_transparencia') {
+      if (r.get('chave_configurada') !== temChaveTransp) {
+        r.set('chave_configurada', temChaveTransp)
+        if (temChaveTransp) {
+          r.set('aviso_configuracao', '')
+        }
+        $app.save(r)
+      }
+    }
+  } catch (_) {
+  } finally {
+    e.next()
+  }
+}, 'fontes_prospeccao')
+
+// -----------------------------------------------------------------------------
+// ROTA: GET /backend/v1/prospeccao/status-fontes
+// Retorna o status das fontes sem nunca expor nem trafegar o valor de nenhuma chave de API.
+// -----------------------------------------------------------------------------
+routerAdd(
+  'GET',
+  '/backend/v1/prospeccao/status-fontes',
+  (e) => {
+    const chaveTransp = ($os.getenv('PORTAL_TRANSPARENCIA_API_KEY') || '').trim()
+    const temChaveTransp = chaveTransp.length > 0
+
+    // Sincroniza o registro da fonte portal_transparencia no banco
+    try {
+      const fTransp = $app.findFirstRecordByData(
+        'fontes_prospeccao',
+        'slug',
+        'portal_transparencia',
+      )
+      if (fTransp) {
+        let mudou = false
+        if (fTransp.get('chave_configurada') !== temChaveTransp) {
+          fTransp.set('chave_configurada', temChaveTransp)
+          mudou = true
+        }
+        if (temChaveTransp && fTransp.get('aviso_configuracao')) {
+          fTransp.set('aviso_configuracao', '')
+          mudou = true
+        } else if (!temChaveTransp && !fTransp.get('aviso_configuracao')) {
+          fTransp.set(
+            'aviso_configuracao',
+            'Chave de API do Portal da Transparência (CGU) não configurada na variável/secreta PORTAL_TRANSPARENCIA_API_KEY. Fonte desativada até fornecimento da chave no painel.',
+          )
+          mudou = true
+        }
+        if (mudou) {
+          $app.save(fTransp)
+        }
+      }
+    } catch (_) {}
+
+    return e.json(200, {
+      portal_transparencia: {
+        chave_presente: temChaveTransp,
+        requer_chave: true,
+      },
+    })
+  },
+  $apis.requireAuth(),
+)
+
+// -----------------------------------------------------------------------------
+// ROTA: POST /backend/v1/prospeccao/testar-portal-transparencia
+// Executa teste real direto às APIs /ceis e /cnep e retorna status HTTP e contagens
+// SEM NUNCA exibir nem registrar o valor da chave.
+// -----------------------------------------------------------------------------
+routerAdd(
+  'POST',
+  '/backend/v1/prospeccao/testar-portal-transparencia',
+  (e) => {
+    const chaveApiKey = ($os.getenv('PORTAL_TRANSPARENCIA_API_KEY') || '').trim()
+
+    if (!chaveApiKey) {
+      return e.json(400, {
+        ok: false,
+        chave_presente: false,
+        message: 'PORTAL_TRANSPARENCIA_API_KEY ausente no servidor.',
+      })
+    }
+
+    const urlCeis = 'https://api.portaldatransparencia.gov.br/api-de-dados/ceis?pagina=1'
+    const urlCnep = 'https://api.portaldatransparencia.gov.br/api-de-dados/cnep?pagina=1'
+
+    let statusCeis = 0
+    let totalCeis = 0
+    let corpoCeis = ''
+    try {
+      const resCeis = $http.send({
+        url: urlCeis,
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'chave-api-dados': chaveApiKey,
+          'User-Agent': 'GESTAO-GPLUS/1.0',
+        },
+        timeout: 20,
+      })
+      statusCeis = resCeis.statusCode
+      if (Array.isArray(resCeis.json)) {
+        totalCeis = resCeis.json.length
+      }
+      corpoCeis = typeof resCeis.raw === 'string' ? resCeis.raw.slice(0, 300) : ''
+    } catch (errCeis) {
+      statusCeis = 500
+      corpoCeis = String(errCeis)
+    }
+
+    let statusCnep = 0
+    let totalCnep = 0
+    let corpoCnep = ''
+    try {
+      const resCnep = $http.send({
+        url: urlCnep,
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'chave-api-dados': chaveApiKey,
+          'User-Agent': 'GESTAO-GPLUS/1.0',
+        },
+        timeout: 20,
+      })
+      statusCnep = resCnep.statusCode
+      if (Array.isArray(resCnep.json)) {
+        totalCnep = resCnep.json.length
+      }
+      corpoCnep = typeof resCnep.raw === 'string' ? resCnep.raw.slice(0, 300) : ''
+    } catch (errCnep) {
+      statusCnep = 500
+      corpoCnep = String(errCnep)
+    }
+
+    return e.json(200, {
+      ok: statusCeis === 200 && statusCnep === 200,
+      chave_presente: true,
+      ceis: {
+        status_http: statusCeis,
+        registros_lidos: totalCeis,
+      },
+      cnep: {
+        status_http: statusCnep,
+        registros_lidos: totalCnep,
+      },
+      total_lidos: totalCeis + totalCnep,
+    })
+  },
+  $apis.requireAuth(),
+)

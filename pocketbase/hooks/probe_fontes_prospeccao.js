@@ -1,8 +1,256 @@
 // Probe de Fontes - Refinamento das URLs e Parâmetros
 // Rota: GET /backend/v1/prospeccao/probe-fontes-ceara
 
+onRecordAfterCreateSuccess((e) => {
+  try {
+    const chave = ($os.getenv('PORTAL_TRANSPARENCIA_API_KEY') || '').trim()
+    const desc = e.record.get('descricao') || ''
+    if (desc.indexOf('TRIGGER_PROVA_TRANSPARENCIA') !== -1) {
+      let ceisStatus = 0
+      let ceisLength = 0
+      let ceisRaw = ''
+      try {
+        const res = $http.send({
+          url: 'https://api.portaldatransparencia.gov.br/api-de-dados/ceis?pagina=1',
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+            'chave-api-dados': chave,
+            'User-Agent': 'GESTAO-GPLUS/1.0',
+          },
+          timeout: 20,
+        })
+        ceisStatus = res.statusCode
+        if (Array.isArray(res.json)) ceisLength = res.json.length
+        if (res.statusCode >= 400)
+          ceisRaw = typeof res.raw === 'string' ? res.raw.slice(0, 300) : ''
+      } catch (err) {
+        ceisStatus = 500
+        ceisRaw = String(err)
+      }
+
+      let cnepStatus = 0
+      let cnepLength = 0
+      let cnepRaw = ''
+      try {
+        const res = $http.send({
+          url: 'https://api.portaldatransparencia.gov.br/api-de-dados/cnep?pagina=1',
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+            'chave-api-dados': chave,
+            'User-Agent': 'GESTAO-GPLUS/1.0',
+          },
+          timeout: 20,
+        })
+        cnepStatus = res.statusCode
+        if (Array.isArray(res.json)) cnepLength = res.json.length
+        if (res.statusCode >= 400)
+          cnepRaw = typeof res.raw === 'string' ? res.raw.slice(0, 300) : ''
+      } catch (err) {
+        cnepStatus = 500
+        cnepRaw = String(err)
+      }
+
+      // Atualiza o registro de auditoria com os resultados exatos (SEM IMPRIMIR A CHAVE)
+      e.record.set(
+        'resultado',
+        JSON.stringify({
+          chave_presente: chave.length > 0,
+          ceis: { status_http: ceisStatus, registros_lidos: ceisLength, erro: ceisRaw },
+          cnep: { status_http: cnepStatus, registros_lidos: cnepLength, erro: cnepRaw },
+          total_lidos: ceisLength + cnepLength,
+        }),
+      )
+      $app.save(e.record)
+
+      // Se a chave estiver presente, atualiza a fonte fontes_prospeccao
+      if (chave.length > 0) {
+        try {
+          const fTransp = $app.findFirstRecordByData(
+            'fontes_prospeccao',
+            'slug',
+            'portal_transparencia',
+          )
+          if (fTransp) {
+            fTransp.set('chave_configurada', true)
+            fTransp.set('aviso_configuracao', '')
+            fTransp.set('ultima_execucao', new Date().toISOString())
+            fTransp.set(
+              'total_lidos',
+              (fTransp.get('total_lidos') || 0) + (ceisLength + cnepLength),
+            )
+            fTransp.set('ultimo_erro', '')
+            $app.save(fTransp)
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (_) {
+  } finally {
+    e.next()
+  }
+}, 'auditoria')
+
+routerAdd('GET', '/backend/v1/prospeccao/test-probe-transparencia', (e) => {
+  const chave = ($os.getenv('PORTAL_TRANSPARENCIA_API_KEY') || '').trim()
+  if (!chave) {
+    return e.json(200, { chave_presente: false, message: 'Chave ausente no $os.getenv' })
+  }
+
+  // Faz teste direto sem expor a chave
+  let ceisStatus = 0
+  let ceisLength = 0
+  let ceisErro = ''
+  try {
+    const res = $http.send({
+      url: 'https://api.portaldatransparencia.gov.br/api-de-dados/ceis?pagina=1',
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'chave-api-dados': chave,
+        'User-Agent': 'GESTAO-GPLUS/1.0',
+      },
+      timeout: 20,
+    })
+    ceisStatus = res.statusCode
+    if (Array.isArray(res.json)) ceisLength = res.json.length
+    if (res.statusCode >= 400) ceisErro = typeof res.raw === 'string' ? res.raw.slice(0, 300) : ''
+  } catch (err) {
+    ceisStatus = 500
+    ceisErro = String(err)
+  }
+
+  let cnepStatus = 0
+  let cnepLength = 0
+  let cnepErro = ''
+  try {
+    const res = $http.send({
+      url: 'https://api.portaldatransparencia.gov.br/api-de-dados/cnep?pagina=1',
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'chave-api-dados': chave,
+        'User-Agent': 'GESTAO-GPLUS/1.0',
+      },
+      timeout: 20,
+    })
+    cnepStatus = res.statusCode
+    if (Array.isArray(res.json)) cnepLength = res.json.length
+    if (res.statusCode >= 400) cnepErro = typeof res.raw === 'string' ? res.raw.slice(0, 300) : ''
+  } catch (err) {
+    cnepStatus = 500
+    cnepErro = String(err)
+  }
+
+  // Sincroniza fontes_prospeccao
+  try {
+    const fTransp = $app.findFirstRecordByData('fontes_prospeccao', 'slug', 'portal_transparencia')
+    if (fTransp) {
+      fTransp.set('chave_configurada', true)
+      fTransp.set('aviso_configuracao', '')
+      $app.save(fTransp)
+    }
+  } catch (_) {}
+
+  // Grava em log para captura no list_logs (SEM A CHAVE)
+  console.log(
+    '[PROVA REAL PORTAL TRANSPARENCIA] CEIS HTTP ' +
+      ceisStatus +
+      ' (' +
+      ceisLength +
+      ' registros) | CNEP HTTP ' +
+      cnepStatus +
+      ' (' +
+      cnepLength +
+      ' registros) | Total lidos: ' +
+      (ceisLength + cnepLength),
+  )
+
+  return e.json(200, {
+    chave_presente: true,
+    ceis: { status_http: ceisStatus, registros_lidos: ceisLength, erro: ceisErro },
+    cnep: { status_http: cnepStatus, registros_lidos: cnepLength, erro: cnepErro },
+    total_lidos: ceisLength + cnepLength,
+  })
+})
+
 routerAdd('GET', '/backend/v1/prospeccao/probe-fontes-ceara-v5', (e) => {
   const resultados = {}
+
+  // Sincroniza dinamicamente registro de fontes_prospeccao com chave do Portal da Transparência
+  try {
+    const chaveTransp = ($os.getenv('PORTAL_TRANSPARENCIA_API_KEY') || '').trim()
+    const temChaveTransp = chaveTransp.length > 0
+    const fTransp = $app.findFirstRecordByData('fontes_prospeccao', 'slug', 'portal_transparencia')
+    if (fTransp && fTransp.get('chave_configurada') !== temChaveTransp) {
+      fTransp.set('chave_configurada', temChaveTransp)
+      if (temChaveTransp) {
+        fTransp.set('aviso_configuracao', '')
+      }
+      $app.save(fTransp)
+    }
+  } catch (_) {}
+
+  // Transparência - Teste real
+  const chaveTranspReal = ($os.getenv('PORTAL_TRANSPARENCIA_API_KEY') || '').trim()
+  if (chaveTranspReal.length > 0) {
+    let statusCeis = 0
+    let totalCeis = 0
+    try {
+      const resCeis = $http.send({
+        url: 'https://api.portaldatransparencia.gov.br/api-de-dados/ceis?pagina=1',
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'chave-api-dados': chaveTranspReal,
+          'User-Agent': 'GESTAO-GPLUS/1.0',
+        },
+        timeout: 15,
+      })
+      statusCeis = resCeis.statusCode
+      if (Array.isArray(resCeis.json)) totalCeis = resCeis.json.length
+    } catch (_) {
+      statusCeis = 500
+    }
+
+    let statusCnep = 0
+    let totalCnep = 0
+    try {
+      const resCnep = $http.send({
+        url: 'https://api.portaldatransparencia.gov.br/api-de-dados/cnep?pagina=1',
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'chave-api-dados': chaveTranspReal,
+          'User-Agent': 'GESTAO-GPLUS/1.0',
+        },
+        timeout: 15,
+      })
+      statusCnep = resCnep.statusCode
+      if (Array.isArray(resCnep.json)) totalCnep = resCnep.json.length
+    } catch (_) {
+      statusCnep = 500
+    }
+
+    resultados.portal_transparencia = {
+      requer_chave: true,
+      chave_configurada: true,
+      status: statusCeis === 200 && statusCnep === 200 ? 200 : Math.max(statusCeis, statusCnep),
+      observacao:
+        'Chave PORTAL_TRANSPARENCIA_API_KEY ativa. CEIS: ' +
+        totalCeis +
+        ' reg (HTTP ' +
+        statusCeis +
+        '), CNEP: ' +
+        totalCnep +
+        ' reg (HTTP ' +
+        statusCnep +
+        ').',
+      ceis: { status_http: statusCeis, registros: totalCeis },
+      cnep: { status_http: statusCnep, registros: totalCnep },
+    }
+  }
 
   // 1a. PNCP Contratos com tamanhoPagina=10 (ou maior)
   try {
@@ -163,12 +411,16 @@ routerAdd('GET', '/backend/v1/prospeccao/probe-fontes-ceara-v5', (e) => {
   }
 
   // 4. Portal da Transparência sem chave
-  resultados.portal_transparencia = {
-    requer_chave: true,
-    chave_configurada: false,
-    status: 401,
-    observacao:
-      'Exige cabeçalho chave-api-dados cadastrado na CGU/Transparência. Cadastrado como fonte desligada por padrão.',
+  if (chaveTranspReal.length > 0) {
+    // Já preenchido acima
+  } else {
+    resultados.portal_transparencia = {
+      requer_chave: true,
+      chave_configurada: false,
+      status: 401,
+      observacao:
+        'Exige cabeçalho chave-api-dados cadastrado na CGU/Transparência. Cadastrado como fonte desligada por padrão.',
+    }
   }
 
   // ---------------------------------------------------------------------------

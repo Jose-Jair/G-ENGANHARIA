@@ -330,8 +330,6 @@ routerAdd('POST', '/backend/v1/publico/contrato-servico/validar-e-obter', (e) =>
     if (tentativas >= tentativasMax) {
       return e.json(429, { erro: 'Limite de tentativas excedido para este token.' })
     }
-    ctr.set('tentativas_token', tentativas + 1)
-    $app.save(ctr)
 
     if (ctr.getBool('token_usado')) {
       return e.json(410, { erro: 'Link já utilizado (uso único).' })

@@ -148,15 +148,62 @@ export function ContratoServicoPublicoPage() {
     )
 
     try {
-      await Promise.race([
-        contratosServicoService.assinarComoCliente({
-          token_assinatura_cliente: token,
-          declaracao: true,
-          nome_assinante: nomeSignatario.trim(),
-          documento_assinante: cpfSignatario.trim(),
-        }),
-        timeoutPromise,
-      ])
+      let res: any = null
+      try {
+        res = await Promise.race([
+          contratosServicoService.assinarComoCliente({
+            token_assinatura_cliente: token,
+            declaracao: true,
+            nome_assinante: nomeSignatario.trim(),
+            documento_assinante: cpfSignatario.trim(),
+          }),
+          timeoutPromise,
+        ])
+      } catch (postErr: any) {
+        const errMsg = String(postErr?.message || postErr?.data?.message || '')
+        // Tratar "já assinado" como sucesso imediato
+        if (
+          postErr?.status === 409 ||
+          errMsg.toLowerCase().includes('já foi assinado') ||
+          errMsg.toLowerCase().includes('já assinado')
+        ) {
+          res = {
+            success: true,
+            status: 'assinado',
+            numero: contrato.numero,
+            valor_total: contrato.valor_total,
+            data_assinatura_cliente: contrato.data_assinatura_cliente || new Date().toISOString(),
+            cliente_hash: contrato.cliente_hash || 'hash_registrado',
+          }
+        } else {
+          // Se demorar ou der timeout/erro de rede, fazer polling do status por até 20s
+          let pollingSucesso = false
+          const startTime = Date.now()
+          while (Date.now() - startTime < 20000) {
+            await new Promise((resolve) => setTimeout(resolve, 2000))
+            try {
+              const checagem = await contratosServicoService.getByToken(token)
+              if (checagem && checagem.data_assinatura_cliente) {
+                res = {
+                  success: true,
+                  status: checagem.status,
+                  numero: checagem.numero,
+                  valor_total: checagem.valor_total,
+                  data_assinatura_cliente: checagem.data_assinatura_cliente,
+                  cliente_hash: checagem.cliente_hash,
+                }
+                pollingSucesso = true
+                break
+              }
+            } catch {
+              /* intentionally ignored */
+            }
+          }
+          if (!pollingSucesso) {
+            throw postErr
+          }
+        }
+      }
 
       setShowConfirmacaoModal(false)
       toast({
@@ -165,9 +212,24 @@ export function ContratoServicoPublicoPage() {
           'Assinatura digital e hash criptográfico registrados com sucesso! O projeto técnico de engenharia foi formalizado.',
       })
 
-      // Recarregar dados
-      const atualizado = await contratosServicoService.getByToken(token)
-      setContrato(atualizado)
+      // IMEDIATAMENTE mostrar a tela 'Contrato assinado' com os dados retornados na resposta
+      // SEM reconsultar por token (getByToken) para nunca mostrar 'contrato não assinado ou link inválido'
+      setContrato((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          status: res?.status || 'assinado',
+          numero: res?.numero || prev.numero,
+          valor_total: res?.valor_total !== undefined ? res.valor_total : prev.valor_total,
+          data_assinatura_cliente:
+            res?.data_assinatura_cliente ||
+            prev.data_assinatura_cliente ||
+            new Date().toISOString(),
+          cliente_hash: res?.cliente_hash || res?.hash || prev.cliente_hash,
+          cliente_nome_assinante: nomeSignatario.trim(),
+          cliente_documento_assinante: cpfSignatario.trim(),
+        }
+      })
     } catch (err: any) {
       console.error('Erro na assinatura do contrato:', err)
       toast({

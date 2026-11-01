@@ -839,402 +839,137 @@ try {
   cronRemove('backfill-propostas-aceitas-sem-contrato-v191')
 } catch (_) {}
 
-cronAdd('backfill-propostas-aceitas-sem-contrato-v191', '* * * * *', function () {
+// (3) FIX CTR-2026-0003: Backfill oneshot de deploy com cronRemove na 1ª linha
+// que roda a ativação idempotente do CTR-2026-0003 (id REAL no banco: ksorfla6p6kvgr1)
+try {
+  cronRemove('backfill-ctr-2026-0003-deploy')
+} catch (_) {}
+
+cronAdd('backfill-ctr-2026-0003-deploy', '* * * * *', function () {
   try {
-    cronRemove('backfill-propostas-aceitas-sem-contrato-v191')
+    cronRemove('backfill-ctr-2026-0003-deploy')
   } catch (_) {}
 
-  function gravarErroBackfillInline(msgErro, detalhesObj) {
+  try {
+    const targetCtrId = 'ksorfla6p6kvgr1'
+    let ctrRec = null
+    try {
+      ctrRec = $app.findRecordById('contratos_servico', targetCtrId)
+    } catch (_) {
+      return
+    }
+    if (!ctrRec) return
+
+    // Trava de idempotência: se já existe projeto com contrato_servico = ksorfla6p6kvgr1, vincular e sair
+    const prjsExistentes = $app.findRecordsByFilter(
+      'projetos',
+      "contrato_servico = '" + targetCtrId + "'",
+      'codigo',
+      10,
+      0,
+    )
+    if (prjsExistentes.length > 0) {
+      if (!ctrRec.getString('projeto')) {
+        ctrRec.set('projeto', prjsExistentes[0].id)
+        $app.save(ctrRec)
+      }
+      return
+    }
+
+    ativarContratoServicoBilateral(ctrRec)
+  } catch (errBackfill) {
     try {
       const errCol = $app.findCollectionByNameOrId('erros_sistema')
       if (errCol) {
         const errRec = new Record(errCol)
-        errRec.set('rota', 'BACKFILL_ACEITE_PROPOSTA_V191')
-        errRec.set('mensagem', String(msgErro).slice(0, 1000))
+        errRec.set('rota', 'BACKFILL_CTR_2026_0003')
+        errRec.set('mensagem', String(errBackfill).slice(0, 1000))
         errRec.set('hora', new Date().toISOString())
         errRec.set('usuario_email', 'sistema')
-        errRec.set('detalhes', detalhesObj || {})
+        errRec.set('detalhes', {
+          erro: String(errBackfill),
+          stack: errBackfill && errBackfill.stack ? String(errBackfill.stack) : '',
+        })
         $app.save(errRec)
       }
     } catch (_) {}
   }
+})
 
-  function processarPropostaBackfillInline(prop) {
-    const propId = prop.id
-    const propNum = prop.getString('numero')
+// Sweep leve '* * * * *' que procura contratos com status 'assinado' sem projeto vinculado
+// (consulta barata, ZERO escrita quando não há pendente, falhas em erros_sistema)
+try {
+  cronRemove('sweep-contratos-assinados-sem-projeto')
+} catch (_) {}
 
-    // Trava de idempotência atômica: se já tem contrato_servico, nada a fazer
-    const ctrExistenteNaProp = prop.getString('contrato_servico')
-    if (ctrExistenteNaProp && ctrExistenteNaProp.trim().length > 0) {
-      return null
-    }
-
-    // 1. Verificar se já existe contrato gerado no banco apontando para esta proposta
-    const contratosExistentes = $app.findRecordsByFilter(
-      'contratos_servico',
-      "proposta = '" + propId + "'",
-      '-created',
-      1,
-      0,
-    )
-
-    if (contratosExistentes.length > 0) {
-      const cExistente = contratosExistentes[0]
-      prop.set('contrato_servico', cExistente.id)
-      $app.save(prop)
-
-      try {
-        const auditCol = $app.findCollectionByNameOrId('audit_logs')
-        const aRec = new Record(auditCol)
-        aRec.set('acao', 'VINCULO_CONTRATO_BACKFILL')
-        aRec.set('entidade', 'propostas')
-        aRec.set('registro_id', propId)
-        aRec.set('detalhes', {
-          origem: 'SISTEMA / BACKFILL IDEMPOTENTE V0.0.191',
-          mensagem:
-            'Vínculo de contrato_servico persistido com sucesso na proposta ' +
-            propNum +
-            ' apontando para contrato ' +
-            cExistente.getString('numero'),
-          proposta_id: propId,
-          proposta_numero: propNum,
-          contrato_id: cExistente.id,
-          contrato_numero: cExistente.getString('numero'),
-        })
-        $app.save(aRec)
-      } catch (_) {}
-
-      return cExistente
-    }
-
-    // 2. Se não existir nenhum contrato gerado, cria novo contrato CTR
-    const empId = prop.getString('empresa')
-    const cliPfId = prop.getString('cliente_pf')
-    const preco = prop.getFloat('preco') || 0
-    const prazoDias = prop.getInt('prazo_dias') || 30
-    const notaPrazo =
-      prop.getString('nota_prazo') ||
-      'Os prazos serão contados em dias corridos, a partir da data de assinatura deste contrato e do fornecimento de todos os elementos e subsídios necessários ao desenvolvimento dos serviços.'
-    const objeto =
-      prop.getString('objeto') ||
-      prop.getString('escopo') ||
-      'Prestação de serviços técnicos especializados de engenharia'
-
-    const cleanDigits = (v) => (v || '').toString().replace(/\D/g, '')
-
-    const isValidCpf = (cStr) => {
-      const clean = cleanDigits(cStr)
-      if (!clean || clean.length !== 11) return false
-      if (/^(\d)\1{10}$/.test(clean)) return false
-      let soma = 0
-      for (let i = 0; i < 9; i++) soma += parseInt(clean.charAt(i), 10) * (10 - i)
-      let resto = (soma * 10) % 11
-      if (resto === 10 || resto === 11) resto = 0
-      if (resto !== parseInt(clean.charAt(9), 10)) return false
-      soma = 0
-      for (let i = 0; i < 10; i++) soma += parseInt(clean.charAt(i), 10) * (11 - i)
-      resto = (soma * 10) % 11
-      if (resto === 10 || resto === 11) resto = 0
-      return resto === parseInt(clean.charAt(10), 10)
-    }
-
-    const isValidCnpj = (cStr) => {
-      const clean = cleanDigits(cStr)
-      if (!clean || clean.length !== 14) return false
-      if (/^(\d)\1{13}$/.test(clean)) return false
-      let soma = 0
-      let peso = 5
-      for (let i = 0; i < 12; i++) {
-        soma += parseInt(clean.charAt(i), 10) * peso
-        peso = peso === 2 ? 9 : peso - 1
-      }
-      let resto = soma % 11
-      const dv1 = resto < 2 ? 0 : 11 - resto
-      if (parseInt(clean.charAt(12), 10) !== dv1) return false
-      soma = 0
-      peso = 6
-      for (let i = 0; i < 13; i++) {
-        soma += parseInt(clean.charAt(i), 10) * peso
-        peso = peso === 2 ? 9 : peso - 1
-      }
-      resto = soma % 11
-      const dv2 = resto < 2 ? 0 : 11 - resto
-      return parseInt(clean.charAt(13), 10) === dv2
-    }
-
-    const camposFaltantes = []
-    let cliRec = null
-
-    if (empId) {
-      try {
-        cliRec = $app.findRecordById('empresas', empId)
-      } catch (_) {}
-      if (!cliRec) {
-        camposFaltantes.push('empresa_nao_encontrada')
-      } else {
-        const razao = (cliRec.getString('razao_social') || '').trim()
-        const cnpj = cleanDigits(cliRec.getString('cnpj'))
-        const cep = cleanDigits(cliRec.getString('cep'))
-        const logradouro = (cliRec.getString('logradouro') || '').trim()
-        const numero = (cliRec.getString('numero') || '').trim()
-        const bairro = (cliRec.getString('bairro') || '').trim()
-        const municipio = (cliRec.getString('municipio') || '').trim()
-        const uf = (cliRec.getString('uf') || '').trim()
-        const email = (cliRec.getString('email') || '').trim()
-        const telefone = (cliRec.getString('telefone') || '').trim()
-
-        let temTelefone = Boolean(telefone)
-        try {
-          const tels = cliRec.get('telefones')
-          if (Array.isArray(tels) && tels.length > 0 && tels[0].numero) temTelefone = true
-        } catch (_) {}
-
-        if (!razao) camposFaltantes.push('razao_social')
-        if (!cnpj || !isValidCnpj(cnpj)) camposFaltantes.push('cnpj')
-        if (!email || email.indexOf('@') === -1) camposFaltantes.push('email')
-        if (!temTelefone) camposFaltantes.push('telefone')
-        if (!cep || cep.length < 8) camposFaltantes.push('cep')
-        if (!logradouro) camposFaltantes.push('logradouro')
-        if (!numero) camposFaltantes.push('numero')
-        if (!bairro) camposFaltantes.push('bairro')
-        if (!municipio) camposFaltantes.push('municipio')
-        if (!uf) camposFaltantes.push('uf')
-
-        let repNome = ''
-        let repCpf = ''
-        try {
-          const contatos = $app.findRecordsByFilter(
-            'contatos',
-            "empresa = '" + empId + "'",
-            '-decisor,-created',
-            5,
-            0,
-          )
-          for (let ci = 0; ci < contatos.length; ci++) {
-            const cRec = contatos[ci]
-            const cNome = (cRec.getString('nome') || '').trim()
-            const cCpf = cleanDigits(
-              cRec.getString('cpf') ||
-                cRec.getString('documento') ||
-                cRec.getString('observacao') ||
-                '',
-            )
-            if (cNome && !repNome) repNome = cNome
-            if (cCpf && isValidCpf(cCpf) && !repCpf) repCpf = cCpf
-            if (repNome && repCpf) break
-          }
-        } catch (_) {}
-
-        if (!repNome) camposFaltantes.push('representante_nome')
-        if (!repCpf || !isValidCpf(repCpf)) camposFaltantes.push('representante_documento')
-      }
-    } else if (cliPfId) {
-      try {
-        cliRec = $app.findRecordById('clientes_pf', cliPfId)
-      } catch (_) {}
-      if (!cliRec) {
-        camposFaltantes.push('cliente_pf_nao_encontrado')
-      } else {
-        const nome = (cliRec.getString('nome') || '').trim()
-        const cpf = cleanDigits(cliRec.getString('cpf'))
-        const email = (cliRec.getString('email') || '').trim()
-        const telefone = (cliRec.getString('telefone') || '').trim()
-        const cep = cleanDigits(cliRec.getString('cep'))
-        const logradouro = (cliRec.getString('logradouro') || '').trim()
-        const numero = (cliRec.getString('numero') || '').trim()
-        const bairro = (cliRec.getString('bairro') || '').trim()
-        const municipio = (cliRec.getString('municipio') || '').trim()
-        const uf = (cliRec.getString('uf') || '').trim()
-
-        let temTelefone = Boolean(telefone)
-        try {
-          const tels = cliRec.get('telefones')
-          if (Array.isArray(tels) && tels.length > 0 && tels[0].numero) temTelefone = true
-        } catch (_) {}
-
-        if (!nome) camposFaltantes.push('nome')
-        if (!cpf || !isValidCpf(cpf)) camposFaltantes.push('cpf')
-        if (!email || email.indexOf('@') === -1) camposFaltantes.push('email')
-        if (!temTelefone) camposFaltantes.push('telefone')
-        if (!cep || cep.length < 8) camposFaltantes.push('cep')
-        if (!logradouro) camposFaltantes.push('logradouro')
-        if (!numero) camposFaltantes.push('numero')
-        if (!bairro) camposFaltantes.push('bairro')
-        if (!municipio) camposFaltantes.push('municipio')
-        if (!uf) camposFaltantes.push('uf')
-      }
-    } else {
-      camposFaltantes.push('cliente_indefinido')
-    }
-
-    const cadastroCompleto = camposFaltantes.length === 0
-    const statusInicial = cadastroCompleto
-      ? 'aguardando_assinatura_admin'
-      : 'aguardando_dados_cliente'
-
-    const anoAtual = new Date().getFullYear()
-    const prefixoCTR = 'CTR-' + anoAtual + '-'
-    const contratosDoAno = $app.findRecordsByFilter(
-      'contratos_servico',
-      "numero ~ '" + prefixoCTR + "'",
-      '-numero',
-      1,
-      0,
-    )
-
-    let proximoSeqCtr = 1
-    if (contratosDoAno.length > 0) {
-      const ultimoNumero = contratosDoAno[0].getString('numero')
-      const partes = ultimoNumero.split('-')
-      const ultimoSeq = parseInt(partes[2], 10)
-      if (!isNaN(ultimoSeq)) proximoSeqCtr = ultimoSeq + 1
-    }
-    const numeroCTR = prefixoCTR + ('0000' + proximoSeqCtr).slice(-4)
-
-    let clausulasTexto = ''
-    try {
-      const paramClausulas = $app.findFirstRecordByData(
-        'parametros',
-        'chave',
-        'contrato_servico_clausulas_padrao',
-      )
-      if (paramClausulas) clausulasTexto = paramClausulas.getString('valor')
-    } catch (_) {}
-
-    let parcelas = []
-    try {
-      const parcs = $app.findRecordsByFilter(
-        'proposta_parcelas',
-        "proposta = '" + propId + "'",
-        'ordem',
-        50,
-        0,
-      )
-      parcelas = parcs.map((p) => ({
-        ordem: p.getInt('ordem'),
-        percentual: p.getFloat('percentual'),
-        valor: p.getFloat('valor'),
-        gatilho: p.getString('gatilho'),
-        descricao: p.getString('descricao'),
-      }))
-    } catch (_) {}
-
-    const tokenAssinaturaCliente = $security.randomString(32)
-    const tokenComplementoDados = cadastroCompleto ? '' : $security.randomString(32)
-
-    const contratosCol = $app.findCollectionByNameOrId('contratos_servico')
-    const novoContrato = new Record(contratosCol)
-    novoContrato.set('numero', numeroCTR)
-    novoContrato.set('proposta', propId)
-    if (empId) novoContrato.set('empresa', empId)
-    if (cliPfId) novoContrato.set('cliente_pf', cliPfId)
-    novoContrato.set('objeto', objeto)
-    novoContrato.set('valor_total', preco)
-    novoContrato.set('prazo_dias', prazoDias)
-    novoContrato.set('nota_prazo', notaPrazo)
-    novoContrato.set('clausulas_texto', clausulasTexto)
-    novoContrato.set('parcelas_json', parcelas)
-    novoContrato.set('status', statusInicial)
-    novoContrato.set('token_assinatura_cliente', tokenAssinaturaCliente)
-    novoContrato.set('token_complemento_dados', tokenComplementoDados)
-    novoContrato.set('campos_faltantes_json', camposFaltantes)
-
-    $app.save(novoContrato)
-
-    prop.set('contrato_servico', novoContrato.id)
-    if (cadastroCompleto) {
-      prop.set('dados_complementares_preenchidos', true)
-    } else if (tokenComplementoDados) {
-      prop.set('dados_complementares_preenchidos', false)
-    }
-    $app.save(prop)
-
-    try {
-      const auditCol = $app.findCollectionByNameOrId('audit_logs')
-      const aRec = new Record(auditCol)
-      aRec.set('acao', 'GERACAO_CONTRATO_SERVICO')
-      aRec.set('entidade', 'contratos_servico')
-      aRec.set('registro_id', novoContrato.id)
-      aRec.set('detalhes', {
-        origem: 'SISTEMA / BACKFILL ONESHOT V0.0.191',
-        mensagem:
-          'Contrato de serviços gerado pelo backfill pós-aceite da proposta ' +
-          propNum +
-          (cadastroCompleto
-            ? ' (Cadastro completo -> Aguardando assinatura Admin)'
-            : ' (Cadastro incompleto -> Aguardando dados do cliente)'),
-        contrato_numero: numeroCTR,
-        proposta_id: propId,
-        proposta_numero: propNum,
-        status: statusInicial,
-        campos_faltantes: camposFaltantes,
-        valor: preco,
-      })
-      $app.save(aRec)
-    } catch (_) {}
-
-    return novoContrato
-  }
-
+cronAdd('sweep-contratos-assinados-sem-projeto', '* * * * *', function () {
   try {
-    const propostasPendentes = $app.findRecordsByFilter(
-      'propostas',
-      "status = 'aceita' && contrato_servico = ''",
-      'created',
-      50,
+    const contratosSemProjeto = $app.findRecordsByFilter(
+      'contratos_servico',
+      "status = 'assinado' && projeto = ''",
+      '-created',
+      10,
       0,
     )
-
-    if (propostasPendentes.length === 0) {
+    if (!contratosSemProjeto || contratosSemProjeto.length === 0) {
       return
     }
 
-    let totalVinculados = 0
-    let totalFalhas = 0
-
-    for (let i = 0; i < propostasPendentes.length; i++) {
-      const p = propostasPendentes[i]
+    for (let cIdx = 0; cIdx < contratosSemProjeto.length; cIdx++) {
+      const cRec = contratosSemProjeto[cIdx]
       try {
-        const resultado = processarPropostaBackfillInline(p)
-        if (resultado) {
-          totalVinculados++
-        }
-      } catch (errP) {
-        totalFalhas++
-        gravarErroBackfillInline(
-          'Falha ao processar proposta ' + p.getString('numero') + ': ' + errP,
-          {
-            proposta_id: p.id,
-            erro: String(errP),
-          },
+        const prjs = $app.findRecordsByFilter(
+          'projetos',
+          "contrato_servico = '" + cRec.id + "'",
+          'codigo',
+          1,
+          0,
         )
+        if (prjs.length > 0) {
+          cRec.set('projeto', prjs[0].id)
+          $app.save(cRec)
+          continue
+        }
+
+        ativarContratoServicoBilateral(cRec)
+      } catch (errAtiv) {
+        try {
+          const errCol = $app.findCollectionByNameOrId('erros_sistema')
+          if (errCol) {
+            const errRec = new Record(errCol)
+            errRec.set('rota', 'SWEEP_ATIVACAO_CONTRATO_SERVICO')
+            errRec.set(
+              'mensagem',
+              ('Erro ao ativar contrato ' + cRec.id + ': ' + String(errAtiv)).slice(0, 1000),
+            )
+            errRec.set('hora', new Date().toISOString())
+            errRec.set('usuario_email', 'sistema')
+            errRec.set('detalhes', {
+              contrato_id: cRec.id,
+              erro: String(errAtiv),
+              stack: errAtiv && errAtiv.stack ? String(errAtiv.stack) : '',
+            })
+            $app.save(errRec)
+          }
+        } catch (_) {}
       }
     }
-
+  } catch (errSweep) {
     try {
-      const auditCol = $app.findCollectionByNameOrId('audit_logs')
-      const aRec = new Record(auditCol)
-      aRec.set('acao', 'BACKFILL_CONTRATOS_PROPOSTAS_ACEITAS')
-      aRec.set('entidade', 'contratos_servico')
-      aRec.set('detalhes', {
-        origem: 'SISTEMA / BACKFILL ONESHOT V0.0.191',
-        mensagem:
-          'Backfill v0.0.191 concluído. Propostas analisadas: ' +
-          propostasPendentes.length +
-          ' | Vínculos/Contratos: ' +
-          totalVinculados +
-          ' | Falhas: ' +
-          totalFalhas,
-        total_analisadas: propostasPendentes.length,
-        total_sucesso: totalVinculados,
-        total_falha: totalFalhas,
-      })
-      $app.save(aRec)
+      const errCol = $app.findCollectionByNameOrId('erros_sistema')
+      if (errCol) {
+        const errRec = new Record(errCol)
+        errRec.set('rota', 'SWEEP_CONTRATOS_GERAL')
+        errRec.set('mensagem', String(errSweep).slice(0, 1000))
+        errRec.set('hora', new Date().toISOString())
+        errRec.set('usuario_email', 'sistema')
+        errRec.set('detalhes', {
+          erro: String(errSweep),
+          stack: errSweep && errSweep.stack ? String(errSweep.stack) : '',
+        })
+        $app.save(errRec)
+      }
     } catch (_) {}
-  } catch (errGeralBackfill) {
-    gravarErroBackfillInline('Erro geral no cron de backfill v191: ' + errGeralBackfill, {
-      erro: String(errGeralBackfill),
-    })
   }
 })
 // Endpoint Público: Obter Contrato de Serviço por Token de Assinatura (ou Complemento) em QUALQUER status (sem login)
@@ -1839,12 +1574,15 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
     if (empresaId) {
       try {
         const emp = $app.findRecordById('empresas', empresaId)
-        if (emp) nomeCliente = emp.getString('razao_social')
+        if (emp)
+          nomeCliente = emp.getString('razao_social') || emp.getString('nome_fantasia') || 'Cliente'
       } catch (_) {}
-    } else if (clientePfId) {
+    }
+    // Cliente PF com campo 'empresa' vazio DEVE prosseguir em todos os pontos de resolução de razão social (usar nome do cliente PF), sem abortar
+    if ((!empresaId || nomeCliente === 'Cliente') && clientePfId) {
       try {
         const pf = $app.findRecordById('clientes_pf', clientePfId)
-        if (pf) nomeCliente = pf.getString('nome')
+        if (pf && pf.getString('nome')) nomeCliente = pf.getString('nome')
       } catch (_) {}
     }
 
@@ -1933,7 +1671,7 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
       console.log('Erro ao criar grupo de projetos: ' + errGrupo)
     }
 
-    // Trava de idempotência atômica: se já existirem projetos ativos vinculados a este contrato, não recriar
+    // Trava de idempotência atômica: pular se já existe projeto com contrato_servico = id do contrato, sem editar nada
     const projetosJaCriados = $app.findRecordsByFilter(
       'projetos',
       "contrato_servico = '" + contratoId + "'",
@@ -1942,31 +1680,12 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
       0,
     )
     if (projetosJaCriados.length > 0) {
-      for (let pIdx = 0; pIdx < projetosJaCriados.length; pIdx++) {
-        const prjExistente = projetosJaCriados[pIdx]
-        let prjModificado = false
-        if (grupoCriado && prjExistente.getString('grupo') !== grupoCriado.id) {
-          prjExistente.set('grupo', grupoCriado.id)
-          prjModificado = true
+      try {
+        if (!rec.getString('projeto')) {
+          rec.set('projeto', projetosJaCriados[0].id)
+          $app.save(rec)
         }
-        if (clientePfId && prjExistente.getString('cliente_pf') !== clientePfId) {
-          prjExistente.set('cliente_pf', clientePfId)
-          prjModificado = true
-        }
-        if (empresaId && prjExistente.getString('empresa') !== empresaId) {
-          prjExistente.set('empresa', empresaId)
-          prjModificado = true
-        }
-        const st = prjExistente.getString('status')
-        if (st === 'contratacao' || st === 'Em Contratação' || !st) {
-          prjExistente.set('status', 'aguardando_definicao')
-          prjExistente.set('modo_execucao', null)
-          prjModificado = true
-        }
-        if (prjModificado) {
-          $app.save(prjExistente)
-        }
-      }
+      } catch (_) {}
       return
     }
 
@@ -3133,6 +2852,27 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
             cronRemove(jobId)
           } catch (_) {}
 
+          // Trava de idempotência: pular se já existe projeto com contrato_servico = id do contrato, sem editar nada
+          try {
+            const prjsExistentesAntes = $app.findRecordsByFilter(
+              'projetos',
+              "contrato_servico = '" + targetContratoId + "'",
+              'codigo',
+              1,
+              0,
+            )
+            if (prjsExistentesAntes.length > 0) {
+              try {
+                const ctrAtual = $app.findRecordById('contratos_servico', targetContratoId)
+                if (ctrAtual && !ctrAtual.getString('projeto')) {
+                  ctrAtual.set('projeto', prjsExistentesAntes[0].id)
+                  $app.save(ctrAtual)
+                }
+              } catch (_) {}
+              return
+            }
+          } catch (_) {}
+
           let recContrato = null
           try {
             recContrato = $app.findRecordById('contratos_servico', targetContratoId)
@@ -3157,12 +2897,8 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
               0,
             )
             if (prjsExistentes.length > 0) {
-              if (!prjVinculadoId) {
-                try {
-                  recContrato.set('projeto', prjsExistentes[0].id)
-                  $app.save(recContrato)
-                } catch (_) {}
-              }
+              recContrato.set('projeto', prjsExistentes[0].id)
+              $app.save(recContrato)
               return
             }
           } catch (_) {}
@@ -3755,9 +3491,42 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
       }
     }
 
+    // Resolução dos dados do contratante para retorno completo ao front-end
+    let contratanteNome = 'Cliente'
+    let contratanteDoc = ''
+    if (contrato.getString('empresa')) {
+      try {
+        const empRec = $app.findRecordById('empresas', contrato.getString('empresa'))
+        if (empRec) {
+          contratanteNome =
+            empRec.getString('razao_social') || empRec.getString('nome_fantasia') || 'Cliente'
+          contratanteDoc = empRec.getString('cnpj') || ''
+        }
+      } catch (_) {}
+    } else if (contrato.getString('cliente_pf')) {
+      try {
+        const pfRec = $app.findRecordById('clientes_pf', contrato.getString('cliente_pf'))
+        if (pfRec) {
+          contratanteNome = pfRec.getString('nome') || 'Cliente PF'
+          contratanteDoc = pfRec.getString('cpf') || ''
+        }
+      } catch (_) {}
+    }
+
     return e.json(200, {
       success: true,
       message: 'Contrato assinado com sucesso! O projeto de engenharia foi iniciado.',
+      status: contrato.getString('status') || 'assinado',
+      numero: contrato.getString('numero'),
+      valor_total: contrato.getFloat('valor_total') || 0,
+      data_assinatura_cliente: nowIso,
+      cliente_hash: clientHash,
+      contratante: {
+        nome: contratanteNome,
+        documento: contratanteDoc,
+        empresa_id: contrato.getString('empresa') || null,
+        cliente_pf_id: contrato.getString('cliente_pf') || null,
+      },
       contrato_id: contrato.id,
       contrato_numero: contrato.getString('numero'),
       hash: clientHash,
@@ -3818,12 +3587,16 @@ routerAdd(
       if (empresaId) {
         try {
           const emp = $app.findRecordById('empresas', empresaId)
-          if (emp) nomeCliente = emp.getString('razao_social')
+          if (emp)
+            nomeCliente =
+              emp.getString('razao_social') || emp.getString('nome_fantasia') || 'Cliente'
         } catch (_) {}
-      } else if (clientePfId) {
+      }
+      // Cliente PF com campo 'empresa' vazio DEVE prosseguir em todos os pontos de resolução de razão social (usar nome do cliente PF), sem abortar
+      if ((!empresaId || nomeCliente === 'Cliente') && clientePfId) {
         try {
           const pf = $app.findRecordById('clientes_pf', clientePfId)
-          if (pf) nomeCliente = pf.getString('nome')
+          if (pf && pf.getString('nome')) nomeCliente = pf.getString('nome')
         } catch (_) {}
       }
 
@@ -3912,7 +3685,7 @@ routerAdd(
         console.log('Erro ao criar grupo de projetos: ' + errGrupo)
       }
 
-      // Trava de idempotência atômica: se já existirem projetos ativos vinculados a este contrato, não recriar
+      // Trava de idempotência atômica: pular se já existe projeto com contrato_servico = id do contrato, sem editar nada
       const projetosJaCriados = $app.findRecordsByFilter(
         'projetos',
         "contrato_servico = '" + contratoId + "'",
@@ -3921,31 +3694,12 @@ routerAdd(
         0,
       )
       if (projetosJaCriados.length > 0) {
-        for (let pIdx = 0; pIdx < projetosJaCriados.length; pIdx++) {
-          const prjExistente = projetosJaCriados[pIdx]
-          let prjModificado = false
-          if (grupoCriado && prjExistente.getString('grupo') !== grupoCriado.id) {
-            prjExistente.set('grupo', grupoCriado.id)
-            prjModificado = true
+        try {
+          if (!rec.getString('projeto')) {
+            rec.set('projeto', projetosJaCriados[0].id)
+            $app.save(rec)
           }
-          if (clientePfId && prjExistente.getString('cliente_pf') !== clientePfId) {
-            prjExistente.set('cliente_pf', clientePfId)
-            prjModificado = true
-          }
-          if (empresaId && prjExistente.getString('empresa') !== empresaId) {
-            prjExistente.set('empresa', empresaId)
-            prjModificado = true
-          }
-          const st = prjExistente.getString('status')
-          if (st === 'contratacao' || st === 'Em Contratação' || !st) {
-            prjExistente.set('status', 'aguardando_definicao')
-            prjExistente.set('modo_execucao', null)
-            prjModificado = true
-          }
-          if (prjModificado) {
-            $app.save(prjExistente)
-          }
-        }
+        } catch (_) {}
         return
       }
 

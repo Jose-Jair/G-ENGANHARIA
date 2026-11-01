@@ -237,9 +237,43 @@ export const contratosServicoService = {
   /**
    * Assinatura eletrônica pelo Cliente através do link com token público
    */
-  async assinarComoCliente(payload: AssinarContratoClientePayload): Promise<any> {
+  async assinarComoCliente(payload: AssinarContratoClientePayload): Promise<{
+    success: boolean
+    message: string
+    status: string
+    numero: string
+    valor_total: number
+    data_assinatura_cliente: string
+    cliente_hash: string
+    contratante?: {
+      nome: string
+      documento: string
+      empresa_id: string | null
+      cliente_pf_id: string | null
+    }
+    contrato_id?: string
+    contrato_numero?: string
+    hash?: string
+  }> {
     const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : ''
-    const res = await pb.send('/backend/v1/contratos-servico/assinar-cliente', {
+    const res = await pb.send<{
+      success: boolean
+      message: string
+      status: string
+      numero: string
+      valor_total: number
+      data_assinatura_cliente: string
+      cliente_hash: string
+      contratante?: {
+        nome: string
+        documento: string
+        empresa_id: string | null
+        cliente_pf_id: string | null
+      }
+      contrato_id?: string
+      contrato_numero?: string
+      hash?: string
+    }>('/backend/v1/contratos-servico/assinar-cliente', {
       method: 'POST',
       body: {
         ...payload,

@@ -163,6 +163,40 @@ onRecordUpdate((e) => {
     const oldStatus = original ? original.getString('status') : ''
     const newStatus = rec.getString('status')
 
+    // DEFESA WRITE-ONCE INLINE: token_aceite imutável após atribuído
+    const origToken = original ? original.getString('token_aceite') : ''
+    const newToken = rec.getString('token_aceite')
+
+    if (origToken) {
+      const isMesmoToken = newToken === origToken
+      const isRevisaoRascunho = !newToken && newStatus === 'rascunho'
+      const isRotacaoAceite = !newToken && newStatus === 'aceita' && oldStatus !== 'aceita'
+
+      if (!isMesmoToken && !isRevisaoRascunho && !isRotacaoAceite) {
+        // Bloquear alteração indevida e restaurar token original estável
+        rec.set('token_aceite', origToken)
+        try {
+          const auditCol = $app.findCollectionByNameOrId('audit_logs')
+          const aRec = new Record(auditCol)
+          aRec.set('acao', 'TENTATIVA_ALTERACAO_TOKEN_ACEITE')
+          aRec.set('entidade', 'propostas')
+          aRec.set('registro_id', rec.id)
+          aRec.set('user', null)
+          aRec.set('user_email', 'SISTEMA_SEGURANCA')
+          aRec.set('detalhes', {
+            motivo: 'Tentativa de alteração de token_aceite bloqueada pela trava WRITE-ONCE',
+            token_preservado: origToken,
+            status_anterior: oldStatus,
+            status_novo: newStatus,
+            timestamp: new Date().toISOString(),
+          })
+          $app.save(aRec)
+        } catch (errAud) {
+          console.log('Erro ao gravar auditoria de tentativa de alteração de token: ' + errAud)
+        }
+      }
+    }
+
     // PORTÃO DE VALIDAÇÃO: Quando a proposta for validada/aprovada (ex: vira 'enviada' ou 'aprovada'),
     // se ainda não possuir token_aceite, gera agora!
     if (newStatus !== 'rascunho' && !rec.getString('token_aceite')) {

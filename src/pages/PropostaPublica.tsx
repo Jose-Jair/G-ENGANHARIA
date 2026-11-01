@@ -101,7 +101,6 @@ export function PropostaPublicaPage() {
               await propostasService.update(record.id, {
                 status: 'visualizada',
                 data_visualizacao: new Date().toISOString(),
-                token_aceite: token,
               })
             } catch (err) {
               console.warn('Erro ao atualizar tracking de visualização:', err)
@@ -211,7 +210,6 @@ export function PropostaPublicaPage() {
         motivo_recusa: motivoSelecionado,
         detalhe_recusa: detalheRecusa,
         data_recusa: new Date().toISOString(),
-        token_aceite: token,
       })
 
       setProposta(updated)

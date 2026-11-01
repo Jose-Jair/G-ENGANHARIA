@@ -1062,6 +1062,209 @@ cronAdd('dedup-ctr-2026-0003-v195', '* * * * *', function () {
 // =============================================================================
 // ONESHOT E2E v0.0.196 — CRIAR E ENVIAR PROPOSTA DE TESTE E2E (PARTE 2 + 3)
 // =============================================================================
+try {
+  cronRemove('oneshot-reenvio-prop-2026-0004-v198')
+} catch (_) {}
+
+cronAdd('oneshot-reenvio-prop-2026-0004-v198', '* * * * *', function () {
+  try {
+    cronRemove('oneshot-reenvio-prop-2026-0004-v198')
+  } catch (_) {}
+
+  try {
+    const propostaId = 'e6du05oslnt0gkd'
+    const emailAlvo = 'jairalves1109@gmail.com'
+    const destinatarioNome = 'TESTE E2E Cliente 2'
+
+    let proposta = null
+    try {
+      proposta = $app.findRecordById('propostas', propostaId)
+    } catch (errFind) {
+      console.warn('[reenvio-v198] Proposta não encontrada: ' + errFind)
+      return
+    }
+
+    const tokenAceite = proposta.getString('token_aceite')
+    const numeroProposta = proposta.getString('numero') || 'PROP-2026-0004'
+    const baseUrlProd = 'https://gestao-de-projetos-de-engenharia-be59d.goskip.app'
+    const linkPublico = baseUrlProd + '/proposta/' + tokenAceite
+    const linkDescadastro = baseUrlProd + '/descadastro?email=' + encodeURIComponent(emailAlvo)
+
+    const precoFmt = 'R$ 1.000,00'
+    const dataValidadeFmt = '15 dias'
+    const assuntoFinal = 'Proposta Comercial ' + numeroProposta + ' — G+ Engenharia'
+    const empreendimento = (proposta.getString('empreendimento') || '').trim()
+    const objeto =
+      proposta.getString('objeto') ||
+      proposta.getString('escopo') ||
+      'Serviços de Engenharia Consultiva'
+
+    const trechoEmpreendimentoHtml = empreendimento
+      ? ' para o empreendimento <em>' + empreendimento + '</em>'
+      : ''
+
+    const textoPrincipalHtml =
+      'Apresentamos a proposta comercial e técnica <strong>' +
+      numeroProposta +
+      '</strong>' +
+      trechoEmpreendimentoHtml +
+      '.<br/><br/>' +
+      'Para visualizar os detalhes técnicos, escopo, entregáveis e formalizar o seu <strong>aceite eletrônico</strong>, acesse o link seguro abaixo:'
+
+    const htmlBody = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>${assuntoFinal}</title>
+</head>
+<body style="margin: 0; padding: 24px 0; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0">
+    <tr>
+      <td align="center">
+        <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; max-width: 92%;">
+          <tr>
+            <td style="background-color: #1E2A4A; padding: 24px 32px; text-align: left;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td>
+                    <span style="font-size: 24px; font-weight: bold; color: #ffffff; letter-spacing: -0.5px;">GESTÃO <span style="color: #D95A2B;">G+</span></span>
+                    <div style="color: #cbd5e1; font-size: 11px; margin-top: 2px;">Engenharia Consultiva & Gestão de Projetos</div>
+                  </td>
+                  <td align="right">
+                    <span style="display: inline-block; padding: 4px 10px; background-color: rgba(217, 90, 43, 0.2); border: 1px solid #D95A2B; color: #ffedd5; font-size: 11px; font-weight: 600; border-radius: 4px;">PROPOSTA OFICIAL</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 32px;">
+              <p style="font-size: 15px; line-height: 1.6; margin-top: 0; color: #1e293b;">
+                Olá, <strong>${destinatarioNome}</strong>,
+              </p>
+
+              <p style="font-size: 14px; line-height: 1.6; color: #334155;">
+                ${textoPrincipalHtml}
+              </p>
+
+              <table width="100%" border="0" cellspacing="0" cellpadding="12" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin: 20px 0; font-size: 13px;">
+                <tr>
+                  <td width="35%" style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Proposta:</td>
+                  <td style="color: #0f172a; font-weight: bold; border-bottom: 1px solid #edf2f7;">${numeroProposta}</td>
+                </tr>
+                ${
+                  empreendimento
+                    ? `<tr>
+                  <td style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Empreendimento:</td>
+                  <td style="color: #0f172a; border-bottom: 1px solid #edf2f7;">${empreendimento}</td>
+                </tr>`
+                    : ''
+                }
+                <tr>
+                  <td style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Objeto / Escopo:</td>
+                  <td style="color: #0f172a; border-bottom: 1px solid #edf2f7;">${objeto}</td>
+                </tr>
+                <tr>
+                  <td style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Valor Global:</td>
+                  <td style="color: #D95A2B; font-weight: bold; font-size: 15px; border-bottom: 1px solid #edf2f7;">${precoFmt}</td>
+                </tr>
+                <tr>
+                  <td style="color: #64748b; font-weight: 600;">Validade da Proposta:</td>
+                  <td style="color: #0f172a;">${dataValidadeFmt}</td>
+                </tr>
+              </table>
+
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 28px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${linkPublico}" target="_blank" style="display: inline-block; padding: 14px 32px; background-color: #D95A2B; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: bold; border-radius: 6px; box-shadow: 0 2px 4px rgba(217, 90, 43, 0.3);">
+                      Visualizar Proposta Completa & Aceitar Online &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin-bottom: 0;">
+                Caso o botão acima não funcione, copie e cole o link a seguir no seu navegador:<br/>
+                <a href="${linkPublico}" style="color: #D95A2B; word-break: break-all;">${linkPublico}</a>
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background-color: #f8fafc; padding: 20px 32px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center;">
+              <p style="margin: 0 0 6px 0;">
+                Este e-mail foi gerado automaticamente pelo sistema <strong>GESTÃO G+</strong> da G+ Engenharia.
+              </p>
+              <p style="margin: 0;">
+                Se não deseja mais receber comunicados comerciais desta proposta, <a href="${linkDescadastro}" style="color: #64748b; text-decoration: underline;">clique aqui para descadastrar-se</a>.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`
+
+    let emailEnviado = false
+    let erroSmtp = ''
+    try {
+      const mailClient = $app.newMailClient()
+      const senderAddress =
+        $app.settings().meta.senderAddress || 'nao-responder@gmaisengenharia.com.br'
+      const senderName = $app.settings().meta.senderName || 'G+ Engenharia'
+
+      mailClient.send({
+        from: { address: senderAddress, name: senderName },
+        to: [{ address: emailAlvo, name: destinatarioNome }],
+        subject: assuntoFinal,
+        html: htmlBody,
+      })
+      emailEnviado = true
+      console.log('[reenvio-v198] E-mail reenviado com sucesso para ' + emailAlvo)
+    } catch (sendErr) {
+      erroSmtp = sendErr.message || String(sendErr)
+      console.warn('[reenvio-v198] Falha no mailClient.send: ' + erroSmtp)
+    }
+
+    // Gravar auditoria oficial ENVIO_PROPOSTA
+    try {
+      const auditCol = $app.findCollectionByNameOrId('audit_logs')
+      const auditRec = new Record(auditCol)
+      auditRec.set('user', 'ofzk87dccbga1y1')
+      auditRec.set('user_email', 'admin@sistema.eng.br')
+      auditRec.set('acao', 'ENVIO_PROPOSTA')
+      auditRec.set('entidade', 'propostas')
+      auditRec.set('registro_id', proposta.id)
+      auditRec.set('ip', 'nao_capturado')
+      auditRec.set('detalhes', {
+        proposta_numero: numeroProposta,
+        canal: 'email',
+        destinatario_nome: destinatarioNome,
+        destinatario_email: emailAlvo,
+        assunto: assuntoFinal,
+        data_envio: new Date().toISOString(),
+        reenvio_estavel: true,
+        token_utilizado: tokenAceite,
+        status_envio: emailEnviado ? 'enviado' : 'falha_smtp',
+        motivo_falha: erroSmtp || undefined,
+        link_publico: linkPublico,
+      })
+      $app.save(auditRec)
+      console.log('[reenvio-v198] Auditoria ENVIO_PROPOSTA registrada.')
+    } catch (auditErr) {
+      console.warn('[reenvio-v198] Erro ao gravar auditoria: ' + auditErr)
+    }
+  } catch (errGeral) {
+    console.error('[reenvio-v198] Erro geral: ' + errGeral)
+  }
+})
+
 // Cria cliente PF fictício, proposta PROP-2026-0004 com R$ 1.000 (parcelas 2x 500)
 // e executa o fluxo oficial de envio por e-mail com registro ENVIO_PROPOSTA.
 // Auto-remove na primeira linha do callback para execução única.

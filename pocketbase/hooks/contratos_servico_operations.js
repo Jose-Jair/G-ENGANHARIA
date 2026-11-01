@@ -205,7 +205,7 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
     const clientUserAgent =
       (body.user_agent && String(body.user_agent).trim()) ||
       (body.userAgent && String(body.userAgent).trim()) ||
-      (reqInfo.headers && reqInfo.headers['user-agent']) ||
+      (reqInfo.headers && (reqInfo.headers['user-agent'] || reqInfo.headers['User-Agent'])) ||
       'nao_capturado'
     const nowIso = new Date().toISOString()
 
@@ -230,6 +230,8 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
     proposta.set('aceite_user_agent', clientUserAgent)
     proposta.set('aceite_declaracao', true)
     proposta.set('aceite_hash', hashFinal)
+    proposta.set('token_usado', true)
+    proposta.set('data_uso_token', nowIso)
     $app.save(proposta)
 
     // Auditoria detalhada do aceite
@@ -313,14 +315,44 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
         cronRemove(jobId)
       } catch (_) {}
       cronAdd(jobId, '* * * * *', function () {
+        // REGRA DE OURO (ITEM 1a): cronRemove do próprio job como PRIMEIRA linha do callback.
+        // O job morre imediatamente mesmo se qualquer etapa posterior lançar erro.
         try {
           cronRemove(jobId)
         } catch (_) {}
+
+        function gravarErroSistemaInline(rotaNome, msgErro, detalhesObj) {
+          try {
+            const errCol = $app.findCollectionByNameOrId('erros_sistema')
+            if (errCol) {
+              const errRec = new Record(errCol)
+              errRec.set('rota', rotaNome)
+              errRec.set('mensagem', String(msgErro).slice(0, 1000))
+              errRec.set('hora', new Date().toISOString())
+              errRec.set('ip', ipParaContrato)
+              errRec.set('usuario_email', 'sistema')
+              errRec.set('detalhes', detalhesObj || {})
+              $app.save(errRec)
+            }
+          } catch (_) {}
+        }
 
         function executarGeracaoContratoInline(propId, ipOrigem) {
           const prop = $app.findRecordById('propostas', propId)
           if (!prop || prop.getString('status') !== 'aceita') return null
 
+          // REGRA DE OURO (ITEM 1c): trava de idempotência no início.
+          // Se contrato_servico já preenchido, pular sem editar NADA.
+          const contratoServicoAtual = prop.getString('contrato_servico')
+          if (contratoServicoAtual && contratoServicoAtual.trim().length > 0) {
+            try {
+              return $app.findRecordById('contratos_servico', contratoServicoAtual)
+            } catch (_) {
+              return null
+            }
+          }
+
+          // Se já existe contrato gerado no banco para esta proposta, apenas persistir o vínculo explicitamente
           const contratosExistentes = $app.findRecordsByFilter(
             'contratos_servico',
             "proposta = '" + propId + "'",
@@ -330,11 +362,20 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
           )
           if (contratosExistentes.length > 0) {
             const cExistente = contratosExistentes[0]
-            if (prop.getString('contrato_servico') !== cExistente.id) {
-              try {
-                prop.set('contrato_servico', cExistente.id)
-                $app.save(prop)
-              } catch (_) {}
+            try {
+              prop.set('contrato_servico', cExistente.id)
+              $app.save(prop)
+            } catch (errSaveVinculoExistente) {
+              gravarErroSistemaInline(
+                'GERAR_CTR_VINCULAR_EXISTENTE',
+                'Falha ao persistir vinculo de contrato existente na proposta: ' +
+                  errSaveVinculoExistente,
+                {
+                  proposta_id: propId,
+                  contrato_id: cExistente.id,
+                  erro: String(errSaveVinculoExistente),
+                },
+              )
             }
             return cExistente
           }
@@ -581,6 +622,8 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
 
           $app.save(novoContrato)
 
+          // REGRA DE OURO (ITEM 1b): logo após criar o contrato, PERSISTIR EXPLICITAMENTE
+          // o vínculo na proposta: proposta.set('contrato_servico', idDoContrato) + save
           try {
             prop.set('contrato_servico', novoContrato.id)
             if (cadastroCompleto) {
@@ -589,7 +632,18 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
               prop.set('dados_complementares_preenchidos', false)
             }
             $app.save(prop)
-          } catch (_) {}
+          } catch (errSavePropVinculo) {
+            gravarErroSistemaInline(
+              'GERAR_CTR_PERSISTIR_VINCULO',
+              'Falha ao persistir contrato_servico na proposta: ' + errSavePropVinculo,
+              {
+                proposta_id: propId,
+                contrato_id: novoContrato.id,
+                erro: String(errSavePropVinculo),
+              },
+            )
+            throw errSavePropVinculo
+          }
 
           try {
             const auditCol = $app.findCollectionByNameOrId('audit_logs')
@@ -698,39 +752,45 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
                 $app.save(aRec)
               } catch (_) {}
             } catch (mailErr) {
-              console.log('Aviso/Erro ao disparar e-mail de complemento: ' + mailErr)
+              gravarErroSistemaInline(
+                'GERAR_CTR_ENVIO_EMAIL',
+                'Aviso/Erro ao disparar e-mail de complemento: ' + mailErr,
+                { proposta_id: propId, erro: String(mailErr) },
+              )
             }
           }
 
           return novoContrato
         }
 
+        // REGRA DE OURO (ITEM 1d): try/catch total gravando em erros_sistema (nada em console.log)
         try {
           executarGeracaoContratoInline(propostaIdParaContrato, ipParaContrato)
         } catch (errPos) {
-          try {
-            const errCol = $app.findCollectionByNameOrId('erros_sistema')
-            if (errCol) {
-              const errRec = new Record(errCol)
-              errRec.set('rota', 'ACEITE_PROPOSTA_POS_RESPOSTA')
-              errRec.set(
-                'mensagem',
-                ('Falha ao gerar contrato pós-aceite (cron): ' + errPos).slice(0, 1000),
-              )
-              errRec.set('hora', new Date().toISOString())
-              errRec.set('ip', ipParaContrato)
-              errRec.set('usuario_email', 'sistema')
-              errRec.set('detalhes', {
-                proposta_id: propostaIdParaContrato,
-                erro: String(errPos),
-              })
-              $app.save(errRec)
-            }
-          } catch (_) {}
+          gravarErroSistemaInline(
+            'ACEITE_PROPOSTA_POS_RESPOSTA',
+            'Falha ao gerar contrato pós-aceite (cron): ' + errPos,
+            { proposta_id: propostaIdParaContrato, erro: String(errPos) },
+          )
         }
       })
     } catch (errCron) {
-      console.log('Erro ao agendar geracao de contrato pos-aceite: ' + errCron)
+      try {
+        const errCol = $app.findCollectionByNameOrId('erros_sistema')
+        if (errCol) {
+          const errRec = new Record(errCol)
+          errRec.set('rota', 'AGENDAR_GERACAO_CTR')
+          errRec.set(
+            'mensagem',
+            ('Erro ao agendar geracao de contrato pos-aceite: ' + errCron).slice(0, 1000),
+          )
+          errRec.set('hora', new Date().toISOString())
+          errRec.set('ip', clientIp)
+          errRec.set('usuario_email', 'sistema')
+          errRec.set('detalhes', { proposta_id: proposta.id, erro: String(errCron) })
+          $app.save(errRec)
+        }
+      } catch (_) {}
     }
 
     return e.json(200, {
@@ -745,28 +805,71 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
       data_aceite: nowIso,
     })
   } catch (err) {
-    console.log('Erro ao registrar aceite digital de proposta: ' + err)
+    try {
+      const errCol = $app.findCollectionByNameOrId('erros_sistema')
+      if (errCol) {
+        const errRec = new Record(errCol)
+        errRec.set('rota', 'ACEITAR_DIGITAL_PROPOSTA')
+        errRec.set(
+          'mensagem',
+          ('Erro ao registrar aceite digital de proposta: ' + err).slice(0, 1000),
+        )
+        errRec.set('hora', new Date().toISOString())
+        errRec.set('usuario_email', 'sistema')
+        errRec.set('detalhes', { erro: String(err) })
+        $app.save(errRec)
+      }
+    } catch (_) {}
     return e.json(500, { message: 'Erro interno ao processar aceite: ' + err })
   }
 })
 
 // =============================================================================
-// BACKFILL IDEMPOTENTE ONESHOT (Auto-removível no primeiro disparo)
-// Varre propostas status='aceita' com contrato_servico vazio e data_aceite preenchida
+// BACKFILL IDEMPOTENTE ONESHOT V0.0.191 (ITEM 2 CRÍTICO)
+// Auto-removível no primeiro disparo:
+// (a) Para toda proposta com status='aceita' e contrato_servico vazio que JÁ TENHA
+//     contrato gerado (caso PROP-2026-0003 -> CTR-2026-0003), grava o vínculo uma única vez,
+//     sem reeditar em loop;
+// (b) Para propostas aceitas sem contrato nenhum, agenda/executa a geração uma única vez.
 // =============================================================================
 try {
   cronRemove('backfill-propostas-aceitas-sem-contrato-v186')
 } catch (_) {}
+try {
+  cronRemove('backfill-propostas-aceitas-sem-contrato-v191')
+} catch (_) {}
 
-cronAdd('backfill-propostas-aceitas-sem-contrato-v186', '* * * * *', function () {
+cronAdd('backfill-propostas-aceitas-sem-contrato-v191', '* * * * *', function () {
   try {
-    cronRemove('backfill-propostas-aceitas-sem-contrato-v186')
+    cronRemove('backfill-propostas-aceitas-sem-contrato-v191')
   } catch (_) {}
 
-  function gerarContratoInlineParaBackfill(propId, ipOrigem) {
-    const prop = $app.findRecordById('propostas', propId)
-    if (!prop || prop.getString('status') !== 'aceita') return null
+  function gravarErroBackfillInline(msgErro, detalhesObj) {
+    try {
+      const errCol = $app.findCollectionByNameOrId('erros_sistema')
+      if (errCol) {
+        const errRec = new Record(errCol)
+        errRec.set('rota', 'BACKFILL_ACEITE_PROPOSTA_V191')
+        errRec.set('mensagem', String(msgErro).slice(0, 1000))
+        errRec.set('hora', new Date().toISOString())
+        errRec.set('usuario_email', 'sistema')
+        errRec.set('detalhes', detalhesObj || {})
+        $app.save(errRec)
+      }
+    } catch (_) {}
+  }
 
+  function processarPropostaBackfillInline(prop) {
+    const propId = prop.id
+    const propNum = prop.getString('numero')
+
+    // Trava de idempotência atômica: se já tem contrato_servico, nada a fazer
+    const ctrExistenteNaProp = prop.getString('contrato_servico')
+    if (ctrExistenteNaProp && ctrExistenteNaProp.trim().length > 0) {
+      return null
+    }
+
+    // 1. Verificar se já existe contrato gerado no banco apontando para esta proposta
     const contratosExistentes = $app.findRecordsByFilter(
       'contratos_servico',
       "proposta = '" + propId + "'",
@@ -774,18 +877,37 @@ cronAdd('backfill-propostas-aceitas-sem-contrato-v186', '* * * * *', function ()
       1,
       0,
     )
+
     if (contratosExistentes.length > 0) {
       const cExistente = contratosExistentes[0]
-      if (prop.getString('contrato_servico') !== cExistente.id) {
-        try {
-          prop.set('contrato_servico', cExistente.id)
-          $app.save(prop)
-        } catch (_) {}
-      }
+      prop.set('contrato_servico', cExistente.id)
+      $app.save(prop)
+
+      try {
+        const auditCol = $app.findCollectionByNameOrId('audit_logs')
+        const aRec = new Record(auditCol)
+        aRec.set('acao', 'VINCULO_CONTRATO_BACKFILL')
+        aRec.set('entidade', 'propostas')
+        aRec.set('registro_id', propId)
+        aRec.set('detalhes', {
+          origem: 'SISTEMA / BACKFILL IDEMPOTENTE V0.0.191',
+          mensagem:
+            'Vínculo de contrato_servico persistido com sucesso na proposta ' +
+            propNum +
+            ' apontando para contrato ' +
+            cExistente.getString('numero'),
+          proposta_id: propId,
+          proposta_numero: propNum,
+          contrato_id: cExistente.id,
+          contrato_numero: cExistente.getString('numero'),
+        })
+        $app.save(aRec)
+      } catch (_) {}
+
       return cExistente
     }
 
-    const propNum = prop.getString('numero')
+    // 2. Se não existir nenhum contrato gerado, cria novo contrato CTR
     const empId = prop.getString('empresa')
     const cliPfId = prop.getString('cliente_pf')
     const preco = prop.getFloat('preco') || 0
@@ -842,8 +964,6 @@ cronAdd('backfill-propostas-aceitas-sem-contrato-v186', '* * * * *', function ()
 
     const camposFaltantes = []
     let cliRec = null
-    let emailDest = ''
-    let nomeDest = ''
 
     if (empId) {
       try {
@@ -862,9 +982,6 @@ cronAdd('backfill-propostas-aceitas-sem-contrato-v186', '* * * * *', function ()
         const uf = (cliRec.getString('uf') || '').trim()
         const email = (cliRec.getString('email') || '').trim()
         const telefone = (cliRec.getString('telefone') || '').trim()
-
-        emailDest = email
-        nomeDest = razao
 
         let temTelefone = Boolean(telefone)
         try {
@@ -928,9 +1045,6 @@ cronAdd('backfill-propostas-aceitas-sem-contrato-v186', '* * * * *', function ()
         const bairro = (cliRec.getString('bairro') || '').trim()
         const municipio = (cliRec.getString('municipio') || '').trim()
         const uf = (cliRec.getString('uf') || '').trim()
-
-        emailDest = email
-        nomeDest = nome
 
         let temTelefone = Boolean(telefone)
         try {
@@ -1027,15 +1141,13 @@ cronAdd('backfill-propostas-aceitas-sem-contrato-v186', '* * * * *', function ()
 
     $app.save(novoContrato)
 
-    try {
-      prop.set('contrato_servico', novoContrato.id)
-      if (cadastroCompleto) {
-        prop.set('dados_complementares_preenchidos', true)
-      } else if (tokenComplementoDados) {
-        prop.set('dados_complementares_preenchidos', false)
-      }
-      $app.save(prop)
-    } catch (_) {}
+    prop.set('contrato_servico', novoContrato.id)
+    if (cadastroCompleto) {
+      prop.set('dados_complementares_preenchidos', true)
+    } else if (tokenComplementoDados) {
+      prop.set('dados_complementares_preenchidos', false)
+    }
+    $app.save(prop)
 
     try {
       const auditCol = $app.findCollectionByNameOrId('audit_logs')
@@ -1044,7 +1156,7 @@ cronAdd('backfill-propostas-aceitas-sem-contrato-v186', '* * * * *', function ()
       aRec.set('entidade', 'contratos_servico')
       aRec.set('registro_id', novoContrato.id)
       aRec.set('detalhes', {
-        origem: 'SISTEMA / BACKFILL IDEMPOTENTE V0.0.186',
+        origem: 'SISTEMA / BACKFILL ONESHOT V0.0.191',
         mensagem:
           'Contrato de serviços gerado pelo backfill pós-aceite da proposta ' +
           propNum +
@@ -1057,87 +1169,9 @@ cronAdd('backfill-propostas-aceitas-sem-contrato-v186', '* * * * *', function ()
         status: statusInicial,
         campos_faltantes: camposFaltantes,
         valor: preco,
-        ip: ipOrigem,
       })
-      aRec.set('ip', ipOrigem)
       $app.save(aRec)
     } catch (_) {}
-
-    if (!cadastroCompleto && tokenComplementoDados && emailDest && emailDest.indexOf('@') !== -1) {
-      try {
-        const appUrl =
-          $os.getenv('PUBLIC_APP_URL') ||
-          'https://gestao-de-projetos-de-engenharia-be59d.goskip.app'
-        const linkComplemento = appUrl + '/completar-cadastro/' + tokenComplementoDados
-        const senderAddress =
-          ($app.settings().meta && $app.settings().meta.senderAddress) || 'nao-responder@skip.dev'
-        const senderName =
-          ($app.settings().meta && $app.settings().meta.senderName) || 'G+ Engenharia Consultiva'
-        const linkDescadastro =
-          appUrl + '/descadastro?origem=fluxo_contratual&email=' + encodeURIComponent(emailDest)
-
-        const htmlEmail =
-          '<!DOCTYPE html><html><head><meta charset="utf-8" /></head><body style="margin:0;padding:24px;font-family:sans-serif;background-color:#f8fafc;color:#1e293b;">' +
-          '<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">' +
-          '<tr><td style="background-color:#1E2A4A;padding:20px 24px;border-bottom:3px solid #D95A2B;">' +
-          '<h2 style="margin:0;color:#ffffff;font-size:18px;">G+ Engenharia Consultiva</h2>' +
-          '<p style="margin:4px 0 0 0;color:#94a3b8;font-size:12px;">Complementação de Dados para Emissão do Contrato</p>' +
-          '</td></tr>' +
-          '<tr><td style="padding:24px;font-size:14px;line-height:1.6;color:#334155;">' +
-          '<p>Olá, <strong>' +
-          (nomeDest || 'Cliente') +
-          '</strong>!</p>' +
-          '<p>Confirmamos o aceite na Proposta Comercial <strong>' +
-          propNum +
-          '</strong>. Para que o seu Contrato de Prestação de Serviços Técnicos seja gerado com total conformidade jurídica e siga para a etapa de assinaturas digitais, precisamos que você complete alguns dados cadastrais obrigatórios.</p>' +
-          '<div style="margin:28px 0;text-align:center;">' +
-          '<a href="' +
-          linkComplemento +
-          '" target="_blank" style="background-color:#D95A2B;color:#ffffff;font-weight:bold;text-decoration:none;padding:12px 28px;border-radius:6px;display:inline-block;font-size:14px;">Completar Meus Dados Cadastrais</a>' +
-          '</div>' +
-          '<p style="font-size:12px;color:#64748b;">Se o botão não funcionar, copie e cole este link em seu navegador:<br /><span style="font-family:monospace;word-break:break-all;">' +
-          linkComplemento +
-          '</span></p>' +
-          '</td></tr>' +
-          '<tr><td style="padding:16px 24px;background-color:#f1f5f9;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;text-align:center;">' +
-          'Mensagem transacional do fluxo de contratação G+ Engenharia • ' +
-          numeroCTR +
-          '<br />Caso não queira receber nossas comunicações, <a href="' +
-          linkDescadastro +
-          '" style="color:#64748b;">descadastre seu e-mail</a>.' +
-          '</td></tr>' +
-          '</table></body></html>'
-
-        const msg = new MailerMessage({
-          from: { address: senderAddress, name: senderName },
-          to: [{ address: emailDest, name: nomeDest }],
-          subject: 'Ação necessária: Complete seu cadastro para geração do contrato ' + numeroCTR,
-          html: htmlEmail,
-        })
-
-        $app.newMailClient().send(msg)
-
-        try {
-          const auditCol = $app.findCollectionByNameOrId('audit_logs')
-          const aRec = new Record(auditCol)
-          aRec.set('acao', 'ENVIO_EMAIL_COMPLEMENTO_DADOS')
-          aRec.set('entidade', 'contratos_servico')
-          aRec.set('registro_id', novoContrato.id)
-          aRec.set('detalhes', {
-            mensagem:
-              'E-mail transacional de complemento de dados enviado com link exclusivo para ' +
-              emailDest,
-            contrato_numero: numeroCTR,
-            destinatario: emailDest,
-            link: linkComplemento,
-          })
-          aRec.set('ip', ipOrigem)
-          $app.save(aRec)
-        } catch (_) {}
-      } catch (mailErr) {
-        console.log('Aviso/Erro ao disparar e-mail de complemento: ' + mailErr)
-      }
-    }
 
     return novoContrato
   }
@@ -1145,76 +1179,35 @@ cronAdd('backfill-propostas-aceitas-sem-contrato-v186', '* * * * *', function ()
   try {
     const propostasPendentes = $app.findRecordsByFilter(
       'propostas',
-      "status = 'aceita' && contrato_servico = '' && data_aceite != ''",
+      "status = 'aceita' && contrato_servico = ''",
       'created',
       50,
       0,
     )
 
     if (propostasPendentes.length === 0) {
-      console.log('[backfill-aceite] Nenhuma proposta aceita pendente de contrato encontrada.')
       return
     }
 
-    console.log(
-      '[backfill-aceite] Encontradas ' +
-        propostasPendentes.length +
-        ' proposta(s) aceita(s) sem contrato. Iniciando processamento idempotente...',
-    )
-
-    let totalSucesso = 0
-    let totalFalha = 0
+    let totalVinculados = 0
+    let totalFalhas = 0
 
     for (let i = 0; i < propostasPendentes.length; i++) {
       const p = propostasPendentes[i]
-      const propId = p.id
-      const propNum = p.getString('numero')
-      const ipGravado = p.getString('aceite_ip') || 'nao_capturado'
-
       try {
-        const contratoGerado = gerarContratoInlineParaBackfill(propId, ipGravado)
-        if (contratoGerado) {
-          totalSucesso++
-          console.log(
-            '[backfill-aceite] Contrato gerado com sucesso para proposta ' +
-              propNum +
-              ' -> ' +
-              contratoGerado.getString('numero') +
-              ' (' +
-              contratoGerado.getString('status') +
-              ')',
-          )
+        const resultado = processarPropostaBackfillInline(p)
+        if (resultado) {
+          totalVinculados++
         }
-      } catch (errProp) {
-        totalFalha++
-        console.log(
-          '[backfill-aceite] Erro ao gerar contrato para proposta ' +
-            propNum +
-            ' (' +
-            propId +
-            '): ' +
-            errProp,
+      } catch (errP) {
+        totalFalhas++
+        gravarErroBackfillInline(
+          'Falha ao processar proposta ' + p.getString('numero') + ': ' + errP,
+          {
+            proposta_id: p.id,
+            erro: String(errP),
+          },
         )
-        try {
-          const errCol = $app.findCollectionByNameOrId('erros_sistema')
-          if (errCol) {
-            const errRec = new Record(errCol)
-            errRec.set('rota', 'BACKFILL_ACEITE_PROPOSTA')
-            errRec.set(
-              'mensagem',
-              ('Falha no backfill da proposta ' + propNum + ': ' + errProp).slice(0, 1000),
-            )
-            errRec.set('hora', new Date().toISOString())
-            errRec.set('ip', ipGravado)
-            errRec.set('usuario_email', 'sistema')
-            errRec.set('detalhes', {
-              proposta_id: propId,
-              proposta_numero: propNum,
-              erro: String(errProp),
-            })
-            $app.save(errRec)
-          }
-        } catch (_) {}
       }
     }
 
@@ -1224,40 +1217,26 @@ cronAdd('backfill-propostas-aceitas-sem-contrato-v186', '* * * * *', function ()
       aRec.set('acao', 'BACKFILL_CONTRATOS_PROPOSTAS_ACEITAS')
       aRec.set('entidade', 'contratos_servico')
       aRec.set('detalhes', {
-        origem: 'SISTEMA / BACKFILL ONESHOT V0.0.186',
+        origem: 'SISTEMA / BACKFILL ONESHOT V0.0.191',
         mensagem:
-          'Backfill de contratos para propostas aceitas executado. Processadas: ' +
+          'Backfill v0.0.191 concluído. Propostas analisadas: ' +
           propostasPendentes.length +
-          ' | Sucessos: ' +
-          totalSucesso +
+          ' | Vínculos/Contratos: ' +
+          totalVinculados +
           ' | Falhas: ' +
-          totalFalha,
-        total_propostas: propostasPendentes.length,
-        total_sucesso: totalSucesso,
-        total_falha: totalFalha,
+          totalFalhas,
+        total_analisadas: propostasPendentes.length,
+        total_sucesso: totalVinculados,
+        total_falha: totalFalhas,
       })
       $app.save(aRec)
     } catch (_) {}
-  } catch (errBackfillGeral) {
-    console.log('[backfill-aceite] Erro geral no cron de backfill: ' + errBackfillGeral)
-    try {
-      const errCol = $app.findCollectionByNameOrId('erros_sistema')
-      if (errCol) {
-        const errRec = new Record(errCol)
-        errRec.set('rota', 'BACKFILL_ACEITE_PROPOSTA')
-        errRec.set(
-          'mensagem',
-          ('Falha geral no cron de backfill: ' + errBackfillGeral).slice(0, 1000),
-        )
-        errRec.set('hora', new Date().toISOString())
-        errRec.set('usuario_email', 'sistema')
-        errRec.set('detalhes', { erro: String(errBackfillGeral) })
-        $app.save(errRec)
-      }
-    } catch (_) {}
+  } catch (errGeralBackfill) {
+    gravarErroBackfillInline('Erro geral no cron de backfill v191: ' + errGeralBackfill, {
+      erro: String(errGeralBackfill),
+    })
   }
 })
-
 // Endpoint Público: Obter Contrato de Serviço por Token de Assinatura (ou Complemento) em QUALQUER status (sem login)
 routerAdd('GET', '/backend/v1/contratos-servico/obter-por-token/{token}', (e) => {
   try {

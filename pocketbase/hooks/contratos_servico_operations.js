@@ -838,9 +838,227 @@ try {
 try {
   cronRemove('backfill-propostas-aceitas-sem-contrato-v191')
 } catch (_) {}
+try {
+  cronRemove('backfill-ctr-2026-0003-deploy')
+} catch (_) {}
+try {
+  cronRemove('dedup-ctr-2026-0003-v195')
+} catch (_) {}
 
-// (3) FIX CTR-2026-0003: Backfill oneshot de deploy com cronRemove na 1ª linha
-// que roda a ativação idempotente do CTR-2026-0003 (id REAL no banco: ksorfla6p6kvgr1)
+// (1) DEDUP ONESHOT CTR-2026-0003 V0.0.195 (CONFIRMADO PELO USUÁRIO)
+// Executa no primeiro minuto após o deploy e se auto-remove na primeira linha do callback
+cronAdd('dedup-ctr-2026-0003-v195', '* * * * *', function () {
+  try {
+    cronRemove('dedup-ctr-2026-0003-v195')
+  } catch (_) {}
+
+  // 1. Apagar SOMENTE o projeto duplicado t8ed7bjw6yw66kt, sua etapa r5m8et9jancycit e os 3 entregáveis
+  // 00s8r2bv2f4e6m3, g379z6u3qzyqvmo, ysku4hv0p2zylot de forma estritamente idempotente
+  const entregaveisParaRemover = ['00s8r2bv2f4e6m3', 'g379z6u3qzyqvmo', 'ysku4hv0p2zylot']
+  for (let idxE = 0; idxE < entregaveisParaRemover.length; idxE++) {
+    const entId = entregaveisParaRemover[idxE]
+    try {
+      const entRec = $app.findRecordById('entregaveis', entId)
+      if (entRec) {
+        $app.delete(entRec)
+      }
+    } catch (errEnt) {
+      if (!String(errEnt).includes('no rows')) {
+        try {
+          const errCol = $app.findCollectionByNameOrId('erros_sistema')
+          if (errCol) {
+            const errRec = new Record(errCol)
+            errRec.set('rota', 'DEDUP_CTR_0003_APAGAR_ENTREGAVEL')
+            errRec.set('mensagem', String(errEnt).slice(0, 1000))
+            errRec.set('hora', new Date().toISOString())
+            errRec.set('usuario_email', 'sistema')
+            errRec.set('detalhes', { entregavel_id: entId, erro: String(errEnt) })
+            $app.save(errRec)
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  try {
+    const etapaRec = $app.findRecordById('projeto_etapas', 'r5m8et9jancycit')
+    if (etapaRec) {
+      $app.delete(etapaRec)
+    }
+  } catch (errEt) {
+    if (!String(errEt).includes('no rows')) {
+      try {
+        const errCol = $app.findCollectionByNameOrId('erros_sistema')
+        if (errCol) {
+          const errRec = new Record(errCol)
+          errRec.set('rota', 'DEDUP_CTR_0003_APAGAR_ETAPA')
+          errRec.set('mensagem', String(errEt).slice(0, 1000))
+          errRec.set('hora', new Date().toISOString())
+          errRec.set('usuario_email', 'sistema')
+          errRec.set('detalhes', { etapa_id: 'r5m8et9jancycit', erro: String(errEt) })
+          $app.save(errRec)
+        }
+      } catch (_) {}
+    }
+  }
+
+  try {
+    const prjDupRec = $app.findRecordById('projetos', 't8ed7bjw6yw66kt')
+    if (prjDupRec) {
+      $app.delete(prjDupRec)
+    }
+  } catch (errPrj) {
+    if (!String(errPrj).includes('no rows')) {
+      try {
+        const errCol = $app.findCollectionByNameOrId('erros_sistema')
+        if (errCol) {
+          const errRec = new Record(errCol)
+          errRec.set('rota', 'DEDUP_CTR_0003_APAGAR_PROJETO_DUPLICADO')
+          errRec.set('mensagem', String(errPrj).slice(0, 1000))
+          errRec.set('hora', new Date().toISOString())
+          errRec.set('usuario_email', 'sistema')
+          errRec.set('detalhes', { projeto_id: 't8ed7bjw6yw66kt', erro: String(errPrj) })
+          $app.save(errRec)
+        }
+      } catch (_) {}
+    }
+  }
+
+  // 2. Relinkar contratos_servico ksorfla6p6kvgr1 -> projeto = hfaeg6pptx5nf9w
+  try {
+    const ctrRec = $app.findRecordById('contratos_servico', 'ksorfla6p6kvgr1')
+    if (ctrRec && ctrRec.getString('projeto') !== 'hfaeg6pptx5nf9w') {
+      ctrRec.set('projeto', 'hfaeg6pptx5nf9w')
+      $app.save(ctrRec)
+    }
+  } catch (errRelinkCtr) {
+    try {
+      const errCol = $app.findCollectionByNameOrId('erros_sistema')
+      if (errCol) {
+        const errRec = new Record(errCol)
+        errRec.set('rota', 'DEDUP_CTR_0003_RELINK_CONTRATO')
+        errRec.set('mensagem', String(errRelinkCtr).slice(0, 1000))
+        errRec.set('hora', new Date().toISOString())
+        errRec.set('usuario_email', 'sistema')
+        errRec.set('detalhes', { erro: String(errRelinkCtr) })
+        $app.save(errRec)
+      }
+    } catch (_) {}
+  }
+
+  // Relinkar projetos hfaeg6pptx5nf9w -> grupo = ouatgv96iy87gz4 (só se vazio)
+  try {
+    const prjMantidoRec = $app.findRecordById('projetos', 'hfaeg6pptx5nf9w')
+    if (prjMantidoRec && !prjMantidoRec.getString('grupo')) {
+      prjMantidoRec.set('grupo', 'ouatgv96iy87gz4')
+      $app.save(prjMantidoRec)
+    }
+  } catch (errRelinkPrj) {
+    try {
+      const errCol = $app.findCollectionByNameOrId('erros_sistema')
+      if (errCol) {
+        const errRec = new Record(errCol)
+        errRec.set('rota', 'DEDUP_CTR_0003_RELINK_PROJETO_GRUPO')
+        errRec.set('mensagem', String(errRelinkPrj).slice(0, 1000))
+        errRec.set('hora', new Date().toISOString())
+        errRec.set('usuario_email', 'sistema')
+        errRec.set('detalhes', { erro: String(errRelinkPrj) })
+        $app.save(errRec)
+      }
+    } catch (_) {}
+  }
+
+  // 3. Criar as 2 contas a receber de R$ 500,00 (venc. 16/11/2026 e 01/12/2026, padrão das contas existentes,
+  // vinculadas ao contrato ksorfla6p6kvgr1 e ao projeto mantido hfaeg6pptx5nf9w),
+  // checando antes pela chave de idempotência 'ctr-2026-0003-parcela-1' e 'ctr-2026-0003-parcela-2'
+  const parcelasDedup = [
+    {
+      chave: 'ctr-2026-0003-parcela-1',
+      ordem: 1,
+      vencimento: '2026-11-16 12:00:00.000Z',
+      descricao: 'Contrato CTR-2026-0003 — Parcela 1/2 (50% - Parcela 1/2) (Sem NF)',
+    },
+    {
+      chave: 'ctr-2026-0003-parcela-2',
+      ordem: 2,
+      vencimento: '2026-12-01 12:00:00.000Z',
+      descricao: 'Contrato CTR-2026-0003 — Parcela 2/2 (50% - Parcela 2/2) (Sem NF)',
+    },
+  ]
+
+  for (let idxP = 0; idxP < parcelasDedup.length; idxP++) {
+    const pInfo = parcelasDedup[idxP]
+    try {
+      const contasExistentes = $app.findRecordsByFilter(
+        'contas',
+        "chave_idempotencia = '" +
+          pInfo.chave +
+          "' || (contrato_servico = 'ksorfla6p6kvgr1' && descricao ~ 'Parcela " +
+          pInfo.ordem +
+          "/2')",
+        '-created',
+        1,
+        0,
+      )
+
+      if (contasExistentes.length === 0) {
+        const contasCol = $app.findCollectionByNameOrId('contas')
+        if (contasCol) {
+          const novaConta = new Record(contasCol)
+          novaConta.set('tipo', 'receber')
+          novaConta.set('projeto', 'hfaeg6pptx5nf9w')
+          novaConta.set('contrato_servico', 'ksorfla6p6kvgr1')
+          novaConta.set('descricao', pInfo.descricao)
+          novaConta.set('valor', 500)
+          novaConta.set('valor_liquido', 500)
+          novaConta.set('retencao_impostos', 0)
+          novaConta.set('status', 'rascunho')
+          novaConta.set('forma_pagamento', 'Gatilho: marco | Conforme contrato assinado')
+          novaConta.set('bloqueada_por_fechamento', false)
+          novaConta.set('vencimento', pInfo.vencimento)
+          novaConta.set('chave_idempotencia', pInfo.chave)
+          $app.save(novaConta)
+        }
+      } else {
+        // Garantir que a conta existente aponte para o projeto mantido e tenha a chave_idempotencia
+        const cExist = contasExistentes[0]
+        let alterouConta = false
+        if (cExist.getString('projeto') !== 'hfaeg6pptx5nf9w') {
+          cExist.set('projeto', 'hfaeg6pptx5nf9w')
+          alterouConta = true
+        }
+        if (!cExist.getString('chave_idempotencia')) {
+          cExist.set('chave_idempotencia', pInfo.chave)
+          alterouConta = true
+        }
+        if (alterouConta) {
+          $app.save(cExist)
+        }
+      }
+    } catch (errConta) {
+      try {
+        const errCol = $app.findCollectionByNameOrId('erros_sistema')
+        if (errCol) {
+          const errRec = new Record(errCol)
+          errRec.set('rota', 'DEDUP_CTR_0003_CRIAR_CONTA')
+          errRec.set('mensagem', String(errConta).slice(0, 1000))
+          errRec.set('hora', new Date().toISOString())
+          errRec.set('usuario_email', 'sistema')
+          errRec.set('detalhes', {
+            parcela: pInfo.ordem,
+            chave: pInfo.chave,
+            erro: String(errConta),
+          })
+          $app.save(errRec)
+        }
+      } catch (_) {}
+    }
+  }
+})
+
+// =============================================================================
+// BACKFILL IDEMPOTENTE ONESHOT V0.0.191 (ITEM 2 CRÍTICO)
+// =============================================================================
 try {
   cronRemove('backfill-ctr-2026-0003-deploy')
 } catch (_) {}
@@ -1002,6 +1220,30 @@ cronAdd('backfill-ctr-2026-0003-deploy', '* * * * *', function () {
       } catch (_) {}
     }
 
+    // Trava de idempotência atômica: reservar contrato_servico.projeto se vazio
+    let reservaCriada = false
+    const idReserva = 'reserva_' + contratoId
+    if (!rec.getString('projeto')) {
+      try {
+        const resUpdate = $app
+          .db()
+          .newQuery(
+            "UPDATE contratos_servico SET projeto = {:reserva} WHERE id = {:id} AND (projeto = '' OR projeto IS NULL)",
+          )
+          .bind({ reserva: idReserva, id: contratoId })
+          .execute()
+        const rowsAfetadas =
+          resUpdate && typeof resUpdate.rowsAffected === 'function' ? resUpdate.rowsAffected() : 0
+        if (rowsAfetadas === 0) {
+          // Outra thread já reservou ou já vinculou projeto: abortar sem criar/editar nada
+          return
+        }
+        reservaCriada = true
+      } catch (errReserva) {
+        return
+      }
+    }
+
     // Trava de idempotência atômica: verificar se já existe projeto com contrato_servico = id do contrato
     const projetosJaCriados = $app.findRecordsByFilter(
       'projetos',
@@ -1012,7 +1254,7 @@ cronAdd('backfill-ctr-2026-0003-deploy', '* * * * *', function () {
     )
     if (projetosJaCriados.length > 0) {
       try {
-        if (!rec.getString('projeto')) {
+        if (!rec.getString('projeto') || rec.getString('projeto').startsWith('reserva_')) {
           rec.set('projeto', projetosJaCriados[0].id)
           $app.save(rec)
         }
@@ -1499,7 +1741,11 @@ cronAdd('backfill-ctr-2026-0003-deploy', '* * * * *', function () {
       try {
         rec.set('projeto', projetosGerados[0].id)
         $app.save(rec)
-      } catch (_) {}
+      } catch (errSalvarProj) {
+        liberarReservaSeFalha('Erro ao salvar projeto no contrato: ' + errSalvarProj)
+      }
+    } else {
+      liberarReservaSeFalha('Nenhum projeto gerado para o contrato')
     }
 
     // 5. CONTAS A RECEBER
@@ -2117,6 +2363,29 @@ cronAdd('sweep-contratos-assinados-sem-projeto', '* * * * *', function () {
       }
     } catch (_) {}
 
+    // Trava de idempotência atômica: reservar contrato_servico.projeto se vazio
+    let reservaCriada = false
+    const idReserva = 'reserva_' + contratoId
+    if (!rec.getString('projeto')) {
+      try {
+        const resUpdate = $app
+          .db()
+          .newQuery(
+            "UPDATE contratos_servico SET projeto = {:reserva} WHERE id = {:id} AND (projeto = '' OR projeto IS NULL)",
+          )
+          .bind({ reserva: idReserva, id: contratoId })
+          .execute()
+        const rowsAfetadas =
+          resUpdate && typeof resUpdate.rowsAffected === 'function' ? resUpdate.rowsAffected() : 0
+        if (rowsAfetadas === 0) {
+          return
+        }
+        reservaCriada = true
+      } catch (errReserva) {
+        return
+      }
+    }
+
     // Trava de idempotência atômica: verificar se já existe projeto com contrato_servico = id do contrato
     const projetosJaCriados = $app.findRecordsByFilter(
       'projetos',
@@ -2127,7 +2396,7 @@ cronAdd('sweep-contratos-assinados-sem-projeto', '* * * * *', function () {
     )
     if (projetosJaCriados.length > 0) {
       try {
-        if (!rec.getString('projeto')) {
+        if (!rec.getString('projeto') || rec.getString('projeto').startsWith('reserva_')) {
           rec.set('projeto', projetosJaCriados[0].id)
           $app.save(rec)
         }
@@ -3783,7 +4052,56 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
       console.log('Erro ao criar grupo de projetos: ' + errGrupo)
     }
 
-    // Trava de idempotência atômica: pular se já existe projeto com contrato_servico = id do contrato, sem editar nada
+    // Trava de idempotência atômica: reservar contrato_servico.projeto para evitar corridas concorrentes
+    let reservaCriada = false
+    const idReserva = 'reserva_' + contratoId
+    try {
+      const resUpdate = $app
+        .db()
+        .newQuery(
+          "UPDATE contratos_servico SET projeto = {:reserva} WHERE id = {:id} AND (projeto = '' OR projeto IS NULL)",
+        )
+        .bind({ reserva: idReserva, id: contratoId })
+        .execute()
+      const rowsAfetadas =
+        resUpdate && typeof resUpdate.rowsAffected === 'function' ? resUpdate.rowsAffected() : 0
+      if (rowsAfetadas === 0) {
+        // Outra thread já reservou ou já vinculou projeto: abortar sem criar/editar nada
+        return
+      }
+      reservaCriada = true
+    } catch (errReserva) {
+      // Se falhar a query atômica, abortar sem criar/editar nada
+      return
+    }
+
+    // Função auxiliar inline para liberar reserva em caso de falha nos filhos
+    function liberarReservaSeFalha(msgErro) {
+      if (reservaCriada) {
+        try {
+          $app
+            .db()
+            .newQuery(
+              "UPDATE contratos_servico SET projeto = '' WHERE id = {:id} AND projeto = {:reserva}",
+            )
+            .bind({ id: contratoId, reserva: idReserva })
+            .execute()
+        } catch (_) {}
+      }
+      try {
+        const errCol = $app.findCollectionByNameOrId('erros_sistema')
+        if (errCol) {
+          const errRec = new Record(errCol)
+          errRec.set('rota', 'ATIVAR_CONTRATO_BILATERAL_CLIENTE')
+          errRec.set('mensagem', String(msgErro).slice(0, 1000))
+          errRec.set('hora', new Date().toISOString())
+          errRec.set('usuario_email', 'sistema')
+          errRec.set('detalhes', { contrato_id: contratoId, erro: String(msgErro) })
+          $app.save(errRec)
+        }
+      } catch (_) {}
+    }
+
     const projetosJaCriados = $app.findRecordsByFilter(
       'projetos',
       "contrato_servico = '" + contratoId + "'",
@@ -3793,10 +4111,8 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
     )
     if (projetosJaCriados.length > 0) {
       try {
-        if (!rec.getString('projeto')) {
-          rec.set('projeto', projetosJaCriados[0].id)
-          $app.save(rec)
-        }
+        rec.set('projeto', projetosJaCriados[0].id)
+        $app.save(rec)
       } catch (_) {}
       return
     }
@@ -5797,7 +6113,56 @@ routerAdd(
         console.log('Erro ao criar grupo de projetos: ' + errGrupo)
       }
 
-      // Trava de idempotência atômica: pular se já existe projeto com contrato_servico = id do contrato, sem editar nada
+      // Trava de idempotência atômica: reservar contrato_servico.projeto para evitar corridas concorrentes
+      let reservaCriada = false
+      const idReserva = 'reserva_' + contratoId
+      try {
+        const resUpdate = $app
+          .db()
+          .newQuery(
+            "UPDATE contratos_servico SET projeto = {:reserva} WHERE id = {:id} AND (projeto = '' OR projeto IS NULL)",
+          )
+          .bind({ reserva: idReserva, id: contratoId })
+          .execute()
+        const rowsAfetadas =
+          resUpdate && typeof resUpdate.rowsAffected === 'function' ? resUpdate.rowsAffected() : 0
+        if (rowsAfetadas === 0) {
+          // Outra thread já reservou ou já vinculou projeto: abortar sem criar/editar nada
+          return
+        }
+        reservaCriada = true
+      } catch (errReserva) {
+        // Se falhar a query atômica, abortar sem criar/editar nada
+        return
+      }
+
+      // Função auxiliar inline para liberar reserva em caso de falha nos filhos
+      function liberarReservaSeFalha(msgErro) {
+        if (reservaCriada) {
+          try {
+            $app
+              .db()
+              .newQuery(
+                "UPDATE contratos_servico SET projeto = '' WHERE id = {:id} AND projeto = {:reserva}",
+              )
+              .bind({ id: contratoId, reserva: idReserva })
+              .execute()
+          } catch (_) {}
+        }
+        try {
+          const errCol = $app.findCollectionByNameOrId('erros_sistema')
+          if (errCol) {
+            const errRec = new Record(errCol)
+            errRec.set('rota', 'ATIVAR_CONTRATO_BILATERAL_ADMIN')
+            errRec.set('mensagem', String(msgErro).slice(0, 1000))
+            errRec.set('hora', new Date().toISOString())
+            errRec.set('usuario_email', 'sistema')
+            errRec.set('detalhes', { contrato_id: contratoId, erro: String(msgErro) })
+            $app.save(errRec)
+          }
+        } catch (_) {}
+      }
+
       const projetosJaCriados = $app.findRecordsByFilter(
         'projetos',
         "contrato_servico = '" + contratoId + "'",
@@ -5807,10 +6172,8 @@ routerAdd(
       )
       if (projetosJaCriados.length > 0) {
         try {
-          if (!rec.getString('projeto')) {
-            rec.set('projeto', projetosJaCriados[0].id)
-            $app.save(rec)
-          }
+          rec.set('projeto', projetosJaCriados[0].id)
+          $app.save(rec)
         } catch (_) {}
         return
       }
@@ -6390,7 +6753,11 @@ routerAdd(
         try {
           rec.set('projeto', projetosGerados[0].id)
           $app.save(rec)
-        } catch (_) {}
+        } catch (errSalvarProj) {
+          liberarReservaSeFalha('Erro ao salvar projeto no contrato: ' + errSalvarProj)
+        }
+      } else {
+        liberarReservaSeFalha('Nenhum projeto gerado para o contrato')
       }
 
       // 5. CONTAS A RECEBER

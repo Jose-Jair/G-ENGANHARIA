@@ -844,6 +844,9 @@ try {
 try {
   cronRemove('dedup-ctr-2026-0003-v195')
 } catch (_) {}
+try {
+  cronRemove('oneshot-proposta-e2e-v196')
+} catch (_) {}
 
 // (1) DEDUP ONESHOT CTR-2026-0003 V0.0.195 (CONFIRMADO PELO USUÁRIO)
 // Executa no primeiro minuto após o deploy e se auto-remove na primeira linha do callback
@@ -1053,6 +1056,478 @@ cronAdd('dedup-ctr-2026-0003-v195', '* * * * *', function () {
         }
       } catch (_) {}
     }
+  }
+})
+
+// =============================================================================
+// ONESHOT E2E v0.0.196 — CRIAR E ENVIAR PROPOSTA DE TESTE E2E (PARTE 2 + 3)
+// =============================================================================
+// Cria cliente PF fictício, proposta PROP-2026-0004 com R$ 1.000 (parcelas 2x 500)
+// e executa o fluxo oficial de envio por e-mail com registro ENVIO_PROPOSTA.
+// Auto-remove na primeira linha do callback para execução única.
+cronAdd('oneshot-proposta-e2e-v196', '* * * * *', function () {
+  try {
+    cronRemove('oneshot-proposta-e2e-v196')
+  } catch (_) {}
+
+  try {
+    const emailAlvo = 'jairalves1109@gmail.com'
+    const nomeAlvo = 'TESTE E2E Cliente 2'
+    const cpfAlvo = '11144477735'
+    const empreendimentoNome = 'Obra Teste E2E 0004'
+
+    // 1. Obter ou Criar Cliente PF
+    let clientePfRec = null
+    try {
+      const pfs = $app.findRecordsByFilter(
+        'clientes_pf',
+        "email = '" + emailAlvo + "'",
+        '-created',
+        1,
+        0,
+      )
+      if (pfs && pfs.length > 0) {
+        clientePfRec = pfs[0]
+        // Garantir dados mínimos para fluxo direto sem pendências de complemento
+        let alterouPf = false
+        if (clientePfRec.getBool('pre_cadastro')) {
+          clientePfRec.set('pre_cadastro', false)
+          alterouPf = true
+        }
+        if (!clientePfRec.getString('cep')) {
+          clientePfRec.set('cep', '63660-000')
+          alterouPf = true
+        }
+        if (!clientePfRec.getString('logradouro')) {
+          clientePfRec.set('logradouro', 'Rua Teste E2E')
+          alterouPf = true
+        }
+        if (!clientePfRec.getString('numero')) {
+          clientePfRec.set('numero', '100')
+          alterouPf = true
+        }
+        if (!clientePfRec.getString('bairro')) {
+          clientePfRec.set('bairro', 'Centro')
+          alterouPf = true
+        }
+        if (!clientePfRec.getString('municipio')) {
+          clientePfRec.set('municipio', 'Tauá')
+          alterouPf = true
+        }
+        if (!clientePfRec.getString('uf')) {
+          clientePfRec.set('uf', 'CE')
+          alterouPf = true
+        }
+        if (!clientePfRec.getString('cpf')) {
+          clientePfRec.set('cpf', cpfAlvo)
+          alterouPf = true
+        }
+        if (alterouPf) {
+          $app.save(clientePfRec)
+        }
+      }
+    } catch (_) {}
+
+    if (!clientePfRec) {
+      const pfCol = $app.findCollectionByNameOrId('clientes_pf')
+      clientePfRec = new Record(pfCol)
+      clientePfRec.set('nome', nomeAlvo)
+      clientePfRec.set('email', emailAlvo)
+      clientePfRec.set('cpf', cpfAlvo)
+      clientePfRec.set('telefone', '(88) 99944-1685')
+      clientePfRec.set('pre_cadastro', false)
+      clientePfRec.set('cep', '63660-000')
+      clientePfRec.set('logradouro', 'Rua Teste E2E')
+      clientePfRec.set('numero', '100')
+      clientePfRec.set('bairro', 'Centro')
+      clientePfRec.set('municipio', 'Tauá')
+      clientePfRec.set('uf', 'CE')
+      clientePfRec.set('consentimento_lgpd', true)
+      clientePfRec.set('data_consentimento', new Date().toISOString())
+      clientePfRec.set('base_legal', 'Consentimento do titular (Art. 7º, I da LGPD)')
+      $app.save(clientePfRec)
+    }
+
+    // 2. Verificar se a proposta PROP-2026-0004 já existe (idempotência)
+    let propostaRec = null
+    try {
+      const props = $app.findRecordsByFilter(
+        'propostas',
+        "numero = 'PROP-2026-0004' || (cliente_pf = '" +
+          clientePfRec.id +
+          "' && empreendimento = '" +
+          empreendimentoNome +
+          "')",
+        '-created',
+        1,
+        0,
+      )
+      if (props && props.length > 0) {
+        propostaRec = props[0]
+        console.log('[oneshot-v196] Proposta E2E já existente: ' + propostaRec.getString('numero'))
+      }
+    } catch (_) {}
+
+    // Obter usuário Admin para autoria/auditoria
+    let adminUserId = ''
+    try {
+      const adminUsers = $app.findRecordsByFilter('users', "role = 'admin'", '-created', 1, 0)
+      if (adminUsers && adminUsers.length > 0) {
+        adminUserId = adminUsers[0].id
+      }
+    } catch (_) {}
+
+    const parcelasConfig = [
+      {
+        ordem: 1,
+        valor: 500,
+        dias_vencimento: 15,
+        percentual: 50,
+        gatilho: 'contratacao',
+        descricao: '50% (cinquenta por cento) na assinatura do contrato/aceite',
+      },
+      {
+        ordem: 2,
+        valor: 500,
+        dias_vencimento: 30,
+        percentual: 50,
+        gatilho: 'entrega',
+        descricao: '50% (cinquenta por cento) na entrega final dos projetos executivos',
+      },
+    ]
+
+    const objetoTexto =
+      'Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para a elaboração de Modelagem da Informação da Construção (BIM Compatibilização) destinados ao empreendimento "' +
+      empreendimentoNome +
+      '", em conformidade com as diretrizes e necessidades apresentadas pela CONTRATANTE.'
+
+    const condicoesGeraisTexto =
+      'CLÁUSULA 1ª — As alterações no projeto ou nas premissas de cálculo e concepção solicitadas pela CONTRATANTE após a conclusão ou entrega das respectivas fases incorrerão em custos adicionais correspondentes ao retrabalho demandado.\n' +
+      'CLÁUSULA 2ª — Os serviços serão desenvolvidos em estrita observância às normas técnicas brasileiras vigentes (ABNT) e aos parâmetros legais aplicáveis.'
+
+    const premissasTexto =
+      '1. A CONTRATADA não se responsabiliza por eventuais paralisações, atrasos e/ou cancelamentos decorrentes de exigências imprevistas dos órgãos competentes.\n' +
+      '2. Fornecimento tempestivo pelo CONTRATANTE de todas as informações, diretrizes e projetos complementares necessários.'
+
+    if (!propostaRec) {
+      const propostasCol = $app.findCollectionByNameOrId('propostas')
+      propostaRec = new Record(propostasCol)
+
+      // Número automático será tratado pelo hook onRecordCreate (PROP-2026-0004)
+      propostaRec.set('cliente_pf', clientePfRec.id)
+      propostaRec.set('empreendimento', empreendimentoNome)
+      propostaRec.set('objeto', objetoTexto)
+      propostaRec.set('escopo', objetoTexto)
+      propostaRec.set(
+        'escopo_gerado',
+        '1. PROJETO / DISCIPLINA: SERVIÇOS TÉCNICOS • Modelagem da Informação da Construção (BIM Compatibilização)',
+      )
+      propostaRec.set('disciplinas', 'BIM / Gestão')
+      propostaRec.set('prazo', '30 dias corridos')
+      propostaRec.set('prazo_dias', 30)
+      propostaRec.set(
+        'nota_prazo',
+        'Os prazos serão contados em dias corridos, a partir da data de assinatura deste contrato e do fornecimento de todos os elementos e subsídios necessários ao desenvolvimento dos serviços.',
+      )
+      propostaRec.set('preco', 1000)
+      propostaRec.set('custo', 1000)
+      propostaRec.set('margem', 0)
+      propostaRec.set('impostos', 0)
+      propostaRec.set(
+        'condicoes_pagamento',
+        '50% (cinquenta por cento) na assinatura do contrato/aceite; 50% (cinquenta por cento) na entrega final dos projetos executivos',
+      )
+      propostaRec.set('condicoes_gerais', condicoesGeraisTexto)
+      propostaRec.set('premissas', premissasTexto)
+      propostaRec.set('requer_nota', false)
+      propostaRec.set('requer_aprovacao_admin', true)
+      propostaRec.set('validade_dias', 15)
+
+      // Validade: 15 dias a partir de agora
+      const dataValidade = new Date(Date.now() + 15 * 86400000).toISOString()
+      propostaRec.set('validade', dataValidade)
+
+      if (adminUserId) {
+        propostaRec.set('criado_por', adminUserId)
+      }
+
+      // Status: aprovada -> para gerar token_aceite oficial no onRecordCreate
+      propostaRec.set('status', 'aprovada')
+      propostaRec.set('revisao', 'Rev.00')
+
+      // Itens JSON para visualização completa
+      propostaRec.set('itens_json', [
+        {
+          descricao: 'Modelagem da Informação da Construção (BIM Compatibilização)',
+          disciplina: 'BIM / Gestão',
+          quantidade: 1,
+          unidade: 'm²',
+          custo_unitario: '1000',
+          custo_total: 1000,
+          bdi_percentual: 0,
+          preco_total: 1000,
+          origem: 'catalogo',
+        },
+      ])
+
+      $app.save(propostaRec)
+      console.log(
+        '[oneshot-v196] Proposta salva com sucesso: ' +
+          propostaRec.getString('numero') +
+          ' (id=' +
+          propostaRec.id +
+          ')',
+      )
+
+      // Criar itens vinculados em proposta_itens
+      try {
+        const itensCol = $app.findCollectionByNameOrId('proposta_itens')
+        const itemRec = new Record(itensCol)
+        itemRec.set('proposta', propostaRec.id)
+        itemRec.set('descricao', 'Modelagem da Informação da Construção (BIM Compatibilização)')
+        itemRec.set('disciplina', 'BIM / Gestão')
+        itemRec.set('unidade', 'm²')
+        itemRec.set('quantidade', 1)
+        itemRec.set('custo_unitario', 1000)
+        itemRec.set('custo_total', 1000)
+        itemRec.set('bdi_percentual', 0)
+        itemRec.set('preco_total', 1000)
+        itemRec.set('ordem', 1)
+        itemRec.set('status_conversao', 'nao_convertido')
+        try {
+          const servCatalogo = $app.findFirstRecordByData(
+            'catalogo_servicos',
+            'id',
+            'wqqk9h3mq427keu',
+          )
+          if (servCatalogo) {
+            itemRec.set('servico', servCatalogo.id)
+          }
+        } catch (_) {}
+        $app.save(itemRec)
+      } catch (errItens) {
+        console.warn('[oneshot-v196] Aviso ao criar proposta_itens: ' + errItens)
+      }
+
+      // Criar parcelas vinculadas em proposta_parcelas (com dias_vencimento e percentual)
+      try {
+        const parcelasCol = $app.findCollectionByNameOrId('proposta_parcelas')
+        for (let iP = 0; iP < parcelasConfig.length; iP++) {
+          const pConf = parcelasConfig[iP]
+          const parcRec = new Record(parcelasCol)
+          parcRec.set('proposta', propostaRec.id)
+          parcRec.set('ordem', pConf.ordem)
+          parcRec.set('percentual', pConf.percentual)
+          parcRec.set('valor', pConf.valor)
+          parcRec.set('gatilho', pConf.gatilho)
+          parcRec.set('descricao', pConf.descricao)
+          $app.save(parcRec)
+        }
+      } catch (errParcs) {
+        console.warn('[oneshot-v196] Aviso ao criar proposta_parcelas: ' + errParcs)
+      }
+    }
+
+    // 3. Garantir token_aceite ativo
+    if (!propostaRec.getString('token_aceite')) {
+      propostaRec.set('token_aceite', $security.randomString(32))
+      $app.save(propostaRec)
+    }
+
+    const tokenAceite = propostaRec.getString('token_aceite')
+    const numeroProposta = propostaRec.getString('numero')
+
+    // 4. Fluxo Oficial de Envio de Proposta por E-mail
+    // Base URL de PRODUÇÃO garantida (NUNCA preview)
+    const baseUrlProd = 'https://gestao-de-projetos-de-engenharia-be59d.goskip.app'
+    const linkPublicoAceite = baseUrlProd + '/proposta/' + tokenAceite
+    const linkDescadastro = baseUrlProd + '/descadastro?email=' + encodeURIComponent(emailAlvo)
+
+    const precoFmt = 'R$ 1.000,00'
+    const dataValidadeFmt = '15 dias'
+    const assuntoEmail = 'Proposta Comercial ' + numeroProposta + ' — G+ Engenharia'
+
+    const htmlCorpo = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>${assuntoEmail}</title>
+</head>
+<body style="margin: 0; padding: 24px 0; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0">
+    <tr>
+      <td align="center">
+        <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; max-width: 92%;">
+          <tr>
+            <td style="background-color: #1E2A4A; padding: 24px 32px; text-align: left;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td>
+                    <span style="font-size: 24px; font-weight: bold; color: #ffffff; letter-spacing: -0.5px;">GESTÃO <span style="color: #D95A2B;">G+</span></span>
+                    <div style="color: #cbd5e1; font-size: 11px; margin-top: 2px;">Engenharia Consultiva & Gestão de Projetos</div>
+                  </td>
+                  <td align="right">
+                    <span style="display: inline-block; padding: 4px 10px; background-color: rgba(217, 90, 43, 0.2); border: 1px solid #D95A2B; color: #ffedd5; font-size: 11px; font-weight: 600; border-radius: 4px;">PROPOSTA OFICIAL</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 32px;">
+              <p style="font-size: 15px; line-height: 1.6; margin-top: 0; color: #1e293b;">
+                Olá, <strong>${nomeAlvo}</strong>,
+              </p>
+
+              <p style="font-size: 14px; line-height: 1.6; color: #334155;">
+                Apresentamos a proposta comercial e técnica <strong>${numeroProposta}</strong> para o empreendimento <em>${empreendimentoNome}</em>.<br/><br/>
+                Para visualizar os detalhes técnicos, escopo, entregáveis e formalizar o seu <strong>aceite eletrônico</strong>, acesse o link seguro abaixo:
+              </p>
+
+              <table width="100%" border="0" cellspacing="0" cellpadding="12" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin: 20px 0; font-size: 13px;">
+                <tr>
+                  <td width="35%" style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Proposta:</td>
+                  <td style="color: #0f172a; font-weight: bold; border-bottom: 1px solid #edf2f7;">${numeroProposta}</td>
+                </tr>
+                <tr>
+                  <td style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Empreendimento:</td>
+                  <td style="color: #0f172a; border-bottom: 1px solid #edf2f7;">${empreendimentoNome}</td>
+                </tr>
+                <tr>
+                  <td style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Objeto / Escopo:</td>
+                  <td style="color: #0f172a; border-bottom: 1px solid #edf2f7;">${objetoTexto}</td>
+                </tr>
+                <tr>
+                  <td style="color: #64748b; font-weight: 600; border-bottom: 1px solid #edf2f7;">Valor Global:</td>
+                  <td style="color: #D95A2B; font-weight: bold; font-size: 15px; border-bottom: 1px solid #edf2f7;">${precoFmt}</td>
+                </tr>
+                <tr>
+                  <td style="color: #64748b; font-weight: 600;">Validade da Proposta:</td>
+                  <td style="color: #0f172a;">${dataValidadeFmt}</td>
+                </tr>
+              </table>
+
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 28px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${linkPublicoAceite}" target="_blank" style="display: inline-block; padding: 14px 32px; background-color: #D95A2B; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: bold; border-radius: 6px; box-shadow: 0 2px 4px rgba(217, 90, 43, 0.3);">
+                      Visualizar Proposta Completa & Aceitar Online &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin-bottom: 0;">
+                Caso o botão acima não funcione, copie e cole o link a seguir no seu navegador:<br/>
+                <a href="${linkPublicoAceite}" style="color: #D95A2B; word-break: break-all;">${linkPublicoAceite}</a>
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background-color: #f8fafc; padding: 20px 32px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center;">
+              <p style="margin: 0 0 6px 0;">
+                Este e-mail foi gerado automaticamente pelo sistema <strong>GESTÃO G+</strong> da G+ Engenharia.
+              </p>
+              <p style="margin: 0;">
+                Se não deseja mais receber comunicados comerciais desta proposta, <a href="${linkDescadastro}" style="color: #64748b; text-decoration: underline;">clique aqui para descadastrar-se</a>.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`
+
+    // Tentativa real de envio de e-mail pelo mailClient
+    let emailEnviadoComSucesso = false
+    let erroSmtp = ''
+    try {
+      const mailClient = $app.newMailClient()
+      const senderAddress =
+        $app.settings().meta.senderAddress || 'nao-responder@gmaisengenharia.com.br'
+      const senderName = $app.settings().meta.senderName || 'G+ Engenharia'
+
+      mailClient.send({
+        from: { address: senderAddress, name: senderName },
+        to: [{ address: emailAlvo, name: nomeAlvo }],
+        subject: assuntoEmail,
+        html: htmlCorpo,
+      })
+      emailEnviadoComSucesso = true
+      console.log('[oneshot-v196] E-mail enviado com sucesso para ' + emailAlvo)
+    } catch (sendErr) {
+      erroSmtp = sendErr.message || String(sendErr)
+      console.warn(
+        '[oneshot-v196] Falha no mailClient.send (prosseguindo com registro de auditoria): ' +
+          erroSmtp,
+      )
+    }
+
+    // Atualiza status da proposta para 'enviada'
+    try {
+      propostaRec.set('status', 'enviada')
+      $app.save(propostaRec)
+    } catch (saveErr) {
+      console.warn('[oneshot-v196] Falha ao atualizar status para enviada: ' + saveErr)
+    }
+
+    // 5. Gravar registro ENVIO_PROPOSTA em audit_logs (idempotente)
+    try {
+      const logsExistentes = $app.findRecordsByFilter(
+        'audit_logs',
+        "acao = 'ENVIO_PROPOSTA' && registro_id = '" + propostaRec.id + "'",
+        '-created',
+        1,
+        0,
+      )
+
+      if (!logsExistentes || logsExistentes.length === 0) {
+        const auditCol = $app.findCollectionByNameOrId('audit_logs')
+        const auditRec = new Record(auditCol)
+        auditRec.set('user', adminUserId || null)
+        auditRec.set('user_email', 'admin@sistema.eng.br')
+        auditRec.set('acao', 'ENVIO_PROPOSTA')
+        auditRec.set('entidade', 'propostas')
+        auditRec.set('registro_id', propostaRec.id)
+        auditRec.set('ip', 'nao_capturado')
+        auditRec.set('detalhes', {
+          proposta_numero: numeroProposta,
+          canal: 'email',
+          destinatario_nome: nomeAlvo,
+          destinatario_email: emailAlvo,
+          assunto: assuntoEmail,
+          data_envio: new Date().toISOString(),
+          status_envio: emailEnviadoComSucesso ? 'enviado' : 'falha_smtp',
+          link_publico: linkPublicoAceite,
+          motivo_falha: erroSmtp || undefined,
+        })
+        $app.save(auditRec)
+        console.log(
+          '[oneshot-v196] Registro ENVIO_PROPOSTA gravado com sucesso para ' + numeroProposta,
+        )
+      } else {
+        console.log('[oneshot-v196] Registro ENVIO_PROPOSTA já existia para ' + numeroProposta)
+      }
+    } catch (errAudit) {
+      console.warn('[oneshot-v196] Falha ao gravar log de auditoria: ' + errAudit)
+    }
+
+    console.log(
+      '[oneshot-v196] Concluído! Proposta=' +
+        numeroProposta +
+        ' | Link=' +
+        linkPublicoAceite +
+        ' | EmailEnviado=' +
+        emailEnviadoComSucesso,
+    )
+  } catch (errGeral) {
+    console.error('[oneshot-v196] Erro geral no cron one-shot: ' + errGeral)
   }
 })
 

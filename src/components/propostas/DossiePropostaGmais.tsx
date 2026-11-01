@@ -253,11 +253,15 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
               <span>1. Objeto</span>
             </h2>
             <p className="text-justify text-slate-800 leading-relaxed whitespace-pre-line">
-              {(
-                proposta.objeto ||
-                proposta.escopo ||
-                `Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para o empreendimento "${empreendimentoNome}".`
-              )
+              {propostasService
+                .sanitizarObjetoParaRenderizacao(
+                  proposta.objeto ||
+                    proposta.escopo ||
+                    (empreendimentoNome
+                      ? `Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para o empreendimento "${empreendimentoNome}".`
+                      : 'Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados.'),
+                  proposta.empreendimento || empreendimentoNome,
+                )
                 .replace(/\n{3,}/g, '\n\n')
                 .trim()}
             </p>

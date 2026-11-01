@@ -506,11 +506,15 @@ export function PropostaPublicaPage() {
             <div className="space-y-2">
               <h3 className="font-bold text-sm text-slate-900 border-b pb-1">1. Objeto</h3>
               <div className="whitespace-pre-wrap leading-relaxed text-slate-700 bg-white p-2 text-justify">
-                {(
-                  proposta.objeto ||
-                  proposta.escopo ||
-                  `Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para o empreendimento "${proposta.empreendimento || 'Empreendimento'}".`
-                )
+                {propostasService
+                  .sanitizarObjetoParaRenderizacao(
+                    proposta.objeto ||
+                      proposta.escopo ||
+                      (proposta.empreendimento
+                        ? `Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para o empreendimento "${proposta.empreendimento}".`
+                        : 'Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados.'),
+                    proposta.empreendimento,
+                  )
                   .replace(/\n{3,}/g, '\n\n')
                   .trim()}
               </div>

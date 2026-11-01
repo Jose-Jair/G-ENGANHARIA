@@ -353,7 +353,8 @@ export const PropostasPage: React.FC = () => {
                     },
                     {
                       header: 'Contrato Vinculado',
-                      accessor: (p) => p.expand?.contrato?.numero || '',
+                      accessor: (p) =>
+                        p.expand?.contrato_servico?.numero || p.expand?.contrato?.numero || '',
                     },
                     {
                       header: 'Área de Atuação',
@@ -686,7 +687,16 @@ export const PropostasPage: React.FC = () => {
                         </td>
 
                         <td className="py-3 px-4">
-                          {p.expand?.contrato ? (
+                          {p.expand?.contrato_servico ? (
+                            <div>
+                              <div className="font-medium text-slate-800 line-clamp-1">
+                                {p.expand.contrato_servico.numero}
+                              </div>
+                              <div className="text-[11px] text-slate-500 line-clamp-1">
+                                {p.expand.contrato_servico.objeto || 'Contrato de Serviço G+'}
+                              </div>
+                            </div>
+                          ) : p.expand?.contrato ? (
                             <div>
                               <div className="font-medium text-slate-800 line-clamp-1">
                                 {p.expand.contrato.numero}

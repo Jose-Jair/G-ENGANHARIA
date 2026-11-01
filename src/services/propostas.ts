@@ -104,13 +104,15 @@ export const propostasService = {
     return pb.collection('propostas').getFullList<PropostaRecord>({
       filter: filter || undefined,
       sort: '-created',
-      expand: 'empresa,cliente_pf,contrato,modelo,criado_por,aprovador_financeiro,aprovador_admin',
+      expand:
+        'empresa,cliente_pf,contrato,contrato_servico,modelo,criado_por,aprovador_financeiro,aprovador_admin',
     })
   },
 
   async getById(id: string): Promise<PropostaRecord> {
     return pb.collection('propostas').getOne<PropostaRecord>(id, {
-      expand: 'empresa,cliente_pf,contrato,modelo,criado_por,aprovador_financeiro,aprovador_admin',
+      expand:
+        'empresa,cliente_pf,contrato,contrato_servico,modelo,criado_por,aprovador_financeiro,aprovador_admin',
     })
   },
 
@@ -135,7 +137,7 @@ export const propostasService = {
       // 2. Fallback padrão via getFullList com headers do token
       const records = await pb.collection('propostas').getFullList<PropostaRecord>({
         filter: `token_aceite = '${token}'`,
-        expand: 'empresa,cliente_pf,contrato',
+        expand: 'empresa,cliente_pf,contrato,contrato_servico',
         requestKey: null,
         token: token,
         headers: {
@@ -151,7 +153,7 @@ export const propostasService = {
 
   async create(data: CreatePropostaData): Promise<PropostaRecord> {
     const created = await pb.collection('propostas').create<PropostaRecord>(data, {
-      expand: 'empresa,cliente_pf,contrato,modelo,criado_por',
+      expand: 'empresa,cliente_pf,contrato,contrato_servico,modelo,criado_por',
     })
 
     // Sincronizar itens na tabela proposta_itens (sanitizado contra erro 400 no PocketBase)
@@ -172,7 +174,7 @@ export const propostasService = {
 
   async update(id: string, data: UpdatePropostaData): Promise<PropostaRecord> {
     const updated = await pb.collection('propostas').update<PropostaRecord>(id, data, {
-      expand: 'empresa,cliente_pf,contrato,modelo,criado_por',
+      expand: 'empresa,cliente_pf,contrato,contrato_servico,modelo,criado_por',
     })
 
     // Se itens_json foi atualizado, sincronizar com proposta_itens (sanitizado contra erro 400 no PocketBase)
@@ -566,13 +568,42 @@ export const propostasService = {
   /**
    * Gerador automático da redação do Objeto no formato oficial GMAIS
    */
+  /**
+   * Substitui na renderização o literal 'Empreendimento' entre aspas pelo nome do empreendimento da proposta quando existir.
+   * Se o empreendimento estiver vazio, limpa qualquer menção 'ao empreendimento "Empreendimento"' para não exibir literal feio.
+   */
+  sanitizarObjetoParaRenderizacao(objetoTexto?: string, empreendimentoNome?: string): string {
+    if (!objetoTexto) return ''
+    let texto = objetoTexto
+    const emp = (empreendimentoNome || '').trim()
+
+    if (emp) {
+      // Substitui variações de 'Empreendimento' / "Empreendimento" pelo nome real do empreendimento
+      texto = texto.replace(/"Empreendimento"/g, `"${emp}"`)
+      texto = texto.replace(/'Empreendimento'/g, `"${emp}"`)
+      texto = texto.replace(/“Empreendimento”/g, `"${emp}"`)
+      texto = texto.replace(/”Empreendimento”/g, `"${emp}"`)
+    } else {
+      // Se vazio, omitir o trecho do literal "Empreendimento"
+      texto = texto.replace(/\s*destinados ao empreendimento\s*["'“”]Empreendimento["'“”]/gi, '')
+      texto = texto.replace(/\s*para o empreendimento\s*["'“”]Empreendimento["'“”]/gi, '')
+      texto = texto.replace(/["'“”]Empreendimento["'“”]/g, '')
+    }
+
+    return texto
+  },
+
+  /**
+   * Gerador automático da redação do Objeto no formato oficial GMAIS
+   */
   gerarObjetoAutomatico(params: {
     empreendimento?: string
     municipio?: string
     uf?: string
     itens?: PropostaItemRecord[]
   }): string {
-    const emp = params.empreendimento?.trim() || 'Empreendimento'
+    const rawEmp = params.empreendimento?.trim()
+    const emp = rawEmp && rawEmp.toLowerCase() !== 'empreendimento' ? rawEmp : ''
     const mun = params.municipio?.trim()
     const uf = params.uf?.trim()
     const local = mun && uf ? `em ${mun}–${uf}` : mun || (uf ? `– ${uf}` : '')
@@ -593,7 +624,11 @@ export const propostasService = {
           (servicosNomes.length > 4 ? ' e demais especialidades' : '')
         : 'projetos de engenharia e consultoria técnica especializada'
 
-    return `Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para a elaboração de ${resumoServicos} destinados ao empreendimento "${emp}"${local ? ` ${local}` : ''}, em conformidade com as diretrizes e necessidades apresentadas pela CONTRATANTE.`
+    const trechoEmpreendimento = emp ? ` destinados ao empreendimento "${emp}"` : ''
+
+    const trechoLocal = local ? ` ${local}` : ''
+
+    return `Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para a elaboração de ${resumoServicos}${trechoEmpreendimento}${trechoLocal}, em conformidade com as diretrizes e necessidades apresentadas pela CONTRATANTE.`
   },
 
   /**

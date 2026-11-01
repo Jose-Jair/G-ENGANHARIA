@@ -114,6 +114,23 @@ describe('propostasService - Novo Modelo de Precificação e Nota Fiscal', () =>
       expect(objeto).toContain('CONTRATANTE')
     })
 
+    it('omite o trecho de empreendimento se vazio e nunca escreve Empreendimento literal', () => {
+      const objetoSemEmp = propostasService.gerarObjetoAutomatico({
+        empreendimento: '',
+        municipio: 'Recife',
+        uf: 'PE',
+      })
+      expect(objetoSemEmp).not.toContain('"Empreendimento"')
+      expect(objetoSemEmp).not.toContain('destinados ao empreendimento')
+
+      const objetoSanitizado = propostasService.sanitizarObjetoParaRenderizacao(
+        'destinados ao empreendimento "Empreendimento" em São Paulo-SP',
+        'Residencial Teste Final V185',
+      )
+      expect(objetoSanitizado).toContain('"Residencial Teste Final V185"')
+      expect(objetoSanitizado).not.toContain('"Empreendimento"')
+    })
+
     it('gera escopo numerado agrupado com disciplinas e subserviços', () => {
       const escopo = propostasService.gerarEscopoAutomatico({
         itens: [

@@ -454,13 +454,20 @@ export const propostasService = {
     tokenAceite: string
     declaracao: boolean
     hashConteudo?: string
+    userAgent?: string
   }): Promise<any> {
+    const ua =
+      params.userAgent ||
+      (typeof navigator !== 'undefined' ? navigator.userAgent : '') ||
+      'Navegador Web'
+
     return await pb.send('/backend/v1/propostas/aceitar-digital', {
       method: 'POST',
       body: {
         token_aceite: params.tokenAceite,
         declaracao: params.declaracao,
         hash_conteudo: params.hashConteudo,
+        user_agent: ua,
       },
     })
   },

@@ -247,14 +247,18 @@ export function PropostaPublicaPage() {
 
     setProcessingAceite(true)
     try {
+      const userAgentAtual =
+        typeof navigator !== 'undefined' ? navigator.userAgent : 'Navegador Web'
+
       const res = await propostasService.aceitarDigital({
         tokenAceite: token,
         declaracao: true,
+        userAgent: userAgentAtual,
       })
 
       setAceiteConcluido(true)
 
-      // Atualizar objeto em memória
+      // Atualizar objeto em memória imediatamente
       setProposta({
         ...proposta,
         status: 'aceita',
@@ -266,18 +270,17 @@ export function PropostaPublicaPage() {
       toast({
         title: 'Aceite Formalizado com Pleno Sucesso!',
         description:
-          'O aceite digital possui validade jurídica. Redirecionando para o complemento cadastral...',
+          res.message ||
+          'Aceite registrado! Seu contrato está sendo gerado e você receberá as informações por e-mail.',
       })
 
-      // ALTERAÇÃO 1: Ao receber resposta positiva do endpoint POST /backend/v1/propostas/aceitar-digital,
-      // redirecionar IMEDIATAMENTE para /completar-cadastro/ + token_complemento_dados
-      // sem modal/etapa intermediária de confirmação/autenticação cadastral (PF e PJ)
+      // Se a resposta síncrona retornou token de complemento de dados
       if (res.token_complemento_dados) {
         navigate(`/completar-cadastro/${res.token_complemento_dados}`)
         return
       }
 
-      // Se o cadastro já estava integralmente completo e veio token de assinatura do cliente:
+      // Se veio token de assinatura do cliente direto
       if (res.token_assinatura_cliente) {
         navigate(`/contrato-servico/${res.token_assinatura_cliente}`)
         return

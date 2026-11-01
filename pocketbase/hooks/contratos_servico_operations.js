@@ -168,13 +168,45 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
       })
     }
 
-    const clientIp =
-      (e.request &&
-        typeof e.request.getHeader === 'function' &&
-        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
-      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
+    let clientIp = 'nao_capturado'
+    try {
+      if (e.request && e.request.header && typeof e.request.header.get === 'function') {
+        const xff = e.request.header.get('x-forwarded-for')
+        const xri = e.request.header.get('x-real-ip')
+        if (xff) {
+          clientIp = xff.split(',')[0].trim()
+        } else if (xri) {
+          clientIp = xri.trim()
+        }
+      }
+      if (clientIp === 'nao_capturado' && e.request && typeof e.request.getHeader === 'function') {
+        const xff = e.request.getHeader('x-forwarded-for')
+        const xri = e.request.getHeader('x-real-ip')
+        if (xff) {
+          clientIp = xff.split(',')[0].trim()
+        } else if (xri) {
+          clientIp = xri.trim()
+        }
+      }
+      if (clientIp === 'nao_capturado' && reqInfo.headers) {
+        const xff = reqInfo.headers['x-forwarded-for']
+        const xri = reqInfo.headers['x-real-ip']
+        if (xff) {
+          clientIp = String(xff).split(',')[0].trim()
+        } else if (xri) {
+          clientIp = String(xri).trim()
+        }
+      }
+    } catch (_) {
+      clientIp = 'nao_capturado'
+    }
+    if (!clientIp) clientIp = 'nao_capturado'
+
+    const clientUserAgent =
+      (body.user_agent && String(body.user_agent).trim()) ||
+      (body.userAgent && String(body.userAgent).trim()) ||
+      (reqInfo.headers && reqInfo.headers['user-agent']) ||
       'nao_capturado'
-    const clientUserAgent = (reqInfo.headers && reqInfo.headers['user-agent']) || 'Navegador Web'
     const nowIso = new Date().toISOString()
 
     let hashFinal = hashConteudo
@@ -269,48 +301,523 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
       }
     }
 
-    // =========================================================================
-    // BLOCO 3: VERIFICAÇÃO RIGOROSA DO CADASTRO DO CLIENTE (PF OU PJ)
-    // =========================================================================    const propostaId = proposta.id
-    const propostaNumero = proposta.getString('numero')
-    const empresaId = proposta.getString('empresa')
-    const clientePfId = proposta.getString('cliente_pf')
-    const preco = proposta.getFloat('preco') || 0
-    const prazoDias = proposta.getInt('prazo_dias') || 30
+    // Agendamento assíncrono em segundo plano (oneshot cron <= 1 min) para validação,
+    // criação idempotente do contrato CTR e disparo de e-mail sem bloquear a resposta HTTP.
+    // No runtime do PocketBase v0.23, o callback do cronAdd roda em VM pool isolada,
+    // portanto toda a rotina de geração de contrato é executada inline dentro do callback.
+    const propostaIdParaContrato = proposta.id
+    const ipParaContrato = clientIp
+    try {
+      const jobId = 'gerar-ctr-prop-' + propostaIdParaContrato
+      try {
+        cronRemove(jobId)
+      } catch (_) {}
+      cronAdd(jobId, '* * * * *', function () {
+        try {
+          cronRemove(jobId)
+        } catch (_) {}
+
+        function executarGeracaoContratoInline(propId, ipOrigem) {
+          const prop = $app.findRecordById('propostas', propId)
+          if (!prop || prop.getString('status') !== 'aceita') return null
+
+          const contratosExistentes = $app.findRecordsByFilter(
+            'contratos_servico',
+            "proposta = '" + propId + "'",
+            '-created',
+            1,
+            0,
+          )
+          if (contratosExistentes.length > 0) {
+            const cExistente = contratosExistentes[0]
+            if (prop.getString('contrato_servico') !== cExistente.id) {
+              try {
+                prop.set('contrato_servico', cExistente.id)
+                $app.save(prop)
+              } catch (_) {}
+            }
+            return cExistente
+          }
+
+          const propNum = prop.getString('numero')
+          const empId = prop.getString('empresa')
+          const cliPfId = prop.getString('cliente_pf')
+          const preco = prop.getFloat('preco') || 0
+          const prazoDias = prop.getInt('prazo_dias') || 30
+          const notaPrazo =
+            prop.getString('nota_prazo') ||
+            'Os prazos serão contados em dias corridos, a partir da data de assinatura deste contrato e do fornecimento de todos os elementos e subsídios necessários ao desenvolvimento dos serviços.'
+          const objeto =
+            prop.getString('objeto') ||
+            prop.getString('escopo') ||
+            'Prestação de serviços técnicos especializados de engenharia'
+
+          const cleanDigits = (v) => (v || '').toString().replace(/\D/g, '')
+
+          const isValidCpf = (cStr) => {
+            const clean = cleanDigits(cStr)
+            if (!clean || clean.length !== 11) return false
+            if (/^(\d)\1{10}$/.test(clean)) return false
+            let soma = 0
+            for (let i = 0; i < 9; i++) soma += parseInt(clean.charAt(i), 10) * (10 - i)
+            let resto = (soma * 10) % 11
+            if (resto === 10 || resto === 11) resto = 0
+            if (resto !== parseInt(clean.charAt(9), 10)) return false
+            soma = 0
+            for (let i = 0; i < 10; i++) soma += parseInt(clean.charAt(i), 10) * (11 - i)
+            resto = (soma * 10) % 11
+            if (resto === 10 || resto === 11) resto = 0
+            return resto === parseInt(clean.charAt(10), 10)
+          }
+
+          const isValidCnpj = (cStr) => {
+            const clean = cleanDigits(cStr)
+            if (!clean || clean.length !== 14) return false
+            if (/^(\d)\1{13}$/.test(clean)) return false
+            let soma = 0
+            let peso = 5
+            for (let i = 0; i < 12; i++) {
+              soma += parseInt(clean.charAt(i), 10) * peso
+              peso = peso === 2 ? 9 : peso - 1
+            }
+            let resto = soma % 11
+            const dv1 = resto < 2 ? 0 : 11 - resto
+            if (parseInt(clean.charAt(12), 10) !== dv1) return false
+            soma = 0
+            peso = 6
+            for (let i = 0; i < 13; i++) {
+              soma += parseInt(clean.charAt(i), 10) * peso
+              peso = peso === 2 ? 9 : peso - 1
+            }
+            resto = soma % 11
+            const dv2 = resto < 2 ? 0 : 11 - resto
+            return parseInt(clean.charAt(13), 10) === dv2
+          }
+
+          const camposFaltantes = []
+          let cliRec = null
+          let emailDest = ''
+          let nomeDest = ''
+
+          if (empId) {
+            try {
+              cliRec = $app.findRecordById('empresas', empId)
+            } catch (_) {}
+            if (!cliRec) {
+              camposFaltantes.push('empresa_nao_encontrada')
+            } else {
+              const razao = (cliRec.getString('razao_social') || '').trim()
+              const cnpj = cleanDigits(cliRec.getString('cnpj'))
+              const cep = cleanDigits(cliRec.getString('cep'))
+              const logradouro = (cliRec.getString('logradouro') || '').trim()
+              const numero = (cliRec.getString('numero') || '').trim()
+              const bairro = (cliRec.getString('bairro') || '').trim()
+              const municipio = (cliRec.getString('municipio') || '').trim()
+              const uf = (cliRec.getString('uf') || '').trim()
+              const email = (cliRec.getString('email') || '').trim()
+              const telefone = (cliRec.getString('telefone') || '').trim()
+
+              emailDest = email
+              nomeDest = razao
+
+              let temTelefone = Boolean(telefone)
+              try {
+                const tels = cliRec.get('telefones')
+                if (Array.isArray(tels) && tels.length > 0 && tels[0].numero) temTelefone = true
+              } catch (_) {}
+
+              if (!razao) camposFaltantes.push('razao_social')
+              if (!cnpj || !isValidCnpj(cnpj)) camposFaltantes.push('cnpj')
+              if (!email || email.indexOf('@') === -1) camposFaltantes.push('email')
+              if (!temTelefone) camposFaltantes.push('telefone')
+              if (!cep || cep.length < 8) camposFaltantes.push('cep')
+              if (!logradouro) camposFaltantes.push('logradouro')
+              if (!numero) camposFaltantes.push('numero')
+              if (!bairro) camposFaltantes.push('bairro')
+              if (!municipio) camposFaltantes.push('municipio')
+              if (!uf) camposFaltantes.push('uf')
+
+              let repNome = ''
+              let repCpf = ''
+              try {
+                const contatos = $app.findRecordsByFilter(
+                  'contatos',
+                  "empresa = '" + empId + "'",
+                  '-decisor,-created',
+                  5,
+                  0,
+                )
+                for (let ci = 0; ci < contatos.length; ci++) {
+                  const cRec = contatos[ci]
+                  const cNome = (cRec.getString('nome') || '').trim()
+                  const cCpf = cleanDigits(
+                    cRec.getString('cpf') ||
+                      cRec.getString('documento') ||
+                      cRec.getString('observacao') ||
+                      '',
+                  )
+                  if (cNome && !repNome) repNome = cNome
+                  if (cCpf && isValidCpf(cCpf) && !repCpf) repCpf = cCpf
+                  if (repNome && repCpf) break
+                }
+              } catch (_) {}
+
+              if (!repNome) camposFaltantes.push('representante_nome')
+              if (!repCpf || !isValidCpf(repCpf)) camposFaltantes.push('representante_documento')
+            }
+          } else if (cliPfId) {
+            try {
+              cliRec = $app.findRecordById('clientes_pf', cliPfId)
+            } catch (_) {}
+            if (!cliRec) {
+              camposFaltantes.push('cliente_pf_nao_encontrado')
+            } else {
+              const nome = (cliRec.getString('nome') || '').trim()
+              const cpf = cleanDigits(cliRec.getString('cpf'))
+              const email = (cliRec.getString('email') || '').trim()
+              const telefone = (cliRec.getString('telefone') || '').trim()
+              const cep = cleanDigits(cliRec.getString('cep'))
+              const logradouro = (cliRec.getString('logradouro') || '').trim()
+              const numero = (cliRec.getString('numero') || '').trim()
+              const bairro = (cliRec.getString('bairro') || '').trim()
+              const municipio = (cliRec.getString('municipio') || '').trim()
+              const uf = (cliRec.getString('uf') || '').trim()
+
+              emailDest = email
+              nomeDest = nome
+
+              let temTelefone = Boolean(telefone)
+              try {
+                const tels = cliRec.get('telefones')
+                if (Array.isArray(tels) && tels.length > 0 && tels[0].numero) temTelefone = true
+              } catch (_) {}
+
+              if (!nome) camposFaltantes.push('nome')
+              if (!cpf || !isValidCpf(cpf)) camposFaltantes.push('cpf')
+              if (!email || email.indexOf('@') === -1) camposFaltantes.push('email')
+              if (!temTelefone) camposFaltantes.push('telefone')
+              if (!cep || cep.length < 8) camposFaltantes.push('cep')
+              if (!logradouro) camposFaltantes.push('logradouro')
+              if (!numero) camposFaltantes.push('numero')
+              if (!bairro) camposFaltantes.push('bairro')
+              if (!municipio) camposFaltantes.push('municipio')
+              if (!uf) camposFaltantes.push('uf')
+            }
+          } else {
+            camposFaltantes.push('cliente_indefinido')
+          }
+
+          const cadastroCompleto = camposFaltantes.length === 0
+          const statusInicial = cadastroCompleto
+            ? 'aguardando_assinatura_admin'
+            : 'aguardando_dados_cliente'
+
+          const anoAtual = new Date().getFullYear()
+          const prefixoCTR = 'CTR-' + anoAtual + '-'
+          const contratosDoAno = $app.findRecordsByFilter(
+            'contratos_servico',
+            "numero ~ '" + prefixoCTR + "'",
+            '-numero',
+            1,
+            0,
+          )
+
+          let proximoSeqCtr = 1
+          if (contratosDoAno.length > 0) {
+            const ultimoNumero = contratosDoAno[0].getString('numero')
+            const partes = ultimoNumero.split('-')
+            const ultimoSeq = parseInt(partes[2], 10)
+            if (!isNaN(ultimoSeq)) proximoSeqCtr = ultimoSeq + 1
+          }
+          const numeroCTR = prefixoCTR + ('0000' + proximoSeqCtr).slice(-4)
+
+          let clausulasTexto = ''
+          try {
+            const paramClausulas = $app.findFirstRecordByData(
+              'parametros',
+              'chave',
+              'contrato_servico_clausulas_padrao',
+            )
+            if (paramClausulas) clausulasTexto = paramClausulas.getString('valor')
+          } catch (_) {}
+
+          let parcelas = []
+          try {
+            const parcs = $app.findRecordsByFilter(
+              'proposta_parcelas',
+              "proposta = '" + propId + "'",
+              'ordem',
+              50,
+              0,
+            )
+            parcelas = parcs.map((p) => ({
+              ordem: p.getInt('ordem'),
+              percentual: p.getFloat('percentual'),
+              valor: p.getFloat('valor'),
+              gatilho: p.getString('gatilho'),
+              descricao: p.getString('descricao'),
+            }))
+          } catch (_) {}
+
+          const tokenAssinaturaCliente = $security.randomString(32)
+          const tokenComplementoDados = cadastroCompleto ? '' : $security.randomString(32)
+
+          const contratosCol = $app.findCollectionByNameOrId('contratos_servico')
+          const novoContrato = new Record(contratosCol)
+          novoContrato.set('numero', numeroCTR)
+          novoContrato.set('proposta', propId)
+          if (empId) novoContrato.set('empresa', empId)
+          if (cliPfId) novoContrato.set('cliente_pf', cliPfId)
+          novoContrato.set('objeto', objeto)
+          novoContrato.set('valor_total', preco)
+          novoContrato.set('prazo_dias', prazoDias)
+          novoContrato.set('nota_prazo', notaPrazo)
+          novoContrato.set('clausulas_texto', clausulasTexto)
+          novoContrato.set('parcelas_json', parcelas)
+          novoContrato.set('status', statusInicial)
+          novoContrato.set('token_assinatura_cliente', tokenAssinaturaCliente)
+          novoContrato.set('token_complemento_dados', tokenComplementoDados)
+          novoContrato.set('campos_faltantes_json', camposFaltantes)
+
+          $app.save(novoContrato)
+
+          try {
+            prop.set('contrato_servico', novoContrato.id)
+            if (cadastroCompleto) {
+              prop.set('dados_complementares_preenchidos', true)
+            } else if (tokenComplementoDados) {
+              prop.set('dados_complementares_preenchidos', false)
+            }
+            $app.save(prop)
+          } catch (_) {}
+
+          try {
+            const auditCol = $app.findCollectionByNameOrId('audit_logs')
+            const aRec = new Record(auditCol)
+            aRec.set('acao', 'GERACAO_CONTRATO_SERVICO')
+            aRec.set('entidade', 'contratos_servico')
+            aRec.set('registro_id', novoContrato.id)
+            aRec.set('detalhes', {
+              mensagem:
+                'Contrato de serviços gerado pelo aceite digital da proposta ' +
+                propNum +
+                (cadastroCompleto
+                  ? ' (Cadastro completo -> Aguardando assinatura Admin)'
+                  : ' (Cadastro incompleto -> Aguardando dados do cliente)'),
+              contrato_numero: numeroCTR,
+              proposta_id: propId,
+              proposta_numero: propNum,
+              status: statusInicial,
+              campos_faltantes: camposFaltantes,
+              valor: preco,
+              ip: ipOrigem,
+            })
+            aRec.set('ip', ipOrigem)
+            $app.save(aRec)
+          } catch (_) {}
+
+          if (
+            !cadastroCompleto &&
+            tokenComplementoDados &&
+            emailDest &&
+            emailDest.indexOf('@') !== -1
+          ) {
+            try {
+              const appUrl =
+                $os.getenv('PUBLIC_APP_URL') ||
+                'https://gestao-de-projetos-de-engenharia-be59d.goskip.app'
+              const linkComplemento = appUrl + '/completar-cadastro/' + tokenComplementoDados
+              const senderAddress =
+                ($app.settings().meta && $app.settings().meta.senderAddress) ||
+                'nao-responder@skip.dev'
+              const senderName =
+                ($app.settings().meta && $app.settings().meta.senderName) ||
+                'G+ Engenharia Consultiva'
+              const linkDescadastro =
+                appUrl +
+                '/descadastro?origem=fluxo_contratual&email=' +
+                encodeURIComponent(emailDest)
+
+              const htmlEmail =
+                '<!DOCTYPE html><html><head><meta charset="utf-8" /></head><body style="margin:0;padding:24px;font-family:sans-serif;background-color:#f8fafc;color:#1e293b;">' +
+                '<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">' +
+                '<tr><td style="background-color:#1E2A4A;padding:20px 24px;border-bottom:3px solid #D95A2B;">' +
+                '<h2 style="margin:0;color:#ffffff;font-size:18px;">G+ Engenharia Consultiva</h2>' +
+                '<p style="margin:4px 0 0 0;color:#94a3b8;font-size:12px;">Complementação de Dados para Emissão do Contrato</p>' +
+                '</td></tr>' +
+                '<tr><td style="padding:24px;font-size:14px;line-height:1.6;color:#334155;">' +
+                '<p>Olá, <strong>' +
+                (nomeDest || 'Cliente') +
+                '</strong>!</p>' +
+                '<p>Confirmamos o aceite na Proposta Comercial <strong>' +
+                propNum +
+                '</strong>. Para que o seu Contrato de Prestação de Serviços Técnicos seja gerado com total conformidade jurídica e siga para a etapa de assinaturas digitais, precisamos que você complete alguns dados cadastrais obrigatórios.</p>' +
+                '<div style="margin:28px 0;text-align:center;">' +
+                '<a href="' +
+                linkComplemento +
+                '" target="_blank" style="background-color:#D95A2B;color:#ffffff;font-weight:bold;text-decoration:none;padding:12px 28px;border-radius:6px;display:inline-block;font-size:14px;">Completar Meus Dados Cadastrais</a>' +
+                '</div>' +
+                '<p style="font-size:12px;color:#64748b;">Se o botão não funcionar, copie e cole este link em seu navegador:<br /><span style="font-family:monospace;word-break:break-all;">' +
+                linkComplemento +
+                '</span></p>' +
+                '</td></tr>' +
+                '<tr><td style="padding:16px 24px;background-color:#f1f5f9;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;text-align:center;">' +
+                'Mensagem transacional do fluxo de contratação G+ Engenharia • ' +
+                numeroCTR +
+                '<br />Caso não queira receber nossas comunicações, <a href="' +
+                linkDescadastro +
+                '" style="color:#64748b;">descadastre seu e-mail</a>.' +
+                '</td></tr>' +
+                '</table></body></html>'
+
+              const msg = new MailerMessage({
+                from: { address: senderAddress, name: senderName },
+                to: [{ address: emailDest, name: nomeDest }],
+                subject:
+                  'Ação necessária: Complete seu cadastro para geração do contrato ' + numeroCTR,
+                html: htmlEmail,
+              })
+
+              $app.newMailClient().send(msg)
+
+              try {
+                const auditCol = $app.findCollectionByNameOrId('audit_logs')
+                const aRec = new Record(auditCol)
+                aRec.set('acao', 'ENVIO_EMAIL_COMPLEMENTO_DADOS')
+                aRec.set('entidade', 'contratos_servico')
+                aRec.set('registro_id', novoContrato.id)
+                aRec.set('detalhes', {
+                  mensagem:
+                    'E-mail transacional de complemento de dados enviado com link exclusivo para ' +
+                    emailDest,
+                  contrato_numero: numeroCTR,
+                  destinatario: emailDest,
+                  link: linkComplemento,
+                })
+                aRec.set('ip', ipOrigem)
+                $app.save(aRec)
+              } catch (_) {}
+            } catch (mailErr) {
+              console.log('Aviso/Erro ao disparar e-mail de complemento: ' + mailErr)
+            }
+          }
+
+          return novoContrato
+        }
+
+        try {
+          executarGeracaoContratoInline(propostaIdParaContrato, ipParaContrato)
+        } catch (errPos) {
+          try {
+            const errCol = $app.findCollectionByNameOrId('erros_sistema')
+            if (errCol) {
+              const errRec = new Record(errCol)
+              errRec.set('rota', 'ACEITE_PROPOSTA_POS_RESPOSTA')
+              errRec.set(
+                'mensagem',
+                ('Falha ao gerar contrato pós-aceite (cron): ' + errPos).slice(0, 1000),
+              )
+              errRec.set('hora', new Date().toISOString())
+              errRec.set('ip', ipParaContrato)
+              errRec.set('usuario_email', 'sistema')
+              errRec.set('detalhes', {
+                proposta_id: propostaIdParaContrato,
+                erro: String(errPos),
+              })
+              $app.save(errRec)
+            }
+          } catch (_) {}
+        }
+      })
+    } catch (errCron) {
+      console.log('Erro ao agendar geracao de contrato pos-aceite: ' + errCron)
+    }
+
+    return e.json(200, {
+      success: true,
+      aceite_registrado: true,
+      contrato_em_geracao: true,
+      message:
+        'Aceite registrado! Seu contrato está sendo gerado e você receberá as informações por e-mail.',
+      proposta_id: proposta.id,
+      proposta_numero: proposta.getString('numero'),
+      hash: hashFinal,
+      data_aceite: nowIso,
+    })
+  } catch (err) {
+    console.log('Erro ao registrar aceite digital de proposta: ' + err)
+    return e.json(500, { message: 'Erro interno ao processar aceite: ' + err })
+  }
+})
+
+// =============================================================================
+// BACKFILL IDEMPOTENTE ONESHOT (Auto-removível no primeiro disparo)
+// Varre propostas status='aceita' com contrato_servico vazio e data_aceite preenchida
+// =============================================================================
+try {
+  cronRemove('backfill-propostas-aceitas-sem-contrato-v186')
+} catch (_) {}
+
+cronAdd('backfill-propostas-aceitas-sem-contrato-v186', '* * * * *', function () {
+  try {
+    cronRemove('backfill-propostas-aceitas-sem-contrato-v186')
+  } catch (_) {}
+
+  function gerarContratoInlineParaBackfill(propId, ipOrigem) {
+    const prop = $app.findRecordById('propostas', propId)
+    if (!prop || prop.getString('status') !== 'aceita') return null
+
+    const contratosExistentes = $app.findRecordsByFilter(
+      'contratos_servico',
+      "proposta = '" + propId + "'",
+      '-created',
+      1,
+      0,
+    )
+    if (contratosExistentes.length > 0) {
+      const cExistente = contratosExistentes[0]
+      if (prop.getString('contrato_servico') !== cExistente.id) {
+        try {
+          prop.set('contrato_servico', cExistente.id)
+          $app.save(prop)
+        } catch (_) {}
+      }
+      return cExistente
+    }
+
+    const propNum = prop.getString('numero')
+    const empId = prop.getString('empresa')
+    const cliPfId = prop.getString('cliente_pf')
+    const preco = prop.getFloat('preco') || 0
+    const prazoDias = prop.getInt('prazo_dias') || 30
     const notaPrazo =
-      proposta.getString('nota_prazo') ||
+      prop.getString('nota_prazo') ||
       'Os prazos serão contados em dias corridos, a partir da data de assinatura deste contrato e do fornecimento de todos os elementos e subsídios necessários ao desenvolvimento dos serviços.'
     const objeto =
-      proposta.getString('objeto') ||
-      proposta.getString('escopo') ||
+      prop.getString('objeto') ||
+      prop.getString('escopo') ||
       'Prestação de serviços técnicos especializados de engenharia'
 
-    // Helpers de validação inline (goja VM self-contained)
-    const fnCleanDigits = (val) => (val || '').toString().replace(/\D/g, '')
+    const cleanDigits = (v) => (v || '').toString().replace(/\D/g, '')
 
-    const fnIsValidCpf = (cpfStr) => {
-      const clean = fnCleanDigits(cpfStr)
+    const isValidCpf = (cStr) => {
+      const clean = cleanDigits(cStr)
       if (!clean || clean.length !== 11) return false
       if (/^(\d)\1{10}$/.test(clean)) return false
       let soma = 0
-      for (let i = 0; i < 9; i++) {
-        soma += parseInt(clean.charAt(i), 10) * (10 - i)
-      }
+      for (let i = 0; i < 9; i++) soma += parseInt(clean.charAt(i), 10) * (10 - i)
       let resto = (soma * 10) % 11
       if (resto === 10 || resto === 11) resto = 0
       if (resto !== parseInt(clean.charAt(9), 10)) return false
       soma = 0
-      for (let i = 0; i < 10; i++) {
-        soma += parseInt(clean.charAt(i), 10) * (11 - i)
-      }
+      for (let i = 0; i < 10; i++) soma += parseInt(clean.charAt(i), 10) * (11 - i)
       resto = (soma * 10) % 11
       if (resto === 10 || resto === 11) resto = 0
-      if (resto !== parseInt(clean.charAt(10), 10)) return false
-      return true
+      return resto === parseInt(clean.charAt(10), 10)
     }
 
-    const fnIsValidCnpj = (cnpjStr) => {
-      const clean = fnCleanDigits(cnpjStr)
+    const isValidCnpj = (cStr) => {
+      const clean = cleanDigits(cStr)
       if (!clean || clean.length !== 14) return false
       if (/^(\d)\1{13}$/.test(clean)) return false
       let soma = 0
@@ -330,135 +837,112 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
       }
       resto = soma % 11
       const dv2 = resto < 2 ? 0 : 11 - resto
-      if (parseInt(clean.charAt(13), 10) !== dv2) return false
-      return true
+      return parseInt(clean.charAt(13), 10) === dv2
     }
 
     const camposFaltantes = []
-    let tipoCliente = 'pj'
-    let clienteRecord = null
-    let emailDestinatario = ''
-    let nomeClienteDestinatario = ''
+    let cliRec = null
+    let emailDest = ''
+    let nomeDest = ''
 
-    if (empresaId) {
-      tipoCliente = 'pj'
+    if (empId) {
       try {
-        clienteRecord = $app.findRecordById('empresas', empresaId)
+        cliRec = $app.findRecordById('empresas', empId)
       } catch (_) {}
-
-      if (!clienteRecord) {
+      if (!cliRec) {
         camposFaltantes.push('empresa_nao_encontrada')
       } else {
-        const razao = (clienteRecord.getString('razao_social') || '').trim()
-        const cnpjClean = fnCleanDigits(clienteRecord.getString('cnpj'))
-        const cepClean = fnCleanDigits(clienteRecord.getString('cep'))
-        const logradouro = (clienteRecord.getString('logradouro') || '').trim()
-        const numero = (clienteRecord.getString('numero') || '').trim()
-        const bairro = (clienteRecord.getString('bairro') || '').trim()
-        const municipio = (clienteRecord.getString('municipio') || '').trim()
-        const uf = (clienteRecord.getString('uf') || '').trim()
-        const email = (clienteRecord.getString('email') || '').trim()
-        const telefone = (clienteRecord.getString('telefone') || '').trim()
+        const razao = (cliRec.getString('razao_social') || '').trim()
+        const cnpj = cleanDigits(cliRec.getString('cnpj'))
+        const cep = cleanDigits(cliRec.getString('cep'))
+        const logradouro = (cliRec.getString('logradouro') || '').trim()
+        const numero = (cliRec.getString('numero') || '').trim()
+        const bairro = (cliRec.getString('bairro') || '').trim()
+        const municipio = (cliRec.getString('municipio') || '').trim()
+        const uf = (cliRec.getString('uf') || '').trim()
+        const email = (cliRec.getString('email') || '').trim()
+        const telefone = (cliRec.getString('telefone') || '').trim()
 
-        emailDestinatario = email
-        nomeClienteDestinatario = razao
+        emailDest = email
+        nomeDest = razao
 
-        // Checagem de telefone em array de telefones ou campo único
         let temTelefone = Boolean(telefone)
         try {
-          const tels = clienteRecord.get('telefones')
-          if (Array.isArray(tels) && tels.length > 0 && tels[0].numero) {
-            temTelefone = true
-          }
+          const tels = cliRec.get('telefones')
+          if (Array.isArray(tels) && tels.length > 0 && tels[0].numero) temTelefone = true
         } catch (_) {}
 
         if (!razao) camposFaltantes.push('razao_social')
-        if (!cnpjClean || !fnIsValidCnpj(cnpjClean)) camposFaltantes.push('cnpj')
+        if (!cnpj || !isValidCnpj(cnpj)) camposFaltantes.push('cnpj')
         if (!email || email.indexOf('@') === -1) camposFaltantes.push('email')
         if (!temTelefone) camposFaltantes.push('telefone')
-        if (!cepClean || cepClean.length < 8) camposFaltantes.push('cep')
+        if (!cep || cep.length < 8) camposFaltantes.push('cep')
         if (!logradouro) camposFaltantes.push('logradouro')
         if (!numero) camposFaltantes.push('numero')
         if (!bairro) camposFaltantes.push('bairro')
         if (!municipio) camposFaltantes.push('municipio')
         if (!uf) camposFaltantes.push('uf')
 
-        // Representante legal para PJ: busca em contatos decisores ou contatos da empresa
         let repNome = ''
-        let repCpfClean = ''
+        let repCpf = ''
         try {
-          const contatosEmpresa = $app.findRecordsByFilter(
+          const contatos = $app.findRecordsByFilter(
             'contatos',
-            "empresa = '" + empresaId + "'",
+            "empresa = '" + empId + "'",
             '-decisor,-created',
             5,
             0,
           )
-          for (let ci = 0; ci < contatosEmpresa.length; ci++) {
-            const cRec = contatosEmpresa[ci]
+          for (let ci = 0; ci < contatos.length; ci++) {
+            const cRec = contatos[ci]
             const cNome = (cRec.getString('nome') || '').trim()
-            const cCpf = fnCleanDigits(
+            const cCpf = cleanDigits(
               cRec.getString('cpf') ||
                 cRec.getString('documento') ||
                 cRec.getString('observacao') ||
                 '',
             )
-            if (cNome && !repNome) {
-              repNome = cNome
-            }
-            if (cCpf && fnIsValidCpf(cCpf) && !repCpfClean) {
-              repCpfClean = cCpf
-            }
-            if (repNome && repCpfClean) {
-              break
-            }
+            if (cNome && !repNome) repNome = cNome
+            if (cCpf && isValidCpf(cCpf) && !repCpf) repCpf = cCpf
+            if (repNome && repCpf) break
           }
         } catch (_) {}
 
-        if (!repNome) {
-          camposFaltantes.push('representante_nome')
-        }
-        // CPF do representante legal
-        if (!repCpfClean || !fnIsValidCpf(repCpfClean)) {
-          camposFaltantes.push('representante_documento')
-        }
+        if (!repNome) camposFaltantes.push('representante_nome')
+        if (!repCpf || !isValidCpf(repCpf)) camposFaltantes.push('representante_documento')
       }
-    } else if (clientePfId) {
-      tipoCliente = 'pf'
+    } else if (cliPfId) {
       try {
-        clienteRecord = $app.findRecordById('clientes_pf', clientePfId)
+        cliRec = $app.findRecordById('clientes_pf', cliPfId)
       } catch (_) {}
-
-      if (!clienteRecord) {
+      if (!cliRec) {
         camposFaltantes.push('cliente_pf_nao_encontrado')
       } else {
-        const nome = (clienteRecord.getString('nome') || '').trim()
-        const cpfClean = fnCleanDigits(clienteRecord.getString('cpf'))
-        const email = (clienteRecord.getString('email') || '').trim()
-        const telefone = (clienteRecord.getString('telefone') || '').trim()
-        const cepClean = fnCleanDigits(clienteRecord.getString('cep'))
-        const logradouro = (clienteRecord.getString('logradouro') || '').trim()
-        const numero = (clienteRecord.getString('numero') || '').trim()
-        const bairro = (clienteRecord.getString('bairro') || '').trim()
-        const municipio = (clienteRecord.getString('municipio') || '').trim()
-        const uf = (clienteRecord.getString('uf') || '').trim()
+        const nome = (cliRec.getString('nome') || '').trim()
+        const cpf = cleanDigits(cliRec.getString('cpf'))
+        const email = (cliRec.getString('email') || '').trim()
+        const telefone = (cliRec.getString('telefone') || '').trim()
+        const cep = cleanDigits(cliRec.getString('cep'))
+        const logradouro = (cliRec.getString('logradouro') || '').trim()
+        const numero = (cliRec.getString('numero') || '').trim()
+        const bairro = (cliRec.getString('bairro') || '').trim()
+        const municipio = (cliRec.getString('municipio') || '').trim()
+        const uf = (cliRec.getString('uf') || '').trim()
 
-        emailDestinatario = email
-        nomeClienteDestinatario = nome
+        emailDest = email
+        nomeDest = nome
 
         let temTelefone = Boolean(telefone)
         try {
-          const tels = clienteRecord.get('telefones')
-          if (Array.isArray(tels) && tels.length > 0 && tels[0].numero) {
-            temTelefone = true
-          }
+          const tels = cliRec.get('telefones')
+          if (Array.isArray(tels) && tels.length > 0 && tels[0].numero) temTelefone = true
         } catch (_) {}
 
         if (!nome) camposFaltantes.push('nome')
-        if (!cpfClean || !fnIsValidCpf(cpfClean)) camposFaltantes.push('cpf')
+        if (!cpf || !isValidCpf(cpf)) camposFaltantes.push('cpf')
         if (!email || email.indexOf('@') === -1) camposFaltantes.push('email')
         if (!temTelefone) camposFaltantes.push('telefone')
-        if (!cepClean || cepClean.length < 8) camposFaltantes.push('cep')
+        if (!cep || cep.length < 8) camposFaltantes.push('cep')
         if (!logradouro) camposFaltantes.push('logradouro')
         if (!numero) camposFaltantes.push('numero')
         if (!bairro) camposFaltantes.push('bairro')
@@ -470,265 +954,307 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
     }
 
     const cadastroCompleto = camposFaltantes.length === 0
-    const statusInicialContrato = cadastroCompleto
+    const statusInicial = cadastroCompleto
       ? 'aguardando_assinatura_admin'
       : 'aguardando_dados_cliente'
 
-    // =========================================================================
-    // CRIAÇÃO OU RECUPERAÇÃO DO CONTRATO E PROJETO (Idempotência 1:1)
-    // =========================================================================
-    let contratoCriado = null
-    let projetoCriado = null
+    const anoAtual = new Date().getFullYear()
+    const prefixoCTR = 'CTR-' + anoAtual + '-'
+    const contratosDoAno = $app.findRecordsByFilter(
+      'contratos_servico',
+      "numero ~ '" + prefixoCTR + "'",
+      '-numero',
+      1,
+      0,
+    )
 
+    let proximoSeqCtr = 1
+    if (contratosDoAno.length > 0) {
+      const ultimoNumero = contratosDoAno[0].getString('numero')
+      const partes = ultimoNumero.split('-')
+      const ultimoSeq = parseInt(partes[2], 10)
+      if (!isNaN(ultimoSeq)) proximoSeqCtr = ultimoSeq + 1
+    }
+    const numeroCTR = prefixoCTR + ('0000' + proximoSeqCtr).slice(-4)
+
+    let clausulasTexto = ''
     try {
-      const contratosExistentes = $app.findRecordsByFilter(
-        'contratos_servico',
-        "proposta = '" + propostaId + "'",
-        '-created',
-        1,
+      const paramClausulas = $app.findFirstRecordByData(
+        'parametros',
+        'chave',
+        'contrato_servico_clausulas_padrao',
+      )
+      if (paramClausulas) clausulasTexto = paramClausulas.getString('valor')
+    } catch (_) {}
+
+    let parcelas = []
+    try {
+      const parcs = $app.findRecordsByFilter(
+        'proposta_parcelas',
+        "proposta = '" + propId + "'",
+        'ordem',
+        50,
         0,
       )
+      parcelas = parcs.map((p) => ({
+        ordem: p.getInt('ordem'),
+        percentual: p.getFloat('percentual'),
+        valor: p.getFloat('valor'),
+        gatilho: p.getString('gatilho'),
+        descricao: p.getString('descricao'),
+      }))
+    } catch (_) {}
 
-      if (contratosExistentes.length > 0) {
-        contratoCriado = contratosExistentes[0]
-      } else {
-        const anoAtual = new Date().getFullYear()
-        const prefixoCTR = 'CTR-' + anoAtual + '-'
-        const contratosDoAno = $app.findRecordsByFilter(
-          'contratos_servico',
-          "numero ~ '" + prefixoCTR + "'",
-          '-numero',
-          1,
-          0,
-        )
+    const tokenAssinaturaCliente = $security.randomString(32)
+    const tokenComplementoDados = cadastroCompleto ? '' : $security.randomString(32)
 
-        let proximoSeqCtr = 1
-        if (contratosDoAno.length > 0) {
-          const ultimoNumero = contratosDoAno[0].getString('numero')
-          const partes = ultimoNumero.split('-')
-          const ultimoSeq = parseInt(partes[2], 10)
-          if (!isNaN(ultimoSeq)) {
-            proximoSeqCtr = ultimoSeq + 1
-          }
-        }
-        const numeroCTR = prefixoCTR + ('0000' + proximoSeqCtr).slice(-4)
+    const contratosCol = $app.findCollectionByNameOrId('contratos_servico')
+    const novoContrato = new Record(contratosCol)
+    novoContrato.set('numero', numeroCTR)
+    novoContrato.set('proposta', propId)
+    if (empId) novoContrato.set('empresa', empId)
+    if (cliPfId) novoContrato.set('cliente_pf', cliPfId)
+    novoContrato.set('objeto', objeto)
+    novoContrato.set('valor_total', preco)
+    novoContrato.set('prazo_dias', prazoDias)
+    novoContrato.set('nota_prazo', notaPrazo)
+    novoContrato.set('clausulas_texto', clausulasTexto)
+    novoContrato.set('parcelas_json', parcelas)
+    novoContrato.set('status', statusInicial)
+    novoContrato.set('token_assinatura_cliente', tokenAssinaturaCliente)
+    novoContrato.set('token_complemento_dados', tokenComplementoDados)
+    novoContrato.set('campos_faltantes_json', camposFaltantes)
 
-        let clausulasTexto = ''
-        try {
-          const paramClausulas = $app.findFirstRecordByData(
-            'parametros',
-            'chave',
-            'contrato_servico_clausulas_padrao',
-          )
-          if (paramClausulas) {
-            clausulasTexto = paramClausulas.getString('valor')
-          }
-        } catch (_) {}
+    $app.save(novoContrato)
 
-        let parcelas = []
-        try {
-          const parcs = $app.findRecordsByFilter(
-            'proposta_parcelas',
-            "proposta = '" + propostaId + "'",
-            'ordem',
-            50,
-            0,
-          )
-          parcelas = parcs.map((p) => ({
-            ordem: p.getInt('ordem'),
-            percentual: p.getFloat('percentual'),
-            valor: p.getFloat('valor'),
-            gatilho: p.getString('gatilho'),
-            descricao: p.getString('descricao'),
-          }))
-        } catch (_) {}
+    try {
+      prop.set('contrato_servico', novoContrato.id)
+      if (cadastroCompleto) {
+        prop.set('dados_complementares_preenchidos', true)
+      } else if (tokenComplementoDados) {
+        prop.set('dados_complementares_preenchidos', false)
+      }
+      $app.save(prop)
+    } catch (_) {}
 
-        const tokenAssinaturaCliente = $security.randomString(32)
-        const tokenComplementoDados = cadastroCompleto ? '' : $security.randomString(32)
+    try {
+      const auditCol = $app.findCollectionByNameOrId('audit_logs')
+      const aRec = new Record(auditCol)
+      aRec.set('acao', 'GERACAO_CONTRATO_SERVICO')
+      aRec.set('entidade', 'contratos_servico')
+      aRec.set('registro_id', novoContrato.id)
+      aRec.set('detalhes', {
+        origem: 'SISTEMA / BACKFILL IDEMPOTENTE V0.0.186',
+        mensagem:
+          'Contrato de serviços gerado pelo backfill pós-aceite da proposta ' +
+          propNum +
+          (cadastroCompleto
+            ? ' (Cadastro completo -> Aguardando assinatura Admin)'
+            : ' (Cadastro incompleto -> Aguardando dados do cliente)'),
+        contrato_numero: numeroCTR,
+        proposta_id: propId,
+        proposta_numero: propNum,
+        status: statusInicial,
+        campos_faltantes: camposFaltantes,
+        valor: preco,
+        ip: ipOrigem,
+      })
+      aRec.set('ip', ipOrigem)
+      $app.save(aRec)
+    } catch (_) {}
 
-        const contratosCol = $app.findCollectionByNameOrId('contratos_servico')
-        const novoContrato = new Record(contratosCol)
-        novoContrato.set('numero', numeroCTR)
-        novoContrato.set('proposta', propostaId)
-        if (empresaId) novoContrato.set('empresa', empresaId)
-        if (clientePfId) novoContrato.set('cliente_pf', clientePfId)
-        novoContrato.set('objeto', objeto)
-        novoContrato.set('valor_total', preco)
-        novoContrato.set('prazo_dias', prazoDias)
-        novoContrato.set('nota_prazo', notaPrazo)
-        novoContrato.set('clausulas_texto', clausulasTexto)
-        novoContrato.set('parcelas_json', parcelas)
-        novoContrato.set('status', statusInicialContrato)
-        novoContrato.set('token_assinatura_cliente', tokenAssinaturaCliente)
-        novoContrato.set('token_complemento_dados', tokenComplementoDados)
-        novoContrato.set('campos_faltantes_json', camposFaltantes)
+    if (!cadastroCompleto && tokenComplementoDados && emailDest && emailDest.indexOf('@') !== -1) {
+      try {
+        const appUrl =
+          $os.getenv('PUBLIC_APP_URL') ||
+          'https://gestao-de-projetos-de-engenharia-be59d.goskip.app'
+        const linkComplemento = appUrl + '/completar-cadastro/' + tokenComplementoDados
+        const senderAddress =
+          ($app.settings().meta && $app.settings().meta.senderAddress) || 'nao-responder@skip.dev'
+        const senderName =
+          ($app.settings().meta && $app.settings().meta.senderName) || 'G+ Engenharia Consultiva'
+        const linkDescadastro =
+          appUrl + '/descadastro?origem=fluxo_contratual&email=' + encodeURIComponent(emailDest)
 
-        $app.save(novoContrato)
-        contratoCriado = novoContrato
+        const htmlEmail =
+          '<!DOCTYPE html><html><head><meta charset="utf-8" /></head><body style="margin:0;padding:24px;font-family:sans-serif;background-color:#f8fafc;color:#1e293b;">' +
+          '<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">' +
+          '<tr><td style="background-color:#1E2A4A;padding:20px 24px;border-bottom:3px solid #D95A2B;">' +
+          '<h2 style="margin:0;color:#ffffff;font-size:18px;">G+ Engenharia Consultiva</h2>' +
+          '<p style="margin:4px 0 0 0;color:#94a3b8;font-size:12px;">Complementação de Dados para Emissão do Contrato</p>' +
+          '</td></tr>' +
+          '<tr><td style="padding:24px;font-size:14px;line-height:1.6;color:#334155;">' +
+          '<p>Olá, <strong>' +
+          (nomeDest || 'Cliente') +
+          '</strong>!</p>' +
+          '<p>Confirmamos o aceite na Proposta Comercial <strong>' +
+          propNum +
+          '</strong>. Para que o seu Contrato de Prestação de Serviços Técnicos seja gerado com total conformidade jurídica e siga para a etapa de assinaturas digitais, precisamos que você complete alguns dados cadastrais obrigatórios.</p>' +
+          '<div style="margin:28px 0;text-align:center;">' +
+          '<a href="' +
+          linkComplemento +
+          '" target="_blank" style="background-color:#D95A2B;color:#ffffff;font-weight:bold;text-decoration:none;padding:12px 28px;border-radius:6px;display:inline-block;font-size:14px;">Completar Meus Dados Cadastrais</a>' +
+          '</div>' +
+          '<p style="font-size:12px;color:#64748b;">Se o botão não funcionar, copie e cole este link em seu navegador:<br /><span style="font-family:monospace;word-break:break-all;">' +
+          linkComplemento +
+          '</span></p>' +
+          '</td></tr>' +
+          '<tr><td style="padding:16px 24px;background-color:#f1f5f9;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;text-align:center;">' +
+          'Mensagem transacional do fluxo de contratação G+ Engenharia • ' +
+          numeroCTR +
+          '<br />Caso não queira receber nossas comunicações, <a href="' +
+          linkDescadastro +
+          '" style="color:#64748b;">descadastre seu e-mail</a>.' +
+          '</td></tr>' +
+          '</table></body></html>'
 
-        try {
-          proposta.set('contrato_servico', novoContrato.id)
-          if (cadastroCompleto) {
-            proposta.set('dados_complementares_preenchidos', true)
-          } else if (tokenComplementoDados) {
-            proposta.set('dados_complementares_preenchidos', false)
-          }
-          $app.save(proposta)
-        } catch (_) {}
+        const msg = new MailerMessage({
+          from: { address: senderAddress, name: senderName },
+          to: [{ address: emailDest, name: nomeDest }],
+          subject: 'Ação necessária: Complete seu cadastro para geração do contrato ' + numeroCTR,
+          html: htmlEmail,
+        })
+
+        $app.newMailClient().send(msg)
 
         try {
           const auditCol = $app.findCollectionByNameOrId('audit_logs')
           const aRec = new Record(auditCol)
-          aRec.set('acao', 'GERACAO_CONTRATO_SERVICO')
+          aRec.set('acao', 'ENVIO_EMAIL_COMPLEMENTO_DADOS')
           aRec.set('entidade', 'contratos_servico')
           aRec.set('registro_id', novoContrato.id)
           aRec.set('detalhes', {
             mensagem:
-              'Contrato de serviços gerado pelo aceite digital da proposta ' +
-              propostaNumero +
-              (cadastroCompleto
-                ? ' (Cadastro completo -> Aguardando assinatura Admin)'
-                : ' (Cadastro incompleto -> Aguardando dados do cliente)'),
+              'E-mail transacional de complemento de dados enviado com link exclusivo para ' +
+              emailDest,
             contrato_numero: numeroCTR,
-            proposta_id: propostaId,
-            proposta_numero: propostaNumero,
-            status: statusInicialContrato,
-            campos_faltantes: camposFaltantes,
-            valor: preco,
-            ip: clientIp,
+            destinatario: emailDest,
+            link: linkComplemento,
           })
-          aRec.set('ip', clientIp)
+          aRec.set('ip', ipOrigem)
           $app.save(aRec)
         } catch (_) {}
+      } catch (mailErr) {
+        console.log('Aviso/Erro ao disparar e-mail de complemento: ' + mailErr)
       }
-
-      // O aceite digital da proposta cria SOMENTE o Contrato de Serviços (Grupo B/D).
-      // A geração de Grupo GPR e Projetos PRJ ocorre exclusivamente na ASSINATURA BILATERAL do contrato.
-    } catch (errCadeia) {
-      console.log('Erro na cadeia de criação de contrato de serviço no aceite: ' + errCadeia)
     }
 
-    // =========================================================================
-    // DISPARO DE E-MAIL TRANSACIONAL AO CLIENTE CASO O CADASTRO ESTEJA INCOMPLETO
-    // =========================================================================
-    let linkComplemento = ''
-    if (
-      !cadastroCompleto &&
-      contratoCriado &&
-      contratoCriado.getString('token_complemento_dados')
-    ) {
-      const appUrl =
-        typeof getAppBaseUrl === 'function'
-          ? getAppBaseUrl()
-          : $os.getenv('PUBLIC_APP_URL') ||
-            'https://gestao-de-projetos-de-engenharia-be59d.goskip.app'
-      const tokenComp = contratoCriado.getString('token_complemento_dados')
-      linkComplemento = appUrl + '/completar-cadastro/' + tokenComp
+    return novoContrato
+  }
 
-      if (emailDestinatario && emailDestinatario.indexOf('@') !== -1) {
-        try {
-          const senderAddress =
-            ($app.settings().meta && $app.settings().meta.senderAddress) || 'nao-responder@skip.dev'
-          const senderName =
-            ($app.settings().meta && $app.settings().meta.senderName) || 'G+ Engenharia Consultiva'
+  try {
+    const propostasPendentes = $app.findRecordsByFilter(
+      'propostas',
+      "status = 'aceita' && contrato_servico = '' && data_aceite != ''",
+      'created',
+      50,
+      0,
+    )
 
-          const linkDescadastro =
-            appUrl +
-            '/descadastro?origem=fluxo_contratual&email=' +
-            encodeURIComponent(emailDestinatario)
+    if (propostasPendentes.length === 0) {
+      console.log('[backfill-aceite] Nenhuma proposta aceita pendente de contrato encontrada.')
+      return
+    }
 
-          const htmlEmail =
-            '<!DOCTYPE html><html><head><meta charset="utf-8" /></head><body style="margin:0;padding:24px;font-family:sans-serif;background-color:#f8fafc;color:#1e293b;">' +
-            '<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">' +
-            '<tr><td style="background-color:#1E2A4A;padding:20px 24px;border-bottom:3px solid #D95A2B;">' +
-            '<h2 style="margin:0;color:#ffffff;font-size:18px;">G+ Engenharia Consultiva</h2>' +
-            '<p style="margin:4px 0 0 0;color:#94a3b8;font-size:12px;">Complementação de Dados para Emissão do Contrato</p>' +
-            '</td></tr>' +
-            '<tr><td style="padding:24px;font-size:14px;line-height:1.6;color:#334155;">' +
-            '<p>Olá, <strong>' +
-            (nomeClienteDestinatario || 'Cliente') +
-            '</strong>!</p>' +
-            '<p>Confirmamos o aceite na Proposta Comercial <strong>' +
-            propostaNumero +
-            '</strong>. Para que o seu Contrato de Prestação de Serviços Técnicos seja gerado com total conformidade jurídica e siga para a etapa de assinaturas digitais, precisamos que você complete alguns dados cadastrais obrigatórios.</p>' +
-            '<div style="margin:28px 0;text-align:center;">' +
-            '<a href="' +
-            linkComplemento +
-            '" target="_blank" style="background-color:#D95A2B;color:#ffffff;font-weight:bold;text-decoration:none;padding:12px 28px;border-radius:6px;display:inline-block;font-size:14px;">Completar Meus Dados Cadastrais</a>' +
-            '</div>' +
-            '<p style="font-size:12px;color:#64748b;">Se o botão não funcionar, copie e cole este link em seu navegador:<br /><span style="font-family:monospace;word-break:break-all;">' +
-            linkComplemento +
-            '</span></p>' +
-            '</td></tr>' +
-            '<tr><td style="padding:16px 24px;background-color:#f1f5f9;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;text-align:center;">' +
-            'Mensagem transacional do fluxo de contratação G+ Engenharia • ' +
-            contratoCriado.getString('numero') +
-            '<br />Caso não queira receber nossas comunicações, <a href="' +
-            linkDescadastro +
-            '" style="color:#64748b;">descadastre seu e-mail</a>.' +
-            '</td></tr>' +
-            '</table></body></html>'
+    console.log(
+      '[backfill-aceite] Encontradas ' +
+        propostasPendentes.length +
+        ' proposta(s) aceita(s) sem contrato. Iniciando processamento idempotente...',
+    )
 
-          const msg = new MailerMessage({
-            from: { address: senderAddress, name: senderName },
-            to: [{ address: emailDestinatario, name: nomeClienteDestinatario }],
-            subject:
-              'Ação necessária: Complete seu cadastro para geração do contrato ' +
-              contratoCriado.getString('numero'),
-            html: htmlEmail,
-          })
+    let totalSucesso = 0
+    let totalFalha = 0
 
-          $app.newMailClient().send(msg)
+    for (let i = 0; i < propostasPendentes.length; i++) {
+      const p = propostasPendentes[i]
+      const propId = p.id
+      const propNum = p.getString('numero')
+      const ipGravado = p.getString('aceite_ip') || 'nao_capturado'
 
-          // Auditar envio de e-mail de complemento
-          try {
-            const auditCol = $app.findCollectionByNameOrId('audit_logs')
-            const aRec = new Record(auditCol)
-            aRec.set('acao', 'ENVIO_EMAIL_COMPLEMENTO_DADOS')
-            aRec.set('entidade', 'contratos_servico')
-            aRec.set('registro_id', contratoCriado.id)
-            aRec.set('detalhes', {
-              mensagem:
-                'E-mail transacional de complemento de dados enviado com link exclusivo para ' +
-                emailDestinatario,
-              contrato_numero: contratoCriado.getString('numero'),
-              destinatario: emailDestinatario,
-              link: linkComplemento,
-            })
-            aRec.set('ip', clientIp)
-            $app.save(aRec)
-          } catch (_) {}
-        } catch (mailErr) {
-          console.log('Aviso/Erro ao disparar e-mail de complemento: ' + mailErr)
+      try {
+        const contratoGerado = gerarContratoInlineParaBackfill(propId, ipGravado)
+        if (contratoGerado) {
+          totalSucesso++
+          console.log(
+            '[backfill-aceite] Contrato gerado com sucesso para proposta ' +
+              propNum +
+              ' -> ' +
+              contratoGerado.getString('numero') +
+              ' (' +
+              contratoGerado.getString('status') +
+              ')',
+          )
         }
+      } catch (errProp) {
+        totalFalha++
+        console.log(
+          '[backfill-aceite] Erro ao gerar contrato para proposta ' +
+            propNum +
+            ' (' +
+            propId +
+            '): ' +
+            errProp,
+        )
+        try {
+          const errCol = $app.findCollectionByNameOrId('erros_sistema')
+          if (errCol) {
+            const errRec = new Record(errCol)
+            errRec.set('rota', 'BACKFILL_ACEITE_PROPOSTA')
+            errRec.set(
+              'mensagem',
+              ('Falha no backfill da proposta ' + propNum + ': ' + errProp).slice(0, 1000),
+            )
+            errRec.set('hora', new Date().toISOString())
+            errRec.set('ip', ipGravado)
+            errRec.set('usuario_email', 'sistema')
+            errRec.set('detalhes', {
+              proposta_id: propId,
+              proposta_numero: propNum,
+              erro: String(errProp),
+            })
+            $app.save(errRec)
+          }
+        } catch (_) {}
       }
     }
 
-    return e.json(200, {
-      success: true,
-      message: cadastroCompleto
-        ? 'Aceite formalizado com sucesso! Contrato gerado e encaminhado para assinatura do Administrador.'
-        : 'Aceite registrado! Alguns dados cadastrais estão pendentes para geração completa do contrato.',
-      cadastro_completo: cadastroCompleto,
-      campos_faltantes: camposFaltantes,
-      proposta_id: proposta.id,
-      proposta_numero: propostaNumero,
-      contrato_id: contratoCriado ? contratoCriado.id : null,
-      contrato_numero: contratoCriado ? contratoCriado.getString('numero') : null,
-      status_contrato: contratoCriado ? contratoCriado.getString('status') : statusInicialContrato,
-      token_complemento_dados:
-        contratoCriado && !cadastroCompleto
-          ? contratoCriado.getString('token_complemento_dados')
-          : null,
-      link_complemento: linkComplemento || null,
-      projeto_id: projetoCriado ? projetoCriado.id : null,
-      projeto_codigo: projetoCriado ? projetoCriado.getString('codigo') : null,
-      hash: hashFinal,
-      data_aceite: nowIso,
-    })
-  } catch (err) {
-    console.log('Erro ao registrar aceite digital de proposta: ' + err)
-    return e.json(500, { message: 'Erro interno ao processar aceite: ' + err })
+    try {
+      const auditCol = $app.findCollectionByNameOrId('audit_logs')
+      const aRec = new Record(auditCol)
+      aRec.set('acao', 'BACKFILL_CONTRATOS_PROPOSTAS_ACEITAS')
+      aRec.set('entidade', 'contratos_servico')
+      aRec.set('detalhes', {
+        origem: 'SISTEMA / BACKFILL ONESHOT V0.0.186',
+        mensagem:
+          'Backfill de contratos para propostas aceitas executado. Processadas: ' +
+          propostasPendentes.length +
+          ' | Sucessos: ' +
+          totalSucesso +
+          ' | Falhas: ' +
+          totalFalha,
+        total_propostas: propostasPendentes.length,
+        total_sucesso: totalSucesso,
+        total_falha: totalFalha,
+      })
+      $app.save(aRec)
+    } catch (_) {}
+  } catch (errBackfillGeral) {
+    console.log('[backfill-aceite] Erro geral no cron de backfill: ' + errBackfillGeral)
+    try {
+      const errCol = $app.findCollectionByNameOrId('erros_sistema')
+      if (errCol) {
+        const errRec = new Record(errCol)
+        errRec.set('rota', 'BACKFILL_ACEITE_PROPOSTA')
+        errRec.set(
+          'mensagem',
+          ('Falha geral no cron de backfill: ' + errBackfillGeral).slice(0, 1000),
+        )
+        errRec.set('hora', new Date().toISOString())
+        errRec.set('usuario_email', 'sistema')
+        errRec.set('detalhes', { erro: String(errBackfillGeral) })
+        $app.save(errRec)
+      }
+    } catch (_) {}
   }
 })
 

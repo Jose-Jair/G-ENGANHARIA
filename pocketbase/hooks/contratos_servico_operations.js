@@ -850,6 +850,1092 @@ cronAdd('backfill-ctr-2026-0003-deploy', '* * * * *', function () {
     cronRemove('backfill-ctr-2026-0003-deploy')
   } catch (_) {}
 
+  // Rotina inline de ativação bilateral para evitar Hook scoping error em VMs de cron
+  function executarAtivacaoInline(rec) {
+    const contratoId = rec.id
+    const contratoNumero = rec.getString('numero')
+    const propostaId = rec.getString('proposta')
+    const empresaId = rec.getString('empresa')
+    const clientePfId = rec.getString('cliente_pf')
+    const valorTotalContrato = rec.getFloat('valor_total') || 0
+    const objetoContrato = rec.getString('objeto') || 'Prestação de serviços técnicos de engenharia'
+
+    let propostaRec = null
+    let propostaNumero = ''
+    let condicoesPagamento = 'Conforme contrato assinado'
+    let requerNotaProposta = false
+    let aliquotaImpostos = 0
+
+    if (propostaId) {
+      try {
+        propostaRec = $app.findRecordById('propostas', propostaId)
+        if (propostaRec) {
+          propostaNumero = propostaRec.getString('numero')
+          condicoesPagamento = propostaRec.getString('condicoes_pagamento') || condicoesPagamento
+          requerNotaProposta = propostaRec.getBool('requer_nota')
+          aliquotaImpostos = propostaRec.getInt('impostos') || 0
+        }
+      } catch (errProp) {
+        try {
+          const errCol = $app.findCollectionByNameOrId('erros_sistema')
+          if (errCol) {
+            const errRec = new Record(errCol)
+            errRec.set('rota', 'CRON_BACKFILL_BUSCAR_PROPOSTA')
+            errRec.set('mensagem', String(errProp).slice(0, 1000))
+            errRec.set('hora', new Date().toISOString())
+            errRec.set('usuario_email', 'sistema')
+            $app.save(errRec)
+          }
+        } catch (_) {}
+      }
+    }
+
+    let nomeCliente = 'Cliente'
+    if (empresaId) {
+      try {
+        const emp = $app.findRecordById('empresas', empresaId)
+        if (emp) {
+          nomeCliente = emp.getString('razao_social') || emp.getString('nome_fantasia') || 'Cliente'
+        }
+      } catch (_) {}
+    }
+    // Cliente PF com campo 'empresa' vazio DEVE prosseguir usando o nome do cliente PF, sem abortar
+    if ((!empresaId || nomeCliente === 'Cliente') && clientePfId) {
+      try {
+        const pf = $app.findRecordById('clientes_pf', clientePfId)
+        if (pf && pf.getString('nome')) nomeCliente = pf.getString('nome')
+      } catch (_) {}
+    }
+
+    const auditCol = $app.findCollectionByNameOrId('audit_logs')
+    const projetosCol = $app.findCollectionByNameOrId('projetos')
+    const gruposCol = $app.findCollectionByNameOrId('grupos_projetos')
+    const etapasCol = $app.findCollectionByNameOrId('projeto_etapas')
+    const entregaveisCol = $app.findCollectionByNameOrId('entregaveis')
+    const contasCol = $app.findCollectionByNameOrId('contas')
+
+    // 1. CRIAR OU RECUPERAR GRUPO DE PROJETOS (Trava 1:1)
+    let grupoCriado = null
+    try {
+      const gruposExistentes = $app.findRecordsByFilter(
+        'grupos_projetos',
+        "contrato_servico = '" + contratoId + "'",
+        '-created',
+        1,
+        0,
+      )
+      if (gruposExistentes.length > 0) {
+        grupoCriado = gruposExistentes[0]
+      } else {
+        const anoAtual = new Date().getFullYear()
+        const prefixoGPR = 'GPR-' + anoAtual + '-'
+        const gruposDoAno = $app.findRecordsByFilter(
+          'grupos_projetos',
+          "codigo ~ '" + prefixoGPR + "'",
+          '-codigo',
+          1,
+          0,
+        )
+
+        let proximoSeqGpr = 1
+        if (gruposDoAno.length > 0) {
+          const ultimoCodigo = gruposDoAno[0].getString('codigo')
+          const partes = ultimoCodigo.split('-')
+          const ultimoSeq = parseInt(partes[2], 10)
+          if (!isNaN(ultimoSeq)) {
+            proximoSeqGpr = ultimoSeq + 1
+          }
+        }
+
+        const seqStr = ('0000' + proximoSeqGpr).slice(-4)
+        const codigoGPR = prefixoGPR + seqStr
+
+        const novoGrupo = new Record(gruposCol)
+        novoGrupo.set('codigo', codigoGPR)
+        novoGrupo.set('contrato_servico', contratoId)
+        if (propostaId) novoGrupo.set('proposta', propostaId)
+        if (empresaId) novoGrupo.set('empresa', empresaId)
+        if (clientePfId) novoGrupo.set('cliente_pf', clientePfId)
+        novoGrupo.set('nome', 'Grupo: ' + contratoNumero + ' — ' + nomeCliente)
+        novoGrupo.set('descricao', objetoContrato)
+        novoGrupo.set('status', 'ativo')
+        novoGrupo.set('valor_total', valorTotalContrato)
+
+        $app.save(novoGrupo)
+        grupoCriado = novoGrupo
+
+        try {
+          const aRec = new Record(auditCol)
+          aRec.set('user', null)
+          aRec.set('user_email', 'SISTEMA')
+          aRec.set('acao', 'CRIACAO_GRUPO_PROJETOS')
+          aRec.set('entidade', 'grupos_projetos')
+          aRec.set('registro_id', novoGrupo.id)
+          aRec.set('detalhes', {
+            origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+            mensagem:
+              'Grupo de projetos ' +
+              codigoGPR +
+              ' criado pela assinatura bilateral do Contrato ' +
+              contratoNumero,
+            codigo: codigoGPR,
+            contrato_id: contratoId,
+            contrato_numero: contratoNumero,
+            proposta_id: propostaId,
+            proposta_numero: propostaNumero,
+            valor_total: valorTotalContrato,
+          })
+          $app.save(aRec)
+        } catch (_) {}
+      }
+    } catch (errGrupo) {
+      try {
+        const errCol = $app.findCollectionByNameOrId('erros_sistema')
+        if (errCol) {
+          const errRec = new Record(errCol)
+          errRec.set('rota', 'CRON_BACKFILL_CRIAR_GRUPO')
+          errRec.set('mensagem', String(errGrupo).slice(0, 1000))
+          errRec.set('hora', new Date().toISOString())
+          errRec.set('usuario_email', 'sistema')
+          $app.save(errRec)
+        }
+      } catch (_) {}
+    }
+
+    // Trava de idempotência atômica: verificar se já existe projeto com contrato_servico = id do contrato
+    const projetosJaCriados = $app.findRecordsByFilter(
+      'projetos',
+      "contrato_servico = '" + contratoId + "'",
+      'codigo',
+      100,
+      0,
+    )
+    if (projetosJaCriados.length > 0) {
+      try {
+        if (!rec.getString('projeto')) {
+          rec.set('projeto', projetosJaCriados[0].id)
+          $app.save(rec)
+        }
+      } catch (_) {}
+
+      // Se já existem contas para este contrato, não precisa fazer nada e pode sair
+      try {
+        const contasJaCriadas = $app.findRecordsByFilter(
+          'contas',
+          "tipo = 'receber' && contrato_servico = '" + contratoId + "'",
+          '-created',
+          1,
+          0,
+        )
+        if (contasJaCriadas.length > 0) {
+          return
+        }
+      } catch (_) {
+        return
+      }
+    }
+
+    // 2. ITENS DE ESCOPO (Apenas itens reais do catálogo ou com serviço/descrição válida)
+    let itensEscopo = []
+    if (propostaId) {
+      try {
+        const itensDb = $app.findRecordsByFilter(
+          'proposta_itens',
+          "proposta = '" + propostaId + "'",
+          'ordem,created',
+          200,
+          0,
+        )
+        if (itensDb.length > 0) {
+          itensEscopo = itensDb
+            .filter((it) => {
+              const desc = (it.getString('descricao') || '').trim()
+              const serv = it.getString('servico') || ''
+              return (serv !== '' || desc.length > 0) && !desc.startsWith('Item de Escopo ')
+            })
+            .map((it) => ({
+              id: it.id,
+              record: it,
+              descricao: it.getString('descricao'),
+              disciplina: it.getString('disciplina') || 'Geral',
+              area: it.getString('area'),
+              valor: it.getFloat('preco_total') || 0,
+              custo: it.getFloat('custo_total') || 0,
+              subservicos: it.get('subservicos') || [],
+            }))
+        }
+      } catch (_) {}
+
+      if (itensEscopo.length === 0 && propostaRec) {
+        try {
+          const rawJsonStr = propostaRec.getString('itens_json')
+          let parsedItens = []
+          if (rawJsonStr && rawJsonStr.trim()) {
+            const parsed = JSON.parse(rawJsonStr)
+            if (Array.isArray(parsed)) {
+              parsedItens = parsed
+            }
+          }
+          if (parsedItens.length > 0) {
+            itensEscopo = parsedItens
+              .filter((it) => {
+                const desc = typeof it.descricao === 'string' ? it.descricao.trim() : ''
+                const temServico = Boolean(it.servico || it.catalogo_servico)
+                const descValida = desc.length > 0 && !desc.startsWith('Item de Escopo ')
+                return temServico || descValida
+              })
+              .map((it) => ({
+                id: null,
+                record: null,
+                descricao: (it.descricao || '').trim() || objetoContrato,
+                disciplina: it.disciplina || 'Geral',
+                area: it.area || '',
+                valor: Number(it.preco_total) || 0,
+                custo: Number(it.custo_total) || 0,
+                subservicos: Array.isArray(it.subservicos) ? it.subservicos : [],
+              }))
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (itensEscopo.length === 0) {
+      itensEscopo = [
+        {
+          id: null,
+          record: null,
+          descricao: objetoContrato,
+          disciplina: propostaRec ? propostaRec.getString('disciplinas') || 'Geral' : 'Geral',
+          area: '',
+          valor: valorTotalContrato,
+          custo: 0,
+          subservicos: [],
+        },
+      ]
+    }
+
+    const somaItens = itensEscopo.reduce((acc, it) => acc + (Number(it.valor) || 0), 0)
+    if (somaItens === 0 && valorTotalContrato > 0) {
+      const valorPorItem = Math.round((valorTotalContrato / itensEscopo.length) * 100) / 100
+      for (let idx = 0; idx < itensEscopo.length; idx++) {
+        itensEscopo[idx].valor =
+          idx === itensEscopo.length - 1
+            ? Math.round((valorTotalContrato - valorPorItem * (itensEscopo.length - 1)) * 100) / 100
+            : valorPorItem
+      }
+    }
+
+    // 3. PROJETOS POR ITEM DE ESCOPO
+    let projetosExistentesContrato = []
+    try {
+      projetosExistentesContrato = $app.findRecordsByFilter(
+        'projetos',
+        "contrato_servico = '" +
+          contratoId +
+          "' || (proposta = '" +
+          propostaId +
+          "' && grupo = '')",
+        'codigo',
+        100,
+        0,
+      )
+    } catch (_) {}
+
+    const anoAtualPrj = new Date().getFullYear()
+    const prefixoPRJ = 'PRJ-' + anoAtualPrj + '-'
+    let proximoSeqPrj = 1
+    try {
+      const projetosDoAno = $app.findRecordsByFilter(
+        'projetos',
+        "codigo ~ '" + prefixoPRJ + "'",
+        '-codigo',
+        1,
+        0,
+      )
+      if (projetosDoAno.length > 0) {
+        const ult = projetosDoAno[0].getString('codigo')
+        const partes = ult.split('-')
+        const num = parseInt(partes[2], 10)
+        if (!isNaN(num)) proximoSeqPrj = num + 1
+      }
+    } catch (_) {}
+
+    const projetosGerados = []
+
+    for (let i = 0; i < itensEscopo.length; i++) {
+      const item = itensEscopo[i]
+      let prjParaItem = null
+
+      if (i < projetosExistentesContrato.length) {
+        prjParaItem = projetosExistentesContrato[i]
+      }
+
+      if (prjParaItem) {
+        let prjAlterado = false
+        if (grupoCriado && prjParaItem.getString('grupo') !== grupoCriado.id) {
+          prjParaItem.set('grupo', grupoCriado.id)
+          prjAlterado = true
+        }
+        if (prjParaItem.getString('contrato_servico') !== contratoId) {
+          prjParaItem.set('contrato_servico', contratoId)
+          prjAlterado = true
+        }
+        if (clientePfId && prjParaItem.getString('cliente_pf') !== clientePfId) {
+          prjParaItem.set('cliente_pf', clientePfId)
+          prjAlterado = true
+        }
+        if (empresaId && prjParaItem.getString('empresa') !== empresaId) {
+          prjParaItem.set('empresa', empresaId)
+          prjAlterado = true
+        }
+
+        if (itensEscopo.length > 1) {
+          prjParaItem.set(
+            'nome',
+            'Projeto ' +
+              (i + 1) +
+              '/' +
+              itensEscopo.length +
+              ': ' +
+              item.descricao +
+              ' — ' +
+              nomeCliente,
+          )
+          prjParaItem.set('descricao', item.descricao)
+          prjParaItem.set('valor_total', item.valor)
+          prjParaItem.set('disciplinas', item.disciplina)
+          prjAlterado = true
+        } else {
+          prjParaItem.set('valor_total', item.valor || valorTotalContrato)
+          prjAlterado = true
+        }
+
+        if (!prjParaItem.getString('prazo_final')) {
+          try {
+            const pDiasContrato = rec.getInt('prazo_dias') || 30
+            const dtBaseAssinatura =
+              rec.getString('data_assinatura_cliente') ||
+              rec.getString('data_assinatura_admin') ||
+              new Date().toISOString()
+            const dtPrazoFinalPrj = new Date(dtBaseAssinatura)
+            dtPrazoFinalPrj.setDate(dtPrazoFinalPrj.getDate() + pDiasContrato)
+            prjParaItem.set(
+              'prazo_final',
+              dtPrazoFinalPrj.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+            )
+            prjAlterado = true
+          } catch (_) {}
+        }
+
+        const statusAtual = prjParaItem.getString('status')
+        if (statusAtual === 'contratacao' || statusAtual === 'Em Contratação' || !statusAtual) {
+          prjParaItem.set('status', 'aguardando_definicao')
+          prjParaItem.set('modo_execucao', null)
+          prjAlterado = true
+        }
+
+        if (prjAlterado) {
+          $app.save(prjParaItem)
+        }
+      } else {
+        const seqStr = ('0000' + proximoSeqPrj).slice(-4)
+        const codigoPRJ = prefixoPRJ + seqStr
+        proximoSeqPrj++
+
+        const novoPrj = new Record(projetosCol)
+        novoPrj.set('codigo', codigoPRJ)
+        novoPrj.set(
+          'nome',
+          itensEscopo.length > 1
+            ? 'Projeto ' +
+                (i + 1) +
+                '/' +
+                itensEscopo.length +
+                ': ' +
+                item.descricao +
+                ' — ' +
+                nomeCliente
+            : 'Projeto: ' + contratoNumero + ' — ' + nomeCliente,
+        )
+        novoPrj.set('descricao', item.descricao)
+        if (propostaId) novoPrj.set('proposta', propostaId)
+        novoPrj.set('contrato_servico', contratoId)
+        if (grupoCriado) novoPrj.set('grupo', grupoCriado.id)
+        if (empresaId) novoPrj.set('empresa', empresaId)
+        if (clientePfId) novoPrj.set('cliente_pf', clientePfId)
+        novoPrj.set('valor_total', item.valor)
+        novoPrj.set('subcontratacao_autorizada', true)
+        novoPrj.set('saude', 'verde')
+        novoPrj.set('status', 'aguardando_definicao')
+        novoPrj.set('modo_execucao', null)
+        novoPrj.set('disciplinas', item.disciplina)
+
+        // Prazo final do projeto PRJ criado = data_assinatura + prazo_dias
+        try {
+          const pDiasContrato = rec.getInt('prazo_dias') || 30
+          const dtBaseAssinatura =
+            rec.getString('data_assinatura_cliente') ||
+            rec.getString('data_assinatura_admin') ||
+            new Date().toISOString()
+          const dtPrazoFinalPrj = new Date(dtBaseAssinatura)
+          dtPrazoFinalPrj.setDate(dtPrazoFinalPrj.getDate() + pDiasContrato)
+          novoPrj.set(
+            'prazo_final',
+            dtPrazoFinalPrj.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+          )
+        } catch (_) {}
+
+        $app.save(novoPrj)
+        prjParaItem = novoPrj
+
+        try {
+          const aRec = new Record(auditCol)
+          aRec.set('user', null)
+          aRec.set('user_email', 'SISTEMA')
+          aRec.set('acao', 'CRIACAO_PROJETO_ITEM_ESCOPO')
+          aRec.set('entidade', 'projetos')
+          aRec.set('registro_id', novoPrj.id)
+          aRec.set('detalhes', {
+            origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+            mensagem:
+              'Projeto ' +
+              codigoPRJ +
+              ' criado para o item de escopo "' +
+              item.descricao +
+              '" do Contrato ' +
+              contratoNumero,
+            codigo: codigoPRJ,
+            grupo_id: grupoCriado ? grupoCriado.id : null,
+            grupo_codigo: grupoCriado ? grupoCriado.getString('codigo') : null,
+            contrato_id: contratoId,
+            contrato_numero: contratoNumero,
+            item_descricao: item.descricao,
+            item_valor: item.valor,
+          })
+          $app.save(aRec)
+        } catch (_) {}
+      }
+
+      projetosGerados.push(prjParaItem)
+
+      if (item.record) {
+        try {
+          item.record.set('status_conversao', 'convertido')
+          item.record.set('projeto_gerado', prjParaItem.id)
+          $app.save(item.record)
+        } catch (_) {}
+      }
+
+      // 4. ETAPAS E ENTREGÁVEIS
+      try {
+        const etapasExistentes = $app.findRecordsByFilter(
+          'projeto_etapas',
+          "projeto = '" + prjParaItem.id + "'",
+          'ordem',
+          1,
+          0,
+        )
+
+        if (etapasExistentes.length === 0) {
+          let areaNome = item.disciplina || 'Geral'
+          if (item.area) {
+            try {
+              const areaRec = $app.findRecordById('areas_atuacao', item.area)
+              if (areaRec) areaNome = areaRec.getString('nome')
+            } catch (_) {}
+          }
+
+          const novaEtapa = new Record(etapasCol)
+          novaEtapa.set('projeto', prjParaItem.id)
+          novaEtapa.set('nome', 'Pacote: ' + (areaNome || item.descricao))
+          novaEtapa.set('disciplina', item.disciplina || 'Geral')
+          novaEtapa.set('ordem', 1)
+          novaEtapa.set('tipo_execucao', 'direta')
+          novaEtapa.set('status', 'atribuido')
+          novaEtapa.set('custo_estimado', item.custo || 0)
+          novaEtapa.set('is_pacote_trabalho', true)
+          novaEtapa.set('is_marco', false)
+          novaEtapa.set('valor_interno_referencia', item.custo || 0)
+          novaEtapa.set('valor_vendido', item.valor || 0)
+          novaEtapa.set('escopo_detalhado', item.descricao || '')
+          if (item.id) {
+            novaEtapa.set('proposta_item_origem', item.id)
+          }
+
+          let desc = 'Subserviços contemplados: '
+          if (Array.isArray(item.subservicos) && item.subservicos.length > 0) {
+            desc += item.subservicos.join(', ')
+          } else {
+            desc += 'Serviços técnicos de ' + item.disciplina
+          }
+          desc += '.\nItem do escopo: ' + item.descricao
+          novaEtapa.set('descricao', desc)
+
+          if (item.area) {
+            novaEtapa.set('area', item.area)
+          }
+
+          const prazoDiasContrato = rec.getInt('prazo_dias') || 30
+          const dtPrazoPacote = new Date()
+          dtPrazoPacote.setDate(dtPrazoPacote.getDate() + prazoDiasContrato)
+          novaEtapa.set('prazo', dtPrazoPacote.toISOString().substring(0, 10) + ' 12:00:00.000Z')
+
+          $app.save(novaEtapa)
+
+          if (item.record) {
+            try {
+              item.record.set('etapa_gerada', novaEtapa.id)
+              $app.save(item.record)
+            } catch (_) {}
+          }
+
+          let entregaveisDoEscopo = []
+          try {
+            const escoposFiltro = $app.findRecordsByFilter(
+              'catalogo_escopos',
+              "disciplina = '" +
+                (item.disciplina || '').replace(/'/g, "''") +
+                "' || nome = '" +
+                (areaNome || '').replace(/'/g, "''") +
+                "'",
+              '',
+              1,
+              0,
+            )
+            if (escoposFiltro.length > 0) {
+              const escopoRec = escoposFiltro[0]
+              const pdr = escopoRec.get('entregaveis_padrao')
+              if (Array.isArray(pdr)) {
+                entregaveisDoEscopo = pdr
+              }
+            }
+          } catch (_) {}
+
+          if (entregaveisDoEscopo.length === 0 && item.area) {
+            try {
+              const entregaveisAreaDb = $app.findRecordsByFilter(
+                'entregaveis_padrao',
+                "area = '" + item.area + "' && ativo = true",
+                'ordem',
+                30,
+                0,
+              )
+              for (let ep = 0; ep < entregaveisAreaDb.length; ep++) {
+                entregaveisDoEscopo.push({
+                  nome: entregaveisAreaDb[ep].getString('nome'),
+                  descricao: entregaveisAreaDb[ep].getString('descricao'),
+                })
+              }
+            } catch (_) {}
+          }
+
+          if (entregaveisDoEscopo.length === 0) {
+            entregaveisDoEscopo = [
+              {
+                nome: 'Relatório e Memorial de ' + (item.disciplina || 'Engenharia'),
+                descricao: 'Memorial técnico descritivo e memória de cálculo',
+              },
+              {
+                nome: 'Pranchas e Desenhos Técnicos',
+                descricao: 'Plantas, cortes, detalhes e arquivos executivos',
+              },
+              {
+                nome: 'Anotação de Responsabilidade Técnica (ART/RRT)',
+                descricao: 'Registro de responsabilidade técnica perante o conselho de classe',
+              },
+            ]
+          }
+
+          for (let ep = 0; ep < entregaveisDoEscopo.length; ep++) {
+            try {
+              const entNome = entregaveisDoEscopo[ep].nome || 'Entregável ' + (ep + 1)
+              const entDesc =
+                entregaveisDoEscopo[ep].descricao ||
+                'Entregável técnico da disciplina ' + item.disciplina
+              const novoEntregavel = new Record(entregaveisCol)
+              novoEntregavel.set('etapa', novaEtapa.id)
+              novoEntregavel.set('nome', entNome)
+              novoEntregavel.set('titulo', entNome)
+              novoEntregavel.set('versao', 'v1.0')
+              novoEntregavel.set('versao_atual', 1)
+              novoEntregavel.set('status', 'atribuido')
+              novoEntregavel.set('descricao', entDesc)
+              novoEntregavel.set(
+                'prazo',
+                dtPrazoPacote.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+              )
+              $app.save(novoEntregavel)
+            } catch (errNovoEnt) {
+              try {
+                const errCol = $app.findCollectionByNameOrId('erros_sistema')
+                if (errCol) {
+                  const errRec = new Record(errCol)
+                  errRec.set('rota', 'CRON_BACKFILL_CRIAR_ENTREGAVEL')
+                  errRec.set('mensagem', String(errNovoEnt).slice(0, 1000))
+                  errRec.set('hora', new Date().toISOString())
+                  errRec.set('usuario_email', 'sistema')
+                  $app.save(errRec)
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      } catch (errEtapaPrj) {
+        try {
+          const errCol = $app.findCollectionByNameOrId('erros_sistema')
+          if (errCol) {
+            const errRec = new Record(errCol)
+            errRec.set('rota', 'CRON_BACKFILL_CRIAR_ETAPA')
+            errRec.set('mensagem', String(errEtapaPrj).slice(0, 1000))
+            errRec.set('hora', new Date().toISOString())
+            errRec.set('usuario_email', 'sistema')
+            $app.save(errRec)
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (projetosGerados.length > 0) {
+      try {
+        rec.set('projeto', projetosGerados[0].id)
+        $app.save(rec)
+      } catch (_) {}
+    }
+
+    // 5. CONTAS A RECEBER
+    try {
+      const projetoRefId = projetosGerados.length > 0 ? projetosGerados[0].id : null
+      let filtroContas =
+        "tipo = 'receber' && (contrato_servico = '" +
+        contratoId +
+        "' || descricao ~ 'Contrato " +
+        contratoNumero +
+        "'"
+      if (propostaId) {
+        filtroContas += " || proposta = '" + propostaId + "'"
+      }
+      filtroContas += ')'
+      const contasExistentes = $app.findRecordsByFilter('contas', filtroContas, '-created', 1, 0)
+
+      if (contasExistentes.length === 0) {
+        let parcelas = []
+        // Prioridade L1: parcelas_json do próprio contrato
+        try {
+          const rawParcelasJson = rec.get('parcelas_json')
+          if (Array.isArray(rawParcelasJson) && rawParcelasJson.length > 0) {
+            parcelas = rawParcelasJson.map((p, idx) => ({
+              id: 'json_' + (idx + 1),
+              ordem: p.ordem || idx + 1,
+              percentual: Number(p.percentual) || 0,
+              valor: Number(p.valor) || (valorTotalContrato * (Number(p.percentual) || 0)) / 100,
+              descricao:
+                p.descricao || 'Parcela ' + (p.ordem || idx + 1) + '/' + rawParcelasJson.length,
+              gatilho: p.gatilho || 'marco',
+              dias_vencimento: p.dias_vencimento || (idx === 0 ? 15 : (idx + 1) * 30),
+            }))
+          }
+        } catch (_) {}
+
+        // Fallback: proposta_parcelas apenas se parcelas_json vazio
+        if (parcelas.length === 0 && propostaId) {
+          try {
+            const parcsDb = $app.findRecordsByFilter(
+              'proposta_parcelas',
+              "proposta = '" + propostaId + "'",
+              'ordem',
+              50,
+              0,
+            )
+            if (parcsDb && parcsDb.length > 0) {
+              parcelas = parcsDb.map((p, idx) => ({
+                id: p.id,
+                ordem: p.getInt('ordem') || idx + 1,
+                percentual: p.getFloat('percentual') || 0,
+                valor:
+                  p.getFloat('valor') ||
+                  (valorTotalContrato * (p.getFloat('percentual') || 0)) / 100,
+                descricao:
+                  p.getString('descricao') ||
+                  'Parcela ' + (p.getInt('ordem') || idx + 1) + '/' + parcsDb.length,
+                gatilho: p.getString('gatilho') || 'marco',
+                dias_vencimento: idx === 0 ? 15 : (idx + 1) * 30,
+              }))
+            }
+          } catch (_) {}
+        }
+
+        if (parcelas && parcelas.length > 0) {
+          for (let i = 0; i < parcelas.length; i++) {
+            const parc = parcelas[i]
+            const ordem =
+              typeof parc.ordem === 'number'
+                ? parc.ordem
+                : parc.getInt
+                  ? parc.getInt('ordem')
+                  : i + 1
+            const perc =
+              typeof parc.percentual === 'number'
+                ? parc.percentual
+                : parc.getFloat
+                  ? parc.getFloat('percentual')
+                  : 0
+            const valorParc =
+              typeof parc.valor === 'number'
+                ? parc.valor
+                : parc.getFloat
+                  ? parc.getFloat('valor')
+                  : (valorTotalContrato * perc) / 100
+            const descParc =
+              typeof parc.descricao === 'string'
+                ? parc.descricao
+                : parc.getString
+                  ? parc.getString('descricao')
+                  : 'Parcela ' + ordem + '/' + parcelas.length
+            const gatilho =
+              typeof parc.gatilho === 'string'
+                ? parc.gatilho
+                : parc.getString
+                  ? parc.getString('gatilho')
+                  : 'marco'
+
+            const novaConta = new Record(contasCol)
+            novaConta.set('tipo', 'receber')
+            if (projetoRefId) novaConta.set('projeto', projetoRefId)
+            if (propostaId) novaConta.set('proposta', propostaId)
+            if (contratoId) novaConta.set('contrato_servico', contratoId)
+            novaConta.set(
+              'descricao',
+              'Contrato ' +
+                contratoNumero +
+                ' — Parcela ' +
+                ordem +
+                '/' +
+                parcelas.length +
+                ' (' +
+                perc +
+                '% - ' +
+                descParc +
+                ')' +
+                (requerNotaProposta ? ' (Com NF)' : ' (Sem NF)'),
+            )
+            novaConta.set('valor', valorParc)
+            novaConta.set('status', 'rascunho')
+            novaConta.set('forma_pagamento', 'Gatilho: ' + gatilho + ' | ' + condicoesPagamento)
+            novaConta.set('bloqueada_por_fechamento', false)
+
+            if (requerNotaProposta && aliquotaImpostos > 0) {
+              const retencao =
+                Math.round(((valorParc * aliquotaImpostos) / (100 + aliquotaImpostos)) * 100) / 100
+              novaConta.set('retencao_impostos', retencao)
+              novaConta.set('valor_liquido', Math.round((valorParc - retencao) * 100) / 100)
+            } else {
+              novaConta.set('retencao_impostos', 0)
+              novaConta.set('valor_liquido', valorParc)
+            }
+
+            const diasVenc = i === 0 ? 15 : (i + 1) * 30
+            const dataVenc = new Date()
+            dataVenc.setDate(dataVenc.getDate() + diasVenc)
+            novaConta.set('vencimento', dataVenc.toISOString().substring(0, 10) + ' 12:00:00.000Z')
+
+            $app.save(novaConta)
+
+            try {
+              const aRec = new Record(auditCol)
+              aRec.set('user', null)
+              aRec.set('user_email', 'SISTEMA')
+              aRec.set('acao', 'CRIACAO_AUTOMATICA_CONTA_RECEBER')
+              aRec.set('entidade', 'contas')
+              aRec.set('registro_id', novaConta.id)
+              aRec.set('detalhes', {
+                origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+                mensagem:
+                  'Conta a receber da parcela ' +
+                  ordem +
+                  '/' +
+                  parcelas.length +
+                  ' gerada por assinatura do Contrato ' +
+                  contratoNumero,
+                ordem: ordem,
+                percentual: perc,
+                valor: valorParc,
+                gatilho: gatilho,
+                projeto_id: projetoRefId,
+                contrato_id: contratoId,
+                contrato_numero: contratoNumero,
+              })
+              $app.save(aRec)
+            } catch (_) {}
+
+            if (projetoRefId) {
+              try {
+                const marcosExistentes = $app.findRecordsByFilter(
+                  'projeto_etapas',
+                  "projeto = '" + projetoRefId + "' && parcela_origem = '" + parc.id + "'",
+                  '',
+                  1,
+                  0,
+                )
+                if (marcosExistentes.length === 0) {
+                  const marcoEtapa = new Record(etapasCol)
+                  marcoEtapa.set('projeto', projetoRefId)
+                  marcoEtapa.set(
+                    'nome',
+                    'Marco Financeiro: Parcela ' + ordem + ' (' + descParc + ')',
+                  )
+                  marcoEtapa.set('disciplina', 'Marco Financeiro')
+                  marcoEtapa.set('ordem', 100 + ordem)
+                  marcoEtapa.set('tipo_execucao', 'direta')
+                  marcoEtapa.set('status', 'nao_iniciada')
+                  marcoEtapa.set('is_marco', true)
+                  marcoEtapa.set('is_pacote_trabalho', false)
+                  marcoEtapa.set('valor_vendido', valorParc)
+                  marcoEtapa.set('valor_interno_referencia', valorParc)
+                  marcoEtapa.set('parcela_origem', parc.id)
+                  marcoEtapa.set(
+                    'prazo',
+                    dataVenc.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+                  )
+                  marcoEtapa.set(
+                    'descricao',
+                    'Marco vinculado à parcela ' +
+                      ordem +
+                      ' do Contrato ' +
+                      contratoNumero +
+                      '. Gatilho: ' +
+                      gatilho,
+                  )
+                  $app.save(marcoEtapa)
+                }
+              } catch (_) {}
+            }
+          }
+        } else {
+          const novaConta = new Record(contasCol)
+          novaConta.set('tipo', 'receber')
+          if (projetoRefId) novaConta.set('projeto', projetoRefId)
+          if (propostaId) novaConta.set('proposta', propostaId)
+          if (contratoId) novaConta.set('contrato_servico', contratoId)
+          novaConta.set(
+            'descricao',
+            'Recebimento integral do Contrato Assinado ' +
+              contratoNumero +
+              (requerNotaProposta ? ' (Com NF)' : ' (Sem NF)'),
+          )
+          novaConta.set('valor', valorTotalContrato)
+          novaConta.set('status', 'rascunho')
+          novaConta.set('forma_pagamento', condicoesPagamento)
+          novaConta.set('bloqueada_por_fechamento', false)
+
+          if (requerNotaProposta && aliquotaImpostos > 0) {
+            const retencao =
+              Math.round(
+                ((valorTotalContrato * aliquotaImpostos) / (100 + aliquotaImpostos)) * 100,
+              ) / 100
+            novaConta.set('retencao_impostos', retencao)
+            novaConta.set('valor_liquido', Math.round((valorTotalContrato - retencao) * 100) / 100)
+          } else {
+            novaConta.set('retencao_impostos', 0)
+            novaConta.set('valor_liquido', valorTotalContrato)
+          }
+
+          const dataVenc = new Date()
+          dataVenc.setDate(dataVenc.getDate() + 30)
+          novaConta.set('vencimento', dataVenc.toISOString().substring(0, 10) + ' 12:00:00.000Z')
+
+          $app.save(novaConta)
+
+          try {
+            const aRec = new Record(auditCol)
+            aRec.set('user', null)
+            aRec.set('user_email', 'SISTEMA')
+            aRec.set('acao', 'CRIACAO_AUTOMATICA_CONTA_RECEBER')
+            aRec.set('entidade', 'contas')
+            aRec.set('registro_id', novaConta.id)
+            aRec.set('detalhes', {
+              origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+              mensagem:
+                'Conta a receber integral gerada por assinatura do Contrato ' + contratoNumero,
+              valor: valorTotalContrato,
+              projeto_id: projetoRefId,
+              contrato_id: contratoId,
+              contrato_numero: contratoNumero,
+            })
+            $app.save(aRec)
+          } catch (_) {}
+        }
+      }
+    } catch (errContas) {
+      try {
+        const errCol = $app.findCollectionByNameOrId('erros_sistema')
+        if (errCol) {
+          const errRec = new Record(errCol)
+          errRec.set('rota', 'CRON_BACKFILL_CRIAR_CONTAS')
+          errRec.set('mensagem', String(errContas).slice(0, 1000))
+          errRec.set('hora', new Date().toISOString())
+          errRec.set('usuario_email', 'sistema')
+          $app.save(errRec)
+        }
+      } catch (_) {}
+    }
+
+    // Auditoria geral Bloco 4
+    try {
+      const aRec = new Record(auditCol)
+      aRec.set('user', null)
+      aRec.set('user_email', 'SISTEMA')
+      aRec.set('acao', 'ATIVACAO_BLOCO4_CONTRATO_ASSINADO')
+      aRec.set('entidade', 'contratos_servico')
+      aRec.set('registro_id', contratoId)
+      aRec.set('detalhes', {
+        origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+        mensagem:
+          'Contrato ' +
+          contratoNumero +
+          ' assinado bilateralmente. 1 Grupo de Projetos (' +
+          (grupoCriado ? grupoCriado.getString('codigo') : 'GPR') +
+          ') e ' +
+          projetosGerados.length +
+          ' projeto(s) gerado(s) com sucesso.',
+        contrato_numero: contratoNumero,
+        grupo_codigo: grupoCriado ? grupoCriado.getString('codigo') : null,
+        total_projetos: projetosGerados.length,
+        codigos_projetos: projetosGerados.map((p) => p.getString('codigo')),
+        valor_total: valorTotalContrato,
+      })
+      $app.save(aRec)
+    } catch (_) {}
+
+    // Atualização do status da proposta para "convertida_em_projeto"
+    if (propostaId) {
+      try {
+        const propToUpdate = $app.findRecordById('propostas', propostaId)
+        if (propToUpdate) {
+          const stAnt = propToUpdate.getString('status')
+          if (stAnt !== 'convertida_em_projeto') {
+            propToUpdate.set('status', 'convertida_em_projeto')
+            $app.save(propToUpdate)
+
+            try {
+              const aRecProp = new Record(auditCol)
+              aRecProp.set('user', null)
+              aRecProp.set('user_email', 'SISTEMA')
+              aRecProp.set('acao', 'PROPOSTA_CONVERTIDA_EM_PROJETO')
+              aRecProp.set('entidade', 'propostas')
+              aRecProp.set('registro_id', propostaId)
+              aRecProp.set('detalhes', {
+                origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+                mensagem:
+                  'Proposta ' +
+                  propostaNumero +
+                  ' convertida em projeto após assinatura bilateral do Contrato ' +
+                  contratoNumero,
+                status_anterior: stAnt,
+                novo_status: 'convertida_em_projeto',
+                contrato_id: contratoId,
+                contrato_numero: contratoNumero,
+                total_projetos: projetosGerados.length,
+              })
+              $app.save(aRecProp)
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Promoção
+    if (empresaId) {
+      try {
+        const empresa = $app.findRecordById('empresas', empresaId)
+        if (empresa) {
+          const etapaAtual = empresa.getString('etapa_funil')
+          const eraPreCadastro = empresa.getBool('pre_cadastro')
+
+          let houveMudanca = false
+          if (eraPreCadastro) {
+            empresa.set('pre_cadastro', false)
+            houveMudanca = true
+          }
+
+          if (etapaAtual !== 'parceira') {
+            empresa.set('etapa_anterior', etapaAtual)
+            empresa.set('etapa_funil', 'parceira')
+            empresa.set('status', 'ativa')
+            houveMudanca = true
+          }
+
+          if (houveMudanca) {
+            empresa.set(
+              'observacoes',
+              (empresa.getString('observacoes') || '') +
+                '\n[Efetivação por Contrato Assinado]: Contrato ' +
+                contratoNumero +
+                ' assinado em ' +
+                new Date().toISOString() +
+                (eraPreCadastro ? ' (pré-cadastro promovido a definitivo)' : ''),
+            )
+            $app.save(empresa)
+
+            try {
+              const aRec = new Record(auditCol)
+              aRec.set('user', null)
+              aRec.set('user_email', 'SISTEMA')
+              aRec.set('acao', 'CONVERSAO_PARCEIRO')
+              aRec.set('entidade', 'empresas')
+              aRec.set('registro_id', empresaId)
+              aRec.set('detalhes', {
+                origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+                mensagem:
+                  'Empresa convertida para Parceira pela assinatura do Contrato ' + contratoNumero,
+                contrato_numero: contratoNumero,
+                proposta_numero: propostaNumero,
+              })
+              $app.save(aRec)
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (clientePfId) {
+      try {
+        const clientePf = $app.findRecordById('clientes_pf', clientePfId)
+        if (clientePf && clientePf.getBool('pre_cadastro')) {
+          clientePf.set('pre_cadastro', false)
+          clientePf.set(
+            'observacoes',
+            (clientePf.getString('observacoes') || '') +
+              '\n[Efetivação por Contrato Assinado]: Contrato ' +
+              contratoNumero +
+              ' assinado em ' +
+              new Date().toISOString() +
+              ' (promovido a cliente definitivo)',
+          )
+          $app.save(clientePf)
+
+          try {
+            const aRec = new Record(auditCol)
+            aRec.set('user', null)
+            aRec.set('user_email', 'SISTEMA')
+            aRec.set('acao', 'PROMOCAO_CLIENTE_CONTRATO')
+            aRec.set('entidade', 'clientes_pf')
+            aRec.set('registro_id', clientePfId)
+            aRec.set('detalhes', {
+              origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+              tipo: 'pf',
+              mensagem:
+                'Cliente PF promovido de pré-cadastro a definitivo pela assinatura do Contrato ' +
+                contratoNumero,
+              contrato_id: contratoId,
+              contrato_numero: contratoNumero,
+            })
+            $app.save(aRec)
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
+  }
+
   try {
     const targetCtrId = 'ksorfla6p6kvgr1'
     let ctrRec = null
@@ -876,7 +1962,7 @@ cronAdd('backfill-ctr-2026-0003-deploy', '* * * * *', function () {
       return
     }
 
-    ativarContratoServicoBilateral(ctrRec)
+    executarAtivacaoInline(ctrRec)
   } catch (errBackfill) {
     try {
       const errCol = $app.findCollectionByNameOrId('erros_sistema')
@@ -903,6 +1989,1032 @@ try {
 } catch (_) {}
 
 cronAdd('sweep-contratos-assinados-sem-projeto', '* * * * *', function () {
+  // Rotina inline de ativação bilateral para evitar Hook scoping error em VMs de cron
+  function executarAtivacaoSweepInline(rec) {
+    const contratoId = rec.id
+    const contratoNumero = rec.getString('numero')
+    const propostaId = rec.getString('proposta')
+    const empresaId = rec.getString('empresa')
+    const clientePfId = rec.getString('cliente_pf')
+    const valorTotalContrato = rec.getFloat('valor_total') || 0
+    const objetoContrato = rec.getString('objeto') || 'Prestação de serviços técnicos de engenharia'
+
+    let propostaRec = null
+    let propostaNumero = ''
+    let condicoesPagamento = 'Conforme contrato assinado'
+    let requerNotaProposta = false
+    let aliquotaImpostos = 0
+
+    if (propostaId) {
+      try {
+        propostaRec = $app.findRecordById('propostas', propostaId)
+        if (propostaRec) {
+          propostaNumero = propostaRec.getString('numero')
+          condicoesPagamento = propostaRec.getString('condicoes_pagamento') || condicoesPagamento
+          requerNotaProposta = propostaRec.getBool('requer_nota')
+          aliquotaImpostos = propostaRec.getInt('impostos') || 0
+        }
+      } catch (_) {}
+    }
+
+    let nomeCliente = 'Cliente'
+    if (empresaId) {
+      try {
+        const emp = $app.findRecordById('empresas', empresaId)
+        if (emp) {
+          nomeCliente = emp.getString('razao_social') || emp.getString('nome_fantasia') || 'Cliente'
+        }
+      } catch (_) {}
+    }
+    // Cliente PF com campo 'empresa' vazio DEVE prosseguir usando o nome do cliente PF, sem abortar
+    if ((!empresaId || nomeCliente === 'Cliente') && clientePfId) {
+      try {
+        const pf = $app.findRecordById('clientes_pf', clientePfId)
+        if (pf && pf.getString('nome')) nomeCliente = pf.getString('nome')
+      } catch (_) {}
+    }
+
+    const auditCol = $app.findCollectionByNameOrId('audit_logs')
+    const projetosCol = $app.findCollectionByNameOrId('projetos')
+    const gruposCol = $app.findCollectionByNameOrId('grupos_projetos')
+    const etapasCol = $app.findCollectionByNameOrId('projeto_etapas')
+    const entregaveisCol = $app.findCollectionByNameOrId('entregaveis')
+    const contasCol = $app.findCollectionByNameOrId('contas')
+
+    // 1. CRIAR OU RECUPERAR GRUPO DE PROJETOS (Trava 1:1)
+    let grupoCriado = null
+    try {
+      const gruposExistentes = $app.findRecordsByFilter(
+        'grupos_projetos',
+        "contrato_servico = '" + contratoId + "'",
+        '-created',
+        1,
+        0,
+      )
+      if (gruposExistentes.length > 0) {
+        grupoCriado = gruposExistentes[0]
+      } else {
+        const anoAtual = new Date().getFullYear()
+        const prefixoGPR = 'GPR-' + anoAtual + '-'
+        const gruposDoAno = $app.findRecordsByFilter(
+          'grupos_projetos',
+          "codigo ~ '" + prefixoGPR + "'",
+          '-codigo',
+          1,
+          0,
+        )
+
+        let proximoSeqGpr = 1
+        if (gruposDoAno.length > 0) {
+          const ultimoCodigo = gruposDoAno[0].getString('codigo')
+          const partes = ultimoCodigo.split('-')
+          const ultimoSeq = parseInt(partes[2], 10)
+          if (!isNaN(ultimoSeq)) {
+            proximoSeqGpr = ultimoSeq + 1
+          }
+        }
+
+        const seqStr = ('0000' + proximoSeqGpr).slice(-4)
+        const codigoGPR = prefixoGPR + seqStr
+
+        const novoGrupo = new Record(gruposCol)
+        novoGrupo.set('codigo', codigoGPR)
+        novoGrupo.set('contrato_servico', contratoId)
+        if (propostaId) novoGrupo.set('proposta', propostaId)
+        if (empresaId) novoGrupo.set('empresa', empresaId)
+        if (clientePfId) novoGrupo.set('cliente_pf', clientePfId)
+        novoGrupo.set('nome', 'Grupo: ' + contratoNumero + ' — ' + nomeCliente)
+        novoGrupo.set('descricao', objetoContrato)
+        novoGrupo.set('status', 'ativo')
+        novoGrupo.set('valor_total', valorTotalContrato)
+
+        $app.save(novoGrupo)
+        grupoCriado = novoGrupo
+
+        try {
+          const aRec = new Record(auditCol)
+          aRec.set('user', null)
+          aRec.set('user_email', 'SISTEMA')
+          aRec.set('acao', 'CRIACAO_GRUPO_PROJETOS')
+          aRec.set('entidade', 'grupos_projetos')
+          aRec.set('registro_id', novoGrupo.id)
+          aRec.set('detalhes', {
+            origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+            mensagem:
+              'Grupo de projetos ' +
+              codigoGPR +
+              ' criado pela assinatura bilateral do Contrato ' +
+              contratoNumero,
+            codigo: codigoGPR,
+            contrato_id: contratoId,
+            contrato_numero: contratoNumero,
+            proposta_id: propostaId,
+            proposta_numero: propostaNumero,
+            valor_total: valorTotalContrato,
+          })
+          $app.save(aRec)
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    // Trava de idempotência atômica: verificar se já existe projeto com contrato_servico = id do contrato
+    const projetosJaCriados = $app.findRecordsByFilter(
+      'projetos',
+      "contrato_servico = '" + contratoId + "'",
+      'codigo',
+      100,
+      0,
+    )
+    if (projetosJaCriados.length > 0) {
+      try {
+        if (!rec.getString('projeto')) {
+          rec.set('projeto', projetosJaCriados[0].id)
+          $app.save(rec)
+        }
+      } catch (_) {}
+
+      // Se já existem contas para este contrato, não precisa fazer nada e pode sair
+      try {
+        const contasJaCriadas = $app.findRecordsByFilter(
+          'contas',
+          "tipo = 'receber' && contrato_servico = '" + contratoId + "'",
+          '-created',
+          1,
+          0,
+        )
+        if (contasJaCriadas.length > 0) {
+          return
+        }
+      } catch (_) {
+        return
+      }
+    }
+
+    // 2. ITENS DE ESCOPO (Apenas itens reais do catálogo ou com serviço/descrição válida)
+    let itensEscopo = []
+    if (propostaId) {
+      try {
+        const itensDb = $app.findRecordsByFilter(
+          'proposta_itens',
+          "proposta = '" + propostaId + "'",
+          'ordem,created',
+          200,
+          0,
+        )
+        if (itensDb.length > 0) {
+          itensEscopo = itensDb
+            .filter((it) => {
+              const desc = (it.getString('descricao') || '').trim()
+              const serv = it.getString('servico') || ''
+              return (serv !== '' || desc.length > 0) && !desc.startsWith('Item de Escopo ')
+            })
+            .map((it) => ({
+              id: it.id,
+              record: it,
+              descricao: it.getString('descricao'),
+              disciplina: it.getString('disciplina') || 'Geral',
+              area: it.getString('area'),
+              valor: it.getFloat('preco_total') || 0,
+              custo: it.getFloat('custo_total') || 0,
+              subservicos: it.get('subservicos') || [],
+            }))
+        }
+      } catch (_) {}
+
+      if (itensEscopo.length === 0 && propostaRec) {
+        try {
+          const rawJsonStr = propostaRec.getString('itens_json')
+          let parsedItens = []
+          if (rawJsonStr && rawJsonStr.trim()) {
+            const parsed = JSON.parse(rawJsonStr)
+            if (Array.isArray(parsed)) {
+              parsedItens = parsed
+            }
+          }
+          if (parsedItens.length > 0) {
+            itensEscopo = parsedItens
+              .filter((it) => {
+                const desc = typeof it.descricao === 'string' ? it.descricao.trim() : ''
+                const temServico = Boolean(it.servico || it.catalogo_servico)
+                const descValida = desc.length > 0 && !desc.startsWith('Item de Escopo ')
+                return temServico || descValida
+              })
+              .map((it) => ({
+                id: null,
+                record: null,
+                descricao: (it.descricao || '').trim() || objetoContrato,
+                disciplina: it.disciplina || 'Geral',
+                area: it.area || '',
+                valor: Number(it.preco_total) || 0,
+                custo: Number(it.custo_total) || 0,
+                subservicos: Array.isArray(it.subservicos) ? it.subservicos : [],
+              }))
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (itensEscopo.length === 0) {
+      itensEscopo = [
+        {
+          id: null,
+          record: null,
+          descricao: objetoContrato,
+          disciplina: propostaRec ? propostaRec.getString('disciplinas') || 'Geral' : 'Geral',
+          area: '',
+          valor: valorTotalContrato,
+          custo: 0,
+          subservicos: [],
+        },
+      ]
+    }
+
+    const somaItens = itensEscopo.reduce((acc, it) => acc + (Number(it.valor) || 0), 0)
+    if (somaItens === 0 && valorTotalContrato > 0) {
+      const valorPorItem = Math.round((valorTotalContrato / itensEscopo.length) * 100) / 100
+      for (let idx = 0; idx < itensEscopo.length; idx++) {
+        itensEscopo[idx].valor =
+          idx === itensEscopo.length - 1
+            ? Math.round((valorTotalContrato - valorPorItem * (itensEscopo.length - 1)) * 100) / 100
+            : valorPorItem
+      }
+    }
+
+    // 3. PROJETOS POR ITEM DE ESCOPO
+    let projetosExistentesContrato = []
+    try {
+      projetosExistentesContrato = $app.findRecordsByFilter(
+        'projetos',
+        "contrato_servico = '" +
+          contratoId +
+          "' || (proposta = '" +
+          propostaId +
+          "' && grupo = '')",
+        'codigo',
+        100,
+        0,
+      )
+    } catch (_) {}
+
+    const anoAtualPrj = new Date().getFullYear()
+    const prefixoPRJ = 'PRJ-' + anoAtualPrj + '-'
+    let proximoSeqPrj = 1
+    try {
+      const projetosDoAno = $app.findRecordsByFilter(
+        'projetos',
+        "codigo ~ '" + prefixoPRJ + "'",
+        '-codigo',
+        1,
+        0,
+      )
+      if (projetosDoAno.length > 0) {
+        const ult = projetosDoAno[0].getString('codigo')
+        const partes = ult.split('-')
+        const num = parseInt(partes[2], 10)
+        if (!isNaN(num)) proximoSeqPrj = num + 1
+      }
+    } catch (_) {}
+
+    const projetosGerados = []
+
+    for (let i = 0; i < itensEscopo.length; i++) {
+      const item = itensEscopo[i]
+      let prjParaItem = null
+
+      if (i < projetosExistentesContrato.length) {
+        prjParaItem = projetosExistentesContrato[i]
+      }
+
+      if (prjParaItem) {
+        let prjAlterado = false
+        if (grupoCriado && prjParaItem.getString('grupo') !== grupoCriado.id) {
+          prjParaItem.set('grupo', grupoCriado.id)
+          prjAlterado = true
+        }
+        if (prjParaItem.getString('contrato_servico') !== contratoId) {
+          prjParaItem.set('contrato_servico', contratoId)
+          prjAlterado = true
+        }
+        if (clientePfId && prjParaItem.getString('cliente_pf') !== clientePfId) {
+          prjParaItem.set('cliente_pf', clientePfId)
+          prjAlterado = true
+        }
+        if (empresaId && prjParaItem.getString('empresa') !== empresaId) {
+          prjParaItem.set('empresa', empresaId)
+          prjAlterado = true
+        }
+
+        if (itensEscopo.length > 1) {
+          prjParaItem.set(
+            'nome',
+            'Projeto ' +
+              (i + 1) +
+              '/' +
+              itensEscopo.length +
+              ': ' +
+              item.descricao +
+              ' — ' +
+              nomeCliente,
+          )
+          prjParaItem.set('descricao', item.descricao)
+          prjParaItem.set('valor_total', item.valor)
+          prjParaItem.set('disciplinas', item.disciplina)
+          prjAlterado = true
+        } else {
+          prjParaItem.set('valor_total', item.valor || valorTotalContrato)
+          prjAlterado = true
+        }
+
+        if (!prjParaItem.getString('prazo_final')) {
+          try {
+            const pDiasContrato = rec.getInt('prazo_dias') || 30
+            const dtBaseAssinatura =
+              rec.getString('data_assinatura_cliente') ||
+              rec.getString('data_assinatura_admin') ||
+              new Date().toISOString()
+            const dtPrazoFinalPrj = new Date(dtBaseAssinatura)
+            dtPrazoFinalPrj.setDate(dtPrazoFinalPrj.getDate() + pDiasContrato)
+            prjParaItem.set(
+              'prazo_final',
+              dtPrazoFinalPrj.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+            )
+            prjAlterado = true
+          } catch (_) {}
+        }
+
+        const statusAtual = prjParaItem.getString('status')
+        if (statusAtual === 'contratacao' || statusAtual === 'Em Contratação' || !statusAtual) {
+          prjParaItem.set('status', 'aguardando_definicao')
+          prjParaItem.set('modo_execucao', null)
+          prjAlterado = true
+        }
+
+        if (prjAlterado) {
+          $app.save(prjParaItem)
+        }
+      } else {
+        const seqStr = ('0000' + proximoSeqPrj).slice(-4)
+        const codigoPRJ = prefixoPRJ + seqStr
+        proximoSeqPrj++
+
+        const novoPrj = new Record(projetosCol)
+        novoPrj.set('codigo', codigoPRJ)
+        novoPrj.set(
+          'nome',
+          itensEscopo.length > 1
+            ? 'Projeto ' +
+                (i + 1) +
+                '/' +
+                itensEscopo.length +
+                ': ' +
+                item.descricao +
+                ' — ' +
+                nomeCliente
+            : 'Projeto: ' + contratoNumero + ' — ' + nomeCliente,
+        )
+        novoPrj.set('descricao', item.descricao)
+        if (propostaId) novoPrj.set('proposta', propostaId)
+        novoPrj.set('contrato_servico', contratoId)
+        if (grupoCriado) novoPrj.set('grupo', grupoCriado.id)
+        if (empresaId) novoPrj.set('empresa', empresaId)
+        if (clientePfId) novoPrj.set('cliente_pf', clientePfId)
+        novoPrj.set('valor_total', item.valor)
+        novoPrj.set('subcontratacao_autorizada', true)
+        novoPrj.set('saude', 'verde')
+        novoPrj.set('status', 'aguardando_definicao')
+        novoPrj.set('modo_execucao', null)
+        novoPrj.set('disciplinas', item.disciplina)
+
+        // Prazo final do projeto PRJ criado = data_assinatura + prazo_dias
+        try {
+          const pDiasContrato = rec.getInt('prazo_dias') || 30
+          const dtBaseAssinatura =
+            rec.getString('data_assinatura_cliente') ||
+            rec.getString('data_assinatura_admin') ||
+            new Date().toISOString()
+          const dtPrazoFinalPrj = new Date(dtBaseAssinatura)
+          dtPrazoFinalPrj.setDate(dtPrazoFinalPrj.getDate() + pDiasContrato)
+          novoPrj.set(
+            'prazo_final',
+            dtPrazoFinalPrj.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+          )
+        } catch (_) {}
+
+        $app.save(novoPrj)
+        prjParaItem = novoPrj
+
+        try {
+          const aRec = new Record(auditCol)
+          aRec.set('user', null)
+          aRec.set('user_email', 'SISTEMA')
+          aRec.set('acao', 'CRIACAO_PROJETO_ITEM_ESCOPO')
+          aRec.set('entidade', 'projetos')
+          aRec.set('registro_id', novoPrj.id)
+          aRec.set('detalhes', {
+            origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+            mensagem:
+              'Projeto ' +
+              codigoPRJ +
+              ' criado para o item de escopo "' +
+              item.descricao +
+              '" do Contrato ' +
+              contratoNumero,
+            codigo: codigoPRJ,
+            grupo_id: grupoCriado ? grupoCriado.id : null,
+            grupo_codigo: grupoCriado ? grupoCriado.getString('codigo') : null,
+            contrato_id: contratoId,
+            contrato_numero: contratoNumero,
+            item_descricao: item.descricao,
+            item_valor: item.valor,
+          })
+          $app.save(aRec)
+        } catch (_) {}
+      }
+
+      projetosGerados.push(prjParaItem)
+
+      if (item.record) {
+        try {
+          item.record.set('status_conversao', 'convertido')
+          item.record.set('projeto_gerado', prjParaItem.id)
+          $app.save(item.record)
+        } catch (_) {}
+      }
+
+      // 4. ETAPAS E ENTREGÁVEIS
+      try {
+        const etapasExistentes = $app.findRecordsByFilter(
+          'projeto_etapas',
+          "projeto = '" + prjParaItem.id + "'",
+          'ordem',
+          1,
+          0,
+        )
+
+        if (etapasExistentes.length === 0) {
+          let areaNome = item.disciplina || 'Geral'
+          if (item.area) {
+            try {
+              const areaRec = $app.findRecordById('areas_atuacao', item.area)
+              if (areaRec) areaNome = areaRec.getString('nome')
+            } catch (_) {}
+          }
+
+          const novaEtapa = new Record(etapasCol)
+          novaEtapa.set('projeto', prjParaItem.id)
+          novaEtapa.set('nome', 'Pacote: ' + (areaNome || item.descricao))
+          novaEtapa.set('disciplina', item.disciplina || 'Geral')
+          novaEtapa.set('ordem', 1)
+          novaEtapa.set('tipo_execucao', 'direta')
+          novaEtapa.set('status', 'atribuido')
+          novaEtapa.set('custo_estimado', item.custo || 0)
+          novaEtapa.set('is_pacote_trabalho', true)
+          novaEtapa.set('is_marco', false)
+          novaEtapa.set('valor_interno_referencia', item.custo || 0)
+          novaEtapa.set('valor_vendido', item.valor || 0)
+          novaEtapa.set('escopo_detalhado', item.descricao || '')
+          if (item.id) {
+            novaEtapa.set('proposta_item_origem', item.id)
+          }
+
+          let desc = 'Subserviços contemplados: '
+          if (Array.isArray(item.subservicos) && item.subservicos.length > 0) {
+            desc += item.subservicos.join(', ')
+          } else {
+            desc += 'Serviços técnicos de ' + item.disciplina
+          }
+          desc += '.\nItem do escopo: ' + item.descricao
+          novaEtapa.set('descricao', desc)
+
+          if (item.area) {
+            novaEtapa.set('area', item.area)
+          }
+
+          const prazoDiasContrato = rec.getInt('prazo_dias') || 30
+          const dtPrazoPacote = new Date()
+          dtPrazoPacote.setDate(dtPrazoPacote.getDate() + prazoDiasContrato)
+          novaEtapa.set('prazo', dtPrazoPacote.toISOString().substring(0, 10) + ' 12:00:00.000Z')
+
+          $app.save(novaEtapa)
+
+          if (item.record) {
+            try {
+              item.record.set('etapa_gerada', novaEtapa.id)
+              $app.save(item.record)
+            } catch (_) {}
+          }
+
+          let entregaveisDoEscopo = []
+          try {
+            const escoposFiltro = $app.findRecordsByFilter(
+              'catalogo_escopos',
+              "disciplina = '" +
+                (item.disciplina || '').replace(/'/g, "''") +
+                "' || nome = '" +
+                (areaNome || '').replace(/'/g, "''") +
+                "'",
+              '',
+              1,
+              0,
+            )
+            if (escoposFiltro.length > 0) {
+              const escopoRec = escoposFiltro[0]
+              const pdr = escopoRec.get('entregaveis_padrao')
+              if (Array.isArray(pdr)) {
+                entregaveisDoEscopo = pdr
+              }
+            }
+          } catch (_) {}
+
+          if (entregaveisDoEscopo.length === 0 && item.area) {
+            try {
+              const entregaveisAreaDb = $app.findRecordsByFilter(
+                'entregaveis_padrao',
+                "area = '" + item.area + "' && ativo = true",
+                'ordem',
+                30,
+                0,
+              )
+              for (let ep = 0; ep < entregaveisAreaDb.length; ep++) {
+                entregaveisDoEscopo.push({
+                  nome: entregaveisAreaDb[ep].getString('nome'),
+                  descricao: entregaveisAreaDb[ep].getString('descricao'),
+                })
+              }
+            } catch (_) {}
+          }
+
+          if (entregaveisDoEscopo.length === 0) {
+            entregaveisDoEscopo = [
+              {
+                nome: 'Relatório e Memorial de ' + (item.disciplina || 'Engenharia'),
+                descricao: 'Memorial técnico descritivo e memória de cálculo',
+              },
+              {
+                nome: 'Pranchas e Desenhos Técnicos',
+                descricao: 'Plantas, cortes, detalhes e arquivos executivos',
+              },
+              {
+                nome: 'Anotação de Responsabilidade Técnica (ART/RRT)',
+                descricao: 'Registro de responsabilidade técnica perante o conselho de classe',
+              },
+            ]
+          }
+
+          for (let ep = 0; ep < entregaveisDoEscopo.length; ep++) {
+            try {
+              const entNome = entregaveisDoEscopo[ep].nome || 'Entregável ' + (ep + 1)
+              const entDesc =
+                entregaveisDoEscopo[ep].descricao ||
+                'Entregável técnico da disciplina ' + item.disciplina
+              const novoEntregavel = new Record(entregaveisCol)
+              novoEntregavel.set('etapa', novaEtapa.id)
+              novoEntregavel.set('nome', entNome)
+              novoEntregavel.set('titulo', entNome)
+              novoEntregavel.set('versao', 'v1.0')
+              novoEntregavel.set('versao_atual', 1)
+              novoEntregavel.set('status', 'atribuido')
+              novoEntregavel.set('descricao', entDesc)
+              novoEntregavel.set(
+                'prazo',
+                dtPrazoPacote.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+              )
+              $app.save(novoEntregavel)
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (projetosGerados.length > 0) {
+      try {
+        rec.set('projeto', projetosGerados[0].id)
+        $app.save(rec)
+      } catch (_) {}
+    }
+
+    // 5. CONTAS A RECEBER
+    try {
+      const projetoRefId = projetosGerados.length > 0 ? projetosGerados[0].id : null
+      let filtroContas =
+        "tipo = 'receber' && (contrato_servico = '" +
+        contratoId +
+        "' || descricao ~ 'Contrato " +
+        contratoNumero +
+        "'"
+      if (propostaId) {
+        filtroContas += " || proposta = '" + propostaId + "'"
+      }
+      filtroContas += ')'
+      const contasExistentes = $app.findRecordsByFilter('contas', filtroContas, '-created', 1, 0)
+
+      if (contasExistentes.length === 0) {
+        let parcelas = []
+        // Prioridade L1: parcelas_json do próprio contrato
+        try {
+          const rawParcelasJson = rec.get('parcelas_json')
+          if (Array.isArray(rawParcelasJson) && rawParcelasJson.length > 0) {
+            parcelas = rawParcelasJson.map((p, idx) => ({
+              id: 'json_' + (idx + 1),
+              ordem: p.ordem || idx + 1,
+              percentual: Number(p.percentual) || 0,
+              valor: Number(p.valor) || (valorTotalContrato * (Number(p.percentual) || 0)) / 100,
+              descricao:
+                p.descricao || 'Parcela ' + (p.ordem || idx + 1) + '/' + rawParcelasJson.length,
+              gatilho: p.gatilho || 'marco',
+              dias_vencimento: p.dias_vencimento || (idx === 0 ? 15 : (idx + 1) * 30),
+            }))
+          }
+        } catch (_) {}
+
+        // Fallback: proposta_parcelas apenas se parcelas_json vazio
+        if (parcelas.length === 0 && propostaId) {
+          try {
+            const parcsDb = $app.findRecordsByFilter(
+              'proposta_parcelas',
+              "proposta = '" + propostaId + "'",
+              'ordem',
+              50,
+              0,
+            )
+            if (parcsDb && parcsDb.length > 0) {
+              parcelas = parcsDb.map((p, idx) => ({
+                id: p.id,
+                ordem: p.getInt('ordem') || idx + 1,
+                percentual: p.getFloat('percentual') || 0,
+                valor:
+                  p.getFloat('valor') ||
+                  (valorTotalContrato * (p.getFloat('percentual') || 0)) / 100,
+                descricao:
+                  p.getString('descricao') ||
+                  'Parcela ' + (p.getInt('ordem') || idx + 1) + '/' + parcsDb.length,
+                gatilho: p.getString('gatilho') || 'marco',
+                dias_vencimento: idx === 0 ? 15 : (idx + 1) * 30,
+              }))
+            }
+          } catch (_) {}
+        }
+
+        if (parcelas && parcelas.length > 0) {
+          for (let i = 0; i < parcelas.length; i++) {
+            const parc = parcelas[i]
+            const ordem =
+              typeof parc.ordem === 'number'
+                ? parc.ordem
+                : parc.getInt
+                  ? parc.getInt('ordem')
+                  : i + 1
+            const perc =
+              typeof parc.percentual === 'number'
+                ? parc.percentual
+                : parc.getFloat
+                  ? parc.getFloat('percentual')
+                  : 0
+            const valorParc =
+              typeof parc.valor === 'number'
+                ? parc.valor
+                : parc.getFloat
+                  ? parc.getFloat('valor')
+                  : (valorTotalContrato * perc) / 100
+            const descParc =
+              typeof parc.descricao === 'string'
+                ? parc.descricao
+                : parc.getString
+                  ? parc.getString('descricao')
+                  : 'Parcela ' + ordem + '/' + parcelas.length
+            const gatilho =
+              typeof parc.gatilho === 'string'
+                ? parc.gatilho
+                : parc.getString
+                  ? parc.getString('gatilho')
+                  : 'marco'
+
+            const novaConta = new Record(contasCol)
+            novaConta.set('tipo', 'receber')
+            if (projetoRefId) novaConta.set('projeto', projetoRefId)
+            if (propostaId) novaConta.set('proposta', propostaId)
+            if (contratoId) novaConta.set('contrato_servico', contratoId)
+            novaConta.set(
+              'descricao',
+              'Contrato ' +
+                contratoNumero +
+                ' — Parcela ' +
+                ordem +
+                '/' +
+                parcelas.length +
+                ' (' +
+                perc +
+                '% - ' +
+                descParc +
+                ')' +
+                (requerNotaProposta ? ' (Com NF)' : ' (Sem NF)'),
+            )
+            novaConta.set('valor', valorParc)
+            novaConta.set('status', 'rascunho')
+            novaConta.set('forma_pagamento', 'Gatilho: ' + gatilho + ' | ' + condicoesPagamento)
+            novaConta.set('bloqueada_por_fechamento', false)
+
+            if (requerNotaProposta && aliquotaImpostos > 0) {
+              const retencao =
+                Math.round(((valorParc * aliquotaImpostos) / (100 + aliquotaImpostos)) * 100) / 100
+              novaConta.set('retencao_impostos', retencao)
+              novaConta.set('valor_liquido', Math.round((valorParc - retencao) * 100) / 100)
+            } else {
+              novaConta.set('retencao_impostos', 0)
+              novaConta.set('valor_liquido', valorParc)
+            }
+
+            const diasVenc = i === 0 ? 15 : (i + 1) * 30
+            const dataVenc = new Date()
+            dataVenc.setDate(dataVenc.getDate() + diasVenc)
+            novaConta.set('vencimento', dataVenc.toISOString().substring(0, 10) + ' 12:00:00.000Z')
+
+            $app.save(novaConta)
+
+            try {
+              const aRec = new Record(auditCol)
+              aRec.set('user', null)
+              aRec.set('user_email', 'SISTEMA')
+              aRec.set('acao', 'CRIACAO_AUTOMATICA_CONTA_RECEBER')
+              aRec.set('entidade', 'contas')
+              aRec.set('registro_id', novaConta.id)
+              aRec.set('detalhes', {
+                origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+                mensagem:
+                  'Conta a receber da parcela ' +
+                  ordem +
+                  '/' +
+                  parcelas.length +
+                  ' gerada por assinatura do Contrato ' +
+                  contratoNumero,
+                ordem: ordem,
+                percentual: perc,
+                valor: valorParc,
+                gatilho: gatilho,
+                projeto_id: projetoRefId,
+                contrato_id: contratoId,
+                contrato_numero: contratoNumero,
+              })
+              $app.save(aRec)
+            } catch (_) {}
+
+            if (projetoRefId) {
+              try {
+                const marcosExistentes = $app.findRecordsByFilter(
+                  'projeto_etapas',
+                  "projeto = '" + projetoRefId + "' && parcela_origem = '" + parc.id + "'",
+                  '',
+                  1,
+                  0,
+                )
+                if (marcosExistentes.length === 0) {
+                  const marcoEtapa = new Record(etapasCol)
+                  marcoEtapa.set('projeto', projetoRefId)
+                  marcoEtapa.set(
+                    'nome',
+                    'Marco Financeiro: Parcela ' + ordem + ' (' + descParc + ')',
+                  )
+                  marcoEtapa.set('disciplina', 'Marco Financeiro')
+                  marcoEtapa.set('ordem', 100 + ordem)
+                  marcoEtapa.set('tipo_execucao', 'direta')
+                  marcoEtapa.set('status', 'nao_iniciada')
+                  marcoEtapa.set('is_marco', true)
+                  marcoEtapa.set('is_pacote_trabalho', false)
+                  marcoEtapa.set('valor_vendido', valorParc)
+                  marcoEtapa.set('valor_interno_referencia', valorParc)
+                  marcoEtapa.set('parcela_origem', parc.id)
+                  marcoEtapa.set(
+                    'prazo',
+                    dataVenc.toISOString().substring(0, 10) + ' 12:00:00.000Z',
+                  )
+                  marcoEtapa.set(
+                    'descricao',
+                    'Marco vinculado à parcela ' +
+                      ordem +
+                      ' do Contrato ' +
+                      contratoNumero +
+                      '. Gatilho: ' +
+                      gatilho,
+                  )
+                  $app.save(marcoEtapa)
+                }
+              } catch (_) {}
+            }
+          }
+        } else {
+          const novaConta = new Record(contasCol)
+          novaConta.set('tipo', 'receber')
+          if (projetoRefId) novaConta.set('projeto', projetoRefId)
+          if (propostaId) novaConta.set('proposta', propostaId)
+          if (contratoId) novaConta.set('contrato_servico', contratoId)
+          novaConta.set(
+            'descricao',
+            'Recebimento integral do Contrato Assinado ' +
+              contratoNumero +
+              (requerNotaProposta ? ' (Com NF)' : ' (Sem NF)'),
+          )
+          novaConta.set('valor', valorTotalContrato)
+          novaConta.set('status', 'rascunho')
+          novaConta.set('forma_pagamento', condicoesPagamento)
+          novaConta.set('bloqueada_por_fechamento', false)
+
+          if (requerNotaProposta && aliquotaImpostos > 0) {
+            const retencao =
+              Math.round(
+                ((valorTotalContrato * aliquotaImpostos) / (100 + aliquotaImpostos)) * 100,
+              ) / 100
+            novaConta.set('retencao_impostos', retencao)
+            novaConta.set('valor_liquido', Math.round((valorTotalContrato - retencao) * 100) / 100)
+          } else {
+            novaConta.set('retencao_impostos', 0)
+            novaConta.set('valor_liquido', valorTotalContrato)
+          }
+
+          const dataVenc = new Date()
+          dataVenc.setDate(dataVenc.getDate() + 30)
+          novaConta.set('vencimento', dataVenc.toISOString().substring(0, 10) + ' 12:00:00.000Z')
+
+          $app.save(novaConta)
+
+          try {
+            const aRec = new Record(auditCol)
+            aRec.set('user', null)
+            aRec.set('user_email', 'SISTEMA')
+            aRec.set('acao', 'CRIACAO_AUTOMATICA_CONTA_RECEBER')
+            aRec.set('entidade', 'contas')
+            aRec.set('registro_id', novaConta.id)
+            aRec.set('detalhes', {
+              origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+              mensagem:
+                'Conta a receber integral gerada por assinatura do Contrato ' + contratoNumero,
+              valor: valorTotalContrato,
+              projeto_id: projetoRefId,
+              contrato_id: contratoId,
+              contrato_numero: contratoNumero,
+            })
+            $app.save(aRec)
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+
+    // Auditoria geral Bloco 4
+    try {
+      const aRec = new Record(auditCol)
+      aRec.set('user', null)
+      aRec.set('user_email', 'SISTEMA')
+      aRec.set('acao', 'ATIVACAO_BLOCO4_CONTRATO_ASSINADO')
+      aRec.set('entidade', 'contratos_servico')
+      aRec.set('registro_id', contratoId)
+      aRec.set('detalhes', {
+        origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+        mensagem:
+          'Contrato ' +
+          contratoNumero +
+          ' assinado bilateralmente. 1 Grupo de Projetos (' +
+          (grupoCriado ? grupoCriado.getString('codigo') : 'GPR') +
+          ') e ' +
+          projetosGerados.length +
+          ' projeto(s) gerado(s) com sucesso.',
+        contrato_numero: contratoNumero,
+        grupo_codigo: grupoCriado ? grupoCriado.getString('codigo') : null,
+        total_projetos: projetosGerados.length,
+        codigos_projetos: projetosGerados.map((p) => p.getString('codigo')),
+        valor_total: valorTotalContrato,
+      })
+      $app.save(aRec)
+    } catch (_) {}
+
+    // Atualização do status da proposta para "convertida_em_projeto"
+    if (propostaId) {
+      try {
+        const propToUpdate = $app.findRecordById('propostas', propostaId)
+        if (propToUpdate) {
+          const stAnt = propToUpdate.getString('status')
+          if (stAnt !== 'convertida_em_projeto') {
+            propToUpdate.set('status', 'convertida_em_projeto')
+            $app.save(propToUpdate)
+
+            try {
+              const aRecProp = new Record(auditCol)
+              aRecProp.set('user', null)
+              aRecProp.set('user_email', 'SISTEMA')
+              aRecProp.set('acao', 'PROPOSTA_CONVERTIDA_EM_PROJETO')
+              aRecProp.set('entidade', 'propostas')
+              aRecProp.set('registro_id', propostaId)
+              aRecProp.set('detalhes', {
+                origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+                mensagem:
+                  'Proposta ' +
+                  propostaNumero +
+                  ' convertida em projeto após assinatura bilateral do Contrato ' +
+                  contratoNumero,
+                status_anterior: stAnt,
+                novo_status: 'convertida_em_projeto',
+                contrato_id: contratoId,
+                contrato_numero: contratoNumero,
+                total_projetos: projetosGerados.length,
+              })
+              $app.save(aRecProp)
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Promoção
+    if (empresaId) {
+      try {
+        const empresa = $app.findRecordById('empresas', empresaId)
+        if (empresa) {
+          const etapaAtual = empresa.getString('etapa_funil')
+          const eraPreCadastro = empresa.getBool('pre_cadastro')
+
+          let houveMudanca = false
+          if (eraPreCadastro) {
+            empresa.set('pre_cadastro', false)
+            houveMudanca = true
+          }
+
+          if (etapaAtual !== 'parceira') {
+            empresa.set('etapa_anterior', etapaAtual)
+            empresa.set('etapa_funil', 'parceira')
+            empresa.set('status', 'ativa')
+            houveMudanca = true
+          }
+
+          if (houveMudanca) {
+            empresa.set(
+              'observacoes',
+              (empresa.getString('observacoes') || '') +
+                '\n[Efetivação por Contrato Assinado]: Contrato ' +
+                contratoNumero +
+                ' assinado em ' +
+                new Date().toISOString() +
+                (eraPreCadastro ? ' (pré-cadastro promovido a definitivo)' : ''),
+            )
+            $app.save(empresa)
+
+            try {
+              const aRec = new Record(auditCol)
+              aRec.set('user', null)
+              aRec.set('user_email', 'SISTEMA')
+              aRec.set('acao', 'CONVERSAO_PARCEIRO')
+              aRec.set('entidade', 'empresas')
+              aRec.set('registro_id', empresaId)
+              aRec.set('detalhes', {
+                origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+                mensagem:
+                  'Empresa convertida para Parceira pela assinatura do Contrato ' + contratoNumero,
+                contrato_numero: contratoNumero,
+                proposta_numero: propostaNumero,
+              })
+              $app.save(aRec)
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (clientePfId) {
+      try {
+        const clientePf = $app.findRecordById('clientes_pf', clientePfId)
+        if (clientePf && clientePf.getBool('pre_cadastro')) {
+          clientePf.set('pre_cadastro', false)
+          clientePf.set(
+            'observacoes',
+            (clientePf.getString('observacoes') || '') +
+              '\n[Efetivação por Contrato Assinado]: Contrato ' +
+              contratoNumero +
+              ' assinado em ' +
+              new Date().toISOString() +
+              ' (promovido a cliente definitivo)',
+          )
+          $app.save(clientePf)
+
+          try {
+            const aRec = new Record(auditCol)
+            aRec.set('user', null)
+            aRec.set('user_email', 'SISTEMA')
+            aRec.set('acao', 'PROMOCAO_CLIENTE_CONTRATO')
+            aRec.set('entidade', 'clientes_pf')
+            aRec.set('registro_id', clientePfId)
+            aRec.set('detalhes', {
+              origem: 'SISTEMA / GATILHO AUTOMÁTICO',
+              tipo: 'pf',
+              mensagem:
+                'Cliente PF promovido de pré-cadastro a definitivo pela assinatura do Contrato ' +
+                contratoNumero,
+              contrato_id: contratoId,
+              contrato_numero: contratoNumero,
+            })
+            $app.save(aRec)
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
+  }
+
   try {
     const contratosSemProjeto = $app.findRecordsByFilter(
       'contratos_servico',
@@ -931,7 +3043,7 @@ cronAdd('sweep-contratos-assinados-sem-projeto', '* * * * *', function () {
           continue
         }
 
-        ativarContratoServicoBilateral(cRec)
+        executarAtivacaoSweepInline(cRec)
       } catch (errAtiv) {
         try {
           const errCol = $app.findCollectionByNameOrId('erros_sistema')

@@ -3965,9 +3965,9 @@ cronAdd('sweep-contratos-assinados-sem-projeto', '* * * * *', function () {
   try {
     const contratosSemProjeto = $app.findRecordsByFilter(
       'contratos_servico',
-      "status = 'assinado' && projeto = ''",
+      "data_assinatura_cliente != '' && data_assinatura_admin != '' && (projeto = '' || projeto ~ 'reserva_')",
       '-created',
-      10,
+      5,
       0,
     )
     if (!contratosSemProjeto || contratosSemProjeto.length === 0) {
@@ -5970,21 +5970,8 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
       console.log('Erro ao auditar assinatura cliente contrato: ' + errAudit)
     }
 
-    // Cron oneshot agendado APÓS a gravação: toda a ativação (grupo, projetos, etapas,
-    // entregáveis, contas, conversões) roda fora do ciclo da requisição.
-    {
-      const targetContratoId = contrato.id
-      const jobId = 'ativar-ctr-' + targetContratoId
-      try {
-        try {
-          cronRemove(jobId)
-        } catch (_) {}
-        cronAdd(jobId, '* * * * *', function () {
-          try {
-            cronRemove(jobId)
-          } catch (_) {}
-
-          // Trava de idempotência: pular se já existe projeto com contrato_servico = id do contrato, sem editar nada
+    // Ativação consolidada no sweep de topo
+    /*
           try {
             const prjsExistentesAntes = $app.findRecordsByFilter(
               'projetos',
@@ -6599,84 +6586,7 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
                   }
 
                   const diasVenc = parc.dias_vencimento || (i === 0 ? 15 : (i + 1) * 30)
-                  const dataVenc = new Date()
-                  dataVenc.setDate(dataVenc.getDate() + diasVenc)
-                  novaConta.set(
-                    'vencimento',
-                    dataVenc.toISOString().substring(0, 10) + ' 12:00:00.000Z',
-                  )
-
-                  $app.save(novaConta)
-                }
-              }
-            }
-          } catch (errContas) {
-            try {
-              const errCol = $app.findCollectionByNameOrId('erros_sistema')
-              if (errCol) {
-                const errRec = new Record(errCol)
-                errRec.set('rota', '/backend/v1/contratos-servico/assinar-cliente/contas')
-                errRec.set('mensagem', ('Falha no bloco contas: ' + errContas).slice(0, 1000))
-                errRec.set('hora', new Date().toISOString())
-                errRec.set('detalhes', { contrato_id: contratoId, erro: String(errContas) })
-                $app.save(errRec)
-              }
-            } catch (_) {}
-          }
-
-          // Bloco 6: Atualizar status proposta e conversões
-          if (propostaId) {
-            try {
-              const propToUp = $app.findRecordById('propostas', propostaId)
-              if (propToUp && propToUp.getString('status') !== 'convertida_em_projeto') {
-                propToUp.set('status', 'convertida_em_projeto')
-                $app.save(propToUp)
-              }
-            } catch (_) {}
-          }
-          if (empresaId) {
-            try {
-              const emp = $app.findRecordById('empresas', empresaId)
-              if (emp) {
-                let alterou = false
-                if (emp.getBool('pre_cadastro')) {
-                  emp.set('pre_cadastro', false)
-                  alterou = true
-                }
-                if (emp.getString('etapa_funil') !== 'parceira') {
-                  emp.set('etapa_anterior', emp.getString('etapa_funil'))
-                  emp.set('etapa_funil', 'parceira')
-                  emp.set('status', 'ativa')
-                  alterou = true
-                }
-                if (alterou) $app.save(emp)
-              }
-            } catch (_) {}
-          }
-          if (clientePfId) {
-            try {
-              const pf = $app.findRecordById('clientes_pf', clientePfId)
-              if (pf && pf.getBool('pre_cadastro')) {
-                pf.set('pre_cadastro', false)
-                $app.save(pf)
-              }
-            } catch (_) {}
-          }
-        })
-      } catch (errCron) {
-        try {
-          const errCol = $app.findCollectionByNameOrId('erros_sistema')
-          if (errCol) {
-            const errRec = new Record(errCol)
-            errRec.set('rota', '/backend/v1/contratos-servico/assinar-cliente')
-            errRec.set('mensagem', ('Erro ao agendar ativação: ' + errCron).slice(0, 1000))
-            errRec.set('hora', new Date().toISOString())
-            errRec.set('detalhes', { contrato_id: contrato.id, erro: String(errCron) })
-            $app.save(errRec)
-          }
-        } catch (_) {}
-      }
-    }
+    */
 
     // Resolução dos dados do contratante para retorno completo ao front-end
     let contratanteNome = 'Cliente'

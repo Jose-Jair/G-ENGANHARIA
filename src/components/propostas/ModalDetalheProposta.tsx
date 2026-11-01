@@ -37,7 +37,7 @@ import {
   MessageSquareWarning,
   Sparkles,
 } from 'lucide-react'
-import { PropostaRecord, ProjetoRecord, PropostaItemRecord } from '@/types'
+import { PropostaRecord, ProjetoRecord, PropostaItemRecord, AuditLogRecord } from '@/types'
 import {
   formatCurrencyBr,
   formatDateBr,
@@ -45,6 +45,7 @@ import {
   normalizarCondicoesPagamento,
 } from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
+import { auditService } from '@/services/audit'
 import { conversaoProjetoPacoteService } from '@/services/conversaoProjetoPacote'
 import { propostasService } from '@/services/propostas'
 import { preCotacaoService } from '@/services/preCotacao'
@@ -99,6 +100,7 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
     useState<PropostaItemRecord | null>(null)
   const [modalPreCotacaoOpen, setModalPreCotacaoOpen] = useState(false)
   const [preCotandoTodos, setPreCotandoTodos] = useState(false)
+  const [auditLogsProposta, setAuditLogsProposta] = useState<AuditLogRecord[]>([])
 
   const recarregarItens = () => {
     if (proposta?.id) {
@@ -121,6 +123,9 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
       })
       contratosServicoService.getByProposta(proposta.id).then(setContratoVinculado)
       recarregarItens()
+      auditService.listByRegistro('propostas', proposta.id, 'created').then((logs) => {
+        setAuditLogsProposta(logs)
+      })
     }
   }, [open, proposta?.id, proposta?.status])
 
@@ -1010,6 +1015,60 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                     </div>
                   )}
 
+                  {/* BLOCOS ALIMENTADOS POR AUDIT_LOGS: ENVIO_PROPOSTA */}
+                  {auditLogsProposta
+                    .filter((log) => log.acao === 'ENVIO_PROPOSTA')
+                    .map((log) => {
+                      const det = (log.detalhes || {}) as Record<string, any>
+                      const canalRaw = String(det.canal || 'email').toLowerCase()
+                      const canalLabel =
+                        canalRaw === 'whatsapp'
+                          ? 'WhatsApp'
+                          : canalRaw === 'email'
+                            ? 'E-mail'
+                            : 'Manual / Copiado'
+                      const destinatario = String(
+                        det.destinatario_email ||
+                          det.destinatario_telefone ||
+                          det.destinatario ||
+                          det.destinatario_nome ||
+                          'Destinatário registrado',
+                      )
+                      const dataEnvio = String(det.data_envio || log.created)
+
+                      return (
+                        <div
+                          key={log.id}
+                          className="p-3 flex items-center justify-between bg-sky-50/60"
+                        >
+                          <div>
+                            <div className="font-semibold text-sky-950 flex items-center gap-1.5">
+                              <Send className="w-3.5 h-3.5 text-sky-600" />
+                              <span>Proposta enviada ({canalLabel})</span>
+                            </div>
+                            <div className="text-sky-800 text-[11px] mt-0.5 space-y-0.5">
+                              <div>
+                                Enviada em {formatDateTimeBr(dataEnvio)}
+                                {log.user_email && log.user_email !== 'SISTEMA' && (
+                                  <span> por {log.user_email}</span>
+                                )}
+                              </div>
+                              <div className="text-slate-600">
+                                <strong>Canal:</strong> {canalLabel} •{' '}
+                                <strong>Destinatário:</strong> {destinatario}
+                              </div>
+                            </div>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className="bg-sky-100 text-sky-800 border-sky-300"
+                          >
+                            Enviada
+                          </Badge>
+                        </div>
+                      )
+                    })}
+
                   {proposta.data_visualizacao && (
                     <div className="p-3 flex items-center justify-between bg-indigo-50/50">
                       <div>
@@ -1043,6 +1102,54 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                       <CheckCircle2 className="w-5 h-5 text-emerald-700" />
                     </div>
                   )}
+
+                  {/* BLOCOS ALIMENTADOS POR AUDIT_LOGS: ACEITE_DIGITAL_PROPOSTA */}
+                  {auditLogsProposta
+                    .filter((log) => log.acao === 'ACEITE_DIGITAL_PROPOSTA')
+                    .map((log) => {
+                      const det = (log.detalhes || {}) as Record<string, any>
+                      const hashCompleto = String(det.hash || proposta.aceite_hash || '')
+                      const hashAbrev = hashCompleto
+                        ? `${hashCompleto.slice(0, 10)}...${hashCompleto.slice(-8)}`
+                        : 'Não registrado'
+                      const ipValor = String(
+                        log.ip || det.ip || proposta.aceite_ip || 'nao_capturado',
+                      )
+                      const userAgentValor = String(
+                        det.user_agent || proposta.aceite_user_agent || 'Navegador Web',
+                      )
+                      const dataAceiteAudit = String(det.data_aceite || log.created)
+
+                      return (
+                        <div
+                          key={log.id}
+                          className="p-3 flex items-center justify-between bg-emerald-50 border-l-4 border-l-emerald-600"
+                        >
+                          <div>
+                            <div className="font-semibold text-emerald-950 flex items-center gap-1.5">
+                              <FileCheck className="w-4 h-4 text-emerald-700" />
+                              <span>Aceite digital registrado</span>
+                            </div>
+                            <div className="text-emerald-900 text-[11px] mt-1 space-y-0.5">
+                              <div>
+                                <strong>Data/Hora do Aceite:</strong>{' '}
+                                {formatDateTimeBr(dataAceiteAudit)}
+                              </div>
+                              <div className="font-mono text-[10px] text-slate-700">
+                                <strong>Hash da Assinatura:</strong> {hashAbrev}
+                              </div>
+                              <div className="text-slate-600">
+                                <strong>IP:</strong> {ipValor} • <strong>Navegador:</strong>{' '}
+                                {userAgentValor}
+                              </div>
+                            </div>
+                          </div>
+                          <Badge className="bg-emerald-600 text-white font-semibold">
+                            Aceite Digital
+                          </Badge>
+                        </div>
+                      )
+                    })}
 
                   {proposta.data_recusa && (
                     <div className="p-3 flex items-center justify-between bg-red-50">

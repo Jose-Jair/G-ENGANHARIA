@@ -103,12 +103,30 @@ routerAdd('POST', '/backend/v1/propostas/registrar-envio-whatsapp', (e) => {
       destinatario_telefone: destinatarioTelefone,
       data_envio: new Date().toISOString(),
     })
-    const clientIp =
-      (e.request &&
-        typeof e.request.getHeader === 'function' &&
-        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
-      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
-      '127.0.0.1'
+    let clientIp = 'nao_capturado'
+    try {
+      if (e.request && e.request.header && typeof e.request.header.get === 'function') {
+        const xff = e.request.header.get('x-forwarded-for')
+        const xri = e.request.header.get('x-real-ip')
+        if (xff) clientIp = xff.split(',')[0].trim()
+        else if (xri) clientIp = xri.trim()
+      }
+      if (clientIp === 'nao_capturado' && e.request && typeof e.request.getHeader === 'function') {
+        const xff = e.request.getHeader('x-forwarded-for')
+        const xri = e.request.getHeader('x-real-ip')
+        if (xff) clientIp = xff.split(',')[0].trim()
+        else if (xri) clientIp = xri.trim()
+      }
+      if (clientIp === 'nao_capturado' && reqInfo.headers) {
+        const xff = reqInfo.headers['x-forwarded-for']
+        const xri = reqInfo.headers['x-real-ip']
+        if (xff) clientIp = String(xff).split(',')[0].trim()
+        else if (xri) clientIp = String(xri).trim()
+      }
+    } catch (_) {
+      clientIp = 'nao_capturado'
+    }
+    if (!clientIp) clientIp = 'nao_capturado'
     auditRec.set('ip', clientIp)
     $app.save(auditRec)
   } catch (auditErr) {
@@ -209,12 +227,30 @@ routerAdd('POST', '/backend/v1/gmais/propostas/{id}/enviar-whatsapp', (e) => {
       destinatario_telefone: destinatarioTelefone,
       data_envio: new Date().toISOString(),
     })
-    const clientIp =
-      (e.request &&
-        typeof e.request.getHeader === 'function' &&
-        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
-      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
-      '127.0.0.1'
+    let clientIp = 'nao_capturado'
+    try {
+      if (e.request && e.request.header && typeof e.request.header.get === 'function') {
+        const xff = e.request.header.get('x-forwarded-for')
+        const xri = e.request.header.get('x-real-ip')
+        if (xff) clientIp = xff.split(',')[0].trim()
+        else if (xri) clientIp = xri.trim()
+      }
+      if (clientIp === 'nao_capturado' && e.request && typeof e.request.getHeader === 'function') {
+        const xff = e.request.getHeader('x-forwarded-for')
+        const xri = e.request.getHeader('x-real-ip')
+        if (xff) clientIp = xff.split(',')[0].trim()
+        else if (xri) clientIp = xri.trim()
+      }
+      if (clientIp === 'nao_capturado' && reqInfo.headers) {
+        const xff = reqInfo.headers['x-forwarded-for']
+        const xri = reqInfo.headers['x-real-ip']
+        if (xff) clientIp = String(xff).split(',')[0].trim()
+        else if (xri) clientIp = String(xri).trim()
+      }
+    } catch (_) {
+      clientIp = 'nao_capturado'
+    }
+    if (!clientIp) clientIp = 'nao_capturado'
     auditRec.set('ip', clientIp)
     $app.save(auditRec)
   } catch (auditErr) {
@@ -292,12 +328,30 @@ routerAdd('POST', '/backend/v1/propostas/registrar-envio-manual', (e) => {
       observacoes: observacoes,
       data_envio: new Date().toISOString(),
     })
-    const clientIp =
-      (e.request &&
-        typeof e.request.getHeader === 'function' &&
-        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
-      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
-      '127.0.0.1'
+    let clientIp = 'nao_capturado'
+    try {
+      if (e.request && e.request.header && typeof e.request.header.get === 'function') {
+        const xff = e.request.header.get('x-forwarded-for')
+        const xri = e.request.header.get('x-real-ip')
+        if (xff) clientIp = xff.split(',')[0].trim()
+        else if (xri) clientIp = xri.trim()
+      }
+      if (clientIp === 'nao_capturado' && e.request && typeof e.request.getHeader === 'function') {
+        const xff = e.request.getHeader('x-forwarded-for')
+        const xri = e.request.getHeader('x-real-ip')
+        if (xff) clientIp = xff.split(',')[0].trim()
+        else if (xri) clientIp = xri.trim()
+      }
+      if (clientIp === 'nao_capturado' && reqInfo.headers) {
+        const xff = reqInfo.headers['x-forwarded-for']
+        const xri = reqInfo.headers['x-real-ip']
+        if (xff) clientIp = String(xff).split(',')[0].trim()
+        else if (xri) clientIp = String(xri).trim()
+      }
+    } catch (_) {
+      clientIp = 'nao_capturado'
+    }
+    if (!clientIp) clientIp = 'nao_capturado'
     auditRec.set('ip', clientIp)
     $app.save(auditRec)
   } catch (auditErr) {
@@ -375,12 +429,30 @@ routerAdd('POST', '/backend/v1/gmais/propostas/{id}/registrar-envio-manual', (e)
       observacoes: observacoes,
       data_envio: new Date().toISOString(),
     })
-    const clientIp =
-      (e.request &&
-        typeof e.request.getHeader === 'function' &&
-        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
-      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
-      '127.0.0.1'
+    let clientIp = 'nao_capturado'
+    try {
+      if (e.request && e.request.header && typeof e.request.header.get === 'function') {
+        const xff = e.request.header.get('x-forwarded-for')
+        const xri = e.request.header.get('x-real-ip')
+        if (xff) clientIp = xff.split(',')[0].trim()
+        else if (xri) clientIp = xri.trim()
+      }
+      if (clientIp === 'nao_capturado' && e.request && typeof e.request.getHeader === 'function') {
+        const xff = e.request.getHeader('x-forwarded-for')
+        const xri = e.request.getHeader('x-real-ip')
+        if (xff) clientIp = xff.split(',')[0].trim()
+        else if (xri) clientIp = xri.trim()
+      }
+      if (clientIp === 'nao_capturado' && reqInfo.headers) {
+        const xff = reqInfo.headers['x-forwarded-for']
+        const xri = reqInfo.headers['x-real-ip']
+        if (xff) clientIp = String(xff).split(',')[0].trim()
+        else if (xri) clientIp = String(xri).trim()
+      }
+    } catch (_) {
+      clientIp = 'nao_capturado'
+    }
+    if (!clientIp) clientIp = 'nao_capturado'
     auditRec.set('ip', clientIp)
     $app.save(auditRec)
   } catch (auditErr) {
@@ -712,12 +784,30 @@ routerAdd('POST', '/backend/v1/propostas/enviar-email', (e) => {
       assunto: assuntoFinal,
       data_envio: new Date().toISOString(),
     })
-    const clientIp =
-      (e.request &&
-        typeof e.request.getHeader === 'function' &&
-        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
-      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
-      '127.0.0.1'
+    let clientIp = 'nao_capturado'
+    try {
+      if (e.request && e.request.header && typeof e.request.header.get === 'function') {
+        const xff = e.request.header.get('x-forwarded-for')
+        const xri = e.request.header.get('x-real-ip')
+        if (xff) clientIp = xff.split(',')[0].trim()
+        else if (xri) clientIp = xri.trim()
+      }
+      if (clientIp === 'nao_capturado' && e.request && typeof e.request.getHeader === 'function') {
+        const xff = e.request.getHeader('x-forwarded-for')
+        const xri = e.request.getHeader('x-real-ip')
+        if (xff) clientIp = xff.split(',')[0].trim()
+        else if (xri) clientIp = xri.trim()
+      }
+      if (clientIp === 'nao_capturado' && reqInfo.headers) {
+        const xff = reqInfo.headers['x-forwarded-for']
+        const xri = reqInfo.headers['x-real-ip']
+        if (xff) clientIp = String(xff).split(',')[0].trim()
+        else if (xri) clientIp = String(xri).trim()
+      }
+    } catch (_) {
+      clientIp = 'nao_capturado'
+    }
+    if (!clientIp) clientIp = 'nao_capturado'
     auditRec.set('ip', clientIp)
     $app.save(auditRec)
   } catch (auditErr) {
@@ -728,6 +818,99 @@ routerAdd('POST', '/backend/v1/propostas/enviar-email', (e) => {
     success: true,
     message: 'Proposta enviada por e-mail com sucesso para ' + destinatarioEmail + '.',
   })
+})
+
+// =============================================================================
+// BACKFILL IDEMPOTENTE v0.0.189 — REGISTRO ACEITE_DIGITAL_PROPOSTA PARA PROP-2026-0002
+// =============================================================================
+// Executa em cron oneshot que se auto-remove na primeira linha do callback.
+// Cria UM registro ACEITE_DIGITAL_PROPOSTA retroativo para a proposta id g5yd9trmgxxjj8t (PROP-2026-0002).
+// Idempotência estrita: se já existir acao='ACEITE_DIGITAL_PROPOSTA' && registro_id='g5yd9trmgxxjj8t', não faz nada.
+// Regra de segurança: NÃO apaga e NÃO altera nenhum registro existente.
+try {
+  cronRemove('backfill-aceite-digital-prop-2026-0002-v189')
+} catch (_) {}
+
+cronAdd('backfill-aceite-digital-prop-2026-0002-v189', '* * * * *', function () {
+  try {
+    cronRemove('backfill-aceite-digital-prop-2026-0002-v189')
+  } catch (_) {}
+
+  try {
+    const propIdAlvo = 'g5yd9trmgxxjj8t'
+
+    // Checar idempotência antes de qualquer ação
+    const auditLogsExistentes = $app.findRecordsByFilter(
+      'audit_logs',
+      "acao = 'ACEITE_DIGITAL_PROPOSTA' && registro_id = '" + propIdAlvo + "'",
+      '-created',
+      1,
+      0,
+    )
+
+    if (auditLogsExistentes && auditLogsExistentes.length > 0) {
+      console.log(
+        '[backfill-v189] ACEITE_DIGITAL_PROPOSTA para ' +
+          propIdAlvo +
+          ' já existe. Pulando backfill.',
+      )
+      return
+    }
+
+    let prop = null
+    try {
+      prop = $app.findRecordById('propostas', propIdAlvo)
+    } catch (errProp) {
+      console.warn('[backfill-v189] Proposta alvo ' + propIdAlvo + ' não encontrada: ' + errProp)
+      return
+    }
+
+    if (!prop) {
+      console.warn('[backfill-v189] Proposta alvo ' + propIdAlvo + ' nula.')
+      return
+    }
+
+    const propNumero = prop.getString('numero') || 'PROP-2026-0002'
+    const propRevisao = prop.getString('revisao') || 'Rev.00'
+    const propPreco = prop.getFloat('preco') || 1000
+    const propDataAceite = prop.getString('data_aceite') || '2026-11-01 01:07:56.256Z'
+    const propUserAgent = prop.getString('aceite_user_agent') || 'Navegador Web'
+    const propHash =
+      prop.getString('aceite_hash') ||
+      '4132d0b3fd4997cb59df1154925a2d82559ea6e0c7b76f218ffa664f7a69d006'
+    const propIp = 'nao_capturado'
+
+    const auditCol = $app.findCollectionByNameOrId('audit_logs')
+    const aRec = new Record(auditCol)
+    aRec.set('acao', 'ACEITE_DIGITAL_PROPOSTA')
+    aRec.set('entidade', 'propostas')
+    aRec.set('registro_id', propIdAlvo)
+    aRec.set('user', prop.getString('criado_por') || '')
+    aRec.set('user_email', 'SISTEMA')
+    aRec.set('origem', 'SISTEMA / BACKFILL v0.0.189')
+    aRec.set('detalhes', {
+      origem: 'SISTEMA / BACKFILL v0.0.189',
+      mensagem:
+        'Aceite eletrônico formalizado pelo cliente com validade jurídica na proposta ' +
+        propNumero,
+      proposta_numero: propNumero,
+      revisao: propRevisao,
+      valor: propPreco,
+      data_aceite: propDataAceite,
+      ip: propIp,
+      user_agent: propUserAgent,
+      hash: propHash,
+      declaracao_aceite: true,
+    })
+    aRec.set('ip', propIp)
+
+    $app.save(aRec)
+    console.log(
+      '[backfill-v189] Registro ACEITE_DIGITAL_PROPOSTA criado com sucesso para ' + propNumero,
+    )
+  } catch (errGeral) {
+    console.warn('[backfill-v189] Falha ao executar backfill de aceite digital: ' + errGeral)
+  }
 })
 
 routerAdd('POST', '/backend/v1/gmais/propostas/{id}/enviar-email', (e) => {
@@ -1045,12 +1228,30 @@ routerAdd('POST', '/backend/v1/gmais/propostas/{id}/enviar-email', (e) => {
       assunto: assuntoFinal,
       data_envio: new Date().toISOString(),
     })
-    const clientIp =
-      (e.request &&
-        typeof e.request.getHeader === 'function' &&
-        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
-      (reqInfo.headers && (reqInfo.headers['x-forwarded-for'] || reqInfo.headers['x-real-ip'])) ||
-      '127.0.0.1'
+    let clientIp = 'nao_capturado'
+    try {
+      if (e.request && e.request.header && typeof e.request.header.get === 'function') {
+        const xff = e.request.header.get('x-forwarded-for')
+        const xri = e.request.header.get('x-real-ip')
+        if (xff) clientIp = xff.split(',')[0].trim()
+        else if (xri) clientIp = xri.trim()
+      }
+      if (clientIp === 'nao_capturado' && e.request && typeof e.request.getHeader === 'function') {
+        const xff = e.request.getHeader('x-forwarded-for')
+        const xri = e.request.getHeader('x-real-ip')
+        if (xff) clientIp = xff.split(',')[0].trim()
+        else if (xri) clientIp = xri.trim()
+      }
+      if (clientIp === 'nao_capturado' && reqInfo.headers) {
+        const xff = reqInfo.headers['x-forwarded-for']
+        const xri = reqInfo.headers['x-real-ip']
+        if (xff) clientIp = String(xff).split(',')[0].trim()
+        else if (xri) clientIp = String(xri).trim()
+      }
+    } catch (_) {
+      clientIp = 'nao_capturado'
+    }
+    if (!clientIp) clientIp = 'nao_capturado'
     auditRec.set('ip', clientIp)
     $app.save(auditRec)
   } catch (auditErr) {

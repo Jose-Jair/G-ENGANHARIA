@@ -39,6 +39,18 @@ export const auditService = {
     })
   },
 
+  async listByRegistro(entidade: string, registroId: string, sort: string = 'created') {
+    try {
+      return await pb.collection('audit_logs').getFullList<AuditLogRecord>({
+        filter: `entidade = "${entidade}" && registro_id = "${registroId}"`,
+        sort: sort,
+      })
+    } catch (err) {
+      console.warn(`[auditService] Falha ao listar logs para ${entidade}:${registroId}:`, err)
+      return []
+    }
+  },
+
   async log(data: {
     action: string
     entity_type?: string

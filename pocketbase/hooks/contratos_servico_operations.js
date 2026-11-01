@@ -5705,14 +5705,39 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
     contrato.set('pdf_congelado_hash', clientHash)
     contrato.set('dossie_evidencias_json', dossieEvidencias)
 
+    // PADRÃO GRAVAR-PRIMEIRO: nada de trabalho pesado antes da gravação.
+    // A assinatura do cliente é gravada AQUI (token consumido, hash, IP, UA, aceite) e a
+    // resposta volta em <3s; todo o resto (ativação) vai para o cron oneshot abaixo.
     const assinadoBilateralmente = Boolean(contrato.getString('data_assinatura_admin'))
     if (assinadoBilateralmente) {
       contrato.set('status', 'assinado')
     } else {
       contrato.set('status', 'aguardando_assinatura_admin')
     }
+    contrato.set('token_usado', true)
+    contrato.set('data_uso_token', nowIso)
 
-    $app.save(contrato)
+    try {
+      $app.save(contrato)
+    } catch (errSave) {
+      try {
+        const errColSave = $app.findCollectionByNameOrId('erros_sistema')
+        if (errColSave) {
+          const errRecSave = new Record(errColSave)
+          errRecSave.set('rota', '/backend/v1/contratos-servico/assinar-cliente')
+          errRecSave.set(
+            'mensagem',
+            ('Falha CRITICA ao gravar assinatura do cliente: ' + errSave).slice(0, 1000),
+          )
+          errRecSave.set('hora', new Date().toISOString())
+          errRecSave.set('detalhes', { contrato_id: contrato.id, erro: String(errSave) })
+          $app.save(errRecSave)
+        }
+      } catch (_) {}
+      return e.json(500, {
+        message: 'Não foi possível registrar a assinatura agora. Tente novamente em instantes.',
+      })
+    }
 
     // Auditoria imediata da assinatura do cliente (rápida, atômica)
     try {
@@ -5742,8 +5767,9 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
       console.log('Erro ao auditar assinatura cliente contrato: ' + errAudit)
     }
 
-    // Agendamento seguro da ativação pós-resposta imediata (<5s)
-    if (assinadoBilateralmente) {
+    // Cron oneshot agendado APÓS a gravação: toda a ativação (grupo, projetos, etapas,
+    // entregáveis, contas, conversões) roda fora do ciclo da requisição.
+    {
       const targetContratoId = contrato.id
       const jobId = 'ativar-ctr-' + targetContratoId
       try {
@@ -5805,6 +5831,58 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
               return
             }
           } catch (_) {}
+
+          // TRAVA ATÔMICA EXISTENTE: reserva contrato_servico.projeto via UPDATE com
+          // checagem de linhas afetadas (evita corrida concorrente). Contrato PF/sem
+          // empresa não aborta nada aqui — a reserva é só sobre o vínculo do projeto.
+          let reservaCriada = false
+          const idReserva = 'reserva_' + targetContratoId
+          try {
+            const resUpdate = $app
+              .db()
+              .newQuery(
+                "UPDATE contratos_servico SET projeto = {:reserva} WHERE id = {:id} AND (projeto = '' OR projeto IS NULL)",
+              )
+              .bind({ reserva: idReserva, id: targetContratoId })
+              .execute()
+            const rowsAfetadas =
+              resUpdate && typeof resUpdate.rowsAffected === 'function'
+                ? resUpdate.rowsAffected()
+                : 0
+            if (rowsAfetadas === 0) {
+              // Outra execução já reservou ou já vinculou o projeto: não reexecutar
+              return
+            }
+            reservaCriada = true
+          } catch (errReserva) {
+            return
+          }
+
+          // Libera a reserva e registra em erros_sistema quando um bloco essencial falha
+          function liberarReservaSeFalha(msgErro) {
+            if (reservaCriada) {
+              try {
+                $app
+                  .db()
+                  .newQuery(
+                    "UPDATE contratos_servico SET projeto = '' WHERE id = {:id} AND projeto = {:reserva}",
+                  )
+                  .bind({ id: targetContratoId, reserva: idReserva })
+                  .execute()
+              } catch (_) {}
+            }
+            try {
+              const errColR = $app.findCollectionByNameOrId('erros_sistema')
+              if (errColR) {
+                const errRecR = new Record(errColR)
+                errRecR.set('rota', '/backend/v1/contratos-servico/assinar-cliente/cron')
+                errRecR.set('mensagem', String(msgErro).slice(0, 1000))
+                errRecR.set('hora', new Date().toISOString())
+                errRecR.set('detalhes', { contrato_id: targetContratoId, erro: String(msgErro) })
+                $app.save(errRecR)
+              }
+            } catch (_) {}
+          }
 
           // EXECUÇÃO INLINE COM BLOCOS ISOLADOS E LOG EM erros_sistema
           const contratoId = recContrato.id
@@ -6184,8 +6262,11 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
             if (projetosGerados.length > 0) {
               recContrato.set('projeto', projetosGerados[0].id)
               $app.save(recContrato)
+            } else {
+              liberarReservaSeFalha('Nenhum projeto gerado na ativacao (itens de escopo vazios)')
             }
           } catch (errPrj) {
+            liberarReservaSeFalha('Falha no bloco projetos: ' + errPrj)
             try {
               const errCol = $app.findCollectionByNameOrId('erros_sistema')
               if (errCol) {

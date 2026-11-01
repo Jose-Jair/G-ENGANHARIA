@@ -43,6 +43,7 @@ import {
   EntregavelPadraoRecord,
 } from '@/types'
 import { propostasService, PropostaParcelaItemInput } from '@/services/propostas'
+import { normalizarObjetoProposta } from '@/lib/formatters'
 import { catalogoServicosService } from '@/services/catalogoServicos'
 import { empresasService } from '@/services/empresas'
 import { clientesPfService } from '@/services/clientesPf'
@@ -443,8 +444,9 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
       }
     }
 
+    const empInformado = (empreendimento || '').trim()
     const novoObjeto = propostasService.gerarObjetoAutomatico({
-      empreendimento,
+      empreendimento: empInformado,
       municipio: mun,
       uf: uf,
       itens,
@@ -846,16 +848,16 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
         contrato: tipoCliente === 'pj' ? selectedContratoId || undefined : undefined,
         modelo: selectedModeloId || undefined,
         // Novos campos modelo GMAIS
-        empreendimento,
-        objeto,
-        escopo_gerado: escopoGerado || objeto,
+        empreendimento: empreendimento.trim(),
+        objeto: normalizarObjetoProposta(objeto, empreendimento),
+        escopo_gerado: normalizarObjetoProposta(escopoGerado || objeto, empreendimento),
         premissas,
         prazo_dias: prazoDias,
         nota_prazo: notaPrazo,
         validade_dias: diasValidadeCalc,
         condicoes_gerais: condicoesGerais,
         // Compatibilidade legada
-        escopo: objeto,
+        escopo: normalizarObjetoProposta(objeto, empreendimento),
         disciplinas:
           disciplinas ||
           itens

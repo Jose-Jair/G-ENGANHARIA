@@ -90,6 +90,54 @@ export function formatPrazoRelativo(
  * Normaliza textos de condições de pagamento que sofreram duplicação acidental
  * ex: "50% (50% (cinquenta por cento) na assinatura..." -> "50% (cinquenta por cento) na assinatura..."
  */
+/**
+ * Normaliza o texto de Objeto / Escopo de proposta ou contrato:
+ * Substitui o literal "Empreendimento" (com aspas retas ou curvas) pelo nome real da obra/empreendimento.
+ * Se o empreendimento estiver vazio ou for literal "Empreendimento", remove/omite o trecho, nunca exibindo a palavra como dado.
+ */
+export function normalizarObjetoProposta(
+  texto?: string | null,
+  empreendimento?: string | null,
+): string {
+  if (!texto) return ''
+  let resultado = String(texto)
+
+  const rawEmp = (empreendimento || '').trim()
+  const empValido =
+    rawEmp.length > 0 &&
+    rawEmp.toLowerCase() !== 'empreendimento' &&
+    rawEmp.toLowerCase() !== '"empreendimento"' &&
+    rawEmp.toLowerCase() !== '“empreendimento”' &&
+    rawEmp.toLowerCase() !== '”empreendimento”'
+      ? rawEmp
+      : ''
+
+  // Padrões de aspas ao redor de "Empreendimento": retas (" '), curvas (“ ” `)
+  const padraoAspasLiteral = /["'“”`]\s*Empreendimento\s*["'“”`]/gi
+
+  if (empValido) {
+    // 1. Substitui ocorrências com aspas pelo nome do empreendimento
+    resultado = resultado.replace(padraoAspasLiteral, `"${empValido}"`)
+    // 2. Se houver "ao empreendimento Empreendimento" sem aspas
+    resultado = resultado.replace(
+      /(\b(?:destinados\s+ao|para\s+o|ao|do)\s+empreendimento\s+)Empreendimento\b/gi,
+      `$1"${empValido}"`,
+    )
+  } else {
+    // Se não há empreendimento válido, remove o trecho para não exibir literal feio
+    resultado = resultado.replace(
+      /\s*(?:destinados\s+ao|para\s+o|ao)\s+empreendimento\s+["'“”`]?Empreendimento["'“”`]?/gi,
+      '',
+    )
+    resultado = resultado.replace(padraoAspasLiteral, '')
+    // Limpa pontuação ou espaços duplicados remanescentes
+    resultado = resultado.replace(/\s{2,}/g, ' ')
+    resultado = resultado.replace(/\s+,/g, ',')
+  }
+
+  return resultado.trim()
+}
+
 export function normalizarCondicoesPagamento(texto?: string | null): string {
   if (!texto) return ''
   let resultado = String(texto)

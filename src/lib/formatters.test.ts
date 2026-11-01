@@ -1,5 +1,49 @@
 import { describe, it, expect } from 'vitest'
-import { formatPrazoRelativo, normalizarCondicoesPagamento } from './formatters'
+import {
+  formatPrazoRelativo,
+  normalizarCondicoesPagamento,
+  normalizarObjetoProposta,
+} from './formatters'
+
+describe('normalizarObjetoProposta', () => {
+  it('substitui literal "Empreendimento" pelo nome real do empreendimento com aspas retas', () => {
+    const texto =
+      'Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para a elaboração de Modelagem BIM destinados ao empreendimento "Empreendimento" em Fortaleza-CE.'
+    const res = normalizarObjetoProposta(texto, 'Residencial Teste Final V185')
+    expect(res).toContain('"Residencial Teste Final V185"')
+    expect(res).not.toContain('"Empreendimento"')
+    expect(res).not.toContain('empreendimento "Empreendimento"')
+  })
+
+  it('substitui aspas curvas “Empreendimento” ou ”Empreendimento”', () => {
+    const texto = 'Serviços destinados ao empreendimento “Empreendimento” em São Paulo.'
+    const res = normalizarObjetoProposta(texto, 'Residencial Teste Final V185')
+    expect(res).toBe(
+      'Serviços destinados ao empreendimento "Residencial Teste Final V185" em São Paulo.',
+    )
+  })
+
+  it('quando empreendimento for vazio, remove o trecho e nunca exibe literal', () => {
+    const texto =
+      'Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para a elaboração de Modelagem BIM destinados ao empreendimento "Empreendimento" em Fortaleza-CE.'
+    const res = normalizarObjetoProposta(texto, '')
+    expect(res).not.toContain('Empreendimento')
+    expect(res).toBe(
+      'Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para a elaboração de Modelagem BIM em Fortaleza-CE.',
+    )
+  })
+
+  it('quando empreendimento for o próprio literal "Empreendimento", trata como vazio e remove o trecho', () => {
+    const texto = 'Serviços destinados ao empreendimento "Empreendimento".'
+    const res = normalizarObjetoProposta(texto, 'Empreendimento')
+    expect(res).not.toContain('Empreendimento')
+  })
+
+  it('retorna vazio se texto for nulo ou indefinido', () => {
+    expect(normalizarObjetoProposta(null, 'Residencial Teste')).toBe('')
+    expect(normalizarObjetoProposta(undefined, 'Residencial Teste')).toBe('')
+  })
+})
 
 describe('normalizarCondicoesPagamento', () => {
   it('colapsa padrão duplicado NN% (NN% ( em NN% (', () => {

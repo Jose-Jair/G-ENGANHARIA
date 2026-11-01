@@ -6,6 +6,7 @@ import {
   PropostaParcelaRecord,
 } from '@/types'
 import { auditService } from '@/services/audit'
+import { normalizarObjetoProposta } from '@/lib/formatters'
 
 export interface CreatePropostaData {
   numero?: string
@@ -521,11 +522,13 @@ export const propostasService = {
     const recusasPorMotivo: Record<string, number> = {}
 
     // Status considerados como propostas que chegaram a ser enviadas ao cliente
+    // Toda aceita ou convertida em projeto também conta como enviada
     const statusEnviadas = [
       'enviada',
       'visualizada',
       'em_negociacao',
       'aceita',
+      'convertida_em_projeto',
       'recusada',
       'expirada',
     ]
@@ -549,8 +552,14 @@ export const propostasService = {
       }
     }
 
-    const taxaAceite =
+    // Regra do usuário: enviadas >= aceitas, conversão máxima de 100%, nunca acima de 100%
+    if (totalEnviadas < totalAceitas) {
+      totalEnviadas = totalAceitas
+    }
+
+    const taxaCalculada =
       totalEnviadas > 0 ? Math.round((totalAceitas / totalEnviadas) * 1000) / 10 : 0
+    const taxaAceite = Math.min(100, Math.max(0, taxaCalculada))
 
     return {
       totalCriadas,
@@ -573,24 +582,7 @@ export const propostasService = {
    * Se o empreendimento estiver vazio, limpa qualquer menção 'ao empreendimento "Empreendimento"' para não exibir literal feio.
    */
   sanitizarObjetoParaRenderizacao(objetoTexto?: string, empreendimentoNome?: string): string {
-    if (!objetoTexto) return ''
-    let texto = objetoTexto
-    const emp = (empreendimentoNome || '').trim()
-
-    if (emp) {
-      // Substitui variações de 'Empreendimento' / "Empreendimento" pelo nome real do empreendimento
-      texto = texto.replace(/"Empreendimento"/g, `"${emp}"`)
-      texto = texto.replace(/'Empreendimento'/g, `"${emp}"`)
-      texto = texto.replace(/“Empreendimento”/g, `"${emp}"`)
-      texto = texto.replace(/”Empreendimento”/g, `"${emp}"`)
-    } else {
-      // Se vazio, omitir o trecho do literal "Empreendimento"
-      texto = texto.replace(/\s*destinados ao empreendimento\s*["'“”]Empreendimento["'“”]/gi, '')
-      texto = texto.replace(/\s*para o empreendimento\s*["'“”]Empreendimento["'“”]/gi, '')
-      texto = texto.replace(/["'“”]Empreendimento["'“”]/g, '')
-    }
-
-    return texto
+    return normalizarObjetoProposta(objetoTexto, empreendimentoNome)
   },
 
   /**
@@ -603,7 +595,14 @@ export const propostasService = {
     itens?: PropostaItemRecord[]
   }): string {
     const rawEmp = params.empreendimento?.trim()
-    const emp = rawEmp && rawEmp.toLowerCase() !== 'empreendimento' ? rawEmp : ''
+    const emp =
+      rawEmp &&
+      rawEmp.toLowerCase() !== 'empreendimento' &&
+      rawEmp.toLowerCase() !== '"empreendimento"' &&
+      rawEmp.toLowerCase() !== '“empreendimento”' &&
+      rawEmp.toLowerCase() !== '”empreendimento”'
+        ? rawEmp
+        : ''
     const mun = params.municipio?.trim()
     const uf = params.uf?.trim()
     const local = mun && uf ? `em ${mun}–${uf}` : mun || (uf ? `– ${uf}` : '')
@@ -628,7 +627,9 @@ export const propostasService = {
 
     const trechoLocal = local ? ` ${local}` : ''
 
-    return `Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para a elaboração de ${resumoServicos}${trechoEmpreendimento}${trechoLocal}, em conformidade com as diretrizes e necessidades apresentadas pela CONTRATANTE.`
+    const textoGerado = `Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para a elaboração de ${resumoServicos}${trechoEmpreendimento}${trechoLocal}, em conformidade com as diretrizes e necessidades apresentadas pela CONTRATANTE.`
+
+    return normalizarObjetoProposta(textoGerado, emp)
   },
 
   /**

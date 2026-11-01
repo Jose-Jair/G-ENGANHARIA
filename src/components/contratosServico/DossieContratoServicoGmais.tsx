@@ -10,6 +10,7 @@ import {
   formatDateBr,
   formatDateTimeBr,
   normalizarCondicoesPagamento,
+  normalizarObjetoProposta,
 } from '@/lib/formatters'
 
 interface DossieContratoServicoGmaisProps {
@@ -140,9 +141,11 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
               <span>Cláusula 1ª — Do Objeto dos Serviços</span>
             </h2>
             <p className="text-justify text-slate-800 leading-relaxed whitespace-pre-line">
-              {(
+              {normalizarObjetoProposta(
                 contrato.objeto ||
-                'Prestação de serviços técnicos especializados de engenharia consultiva e desenvolvimento de projetos executivos.'
+                  'Prestação de serviços técnicos especializados de engenharia consultiva e desenvolvimento de projetos executivos.',
+                (contrato as any).empreendimento ||
+                  (contrato.expand as any)?.proposta?.empreendimento,
               )
                 .replace(/\n{3,}/g, '\n\n')
                 .trim()}

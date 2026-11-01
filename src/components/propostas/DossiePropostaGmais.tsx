@@ -16,6 +16,7 @@ import {
   formatDateBr,
   formatDateTimeBr,
   normalizarCondicoesPagamento,
+  normalizarObjetoProposta,
 } from '@/lib/formatters'
 import { propostasService } from '@/services/propostas'
 import { areasAtuacaoService } from '@/services/areasAtuacao'
@@ -253,15 +254,14 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
               <span>1. Objeto</span>
             </h2>
             <p className="text-justify text-slate-800 leading-relaxed whitespace-pre-line">
-              {propostasService
-                .sanitizarObjetoParaRenderizacao(
-                  proposta.objeto ||
-                    proposta.escopo ||
-                    (empreendimentoNome
-                      ? `Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para o empreendimento "${empreendimentoNome}".`
-                      : 'Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados.'),
-                  proposta.empreendimento || empreendimentoNome,
-                )
+              {normalizarObjetoProposta(
+                proposta.objeto ||
+                  proposta.escopo ||
+                  (empreendimentoNome
+                    ? `Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para o empreendimento "${empreendimentoNome}".`
+                    : 'Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados.'),
+                proposta.empreendimento || empreendimentoNome,
+              )
                 .replace(/\n{3,}/g, '\n\n')
                 .trim()}
             </p>
@@ -273,10 +273,11 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
               <span>2. Escopo dos Serviços</span>
             </h2>
             <div className="text-slate-800 whitespace-pre-line font-sans leading-relaxed text-justify">
-              {(
+              {normalizarObjetoProposta(
                 proposta.escopo_gerado ||
-                proposta.escopo ||
-                'Detalhamento do escopo e atividades técnicas a serem executadas conforme especificações contratuais.'
+                  proposta.escopo ||
+                  'Detalhamento do escopo e atividades técnicas a serem executadas conforme especificações contratuais.',
+                proposta.empreendimento || empreendimentoNome,
               )
                 .replace(/\n{3,}/g, '\n\n')
                 .trim()}

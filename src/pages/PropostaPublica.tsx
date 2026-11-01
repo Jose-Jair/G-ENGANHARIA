@@ -44,6 +44,7 @@ import {
   formatDateBr,
   formatDateTimeBr,
   normalizarCondicoesPagamento,
+  normalizarObjetoProposta,
 } from '@/lib/formatters'
 import { PropostaItemRecord } from '@/types'
 import { areasAtuacaoService } from '@/services/areasAtuacao'
@@ -506,15 +507,14 @@ export function PropostaPublicaPage() {
             <div className="space-y-2">
               <h3 className="font-bold text-sm text-slate-900 border-b pb-1">1. Objeto</h3>
               <div className="whitespace-pre-wrap leading-relaxed text-slate-700 bg-white p-2 text-justify">
-                {propostasService
-                  .sanitizarObjetoParaRenderizacao(
-                    proposta.objeto ||
-                      proposta.escopo ||
-                      (proposta.empreendimento
-                        ? `Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para o empreendimento "${proposta.empreendimento}".`
-                        : 'Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados.'),
-                    proposta.empreendimento,
-                  )
+                {normalizarObjetoProposta(
+                  proposta.objeto ||
+                    proposta.escopo ||
+                    (proposta.empreendimento
+                      ? `Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados para o empreendimento "${proposta.empreendimento}".`
+                      : 'Esta proposta comercial tem como objetivo a prestação de serviços técnicos especializados.'),
+                  proposta.empreendimento,
+                )
                   .replace(/\n{3,}/g, '\n\n')
                   .trim()}
               </div>
@@ -531,7 +531,9 @@ export function PropostaPublicaPage() {
                     proposta.escopo_gerado ||
                     proposta.escopo ||
                     'Detalhamento do escopo e atividades técnicas a serem executadas conforme especificações contratuais.'
-                  return textoEscopo.replace(/\n{3,}/g, '\n\n').trim()
+                  return normalizarObjetoProposta(textoEscopo, proposta.empreendimento)
+                    .replace(/\n{3,}/g, '\n\n')
+                    .trim()
                 })()}
               </div>
             </div>
@@ -1085,7 +1087,7 @@ export function PropostaPublicaPage() {
                   <Loader2 className="w-5 h-5 animate-spin text-orange-600" />
                 </div>
               ) : (
-                clausulasMinuta
+                normalizarObjetoProposta(clausulasMinuta, proposta.empreendimento)
               )}
             </div>
           </div>

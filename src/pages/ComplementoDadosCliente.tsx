@@ -36,7 +36,7 @@ import {
   isValidCnpj,
   formatPhoneBr,
 } from '@/lib/cnpj'
-import { formatCurrencyBr } from '@/lib/formatters'
+import { formatCurrencyBr, normalizarObjetoProposta } from '@/lib/formatters'
 import {
   contratosServicoService,
   ObterContratoComplementoResponse,
@@ -765,7 +765,10 @@ export function ComplementoDadosClientePage() {
                   1. Objeto Contratual
                 </h4>
                 <p className="whitespace-pre-line text-slate-600">
-                  {cInfo?.objeto || 'Prestação de serviços técnicos de engenharia consultiva.'}
+                  {normalizarObjetoProposta(
+                    cInfo?.objeto || 'Prestação de serviços técnicos de engenharia consultiva.',
+                    (cInfo as any)?.empreendimento,
+                  )}
                 </p>
               </div>
 

@@ -32,6 +32,7 @@ import {
   formatDateBr,
   formatDateTimeBr,
   normalizarCondicoesPagamento,
+  normalizarObjetoProposta,
 } from '@/lib/formatters'
 import { cleanCpf, formatCpf } from '@/lib/cnpj'
 import { contratosServicoService } from '@/services/contratosServico'
@@ -374,7 +375,13 @@ export function ContratoServicoPublicoPage() {
                 <span className="text-[10px] uppercase font-bold text-slate-500 block">
                   Objeto dos Serviços
                 </span>
-                <p className="text-slate-800 font-medium leading-relaxed">{contrato.objeto}</p>
+                <p className="text-slate-800 font-medium leading-relaxed">
+                  {normalizarObjetoProposta(
+                    contrato.objeto,
+                    (contrato as any).empreendimento ||
+                      (contrato.expand as any)?.proposta?.empreendimento,
+                  )}
+                </p>
               </div>
 
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-1">
@@ -431,7 +438,11 @@ export function ContratoServicoPublicoPage() {
                 Cláusulas Gerais e Condições Técnicas
               </h4>
               <div className="p-4 bg-slate-50 border rounded-lg whitespace-pre-wrap leading-relaxed text-justify text-[11px] text-slate-700 font-sans max-h-96 overflow-y-auto">
-                {contrato.clausulas_texto || 'Cláusulas padrão da prestação de serviços técnicos.'}
+                {normalizarObjetoProposta(
+                  contrato.clausulas_texto || 'Cláusulas padrão da prestação de serviços técnicos.',
+                  (contrato as any).empreendimento ||
+                    (contrato.expand as any)?.proposta?.empreendimento,
+                )}
               </div>
             </div>
 

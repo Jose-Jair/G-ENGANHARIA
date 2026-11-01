@@ -43,6 +43,7 @@ import {
   formatDateBr,
   formatDateTimeBr,
   normalizarCondicoesPagamento,
+  normalizarObjetoProposta,
 } from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
 import { auditService } from '@/services/audit'
@@ -605,7 +606,10 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                     1. Escopo Técnico e Atividades
                   </h4>
                   <div className="bg-white border rounded-lg p-4 text-xs whitespace-pre-wrap leading-relaxed text-slate-700">
-                    {proposta.escopo || 'Nenhum escopo detalhado.'}
+                    {normalizarObjetoProposta(
+                      proposta.escopo_gerado || proposta.escopo || proposta.objeto,
+                      proposta.empreendimento,
+                    ) || 'Nenhum escopo detalhado.'}
                   </div>
                 </div>
 
@@ -945,7 +949,10 @@ export const ModalDetalheProposta: React.FC<ModalDetalhePropostaProps> = ({
                         <div className="text-slate-700">
                           <strong>Escopo registrado:</strong>
                           <p className="line-clamp-2 text-slate-600 mt-0.5">
-                            {rev.conteudo_snapshot?.escopo}
+                            {normalizarObjetoProposta(
+                              rev.conteudo_snapshot?.escopo,
+                              proposta.empreendimento,
+                            )}
                           </p>
                         </div>
 

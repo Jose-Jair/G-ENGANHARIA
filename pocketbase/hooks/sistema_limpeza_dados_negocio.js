@@ -870,9 +870,12 @@ routerAdd(
   $apis.requireAuth(),
 )
 
-// CRON DE EXECUÇÃO ÚNICA (One-shot)
-// Roda a cada minuto; graças às guardas G1 e G2, executa exatamente 1 vez logo após o deploy
-// e depois é no-op silencioso permanente.
+// CRON DE EXECUÇÃO ÚNICA (One-shot) - DESREGISTRADO DEFINITIVAMENTE NA v0.0.205
+try {
+  cronRemove('limpeza-total-oneshot')
+} catch (_) {}
+
+/* cronAdd('limpeza-total-oneshot' desativado na v0.0.205
 cronAdd('limpeza-total-oneshot', '* * * * *', () => {
   try {
     const userEmail = 'SISTEMA-CRON-AUTORIZADO-DONO'
@@ -1320,3 +1323,4 @@ cronAdd('limpeza-total-oneshot', '* * * * *', () => {
     console.log('[LIMPEZA_TOTAL_CRON] Erro não capturado no cron: ' + errCron)
   }
 })
+*/

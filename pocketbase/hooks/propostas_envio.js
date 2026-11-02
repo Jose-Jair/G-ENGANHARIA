@@ -1,5 +1,10 @@
 /// <reference path="../pb_data/types.d.ts" />
 
+// Desregistrar cron oneshot legado (v0.0.205)
+try {
+  cronRemove('backfill-aceite-digital-prop-2026-0002-v189')
+} catch (_) {}
+
 /**
  * Hook Server-side de Envio de Propostas (WhatsApp e E-mail Transacional)
  * Rotas expostas:
@@ -831,6 +836,7 @@ try {
   cronRemove('backfill-aceite-digital-prop-2026-0002-v189')
 } catch (_) {}
 
+/* cronAdd('backfill-aceite-digital-prop-2026-0002-v189' desativado na v0.0.205
 cronAdd('backfill-aceite-digital-prop-2026-0002-v189', '* * * * *', function () {
   try {
     cronRemove('backfill-aceite-digital-prop-2026-0002-v189')
@@ -912,6 +918,7 @@ cronAdd('backfill-aceite-digital-prop-2026-0002-v189', '* * * * *', function () 
     console.warn('[backfill-v189] Falha ao executar backfill de aceite digital: ' + errGeral)
   }
 })
+*/
 
 routerAdd('POST', '/backend/v1/gmais/propostas/{id}/enviar-email', (e) => {
   const reqInfo = e.requestInfo()

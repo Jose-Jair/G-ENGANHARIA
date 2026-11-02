@@ -6,6 +6,429 @@
 // 5. /backend/v1/contratos-servico/obter-por-token-complemento (dados para o formulário de complemento)
 // 6. /backend/v1/contratos-servico/complementar-dados (gravação dos dados faltantes pelo cliente, atualização cadastral e liberação do contrato)
 
+// =============================================================================
+// SWEEP CRON DE TOPO: PROPOSTAS ACEITAS SEM CONTRATO (v0.0.206)
+// Executa a cada minuto ('* * * * *'), 100% inline, sem variáveis/funções externas.
+// Busca propostas com status = 'aceita' && contrato_servico = '' (limit 5).
+// Reserva atômica via UPDATE SQL checando linhas afetadas.
+// Gera o contrato CTR e atualiza contrato_servico = novoContrato.id.
+// Em falha, libera a reserva (contrato_servico = '') e grava em erros_sistema.
+// ZERO escrita quando não houver proposta pendente.
+// NÃO envia e-mail ao cliente pelo sweep (envio de contrato é manual pós-assinatura admin).
+// =============================================================================
+try {
+  cronRemove('sweep-propostas-aceitas-sem-contrato')
+} catch (_) {}
+
+cronAdd('sweep-propostas-aceitas-sem-contrato', '* * * * *', function () {
+  function registrarErroSistemaSweep(rotaNome, msgErro, detalhesObj, ipRegistro) {
+    try {
+      const errCol = $app.findCollectionByNameOrId('erros_sistema')
+      if (errCol) {
+        const errRec = new Record(errCol)
+        errRec.set('rota', rotaNome)
+        errRec.set('mensagem', String(msgErro).slice(0, 1000))
+        errRec.set('hora', new Date().toISOString())
+        errRec.set('ip', ipRegistro || '')
+        errRec.set('usuario_email', 'sistema')
+        errRec.set('detalhes', detalhesObj || {})
+        $app.save(errRec)
+      }
+    } catch (_) {}
+  }
+
+  function liberarReservaProposta(propostaId) {
+    try {
+      $app
+        .db()
+        .newQuery(
+          "UPDATE propostas SET contrato_servico = '' WHERE id = {:id} AND contrato_servico LIKE 'reserva_%'",
+        )
+        .bind({ id: propostaId })
+        .execute()
+    } catch (_) {}
+  }
+
+  function executarGeracaoContratoParaProposta(propRec) {
+    const propId = propRec.id
+    const ipOrigem = propRec.getString('aceite_ip') || 'nao_capturado'
+
+    // Se já existe contrato gerado no banco para esta proposta, vincular e sair
+    const contratosExistentes = $app.findRecordsByFilter(
+      'contratos_servico',
+      "proposta = '" + propId + "'",
+      '-created',
+      1,
+      0,
+    )
+    if (contratosExistentes.length > 0) {
+      const cExistente = contratosExistentes[0]
+      try {
+        propRec.set('contrato_servico', cExistente.id)
+        $app.save(propRec)
+      } catch (errSaveVinculoExistente) {
+        registrarErroSistemaSweep(
+          'SWEEP_PROPOSTAS_VINCULAR_EXISTENTE',
+          'Falha ao persistir vinculo de contrato existente na proposta: ' +
+            errSaveVinculoExistente,
+          {
+            proposta_id: propId,
+            contrato_id: cExistente.id,
+            erro: String(errSaveVinculoExistente),
+          },
+          ipOrigem,
+        )
+      }
+      return cExistente
+    }
+
+    const propNum = propRec.getString('numero')
+    const empId = propRec.getString('empresa')
+    const cliPfId = propRec.getString('cliente_pf')
+    const preco = propRec.getFloat('preco') || 0
+    const prazoDias = propRec.getInt('prazo_dias') || 30
+    const notaPrazo =
+      propRec.getString('nota_prazo') ||
+      'Os prazos serão contados em dias corridos, a partir da data de assinatura deste contrato e do fornecimento de todos os elementos e subsídios necessários ao desenvolvimento dos serviços.'
+    const objeto =
+      propRec.getString('objeto') ||
+      propRec.getString('escopo') ||
+      'Prestação de serviços técnicos especializados de engenharia'
+
+    const cleanDigits = function (v) {
+      return (v || '').toString().replace(/\D/g, '')
+    }
+
+    const isValidCpf = function (cStr) {
+      const clean = cleanDigits(cStr)
+      if (!clean || clean.length !== 11) return false
+      if (/^(\d)\1{10}$/.test(clean)) return false
+      let soma = 0
+      for (let i = 0; i < 9; i++) soma += parseInt(clean.charAt(i), 10) * (10 - i)
+      let resto = (soma * 10) % 11
+      if (resto === 10 || resto === 11) resto = 0
+      if (resto !== parseInt(clean.charAt(9), 10)) return false
+      soma = 0
+      for (let i = 0; i < 10; i++) soma += parseInt(clean.charAt(i), 10) * (11 - i)
+      resto = (soma * 10) % 11
+      if (resto === 10 || resto === 11) resto = 0
+      return resto === parseInt(clean.charAt(10), 10)
+    }
+
+    const isValidCnpj = function (cStr) {
+      const clean = cleanDigits(cStr)
+      if (!clean || clean.length !== 14) return false
+      if (/^(\d)\1{13}$/.test(clean)) return false
+      let soma = 0
+      let peso = 5
+      for (let i = 0; i < 12; i++) {
+        soma += parseInt(clean.charAt(i), 10) * peso
+        peso = peso === 2 ? 9 : peso - 1
+      }
+      let resto = soma % 11
+      const dv1 = resto < 2 ? 0 : 11 - resto
+      if (parseInt(clean.charAt(12), 10) !== dv1) return false
+      soma = 0
+      peso = 6
+      for (let i = 0; i < 13; i++) {
+        soma += parseInt(clean.charAt(i), 10) * peso
+        peso = peso === 2 ? 9 : peso - 1
+      }
+      resto = soma % 11
+      const dv2 = resto < 2 ? 0 : 11 - resto
+      return parseInt(clean.charAt(13), 10) === dv2
+    }
+
+    const camposFaltantes = []
+    let cliRec = null
+
+    if (empId) {
+      try {
+        cliRec = $app.findRecordById('empresas', empId)
+      } catch (_) {}
+      if (!cliRec) {
+        camposFaltantes.push('empresa_nao_encontrada')
+      } else {
+        const razao = (cliRec.getString('razao_social') || '').trim()
+        const cnpj = cleanDigits(cliRec.getString('cnpj'))
+        const cep = cleanDigits(cliRec.getString('cep'))
+        const logradouro = (cliRec.getString('logradouro') || '').trim()
+        const numero = (cliRec.getString('numero') || '').trim()
+        const bairro = (cliRec.getString('bairro') || '').trim()
+        const municipio = (cliRec.getString('municipio') || '').trim()
+        const uf = (cliRec.getString('uf') || '').trim()
+        const email = (cliRec.getString('email') || '').trim()
+        const telefone = (cliRec.getString('telefone') || '').trim()
+
+        let temTelefone = Boolean(telefone)
+        try {
+          const tels = cliRec.get('telefones')
+          if (Array.isArray(tels) && tels.length > 0 && tels[0].numero) temTelefone = true
+        } catch (_) {}
+
+        if (!razao) camposFaltantes.push('razao_social')
+        if (!cnpj || !isValidCnpj(cnpj)) camposFaltantes.push('cnpj')
+        if (!email || email.indexOf('@') === -1) camposFaltantes.push('email')
+        if (!temTelefone) camposFaltantes.push('telefone')
+        if (!cep || cep.length < 8) camposFaltantes.push('cep')
+        if (!logradouro) camposFaltantes.push('logradouro')
+        if (!numero) camposFaltantes.push('numero')
+        if (!bairro) camposFaltantes.push('bairro')
+        if (!municipio) camposFaltantes.push('municipio')
+        if (!uf) camposFaltantes.push('uf')
+
+        let repNome = ''
+        let repCpf = ''
+        try {
+          const contatos = $app.findRecordsByFilter(
+            'contatos',
+            "empresa = '" + empId + "'",
+            '-decisor,-created',
+            5,
+            0,
+          )
+          for (let ci = 0; ci < contatos.length; ci++) {
+            const cRec = contatos[ci]
+            const cNome = (cRec.getString('nome') || '').trim()
+            const cCpf = cleanDigits(
+              cRec.getString('cpf') ||
+                cRec.getString('documento') ||
+                cRec.getString('observacao') ||
+                '',
+            )
+            if (cNome && !repNome) repNome = cNome
+            if (cCpf && isValidCpf(cCpf) && !repCpf) repCpf = cCpf
+            if (repNome && repCpf) break
+          }
+        } catch (_) {}
+
+        if (!repNome) camposFaltantes.push('representante_nome')
+        if (!repCpf || !isValidCpf(repCpf)) camposFaltantes.push('representante_documento')
+      }
+    } else if (cliPfId) {
+      try {
+        cliRec = $app.findRecordById('clientes_pf', cliPfId)
+      } catch (_) {}
+      if (!cliRec) {
+        camposFaltantes.push('cliente_pf_nao_encontrado')
+      } else {
+        const nome = (cliRec.getString('nome') || '').trim()
+        const cpf = cleanDigits(cliRec.getString('cpf'))
+        const email = (cliRec.getString('email') || '').trim()
+        const telefone = (cliRec.getString('telefone') || '').trim()
+        const cep = cleanDigits(cliRec.getString('cep'))
+        const logradouro = (cliRec.getString('logradouro') || '').trim()
+        const numero = (cliRec.getString('numero') || '').trim()
+        const bairro = (cliRec.getString('bairro') || '').trim()
+        const municipio = (cliRec.getString('municipio') || '').trim()
+        const uf = (cliRec.getString('uf') || '').trim()
+
+        let temTelefone = Boolean(telefone)
+        try {
+          const tels = cliRec.get('telefones')
+          if (Array.isArray(tels) && tels.length > 0 && tels[0].numero) temTelefone = true
+        } catch (_) {}
+
+        if (!nome) camposFaltantes.push('nome')
+        if (!cpf || !isValidCpf(cpf)) camposFaltantes.push('cpf')
+        if (!email || email.indexOf('@') === -1) camposFaltantes.push('email')
+        if (!temTelefone) camposFaltantes.push('telefone')
+        if (!cep || cep.length < 8) camposFaltantes.push('cep')
+        if (!logradouro) camposFaltantes.push('logradouro')
+        if (!numero) camposFaltantes.push('numero')
+        if (!bairro) camposFaltantes.push('bairro')
+        if (!municipio) camposFaltantes.push('municipio')
+        if (!uf) camposFaltantes.push('uf')
+      }
+    } else {
+      camposFaltantes.push('cliente_indefinido')
+    }
+
+    const cadastroCompleto = camposFaltantes.length === 0
+    const statusInicial = cadastroCompleto
+      ? 'aguardando_assinatura_admin'
+      : 'aguardando_dados_cliente'
+
+    const anoAtual = new Date().getFullYear()
+    const prefixoCTR = 'CTR-' + anoAtual + '-'
+    const contratosDoAno = $app.findRecordsByFilter(
+      'contratos_servico',
+      "numero ~ '" + prefixoCTR + "'",
+      '-numero',
+      1,
+      0,
+    )
+
+    let proximoSeqCtr = 1
+    if (contratosDoAno.length > 0) {
+      const ultimoNumero = contratosDoAno[0].getString('numero')
+      const partes = ultimoNumero.split('-')
+      const ultimoSeq = parseInt(partes[2], 10)
+      if (!isNaN(ultimoSeq)) proximoSeqCtr = ultimoSeq + 1
+    }
+    const numeroCTR = prefixoCTR + ('0000' + proximoSeqCtr).slice(-4)
+
+    let clausulasTexto = ''
+    try {
+      const paramClausulas = $app.findFirstRecordByData(
+        'parametros',
+        'chave',
+        'contrato_servico_clausulas_padrao',
+      )
+      if (paramClausulas) clausulasTexto = paramClausulas.getString('valor')
+    } catch (_) {}
+
+    let parcelas = []
+    try {
+      const parcs = $app.findRecordsByFilter(
+        'proposta_parcelas',
+        "proposta = '" + propId + "'",
+        'ordem',
+        50,
+        0,
+      )
+      parcelas = parcs.map(function (p) {
+        return {
+          ordem: p.getInt('ordem'),
+          percentual: p.getFloat('percentual'),
+          valor: p.getFloat('valor'),
+          gatilho: p.getString('gatilho'),
+          descricao: p.getString('descricao'),
+        }
+      })
+    } catch (_) {}
+
+    const tokenAssinaturaCliente = $security.randomString(32)
+    const tokenComplementoDados = cadastroCompleto ? '' : $security.randomString(32)
+
+    const contratosCol = $app.findCollectionByNameOrId('contratos_servico')
+    const novoContrato = new Record(contratosCol)
+    novoContrato.set('numero', numeroCTR)
+    novoContrato.set('proposta', propId)
+    if (empId) novoContrato.set('empresa', empId)
+    if (cliPfId) novoContrato.set('cliente_pf', cliPfId)
+    novoContrato.set('objeto', objeto)
+    novoContrato.set('valor_total', preco)
+    novoContrato.set('prazo_dias', prazoDias)
+    novoContrato.set('nota_prazo', notaPrazo)
+    novoContrato.set('clausulas_texto', clausulasTexto)
+    novoContrato.set('parcelas_json', parcelas)
+    novoContrato.set('status', statusInicial)
+    novoContrato.set('token_assinatura_cliente', tokenAssinaturaCliente)
+    novoContrato.set('token_complemento_dados', tokenComplementoDados)
+    novoContrato.set('campos_faltantes_json', camposFaltantes)
+
+    $app.save(novoContrato)
+
+    // Persistir explicitamente o vínculo definitivo na proposta
+    propRec.set('contrato_servico', novoContrato.id)
+    if (cadastroCompleto) {
+      propRec.set('dados_complementares_preenchidos', true)
+    } else if (tokenComplementoDados) {
+      propRec.set('dados_complementares_preenchidos', false)
+    }
+    $app.save(propRec)
+
+    // Auditoria de geração do contrato
+    try {
+      const auditCol = $app.findCollectionByNameOrId('audit_logs')
+      const aRec = new Record(auditCol)
+      aRec.set('acao', 'GERACAO_CONTRATO_SERVICO')
+      aRec.set('entidade', 'contratos_servico')
+      aRec.set('registro_id', novoContrato.id)
+      aRec.set('detalhes', {
+        mensagem:
+          'Contrato de serviços gerado pelo sweep pós-aceite da proposta ' +
+          propNum +
+          (cadastroCompleto
+            ? ' (Cadastro completo -> Aguardando assinatura Admin)'
+            : ' (Cadastro incompleto -> Aguardando dados do cliente)'),
+        contrato_numero: numeroCTR,
+        proposta_id: propId,
+        proposta_numero: propNum,
+        status: statusInicial,
+        campos_faltantes: camposFaltantes,
+        valor: preco,
+        ip: ipOrigem,
+      })
+      aRec.set('ip', ipOrigem)
+      $app.save(aRec)
+    } catch (_) {}
+
+    return novoContrato
+  }
+
+  try {
+    const propostasPendentes = $app.findRecordsByFilter(
+      'propostas',
+      "status = 'aceita' && (contrato_servico = '' || contrato_servico ~ 'reserva_')",
+      '-created',
+      5,
+      0,
+    )
+
+    if (!propostasPendentes || propostasPendentes.length === 0) {
+      return
+    }
+
+    for (let pIdx = 0; pIdx < propostasPendentes.length; pIdx++) {
+      const propRec = propostasPendentes[pIdx]
+      const propId = propRec.id
+      const idReserva = 'reserva_' + propId
+
+      // Se já estava com reserva deste próprio ciclo ou idêntica, tentar continuar ou reservar atômica
+      let reservou = false
+      try {
+        const resUpdate = $app
+          .db()
+          .newQuery(
+            "UPDATE propostas SET contrato_servico = {:r} WHERE id = {:id} AND (contrato_servico = '' OR contrato_servico IS NULL)",
+          )
+          .bind({ r: idReserva, id: propId })
+          .execute()
+        const rowsAfetadas =
+          resUpdate && typeof resUpdate.rowsAffected === 'function' ? resUpdate.rowsAffected() : 0
+        if (rowsAfetadas === 0) {
+          // Outra thread reservou ou já foi processada
+          continue
+        }
+        reservou = true
+      } catch (errReserva) {
+        continue
+      }
+
+      try {
+        executarGeracaoContratoParaProposta(propRec)
+      } catch (errGeracao) {
+        if (reservou) {
+          liberarReservaProposta(propId)
+        }
+        registrarErroSistemaSweep(
+          'SWEEP_PROPOSTAS_ACEITAS_SEM_CONTRATO',
+          'Falha ao gerar contrato para proposta aceita ' + propId + ': ' + errGeracao,
+          {
+            proposta_id: propId,
+            proposta_numero: propRec.getString('numero'),
+            erro: String(errGeracao),
+            stack: errGeracao && errGeracao.stack ? String(errGeracao.stack) : '',
+          },
+          propRec.getString('aceite_ip') || '',
+        )
+      }
+    }
+  } catch (errSweepGeral) {
+    registrarErroSistemaSweep(
+      'SWEEP_PROPOSTAS_ACEITAS_SEM_CONTRATO_GERAL',
+      'Erro geral no sweep de propostas aceitas: ' + errSweepGeral,
+      {
+        erro: String(errSweepGeral),
+        stack: errSweepGeral && errSweepGeral.stack ? String(errSweepGeral.stack) : '',
+      },
+      '',
+    )
+  }
+})
+
 routerAdd('POST', '/backend/v1/propostas/solicitar-alteracoes', (e) => {
   try {
     const reqInfo = e.requestInfo()
@@ -303,496 +726,8 @@ routerAdd('POST', '/backend/v1/propostas/aceitar-digital', (e) => {
       }
     }
 
-    // Agendamento assíncrono em segundo plano (oneshot cron <= 1 min) para validação,
-    // criação idempotente do contrato CTR e disparo de e-mail sem bloquear a resposta HTTP.
-    // No runtime do PocketBase v0.23, o callback do cronAdd roda em VM pool isolada,
-    // portanto toda a rotina de geração de contrato é executada inline dentro do callback.
-    const propostaIdParaContrato = proposta.id
-    const ipParaContrato = clientIp
-    try {
-      const jobId = 'gerar-ctr-prop-' + propostaIdParaContrato
-      try {
-        cronRemove(jobId)
-      } catch (_) {}
-      cronAdd(jobId, '* * * * *', function () {
-        // REGRA DE OURO (ITEM 1a): cronRemove do próprio job como PRIMEIRA linha do callback.
-        // O job morre imediatamente mesmo se qualquer etapa posterior lançar erro.
-        try {
-          cronRemove(jobId)
-        } catch (_) {}
-
-        function gravarErroSistemaInline(rotaNome, msgErro, detalhesObj) {
-          try {
-            const errCol = $app.findCollectionByNameOrId('erros_sistema')
-            if (errCol) {
-              const errRec = new Record(errCol)
-              errRec.set('rota', rotaNome)
-              errRec.set('mensagem', String(msgErro).slice(0, 1000))
-              errRec.set('hora', new Date().toISOString())
-              errRec.set('ip', ipParaContrato)
-              errRec.set('usuario_email', 'sistema')
-              errRec.set('detalhes', detalhesObj || {})
-              $app.save(errRec)
-            }
-          } catch (_) {}
-        }
-
-        function executarGeracaoContratoInline(propId, ipOrigem) {
-          const prop = $app.findRecordById('propostas', propId)
-          if (!prop || prop.getString('status') !== 'aceita') return null
-
-          // REGRA DE OURO (ITEM 1c): trava de idempotência no início.
-          // Se contrato_servico já preenchido, pular sem editar NADA.
-          const contratoServicoAtual = prop.getString('contrato_servico')
-          if (contratoServicoAtual && contratoServicoAtual.trim().length > 0) {
-            try {
-              return $app.findRecordById('contratos_servico', contratoServicoAtual)
-            } catch (_) {
-              return null
-            }
-          }
-
-          // Se já existe contrato gerado no banco para esta proposta, apenas persistir o vínculo explicitamente
-          const contratosExistentes = $app.findRecordsByFilter(
-            'contratos_servico',
-            "proposta = '" + propId + "'",
-            '-created',
-            1,
-            0,
-          )
-          if (contratosExistentes.length > 0) {
-            const cExistente = contratosExistentes[0]
-            try {
-              prop.set('contrato_servico', cExistente.id)
-              $app.save(prop)
-            } catch (errSaveVinculoExistente) {
-              gravarErroSistemaInline(
-                'GERAR_CTR_VINCULAR_EXISTENTE',
-                'Falha ao persistir vinculo de contrato existente na proposta: ' +
-                  errSaveVinculoExistente,
-                {
-                  proposta_id: propId,
-                  contrato_id: cExistente.id,
-                  erro: String(errSaveVinculoExistente),
-                },
-              )
-            }
-            return cExistente
-          }
-
-          const propNum = prop.getString('numero')
-          const empId = prop.getString('empresa')
-          const cliPfId = prop.getString('cliente_pf')
-          const preco = prop.getFloat('preco') || 0
-          const prazoDias = prop.getInt('prazo_dias') || 30
-          const notaPrazo =
-            prop.getString('nota_prazo') ||
-            'Os prazos serão contados em dias corridos, a partir da data de assinatura deste contrato e do fornecimento de todos os elementos e subsídios necessários ao desenvolvimento dos serviços.'
-          const objeto =
-            prop.getString('objeto') ||
-            prop.getString('escopo') ||
-            'Prestação de serviços técnicos especializados de engenharia'
-
-          const cleanDigits = (v) => (v || '').toString().replace(/\D/g, '')
-
-          const isValidCpf = (cStr) => {
-            const clean = cleanDigits(cStr)
-            if (!clean || clean.length !== 11) return false
-            if (/^(\d)\1{10}$/.test(clean)) return false
-            let soma = 0
-            for (let i = 0; i < 9; i++) soma += parseInt(clean.charAt(i), 10) * (10 - i)
-            let resto = (soma * 10) % 11
-            if (resto === 10 || resto === 11) resto = 0
-            if (resto !== parseInt(clean.charAt(9), 10)) return false
-            soma = 0
-            for (let i = 0; i < 10; i++) soma += parseInt(clean.charAt(i), 10) * (11 - i)
-            resto = (soma * 10) % 11
-            if (resto === 10 || resto === 11) resto = 0
-            return resto === parseInt(clean.charAt(10), 10)
-          }
-
-          const isValidCnpj = (cStr) => {
-            const clean = cleanDigits(cStr)
-            if (!clean || clean.length !== 14) return false
-            if (/^(\d)\1{13}$/.test(clean)) return false
-            let soma = 0
-            let peso = 5
-            for (let i = 0; i < 12; i++) {
-              soma += parseInt(clean.charAt(i), 10) * peso
-              peso = peso === 2 ? 9 : peso - 1
-            }
-            let resto = soma % 11
-            const dv1 = resto < 2 ? 0 : 11 - resto
-            if (parseInt(clean.charAt(12), 10) !== dv1) return false
-            soma = 0
-            peso = 6
-            for (let i = 0; i < 13; i++) {
-              soma += parseInt(clean.charAt(i), 10) * peso
-              peso = peso === 2 ? 9 : peso - 1
-            }
-            resto = soma % 11
-            const dv2 = resto < 2 ? 0 : 11 - resto
-            return parseInt(clean.charAt(13), 10) === dv2
-          }
-
-          const camposFaltantes = []
-          let cliRec = null
-          let emailDest = ''
-          let nomeDest = ''
-
-          if (empId) {
-            try {
-              cliRec = $app.findRecordById('empresas', empId)
-            } catch (_) {}
-            if (!cliRec) {
-              camposFaltantes.push('empresa_nao_encontrada')
-            } else {
-              const razao = (cliRec.getString('razao_social') || '').trim()
-              const cnpj = cleanDigits(cliRec.getString('cnpj'))
-              const cep = cleanDigits(cliRec.getString('cep'))
-              const logradouro = (cliRec.getString('logradouro') || '').trim()
-              const numero = (cliRec.getString('numero') || '').trim()
-              const bairro = (cliRec.getString('bairro') || '').trim()
-              const municipio = (cliRec.getString('municipio') || '').trim()
-              const uf = (cliRec.getString('uf') || '').trim()
-              const email = (cliRec.getString('email') || '').trim()
-              const telefone = (cliRec.getString('telefone') || '').trim()
-
-              emailDest = email
-              nomeDest = razao
-
-              let temTelefone = Boolean(telefone)
-              try {
-                const tels = cliRec.get('telefones')
-                if (Array.isArray(tels) && tels.length > 0 && tels[0].numero) temTelefone = true
-              } catch (_) {}
-
-              if (!razao) camposFaltantes.push('razao_social')
-              if (!cnpj || !isValidCnpj(cnpj)) camposFaltantes.push('cnpj')
-              if (!email || email.indexOf('@') === -1) camposFaltantes.push('email')
-              if (!temTelefone) camposFaltantes.push('telefone')
-              if (!cep || cep.length < 8) camposFaltantes.push('cep')
-              if (!logradouro) camposFaltantes.push('logradouro')
-              if (!numero) camposFaltantes.push('numero')
-              if (!bairro) camposFaltantes.push('bairro')
-              if (!municipio) camposFaltantes.push('municipio')
-              if (!uf) camposFaltantes.push('uf')
-
-              let repNome = ''
-              let repCpf = ''
-              try {
-                const contatos = $app.findRecordsByFilter(
-                  'contatos',
-                  "empresa = '" + empId + "'",
-                  '-decisor,-created',
-                  5,
-                  0,
-                )
-                for (let ci = 0; ci < contatos.length; ci++) {
-                  const cRec = contatos[ci]
-                  const cNome = (cRec.getString('nome') || '').trim()
-                  const cCpf = cleanDigits(
-                    cRec.getString('cpf') ||
-                      cRec.getString('documento') ||
-                      cRec.getString('observacao') ||
-                      '',
-                  )
-                  if (cNome && !repNome) repNome = cNome
-                  if (cCpf && isValidCpf(cCpf) && !repCpf) repCpf = cCpf
-                  if (repNome && repCpf) break
-                }
-              } catch (_) {}
-
-              if (!repNome) camposFaltantes.push('representante_nome')
-              if (!repCpf || !isValidCpf(repCpf)) camposFaltantes.push('representante_documento')
-            }
-          } else if (cliPfId) {
-            try {
-              cliRec = $app.findRecordById('clientes_pf', cliPfId)
-            } catch (_) {}
-            if (!cliRec) {
-              camposFaltantes.push('cliente_pf_nao_encontrado')
-            } else {
-              const nome = (cliRec.getString('nome') || '').trim()
-              const cpf = cleanDigits(cliRec.getString('cpf'))
-              const email = (cliRec.getString('email') || '').trim()
-              const telefone = (cliRec.getString('telefone') || '').trim()
-              const cep = cleanDigits(cliRec.getString('cep'))
-              const logradouro = (cliRec.getString('logradouro') || '').trim()
-              const numero = (cliRec.getString('numero') || '').trim()
-              const bairro = (cliRec.getString('bairro') || '').trim()
-              const municipio = (cliRec.getString('municipio') || '').trim()
-              const uf = (cliRec.getString('uf') || '').trim()
-
-              emailDest = email
-              nomeDest = nome
-
-              let temTelefone = Boolean(telefone)
-              try {
-                const tels = cliRec.get('telefones')
-                if (Array.isArray(tels) && tels.length > 0 && tels[0].numero) temTelefone = true
-              } catch (_) {}
-
-              if (!nome) camposFaltantes.push('nome')
-              if (!cpf || !isValidCpf(cpf)) camposFaltantes.push('cpf')
-              if (!email || email.indexOf('@') === -1) camposFaltantes.push('email')
-              if (!temTelefone) camposFaltantes.push('telefone')
-              if (!cep || cep.length < 8) camposFaltantes.push('cep')
-              if (!logradouro) camposFaltantes.push('logradouro')
-              if (!numero) camposFaltantes.push('numero')
-              if (!bairro) camposFaltantes.push('bairro')
-              if (!municipio) camposFaltantes.push('municipio')
-              if (!uf) camposFaltantes.push('uf')
-            }
-          } else {
-            camposFaltantes.push('cliente_indefinido')
-          }
-
-          const cadastroCompleto = camposFaltantes.length === 0
-          const statusInicial = cadastroCompleto
-            ? 'aguardando_assinatura_admin'
-            : 'aguardando_dados_cliente'
-
-          const anoAtual = new Date().getFullYear()
-          const prefixoCTR = 'CTR-' + anoAtual + '-'
-          const contratosDoAno = $app.findRecordsByFilter(
-            'contratos_servico',
-            "numero ~ '" + prefixoCTR + "'",
-            '-numero',
-            1,
-            0,
-          )
-
-          let proximoSeqCtr = 1
-          if (contratosDoAno.length > 0) {
-            const ultimoNumero = contratosDoAno[0].getString('numero')
-            const partes = ultimoNumero.split('-')
-            const ultimoSeq = parseInt(partes[2], 10)
-            if (!isNaN(ultimoSeq)) proximoSeqCtr = ultimoSeq + 1
-          }
-          const numeroCTR = prefixoCTR + ('0000' + proximoSeqCtr).slice(-4)
-
-          let clausulasTexto = ''
-          try {
-            const paramClausulas = $app.findFirstRecordByData(
-              'parametros',
-              'chave',
-              'contrato_servico_clausulas_padrao',
-            )
-            if (paramClausulas) clausulasTexto = paramClausulas.getString('valor')
-          } catch (_) {}
-
-          let parcelas = []
-          try {
-            const parcs = $app.findRecordsByFilter(
-              'proposta_parcelas',
-              "proposta = '" + propId + "'",
-              'ordem',
-              50,
-              0,
-            )
-            parcelas = parcs.map((p) => ({
-              ordem: p.getInt('ordem'),
-              percentual: p.getFloat('percentual'),
-              valor: p.getFloat('valor'),
-              gatilho: p.getString('gatilho'),
-              descricao: p.getString('descricao'),
-            }))
-          } catch (_) {}
-
-          const tokenAssinaturaCliente = $security.randomString(32)
-          const tokenComplementoDados = cadastroCompleto ? '' : $security.randomString(32)
-
-          const contratosCol = $app.findCollectionByNameOrId('contratos_servico')
-          const novoContrato = new Record(contratosCol)
-          novoContrato.set('numero', numeroCTR)
-          novoContrato.set('proposta', propId)
-          if (empId) novoContrato.set('empresa', empId)
-          if (cliPfId) novoContrato.set('cliente_pf', cliPfId)
-          novoContrato.set('objeto', objeto)
-          novoContrato.set('valor_total', preco)
-          novoContrato.set('prazo_dias', prazoDias)
-          novoContrato.set('nota_prazo', notaPrazo)
-          novoContrato.set('clausulas_texto', clausulasTexto)
-          novoContrato.set('parcelas_json', parcelas)
-          novoContrato.set('status', statusInicial)
-          novoContrato.set('token_assinatura_cliente', tokenAssinaturaCliente)
-          novoContrato.set('token_complemento_dados', tokenComplementoDados)
-          novoContrato.set('campos_faltantes_json', camposFaltantes)
-
-          $app.save(novoContrato)
-
-          // REGRA DE OURO (ITEM 1b): logo após criar o contrato, PERSISTIR EXPLICITAMENTE
-          // o vínculo na proposta: proposta.set('contrato_servico', idDoContrato) + save
-          try {
-            prop.set('contrato_servico', novoContrato.id)
-            if (cadastroCompleto) {
-              prop.set('dados_complementares_preenchidos', true)
-            } else if (tokenComplementoDados) {
-              prop.set('dados_complementares_preenchidos', false)
-            }
-            $app.save(prop)
-          } catch (errSavePropVinculo) {
-            gravarErroSistemaInline(
-              'GERAR_CTR_PERSISTIR_VINCULO',
-              'Falha ao persistir contrato_servico na proposta: ' + errSavePropVinculo,
-              {
-                proposta_id: propId,
-                contrato_id: novoContrato.id,
-                erro: String(errSavePropVinculo),
-              },
-            )
-            throw errSavePropVinculo
-          }
-
-          try {
-            const auditCol = $app.findCollectionByNameOrId('audit_logs')
-            const aRec = new Record(auditCol)
-            aRec.set('acao', 'GERACAO_CONTRATO_SERVICO')
-            aRec.set('entidade', 'contratos_servico')
-            aRec.set('registro_id', novoContrato.id)
-            aRec.set('detalhes', {
-              mensagem:
-                'Contrato de serviços gerado pelo aceite digital da proposta ' +
-                propNum +
-                (cadastroCompleto
-                  ? ' (Cadastro completo -> Aguardando assinatura Admin)'
-                  : ' (Cadastro incompleto -> Aguardando dados do cliente)'),
-              contrato_numero: numeroCTR,
-              proposta_id: propId,
-              proposta_numero: propNum,
-              status: statusInicial,
-              campos_faltantes: camposFaltantes,
-              valor: preco,
-              ip: ipOrigem,
-            })
-            aRec.set('ip', ipOrigem)
-            $app.save(aRec)
-          } catch (_) {}
-
-          if (
-            !cadastroCompleto &&
-            tokenComplementoDados &&
-            emailDest &&
-            emailDest.indexOf('@') !== -1
-          ) {
-            try {
-              const appUrl =
-                $os.getenv('PUBLIC_APP_URL') ||
-                'https://gestao-de-projetos-de-engenharia-be59d.goskip.app'
-              const linkComplemento = appUrl + '/completar-cadastro/' + tokenComplementoDados
-              const senderAddress =
-                ($app.settings().meta && $app.settings().meta.senderAddress) ||
-                'nao-responder@skip.dev'
-              const senderName =
-                ($app.settings().meta && $app.settings().meta.senderName) ||
-                'G+ Engenharia Consultiva'
-              const linkDescadastro =
-                appUrl +
-                '/descadastro?origem=fluxo_contratual&email=' +
-                encodeURIComponent(emailDest)
-
-              const htmlEmail =
-                '<!DOCTYPE html><html><head><meta charset="utf-8" /></head><body style="margin:0;padding:24px;font-family:sans-serif;background-color:#f8fafc;color:#1e293b;">' +
-                '<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">' +
-                '<tr><td style="background-color:#1E2A4A;padding:20px 24px;border-bottom:3px solid #D95A2B;">' +
-                '<h2 style="margin:0;color:#ffffff;font-size:18px;">G+ Engenharia Consultiva</h2>' +
-                '<p style="margin:4px 0 0 0;color:#94a3b8;font-size:12px;">Complementação de Dados para Emissão do Contrato</p>' +
-                '</td></tr>' +
-                '<tr><td style="padding:24px;font-size:14px;line-height:1.6;color:#334155;">' +
-                '<p>Olá, <strong>' +
-                (nomeDest || 'Cliente') +
-                '</strong>!</p>' +
-                '<p>Confirmamos o aceite na Proposta Comercial <strong>' +
-                propNum +
-                '</strong>. Para que o seu Contrato de Prestação de Serviços Técnicos seja gerado com total conformidade jurídica e siga para a etapa de assinaturas digitais, precisamos que você complete alguns dados cadastrais obrigatórios.</p>' +
-                '<div style="margin:28px 0;text-align:center;">' +
-                '<a href="' +
-                linkComplemento +
-                '" target="_blank" style="background-color:#D95A2B;color:#ffffff;font-weight:bold;text-decoration:none;padding:12px 28px;border-radius:6px;display:inline-block;font-size:14px;">Completar Meus Dados Cadastrais</a>' +
-                '</div>' +
-                '<p style="font-size:12px;color:#64748b;">Se o botão não funcionar, copie e cole este link em seu navegador:<br /><span style="font-family:monospace;word-break:break-all;">' +
-                linkComplemento +
-                '</span></p>' +
-                '</td></tr>' +
-                '<tr><td style="padding:16px 24px;background-color:#f1f5f9;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;text-align:center;">' +
-                'Mensagem transacional do fluxo de contratação G+ Engenharia • ' +
-                numeroCTR +
-                '<br />Caso não queira receber nossas comunicações, <a href="' +
-                linkDescadastro +
-                '" style="color:#64748b;">descadastre seu e-mail</a>.' +
-                '</td></tr>' +
-                '</table></body></html>'
-
-              const msg = new MailerMessage({
-                from: { address: senderAddress, name: senderName },
-                to: [{ address: emailDest, name: nomeDest }],
-                subject:
-                  'Ação necessária: Complete seu cadastro para geração do contrato ' + numeroCTR,
-                html: htmlEmail,
-              })
-
-              $app.newMailClient().send(msg)
-
-              try {
-                const auditCol = $app.findCollectionByNameOrId('audit_logs')
-                const aRec = new Record(auditCol)
-                aRec.set('acao', 'ENVIO_EMAIL_COMPLEMENTO_DADOS')
-                aRec.set('entidade', 'contratos_servico')
-                aRec.set('registro_id', novoContrato.id)
-                aRec.set('detalhes', {
-                  mensagem:
-                    'E-mail transacional de complemento de dados enviado com link exclusivo para ' +
-                    emailDest,
-                  contrato_numero: numeroCTR,
-                  destinatario: emailDest,
-                  link: linkComplemento,
-                })
-                aRec.set('ip', ipOrigem)
-                $app.save(aRec)
-              } catch (_) {}
-            } catch (mailErr) {
-              gravarErroSistemaInline(
-                'GERAR_CTR_ENVIO_EMAIL',
-                'Aviso/Erro ao disparar e-mail de complemento: ' + mailErr,
-                { proposta_id: propId, erro: String(mailErr) },
-              )
-            }
-          }
-
-          return novoContrato
-        }
-
-        // REGRA DE OURO (ITEM 1d): try/catch total gravando em erros_sistema (nada em console.log)
-        try {
-          executarGeracaoContratoInline(propostaIdParaContrato, ipParaContrato)
-        } catch (errPos) {
-          gravarErroSistemaInline(
-            'ACEITE_PROPOSTA_POS_RESPOSTA',
-            'Falha ao gerar contrato pós-aceite (cron): ' + errPos,
-            { proposta_id: propostaIdParaContrato, erro: String(errPos) },
-          )
-        }
-      })
-    } catch (errCron) {
-      try {
-        const errCol = $app.findCollectionByNameOrId('erros_sistema')
-        if (errCol) {
-          const errRec = new Record(errCol)
-          errRec.set('rota', 'AGENDAR_GERACAO_CTR')
-          errRec.set(
-            'mensagem',
-            ('Erro ao agendar geracao de contrato pos-aceite: ' + errCron).slice(0, 1000),
-          )
-          errRec.set('hora', new Date().toISOString())
-          errRec.set('ip', clientIp)
-          errRec.set('usuario_email', 'sistema')
-          errRec.set('detalhes', { proposta_id: proposta.id, erro: String(errCron) })
-          $app.save(errRec)
-        }
-      } catch (_) {}
-    }
-
+    // O contrato é gerado pelo sweep em segundo plano (sweep-propostas-aceitas-sem-contrato),
+    // que lê o aceite_ip e aceite_user_agent registrados na própria proposta.
     return e.json(200, {
       success: true,
       aceite_registrado: true,

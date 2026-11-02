@@ -1951,6 +1951,21 @@ cronAdd('backfill-ctr-2026-0003-deploy', '* * * * *', function () {
           return
         }
       } catch (_) {}
+    } else if (rec.getString('projeto') && !rec.getString('projeto').startsWith('reserva_')) {
+      // Contrato já tem projeto apontado (ex.: criado por fluxo anterior ou vinculado manualmente)
+      // Se já possui contas a receber vinculadas ao contrato, não precisa reprocessar
+      try {
+        const contasJaCriadas = $app.findRecordsByFilter(
+          'contas',
+          "tipo = 'receber' && contrato_servico = '" + contratoId + "'",
+          '-created',
+          1,
+          0,
+        )
+        if (contasJaCriadas.length > 0) {
+          return
+        }
+      } catch (_) {}
     }
 
     // 2. ITENS DE ESCOPO (Apenas itens reais do catálogo ou com serviço/descrição válida)
@@ -3091,6 +3106,21 @@ cronAdd('sweep-contratos-assinados-sem-projeto', '* * * * *', function () {
           return
         }
       } catch (_) {}
+    } else if (rec.getString('projeto') && !rec.getString('projeto').startsWith('reserva_')) {
+      // Contrato já tem projeto apontado (ex.: criado por fluxo anterior ou vinculado manualmente)
+      // Se já possui contas a receber vinculadas ao contrato, não precisa reprocessar
+      try {
+        const contasJaCriadas = $app.findRecordsByFilter(
+          'contas',
+          "tipo = 'receber' && contrato_servico = '" + contratoId + "'",
+          '-created',
+          1,
+          0,
+        )
+        if (contasJaCriadas.length > 0) {
+          return
+        }
+      } catch (_) {}
     }
 
     // 2. ITENS DE ESCOPO (Apenas itens reais do catálogo ou com serviço/descrição válida)
@@ -4059,7 +4089,7 @@ cronAdd('sweep-contratos-assinados-sem-projeto', '* * * * *', function () {
   try {
     const contratosAssinadosComProjeto = $app.findRecordsByFilter(
       'contratos_servico',
-      "status = 'assinado' && projeto != '' && !(projeto ~ 'reserva_') && created >= '2026-11-01 00:00:00.000Z'",
+      "status = 'assinado' && projeto != '' && projeto !~ 'reserva_' && created >= '2026-11-01 00:00:00.000Z'",
       '-created',
       5,
       0,

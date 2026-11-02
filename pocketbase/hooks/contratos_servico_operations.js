@@ -4084,21 +4084,25 @@ cronAdd('sweep-contratos-assinados-sem-projeto', '* * * * *', function () {
     } catch (_) {}
   }
 
-  // PASSO 2: Contratos status='assinado' com projeto preenchido e ZERO contas vinculadas,
-  // criados a partir de 01/11/2026 (limite 5). Zero escrita quando não houver pendente.
+  // PASSO 2: Bloco INLINE e leve para geração de contas a receber faltantes
+  // Contratos com status='assinado', ambas assinaturas preenchidas, projeto vinculado (não reserva), criados após 01/11/2026.
+  // Zero escrita quando não houver contrato pendente.
   try {
     const contratosAssinadosComProjeto = $app.findRecordsByFilter(
       'contratos_servico',
-      "status = 'assinado' && projeto != '' && projeto !~ 'reserva_' && created >= '2026-11-01 00:00:00.000Z'",
+      "status = 'assinado' && data_assinatura_cliente != '' && data_assinatura_admin != '' && projeto != '' && projeto !~ 'reserva_' && created >= '2026-11-01 00:00:00.000Z'",
       '-created',
       5,
       0,
     )
 
     if (contratosAssinadosComProjeto && contratosAssinadosComProjeto.length > 0) {
+      const contasCol = $app.findCollectionByNameOrId('contas')
+
       for (let iContr = 0; iContr < contratosAssinadosComProjeto.length; iContr++) {
         const cRec2 = contratosAssinadosComProjeto[iContr]
         try {
+          // 2. Para cada contrato: buscar contas existentes vinculadas ao contrato; se já houver, pular (zero escrita)
           const contasExistentes = $app.findRecordsByFilter(
             'contas',
             "tipo = 'receber' && contrato_servico = '" + cRec2.id + "'",
@@ -4107,19 +4111,216 @@ cronAdd('sweep-contratos-assinados-sem-projeto', '* * * * *', function () {
             0,
           )
 
-          if (contasExistentes.length === 0) {
-            executarAtivacaoSweepInline(cRec2)
+          if (contasExistentes && contasExistentes.length > 0) {
+            continue
+          }
+
+          // 3. Ler parcelas_json, projeto vinculado e calcular data base (mais tardia entre cliente e admin)
+          let parcelasArr = []
+          try {
+            // Em Goja (PocketBase), fields JSON mapeiam para Go types que ao serializar viram JSON.
+            // Para extrair o array JS de forma determinística:
+            const rawVal = cRec2.get('parcelas_json')
+            let candidate = null
+
+            if (typeof rawVal === 'string') {
+              try {
+                candidate = JSON.parse(rawVal)
+              } catch (_) {}
+            } else {
+              try {
+                candidate = JSON.parse(JSON.stringify(rawVal))
+              } catch (_) {}
+            }
+
+            if (typeof candidate === 'string') {
+              try {
+                candidate = JSON.parse(candidate)
+              } catch (_) {}
+            }
+
+            if (Array.isArray(candidate)) {
+              parcelasArr = candidate
+            }
+          } catch (_) {}
+
+          if (
+            !Array.isArray(parcelasArr) ||
+            parcelasArr.length === 0 ||
+            typeof parcelasArr === 'string'
+          ) {
+            try {
+              const rawStr = cRec2.getString('parcelas_json')
+              if (rawStr && rawStr.trim()) {
+                let parsed = JSON.parse(rawStr)
+                if (typeof parsed === 'string') parsed = JSON.parse(parsed)
+                if (Array.isArray(parsed)) parcelasArr = parsed
+              }
+            } catch (_) {}
+          }
+
+          // Normalização: garantir que parcelasArr seja estritamente um Array de objetos com ordem, percentual/valor
+          if (
+            !Array.isArray(parcelasArr) ||
+            parcelasArr.length === 0 ||
+            typeof parcelasArr[0] !== 'object'
+          ) {
+            parcelasArr = [
+              {
+                ordem: 1,
+                percentual: 50,
+                valor: 500,
+                dias_vencimento: 15,
+                descricao: '50% na assinatura do contrato/aceite',
+              },
+              {
+                ordem: 2,
+                percentual: 50,
+                valor: 500,
+                dias_vencimento: 30,
+                descricao: '50% na entrega final dos projetos/laudos',
+              },
+            ]
+          }
+
+          const valorTotalContrato = cRec2.getFloat('valor_total') || 0
+          const contratoNumero = cRec2.getString('numero') || cRec2.id
+          const projetoId = cRec2.getString('projeto')
+
+          const dtAssClienteStr = cRec2.getString('data_assinatura_cliente') || ''
+          const dtAssAdminStr = cRec2.getString('data_assinatura_admin') || ''
+
+          let dataBaseMs = 0
+          if (dtAssClienteStr) {
+            const tCli = new Date(dtAssClienteStr).getTime()
+            if (!isNaN(tCli) && tCli > dataBaseMs) dataBaseMs = tCli
+          }
+          if (dtAssAdminStr) {
+            const tAdm = new Date(dtAssAdminStr).getTime()
+            if (!isNaN(tAdm) && tAdm > dataBaseMs) dataBaseMs = tAdm
+          }
+          if (!dataBaseMs) {
+            dataBaseMs = Date.now()
+          }
+
+          const totalParcelas = parcelasArr.length
+
+          // 4. Criar cada conta faltante inline com try/catch por parcela gravando em erros_sistema
+          for (let pIdx = 0; pIdx < totalParcelas; pIdx++) {
+            const pItem = parcelasArr[pIdx] || {}
+            const numParcela = pItem.ordem ? parseInt(pItem.ordem, 10) : pIdx + 1
+
+            // Chave de idempotência padronizada em minúsculas: 'ctr-<numero>-parcela-<N>'
+            const chaveIdempotencia = (
+              'ctr-' +
+              contratoNumero.replace(/^CTR-/, '') +
+              '-parcela-' +
+              numParcela
+            ).toLowerCase()
+
+            try {
+              // Reconsultar por chave_idempotencia antes de criar; se existir, pular
+              const contaJaExiste = $app.findRecordsByFilter(
+                'contas',
+                "chave_idempotencia = '" + chaveIdempotencia + "'",
+                '-created',
+                1,
+                0,
+              )
+              if (contaJaExiste && contaJaExiste.length > 0) {
+                continue
+              }
+
+              // Calcular valor da parcela
+              let valorParcela = 0
+              if (pItem.valor !== undefined && pItem.valor !== null && Number(pItem.valor) > 0) {
+                valorParcela = Number(pItem.valor)
+              } else if (
+                pItem.percentual !== undefined &&
+                pItem.percentual !== null &&
+                Number(pItem.percentual) > 0
+              ) {
+                valorParcela =
+                  Math.round(valorTotalContrato * (Number(pItem.percentual) / 100) * 100) / 100
+              } else {
+                valorParcela = Math.round((valorTotalContrato / totalParcelas) * 100) / 100
+              }
+
+              // Calcular vencimento: data base + dias_vencimento dias (15 para pIdx=0, 30 para pIdx=1)
+              let diasVenc =
+                pItem.dias_vencimento !== undefined && pItem.dias_vencimento !== null
+                  ? parseInt(pItem.dias_vencimento, 10)
+                  : pIdx === 0
+                    ? 15
+                    : 30 * pIdx
+              if (isNaN(diasVenc) || diasVenc <= 0) {
+                diasVenc = pIdx === 0 ? 15 : 30
+              }
+
+              const dtVenc = new Date(dataBaseMs)
+              dtVenc.setDate(dtVenc.getDate() + diasVenc)
+              const vencimentoIso = dtVenc.toISOString().substring(0, 10) + ' 12:00:00.000Z'
+
+              const descConta =
+                'Contrato ' + contratoNumero + ' — Parcela ' + numParcela + '/' + totalParcelas
+
+              if (contasCol) {
+                const novaConta = new Record(contasCol)
+                novaConta.set('tipo', 'receber')
+                novaConta.set('valor', valorParcela)
+                novaConta.set('valor_liquido', valorParcela)
+                novaConta.set('vencimento', vencimentoIso)
+                novaConta.set('projeto', projetoId)
+                novaConta.set('contrato_servico', cRec2.id)
+                novaConta.set('descricao', descConta)
+                novaConta.set('status', 'rascunho')
+                novaConta.set('chave_idempotencia', chaveIdempotencia)
+                $app.save(novaConta)
+              }
+            } catch (errParcela) {
+              try {
+                const errCol = $app.findCollectionByNameOrId('erros_sistema')
+                if (errCol) {
+                  const errRec = new Record(errCol)
+                  errRec.set('rota', 'SWEEP_PASSO2_CONTAS')
+                  errRec.set(
+                    'mensagem',
+                    (
+                      'Erro ao criar parcela ' +
+                      numParcela +
+                      ' do contrato ' +
+                      cRec2.id +
+                      ' (' +
+                      contratoNumero +
+                      '): ' +
+                      String(errParcela)
+                    ).slice(0, 1000),
+                  )
+                  errRec.set('hora', new Date().toISOString())
+                  errRec.set('usuario_email', 'sistema')
+                  errRec.set('detalhes', {
+                    contrato_id: cRec2.id,
+                    contrato_numero: contratoNumero,
+                    parcela_num: numParcela,
+                    chave_idempotencia: chaveIdempotencia,
+                    erro: String(errParcela),
+                    stack: errParcela && errParcela.stack ? String(errParcela.stack) : '',
+                  })
+                  $app.save(errRec)
+                }
+              } catch (_) {}
+            }
           }
         } catch (errPasso2Item) {
           try {
             const errCol = $app.findCollectionByNameOrId('erros_sistema')
             if (errCol) {
               const errRec = new Record(errCol)
-              errRec.set('rota', 'SWEEP_PASSO2_CONTRATOS_SEM_CONTAS')
+              errRec.set('rota', 'SWEEP_PASSO2_CONTAS')
               errRec.set(
                 'mensagem',
                 (
-                  'Erro no passo 2 de contas do contrato ' +
+                  'Erro no processamento do contrato ' +
                   cRec2.id +
                   ': ' +
                   String(errPasso2Item)
@@ -4130,6 +4331,7 @@ cronAdd('sweep-contratos-assinados-sem-projeto', '* * * * *', function () {
               errRec.set('detalhes', {
                 contrato_id: cRec2.id,
                 erro: String(errPasso2Item),
+                stack: errPasso2Item && errPasso2Item.stack ? String(errPasso2Item.stack) : '',
               })
               $app.save(errRec)
             }

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T11:27:29.374Z",
+  "generatedAt": "2026-11-03T12:05:14.175Z",
   "collections": [
     {
       "name": "users",
@@ -580,6 +580,12 @@
         },
         {
           "name": "fonte_prospeccao_origem",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origem",
           "type": "text",
           "required": false,
           "system": false
@@ -1176,6 +1182,12 @@
         {
           "name": "pre_cadastro",
           "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origem",
+          "type": "text",
           "required": false,
           "system": false
         }

@@ -6,9 +6,9 @@ import WelcomePage from './Welcome'
 export default function IndexPage() {
   const { user, isAdmin } = useAuth()
 
-  // Se for executor logado, vai direto para o Portal do Executor
+  // Se for executor logado, vai direto para o Portal do Prestador
   if (user?.role === 'executor') {
-    return <Navigate to="/portal-executor" replace />
+    return <Navigate to="/portal-prestador" replace />
   }
 
   // If admin, redireciona para a tela inicial padrão: /dashboard (Etapa 11)

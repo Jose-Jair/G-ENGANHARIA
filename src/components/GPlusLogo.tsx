@@ -11,85 +11,59 @@ export interface GPlusLogoProps extends React.SVGProps<SVGSVGElement> {
   variant?: 'icon' | 'horizontal' | 'vertical' | 'compact'
   /** Tema de cor para textos institucionais (navy no claro, branco no escuro) */
   theme?: 'dark' | 'light' | 'auto'
+  dark?: boolean
   showSlogan?: boolean
   size?: number | string
 }
 
 /**
  * Cores oficiais da G+ Engenharia
- * - Laranja G+: #D95A2B (RGB 217, 90, 43 / HSL 16, 68%, 51%)
- * - Navy Institucional: #1E2A4A (RGB 30, 42, 74 / HSL 224, 42%, 20%)
- * - Cinza Estrutural: #8A8A8A (RGB 138, 138, 138)
+ * - Laranja G+: #E35D2F / #D95A2B
+ * - Navy Institucional: #1E2A4A
+ * - Cinza Estrutural: #737373 (light) / #C9CBD3 (dark)
  */
 export const G_PLUS_COLORS = {
-  orange: '#D95A2B',
+  orange: '#E35D2F',
   orangeHover: '#C44E22',
   navy: '#1E2A4A',
   navyDark: '#141D34',
   navyLight: '#2C3B63',
-  gray: '#8A8A8A',
+  gray: '#737373',
+  grayDark: '#C9CBD3',
 }
 
 /**
- * Símbolo vetorial fiel da G+ Engenharia:
- * - Telhado e parede direita da casa em traço cinza contínuo:
- *   Começa no vértice do beiral esquerdo, sobe até o topo do telhado,
- *   desce para a parede direita e desce verticalmente.
- * - Monograma G em laranja vivo com corte de cruz (+):
- *   Traço laranja que sobe paralelo ao telhado esquerdo, desce na parede esquerda,
- *   faz a base inferior horizontal e sobe formando o corte central horizontal (+) da cruz.
+ * Símbolo oficial da G+ Engenharia (viewBox 444 509 526 632):
+ * - Primeiro path (telhado/estrutura externa): #737373 (ou #C9CBD3 no dark)
+ * - Segundo path (G estilizado + cruz): #E35D2F
  */
 export const GPlusSymbol: React.FC<{
   size?: number | string
   className?: string
   grayColor?: string
   orangeColor?: string
-}> = ({ size = 40, className = '', grayColor = '#8A8A8A', orangeColor = '#D95A2B' }) => {
+  dark?: boolean
+}> = ({ size = 40, className = '', grayColor, orangeColor = '#E35D2F', dark = false }) => {
+  const resolvedGray = grayColor || (dark ? '#C9CBD3' : '#737373')
+
   return (
     <svg
-      viewBox="0 0 100 100"
+      role="img"
+      viewBox="444 509 526 632"
       width={size}
       height={size}
-      fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
-      aria-label="Símbolo G+ Engenharia"
+      aria-label="G+ ENGENHARIA"
     >
-      {/* 1. Traço da Casa em Cinza: telhado inclinado e parede direita */}
+      <title>G+ ENGENHARIA</title>
       <path
-        d="M 32 38 L 49.5 25.5 L 68 39 L 68 57"
-        stroke={grayColor}
-        strokeWidth="4.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        fill={resolvedGray}
+        d="M696.5 513.0L448.2 762.2L460.2 773.8L689.2 544.8L690.5 544.8L945.2 799.8L947.8 800.2L948.8 1136.0L965.2 1136.2L965.5 781.0Z"
       />
-
-      {/* 2. Traço Laranja que forma o 'G' integrado com a casa:
-             - Começa sob o telhado esquerdo (x:49.5, y:31)
-             - Desce inclinado até o canto esquerdo da parede (x:35.5, y:41.5)
-             - Desce vertical formando a parede esquerda (x:35.5, y:57)
-             - Dobra em 90 graus para a direita formando o fundo do G (x:51, y:57)
-             - Sobe formando a haste vertical interna do G / haste da cruz (x:51, y:41.5)
-      */}
       <path
-        d="M 49.5 31 L 35.5 41.5 L 35.5 57 L 51 57 L 51 41.5"
-        stroke={orangeColor}
-        strokeWidth="4.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* 3. Traço horizontal da cruz (+) que cruza a haste do G:
-             - Da esquerda para além da direita (x:45 até x:65 na altura y:46)
-      */}
-      <line
-        x1="45"
-        y1="46"
-        x2="65"
-        y2="46"
-        stroke={orangeColor}
-        strokeWidth="4.5"
-        strokeLinecap="round"
+        fill={orangeColor}
+        d="M686.5 613.5L481.0 822.0L480.5 1136.5L733.2 1136.5L733.8 923.2L912.2 922.2L911.5 905.8L734.5 905.8L733.8 833.2L703.2 833.0L703.0 905.2L643.2 906.5L643.8 922.8L703.0 923.2L703.0 1105.0L511.0 1105.2L512.2 834.5L708.2 635.5Z"
       />
     </svg>
   )
@@ -101,14 +75,15 @@ export const GPlusSymbol: React.FC<{
 export const GPlusLogo: React.FC<GPlusLogoProps> = ({
   variant = 'horizontal',
   theme = 'auto',
+  dark,
   showSlogan = true,
   size,
   className = '',
 }) => {
-  const isDark = theme === 'dark'
+  const isDark = dark !== undefined ? dark : theme === 'dark'
   const textColor = isDark ? '#FFFFFF' : '#1E2A4A'
   const sloganColor = isDark ? '#CBD5E1' : '#1E2A4A'
-  const grayColor = isDark ? '#94A3B8' : '#8A8A8A'
+  const grayColor = isDark ? '#C9CBD3' : '#737373'
 
   if (variant === 'icon') {
     return (
@@ -117,6 +92,7 @@ export const GPlusLogo: React.FC<GPlusLogoProps> = ({
         className={className}
         grayColor={grayColor}
         orangeColor={G_PLUS_COLORS.orange}
+        dark={isDark}
       />
     )
   }
@@ -124,7 +100,12 @@ export const GPlusLogo: React.FC<GPlusLogoProps> = ({
   if (variant === 'compact') {
     return (
       <div className={`inline-flex items-center gap-2.5 ${className}`}>
-        <GPlusSymbol size={size || 32} grayColor={grayColor} orangeColor={G_PLUS_COLORS.orange} />
+        <GPlusSymbol
+          size={size || 32}
+          grayColor={grayColor}
+          orangeColor={G_PLUS_COLORS.orange}
+          dark={isDark}
+        />
         <div className="flex flex-col leading-none">
           <div className="flex items-center gap-1 font-black tracking-tight text-sm">
             <span style={{ color: G_PLUS_COLORS.orange }}>GESTÃO G+</span>
@@ -143,7 +124,12 @@ export const GPlusLogo: React.FC<GPlusLogoProps> = ({
   if (variant === 'vertical') {
     return (
       <div className={`flex flex-col items-center text-center ${className}`}>
-        <GPlusSymbol size={size || 72} grayColor={grayColor} orangeColor={G_PLUS_COLORS.orange} />
+        <GPlusSymbol
+          size={size || 72}
+          grayColor={grayColor}
+          orangeColor={G_PLUS_COLORS.orange}
+          dark={isDark}
+        />
         <div className="mt-3">
           <h2
             className="font-black text-xl tracking-[0.28em] uppercase leading-tight font-sans pl-1"
@@ -167,7 +153,12 @@ export const GPlusLogo: React.FC<GPlusLogoProps> = ({
   // Variant horizontal (padrão)
   return (
     <div className={`inline-flex items-center gap-3 ${className}`}>
-      <GPlusSymbol size={size || 40} grayColor={grayColor} orangeColor={G_PLUS_COLORS.orange} />
+      <GPlusSymbol
+        size={size || 40}
+        grayColor={grayColor}
+        orangeColor={G_PLUS_COLORS.orange}
+        dark={isDark}
+      />
       <div className="flex flex-col">
         <div className="flex items-baseline gap-1.5">
           <span

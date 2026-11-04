@@ -181,7 +181,12 @@ export const PortalPrestadorPage: React.FC = () => {
       {/* Topo do Portal */}
       <header className="bg-[#1E2A4A] text-white border-b border-[#141D34] px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <GPlusLogo variant="compact" theme="dark" size={32} />
+          <img
+            src="/brand/gplus-logo-horizontal.svg"
+            alt="G+ ENGENHARIA"
+            className="h-8 w-auto object-contain hidden sm:block"
+          />
+          <GPlusLogo variant="compact" theme="dark" size={32} className="sm:hidden" />
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-base tracking-tight">Portal do Prestador</span>

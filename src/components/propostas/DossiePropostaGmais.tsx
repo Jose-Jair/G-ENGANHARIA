@@ -72,7 +72,7 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
   const proponenteEmail = 'grupomais.sae@gmail.com'
   const proponenteEndereco =
     'Av. Juvenco Gomes de Freitas, 354, Planalto Nelândia, Tauá – CE, CEP 63.660-000'
-  const proponenteWhats = '(88) 9 9944-1685'
+  const proponenteWhats = '(88) 92188-6547'
   const proponenteRespTecnico = 'Eng. Civil José Jair Oliveira Alves, CREA-CE 346391'
   const proponenteSlogan = 'Conectando ideias, somando resultados'
 

@@ -417,7 +417,11 @@ export function PropostaPublicaPage() {
           {/* TOPO COM LOGO E DADOS GERAIS */}
           <div className="p-4 sm:p-8 border-b border-slate-200 bg-[#1E2A4A]/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <GPlusLogo variant="horizontal" theme="light" size={38} showSlogan={true} />
+              <img
+                src="/brand/gplus-logo-horizontal.svg"
+                alt="G+ ENGENHARIA"
+                className="h-10 w-auto object-contain"
+              />
             </div>
 
             <div className="text-left sm:text-right border-l-2 sm:border-l-0 pl-3 sm:pl-0 border-[#D95A2B]/40 sm:border-transparent">

@@ -7618,8 +7618,7 @@ routerAdd(
               <table width="100%" border="0" cellspacing="0" cellpadding="0">
                 <tr>
                   <td>
-                    <span style="font-size: 24px; font-weight: bold; color: #ffffff; letter-spacing: -0.5px;">GESTÃO <span style="color: #D95A2B;">G+</span></span>
-                    <div style="color: #cbd5e1; font-size: 11px; margin-top: 2px;">Engenharia Consultiva & Gestão de Projetos</div>
+                    <img src="https://gestao-de-projetos-de-engenharia-be59d.goskip.app/brand/gplus-logo-horizontal.png" width="220" alt="G+ ENGENHARIA" style="display: block; max-width: 220px; height: auto; border: 0;" />
                   </td>
                   <td align="right">
                     <span style="display: inline-block; padding: 4px 10px; background-color: rgba(217, 90, 43, 0.2); border: 1px solid #D95A2B; color: #ffedd5; font-size: 11px; font-weight: 600; border-radius: 4px;">CONTRATO DE SERVIÇOS</span>

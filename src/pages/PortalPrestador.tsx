@@ -42,7 +42,7 @@ import { PortalMeuCadastro } from '@/components/prestadores/PortalMeuCadastro'
 import { SecaoPreCotacoesPrestador } from '@/components/prestadores/SecaoPreCotacoesPrestador'
 import { PortalMinhasHoras } from '@/components/prestadores/PortalMinhasHoras'
 import { PortalMeuDesempenho } from '@/components/prestadores/PortalMeuDesempenho'
-import { prestadoresService } from '@/services/prestadores'
+import { prestadoresService, getPrestadorAuthIdentidade } from '@/services/prestadores'
 import { PrestadorRecord } from '@/types'
 import { EntregavelVersaoComentarios } from '@/components/projetos/EntregavelVersaoComentarios'
 import { ModalOQueMudou } from '@/components/projetos/ModalOQueMudou'
@@ -58,6 +58,7 @@ export const PortalPrestadorPage: React.FC = () => {
   const { toast } = useToast()
 
   const [meuPrestador, setMeuPrestador] = useState<PrestadorRecord | null>(null)
+  const [prestadorAuthPid, setPrestadorAuthPid] = useState<string | null>(null)
   const [ordensServico, setOrdensServico] = useState<PortalOsRecord[]>([])
   const [carregando, setCarregando] = useState(true)
   const [osSelecionada, setOsSelecionada] = useState<PortalOsRecord | null>(null)
@@ -92,6 +93,14 @@ export const PortalPrestadorPage: React.FC = () => {
   const carregarMinhasOS = async () => {
     setCarregando(true)
     try {
+      // Obter identidade de autenticação (pid e email normalizado)
+      try {
+        const ident = await getPrestadorAuthIdentidade()
+        setPrestadorAuthPid(ident.pid || null)
+      } catch {
+        setPrestadorAuthPid(null)
+      }
+
       // Buscar dados do prestador logado
       try {
         const prestadorData = await prestadoresService.getMeuPerfilPrestador()
@@ -347,6 +356,16 @@ export const PortalPrestadorPage: React.FC = () => {
             {carregando ? (
               <div className="flex justify-center p-16 bg-white rounded-xl border border-slate-200">
                 <Loader2 className="w-8 h-8 animate-spin text-[#D95A2B]" />
+              </div>
+            ) : !prestadorAuthPid && !meuPrestador?.id && ordensServico.length === 0 ? (
+              <div className="text-center py-16 px-4 bg-amber-50/60 rounded-xl border-2 border-dashed border-amber-300 shadow-xs">
+                <AlertCircle className="w-12 h-12 text-amber-600 mx-auto mb-3" />
+                <h3 className="text-base font-bold text-slate-900 mb-1">
+                  Vínculo de Prestador Pendente
+                </h3>
+                <p className="text-sm font-semibold text-[#D95A2B] max-w-lg mx-auto">
+                  Seu acesso ainda não está vinculado a um cadastro de prestador. Fale com a G+.
+                </p>
               </div>
             ) : ordensServico.length === 0 ? (
               <div className="text-center py-16 bg-white rounded-xl border border-slate-200">

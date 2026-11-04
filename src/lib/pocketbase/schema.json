@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T13:15:14.688Z",
+  "generatedAt": "2026-11-04T13:40:11.495Z",
   "collections": [
     {
       "name": "users",
@@ -5821,8 +5821,8 @@
       "apiRules": {
         "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && ((prestador_id != '' && @collection.prestadores.id ?= prestador_id && @collection.prestadores.email ?= @request.auth.email) || prestador_email = @request.auth.email)))",
         "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && ((prestador_id != '' && @collection.prestadores.id ?= prestador_id && @collection.prestadores.email ?= @request.auth.email) || prestador_email = @request.auth.email)))",
-        "create": "@request.auth.id != '' && @request.auth.role = 'admin'",
-        "update": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && ((prestador_id != '' && @collection.prestadores.id ?= prestador_id && @collection.prestadores.email ?= @request.auth.email) || prestador_email = @request.auth.email)))",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'gestor' || (@request.auth.role = 'executor' && ((prestador_id != '' && @collection.prestadores.id ?= prestador_id && @collection.prestadores.email ?= @request.auth.email) || prestador_email = @request.auth.email)))",
         "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
       },
       "fields": [

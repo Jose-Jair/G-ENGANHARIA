@@ -1302,6 +1302,11 @@ export default function AdministracaoPage() {
                               titulo: 'Fila de Decisões: SLA de Revisão Interna Estagnada (horas)',
                               badge: 'Fila de Decisões',
                             },
+                            login_bloqueado: {
+                              titulo:
+                                'Segurança: E-mails Bloqueados para Login (separados por vírgula)',
+                              badge: 'Segurança & Acesso',
+                            },
                           }
                         const infoAmigavel = rotulosAmigaveis[param.chave]
 

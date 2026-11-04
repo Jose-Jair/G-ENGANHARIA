@@ -102,11 +102,6 @@ export default function LoginPage() {
     }
   }
 
-  const handleQuickLogin = (userEmail: string) => {
-    setEmail(userEmail)
-    setPassword('Eng@2024')
-  }
-
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setForgotSubmitting(true)
@@ -276,72 +271,12 @@ export default function LoginPage() {
               </form>
             )}
           </CardContent>
-
-          <CardFooter className="flex flex-col space-y-3 border-t border-slate-800/80 pt-4">
-            <div className="text-xs text-slate-400 text-center w-full">
-              <span className="font-medium text-slate-300">
-                Contas de Demonstração (Senha: Eng@2024):
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-1.5 w-full text-xs">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('admin@sistema.eng.br')}
-                className="text-left px-2 py-1.5 rounded bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 flex items-center justify-between group"
-              >
-                <span>Admin</span>
-                <span className="text-[10px] text-orange-400 font-mono group-hover:text-orange-300">
-                  Ana
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('comercial@sistema.eng.br')}
-                className="text-left px-2 py-1.5 rounded bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 flex items-center justify-between group"
-              >
-                <span>Comercial</span>
-                <span className="text-[10px] text-orange-400 font-mono group-hover:text-orange-300">
-                  Carlos
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('financeiro@sistema.eng.br')}
-                className="text-left px-2 py-1.5 rounded bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 flex items-center justify-between group"
-              >
-                <span>Financeiro</span>
-                <span className="text-[10px] text-orange-400 font-mono group-hover:text-orange-300">
-                  Beatriz
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('gestor@sistema.eng.br')}
-                className="text-left px-2 py-1.5 rounded bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 flex items-center justify-between group"
-              >
-                <span>Gestor</span>
-                <span className="text-[10px] text-orange-400 font-mono group-hover:text-orange-300">
-                  Daniel
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('executor@sistema.eng.br')}
-                className="col-span-2 text-left px-2 py-1.5 rounded bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 flex items-center justify-between group"
-              >
-                <span>Executor Externo</span>
-                <span className="text-[10px] text-orange-400 font-mono group-hover:text-orange-300">
-                  Eduardo
-                </span>
-              </button>
-            </div>
-          </CardFooter>
         </Card>
 
         <div className="text-center text-xs text-slate-400 space-y-1">
           <div>GESTÃO G+ • Conectando ideias, somando resultados</div>
           <div className="text-[11px] text-slate-500 font-mono">
-            v1.0.0-beta • Ambiente de Operação & Testes Reais
+            v1.0.0-beta • Ambiente de Operação
           </div>
         </div>
       </div>

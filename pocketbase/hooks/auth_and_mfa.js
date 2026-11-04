@@ -99,8 +99,44 @@ routerAdd(
   $apis.requireAuth(),
 )
 
-// Track login in audit_logs
+// Bloqueio de login por e-mail configurável via parâmetro 'login_bloqueado' e auditoria
 onRecordAuthWithPasswordRequest((e) => {
+  const authUser = e.record
+  if (authUser) {
+    const emailCandidate = (authUser.getString('email') || '').trim().toLowerCase()
+
+    // 1. Verificar se a conta está inativa (campo active = false)
+    if (authUser.getBool('active') === false) {
+      throw new BadRequestError(
+        'Esta conta está inativa no sistema. Entre em contato com o Administrador.',
+      )
+    }
+
+    // 2. Verificar lista de e-mails bloqueados configurada em parametros ('login_bloqueado')
+    try {
+      const paramRec = $app.findFirstRecordByFilter('parametros', "chave = 'login_bloqueado'")
+      if (paramRec) {
+        const valorParam = paramRec.getString('valor') || ''
+        const bloqueados = valorParam
+          .split(',')
+          .map((item) => item.trim().toLowerCase())
+          .filter((item) => item.length > 0)
+
+        if (bloqueados.indexOf(emailCandidate) !== -1) {
+          throw new BadRequestError(
+            'Acesso suspenso para esta conta. Contate o Administrador para liberação.',
+          )
+        }
+      }
+    } catch (paramErr) {
+      // Se o erro lançado foi o BadRequestError do bloqueio, repassa
+      if (paramErr && paramErr.status === 400) {
+        throw paramErr
+      }
+      // Se a query do parâmetro falhou por não existir o registro, ignora e segue
+    }
+  }
+
   e.next()
 
   try {
@@ -127,7 +163,11 @@ onRecordAuthWithPasswordRequest((e) => {
       let ip = ''
       try {
         const reqInfo = e.requestInfo()
-        if (reqInfo) ip = reqInfo.remoteIP || ''
+        if (reqInfo && reqInfo.headers) {
+          const xff = reqInfo.headers['x-forwarded-for'] || ''
+          const xReal = reqInfo.headers['x-real-ip'] || ''
+          ip = (xff ? xff.split(',')[0].trim() : '') || xReal || ''
+        }
       } catch (_) {}
       record.set('ip', ip)
 
@@ -155,7 +195,13 @@ routerAdd('POST', '/backend/v1/auth/logout-audit', (e) => {
         mensagem: 'Logout efetuado pelo usuário',
         role: user.getString('role'),
       })
-      record.set('ip', reqInfo.remoteIP || '')
+      let ip = ''
+      if (reqInfo.headers) {
+        const xff = reqInfo.headers['x-forwarded-for'] || ''
+        const xReal = reqInfo.headers['x-real-ip'] || ''
+        ip = (xff ? xff.split(',')[0].trim() : '') || xReal || ''
+      }
+      record.set('ip', ip)
       $app.save(record)
     } catch (err) {
       console.log('Erro ao registrar logout: ' + err)

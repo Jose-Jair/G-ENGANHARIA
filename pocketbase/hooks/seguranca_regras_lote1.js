@@ -87,6 +87,47 @@ onRecordUpdateRequest((e) => {
       }
     }
 
+    // Regra WRITE-ONCE (Lote 2): campos de aceite via token público só podem ser preenchidos se o valor ATUAL estiver vazio
+    const camposWriteOnceProposta = [
+      'data_aceite',
+      'aceite_declaracao',
+      'aceite_hash',
+      'aceite_ip',
+      'aceite_user_agent',
+      'aceite_status',
+      'versao_texto_aceito',
+      'versao_texto_hash',
+      'pdf_congelado_hash',
+      'dossie_evidencias_json',
+    ]
+
+    for (let i = 0; i < submittedKeys.length; i++) {
+      const k = submittedKeys[i]
+      if (camposWriteOnceProposta.indexOf(k) !== -1) {
+        let valAtual = ''
+        if (orig) {
+          try {
+            const raw = orig.get(k)
+            if (raw !== null && raw !== undefined) {
+              if (typeof raw === 'boolean') {
+                valAtual = raw ? 'true' : ''
+              } else if (typeof raw === 'object') {
+                const s = JSON.stringify(raw)
+                valAtual = s === '{}' || s === '[]' || s === 'null' ? '' : s
+              } else {
+                valAtual = String(raw).trim()
+              }
+            }
+          } catch (_) {
+            valAtual = orig.getString(k)
+          }
+        }
+        if (valAtual !== '') {
+          throw new BadRequestError('Campo não permitido')
+        }
+      }
+    }
+
     if (body.status !== undefined) {
       const statusPermitidos = ['visualizada', 'recusada', 'aceita', 'em_negociacao']
       if (statusPermitidos.indexOf(String(body.status)) === -1) {
@@ -216,6 +257,52 @@ onRecordUpdateRequest((e) => {
       const k = submittedKeys[i]
       if (whitelistPublicoContrato.indexOf(k) === -1) {
         throw new BadRequestError('Campo não permitido')
+      }
+    }
+
+    // Regra WRITE-ONCE (Lote 2): campos de assinatura/aceite cliente via token público só podem ser preenchidos se o valor ATUAL estiver vazio
+    const camposWriteOnceContrato = [
+      'cliente_hash',
+      'data_assinatura_cliente',
+      'cliente_nome_assinante',
+      'cliente_documento_assinante',
+      'cliente_ip',
+      'cliente_user_agent',
+      'cliente_declaracao',
+      'aceite_status',
+      'data_aceite',
+      'aceite_ip',
+      'aceite_user_agent',
+      'versao_texto_aceito',
+      'versao_texto_hash',
+      'pdf_congelado_hash',
+      'dossie_evidencias_json',
+    ]
+
+    for (let i = 0; i < submittedKeys.length; i++) {
+      const k = submittedKeys[i]
+      if (camposWriteOnceContrato.indexOf(k) !== -1) {
+        let valAtual = ''
+        if (orig) {
+          try {
+            const raw = orig.get(k)
+            if (raw !== null && raw !== undefined) {
+              if (typeof raw === 'boolean') {
+                valAtual = raw ? 'true' : ''
+              } else if (typeof raw === 'object') {
+                const s = JSON.stringify(raw)
+                valAtual = s === '{}' || s === '[]' || s === 'null' ? '' : s
+              } else {
+                valAtual = String(raw).trim()
+              }
+            }
+          } catch (_) {
+            valAtual = orig.getString(k)
+          }
+        }
+        if (valAtual !== '') {
+          throw new BadRequestError('Campo não permitido')
+        }
       }
     }
 

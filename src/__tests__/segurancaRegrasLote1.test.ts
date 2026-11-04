@@ -122,4 +122,82 @@ describe('Lote 1 - Regras de Segurança (C1 + M1 + M4)', () => {
     expect(camposAssinaturaContrato).toContain('admin_hash')
     expect(camposAssinaturaContrato).toContain('cliente_hash')
   })
+
+  it('valida que campos de assinatura/aceite cliente são write-once via token público', () => {
+    const camposWriteOnceContrato = [
+      'cliente_hash',
+      'data_assinatura_cliente',
+      'cliente_nome_assinante',
+      'cliente_documento_assinante',
+      'cliente_ip',
+      'cliente_user_agent',
+      'cliente_declaracao',
+      'aceite_status',
+      'data_aceite',
+      'aceite_ip',
+      'aceite_user_agent',
+      'versao_texto_aceito',
+      'versao_texto_hash',
+      'pdf_congelado_hash',
+      'dossie_evidencias_json',
+    ]
+
+    const camposWriteOnceProposta = [
+      'data_aceite',
+      'aceite_declaracao',
+      'aceite_hash',
+      'aceite_ip',
+      'aceite_user_agent',
+      'aceite_status',
+      'versao_texto_aceito',
+      'versao_texto_hash',
+      'pdf_congelado_hash',
+      'dossie_evidencias_json',
+    ]
+
+    // Simulação da verificação write-once do hook
+    function verificarWriteOnce(
+      submittedKeys: string[],
+      origValues: Record<string, any>,
+      listaWriteOnce: string[],
+    ) {
+      for (const k of submittedKeys) {
+        if (listaWriteOnce.includes(k)) {
+          const val = origValues[k]
+          const valAtual = val !== undefined && val !== null ? String(val).trim() : ''
+          if (valAtual !== '') {
+            throw new Error('Campo não permitido')
+          }
+        }
+      }
+      return true
+    }
+
+    // Caso 1: campos ainda vazios no banco -> permitido
+    expect(() =>
+      verificarWriteOnce(
+        ['cliente_hash', 'data_assinatura_cliente'],
+        { cliente_hash: '', data_assinatura_cliente: '' },
+        camposWriteOnceContrato,
+      ),
+    ).not.toThrow()
+
+    // Caso 2: cliente_hash já preenchido -> erro 'Campo não permitido' (400)
+    expect(() =>
+      verificarWriteOnce(
+        ['cliente_hash'],
+        { cliente_hash: 'hash_existente_123' },
+        camposWriteOnceContrato,
+      ),
+    ).toThrow('Campo não permitido')
+
+    // Caso 3: aceite_hash na proposta já preenchido -> erro 'Campo não permitido' (400)
+    expect(() =>
+      verificarWriteOnce(
+        ['aceite_hash'],
+        { aceite_hash: 'hash_proposta_123' },
+        camposWriteOnceProposta,
+      ),
+    ).toThrow('Campo não permitido')
+  })
 })

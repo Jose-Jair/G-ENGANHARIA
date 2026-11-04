@@ -27,6 +27,7 @@ import { openProtectedFile } from '@/lib/pocketbase/files'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -75,6 +76,8 @@ import {
   Clock,
   DollarSign,
   AlertCircle,
+  KeyRound,
+  Send,
 } from 'lucide-react'
 import { exportService } from '@/services/exportService'
 import { ModalMensagensOsGestor } from '@/components/prestadores/ModalMensagensOsGestor'
@@ -164,6 +167,14 @@ export const PrestadoresPage: React.FC = () => {
   const [modalSuspenderOpen, setModalSuspenderOpen] = useState(false)
   const [motivoSuspensao, setMotivoSuspensao] = useState('')
 
+  // Item 8: Mapa de acessos ao portal e controle de modal de acesso (apenas Admin)
+  const [mapaAcessos, setMapaAcessos] = useState<Record<string, boolean>>({})
+  const [modalAcessoOpen, setModalAcessoOpen] = useState(false)
+  const [prestadorAcessoAlvo, setPrestadorAcessoAlvo] = useState<PrestadorRecord | null>(null)
+  const [acessoJaExiste, setAcessoJaExiste] = useState(false)
+  const [enviarConviteEmail, setEnviarConviteEmail] = useState(true)
+  const [processandoAcesso, setProcessandoAcesso] = useState(false)
+
   const canEdit = !!(user && (user.role === 'admin' || user.role === 'gestor'))
   const isAdmin = !!(user && user.role === 'admin')
   const podeAcessarTriagem = !!(user && (user.role === 'admin' || user.role === 'gestor'))
@@ -173,6 +184,12 @@ export const PrestadoresPage: React.FC = () => {
     try {
       const data = await prestadoresService.list()
       setPrestadores(data)
+      if (isAdmin) {
+        const mapa = await prestadoresService.mapearAcessosPrestadores(
+          data.map((p) => ({ id: p.id, email: p.email })),
+        )
+        setMapaAcessos(mapa)
+      }
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar prestadores',
@@ -181,6 +198,48 @@ export const PrestadoresPage: React.FC = () => {
       })
     } finally {
       setCarregando(false)
+    }
+  }
+
+  const abrirConfirmacaoAcesso = (prestador: PrestadorRecord, jaTemAcesso: boolean) => {
+    setPrestadorAcessoAlvo(prestador)
+    setAcessoJaExiste(jaTemAcesso)
+    setEnviarConviteEmail(true)
+    setModalAcessoOpen(true)
+  }
+
+  const handleConfirmarAcesso = async () => {
+    if (!prestadorAcessoAlvo) return
+    setProcessandoAcesso(true)
+    try {
+      const res = await prestadoresService.criarOuGerenciarAcesso(
+        prestadorAcessoAlvo.id,
+        enviarConviteEmail,
+      )
+
+      if (res.sucesso) {
+        toast({
+          title: res.ja_tinha_acesso ? 'Convite reenviado' : 'Acesso criado com sucesso',
+          description:
+            res.mensagem ||
+            (res.convite_enviado
+              ? `E-mail de acesso enviado para ${prestadorAcessoAlvo.email}.`
+              : `Acesso do prestador garantido no portal.`),
+        })
+        setMapaAcessos((prev) => ({ ...prev, [prestadorAcessoAlvo.id]: true }))
+        setModalAcessoOpen(false)
+        setPrestadorAcessoAlvo(null)
+      } else {
+        throw new Error(res.error || res.mensagem || 'Falha ao processar acesso do prestador.')
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao gerenciar acesso',
+        description: err.message || 'Não foi possível completar a operação.',
+        variant: 'destructive',
+      })
+    } finally {
+      setProcessandoAcesso(false)
     }
   }
 
@@ -772,7 +831,17 @@ export const PrestadoresPage: React.FC = () => {
                       </div>
 
                       <div className="mb-4 flex items-center justify-between gap-1 flex-wrap">
-                        {getTipoBadge(p.tipo)}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {getTipoBadge(p.tipo)}
+                          {isAdmin &&
+                            (p.status === 'ativo' || (p.status as string) === 'homologado') &&
+                            (mapaAcessos[p.id] ? (
+                              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] gap-1 py-0 h-5">
+                                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                                Acesso ativo
+                              </Badge>
+                            ) : null)}
+                        </div>
                         {isInterno &&
                           (p.custo_hora && p.custo_hora > 0 ? (
                             <Badge
@@ -964,6 +1033,32 @@ export const PrestadoresPage: React.FC = () => {
                       </div>
 
                       <div className="flex items-center gap-1">
+                        {/* Item 8: Botões de Acesso ao Portal (Visível apenas para Admin, prestador ativo/homologado) */}
+                        {isAdmin &&
+                          (p.status === 'ativo' || (p.status as string) === 'homologado') &&
+                          (mapaAcessos[p.id] ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => abrirConfirmacaoAcesso(p, true)}
+                              className="text-[11px] h-7 px-2 border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                              title={`Reenviar convite de acesso para ${p.email}`}
+                            >
+                              <Send className="w-3 h-3 mr-1 text-[#D95A2B]" />
+                              Reenviar convite
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => abrirConfirmacaoAcesso(p, false)}
+                              className="text-[11px] h-7 px-2 bg-[#D95A2B] hover:bg-[#c44e24] text-white shadow-xs"
+                              title={`Criar usuário de acesso ao portal para ${p.email}`}
+                            >
+                              <KeyRound className="w-3 h-3 mr-1" />
+                              Criar acesso do prestador
+                            </Button>
+                          ))}
+
                         {canEdit && (
                           <Button
                             size="icon"
@@ -1018,7 +1113,114 @@ export const PrestadoresPage: React.FC = () => {
         onOpenChange={setModalScorecardOpen}
         prestador={prestadorScorecardSelecionado}
         canRecalculate={canEdit}
+        isAdmin={isAdmin}
+        temAcessoPortal={
+          prestadorScorecardSelecionado ? !!mapaAcessos[prestadorScorecardSelecionado.id] : false
+        }
+        onGerenciarAcesso={(prestador, jaTemAcesso) => {
+          abrirConfirmacaoAcesso(prestador, jaTemAcesso)
+        }}
       />
+
+      {/* Modal de Confirmação de Acesso ao Portal (Item 8) */}
+      <Dialog open={modalAcessoOpen} onOpenChange={setModalAcessoOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base text-slate-900">
+              <KeyRound className="w-5 h-5 text-[#D95A2B]" />
+              {acessoJaExiste
+                ? 'Reenviar Convite ao Portal'
+                : 'Criar Acesso ao Portal do Prestador'}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              {acessoJaExiste
+                ? 'Este prestador já possui conta ativa no portal. Você pode reenviar o link de acesso e credenciais por e-mail.'
+                : 'Cria uma conta com perfil de Executor associada a este prestador para acesso ao Portal do Prestador.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {prestadorAcessoAlvo && (
+            <div className="space-y-4 py-2">
+              <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 text-xs space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Prestador:</span>
+                  <span className="font-semibold text-slate-800">{prestadorAcessoAlvo.nome}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">E-mail destinatário:</span>
+                  <span className="font-mono font-medium text-[#D95A2B]">
+                    {prestadorAcessoAlvo.email}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Perfil:</span>
+                  <span className="font-medium text-slate-700">
+                    Executor externo (/portal-prestador)
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-2 p-3 bg-orange-50/50 rounded-lg border border-orange-200/60">
+                <Checkbox
+                  id="enviar_convite_email"
+                  checked={enviarConviteEmail}
+                  onCheckedChange={(checked) => setEnviarConviteEmail(!!checked)}
+                  className="mt-0.5 data-[state=checked]:bg-[#D95A2B] data-[state=checked]:border-[#D95A2B]"
+                />
+                <div className="grid gap-1 leading-none">
+                  <label
+                    htmlFor="enviar_convite_email"
+                    className="text-xs font-semibold text-slate-800 cursor-pointer"
+                  >
+                    Enviar convite por e-mail
+                  </label>
+                  <p className="text-[11px] text-slate-500">
+                    Dispara uma mensagem oficial com link de acesso e orientações de primeiro login
+                    para o e-mail informado.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setModalAcessoOpen(false)}
+              disabled={processandoAcesso}
+              className="text-xs"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleConfirmarAcesso}
+              disabled={processandoAcesso}
+              className="bg-[#D95A2B] hover:bg-[#c44e24] text-white text-xs gap-1.5"
+            >
+              {processandoAcesso ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Processando...
+                </>
+              ) : acessoJaExiste ? (
+                <>
+                  <Send className="w-3.5 h-3.5" />
+                  Reenviar Convite
+                </>
+              ) : (
+                <>
+                  <KeyRound className="w-3.5 h-3.5" />
+                  Confirmar e Criar Acesso
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal Criar/Editar Prestador */}
       <Dialog open={modalNovoOpen} onOpenChange={setModalNovoOpen}>

@@ -979,10 +979,9 @@ export interface ExecutorRecord {
   motivo_suspensao?: string
   nota_geral?: number
   total_avaliacoes?: number
-  created: string
-  updated: string
+  created?: string
+  updated?: string
 }
-
 export interface ProjetoEtapaRecord {
   id: string
   projeto: string
@@ -1737,6 +1736,9 @@ export interface PrestadorRecord {
   custo_mensal?: number
   horas_mes?: number
   custo_hora?: number
+
+  // Item 8: Flag de acesso ao portal
+  tem_acesso_portal?: boolean
 
   created: string
   updated: string

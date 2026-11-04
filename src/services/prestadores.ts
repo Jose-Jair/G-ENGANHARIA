@@ -2,6 +2,7 @@ import pb from '@/lib/pocketbase/client'
 import {
   PrestadorRecord,
   ProfissionalPrestadorRecord,
+  UserRecord,
   ContratoMestreRecord,
   OrdemServicoRecord,
   PortalOsRecord,
@@ -175,6 +176,113 @@ export const prestadoresService = {
       method: 'POST',
       body: payload,
     })
+  },
+
+  /**
+   * ITEM 8: Cria ou gerencia o acesso do prestador ao portal (Role executor)
+   * Rota: POST /backend/v1/prestadores/criar-acesso (Restrito a Admin)
+   */
+  async criarOuGerenciarAcesso(
+    prestadorId: string,
+    enviarConvite: boolean = true,
+  ): Promise<{
+    sucesso: boolean
+    ja_tinha_acesso: boolean
+    user_id?: string
+    email?: string
+    convite_enviado?: boolean
+    mensagem?: string
+    error?: string
+  }> {
+    return pb.send('/backend/v1/prestadores/criar-acesso', {
+      method: 'POST',
+      body: {
+        prestador_id: prestadorId,
+        enviar_convite: enviarConvite,
+      },
+    })
+  },
+
+  /**
+   * ITEM 8: Consulta se o prestador já possui usuário de acesso vinculado.
+   * Busca em users por e-mail ou prestador_id. Apenas admin tem permissão de list em users.
+   */
+  async verificarAcessoPrestador(
+    prestadorId: string,
+    email?: string,
+  ): Promise<{ temAcesso: boolean; userId?: string }> {
+    try {
+      const cleanEmail = (email || '').trim().toLowerCase()
+      const cleanPid = (prestadorId || '').trim()
+
+      if (!cleanEmail && !cleanPid) {
+        return { temAcesso: false }
+      }
+
+      const filters: string[] = []
+      if (cleanEmail) {
+        filters.push(`email = '${cleanEmail.replace(/'/g, "\\'")}'`)
+      }
+      if (cleanPid) {
+        filters.push(`prestador_id = '${cleanPid.replace(/'/g, "\\'")}'`)
+        filters.push(`prestador = '${cleanPid.replace(/'/g, "\\'")}'`)
+      }
+
+      const records = await pb.collection('users').getList<UserRecord>(1, 1, {
+        filter: filters.join(' || '),
+      })
+
+      if (records.items.length > 0) {
+        return { temAcesso: true, userId: records.items[0].id }
+      }
+      return { temAcesso: false }
+    } catch {
+      return { temAcesso: false }
+    }
+  },
+
+  /**
+   * ITEM 8: Carrega mapa de IDs de prestadores com acesso existente para uma lista de prestadores.
+   * Otimiza a renderização da lista para administradores em uma única busca.
+   */
+  async mapearAcessosPrestadores(
+    prestadoresList: Array<{ id: string; email: string }>,
+  ): Promise<Record<string, boolean>> {
+    const mapa: Record<string, boolean> = {}
+    if (!prestadoresList || prestadoresList.length === 0) return mapa
+
+    try {
+      // Buscar todos os usuários executor para mapear
+      const users = await pb.collection('users').getFullList<UserRecord>({
+        filter: "role = 'executor'",
+      })
+
+      const emailsComAcesso = new Set(
+        users.map((u) => (u.email || '').trim().toLowerCase()).filter(Boolean),
+      )
+      const pidsComAcesso = new Set(
+        users
+          .map((u) => {
+            const raw = u as any
+            return (raw.prestador_id || raw.prestador || '').trim()
+          })
+          .filter(Boolean),
+      )
+
+      for (const p of prestadoresList) {
+        const pEmail = (p.email || '').trim().toLowerCase()
+        const pId = (p.id || '').trim()
+        if ((pEmail && emailsComAcesso.has(pEmail)) || (pId && pidsComAcesso.has(pId))) {
+          mapa[p.id] = true
+        } else {
+          mapa[p.id] = false
+        }
+      }
+    } catch {
+      // Se falhar ou não tiver permissão, retorna vazio
+    }
+
+    return mapa
   },
 
   // ===========================================================================

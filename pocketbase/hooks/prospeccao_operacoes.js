@@ -1,3 +1,8 @@
+// Desregistrar cron de prova removido (v0.0.213)
+try {
+  cronRemove('prospeccao_probe_transparencia_prova')
+} catch (_) {}
+
 // Hooks e Rotas de Prospecção Automática - Parte 1
 // Endpoints:
 // - POST /backend/v1/prospeccao/executar-varredura
@@ -1842,83 +1847,6 @@ routerAdd(
 // -----------------------------------------------------------------------------
 // CRON DIÁRIO AUTOMÁTICO DE VARREDURA (03:00)
 // -----------------------------------------------------------------------------
-cronAdd('prospeccao_probe_transparencia_prova', '*/5 * * * *', () => {
-  try {
-    const chave = ($os.getenv('PORTAL_TRANSPARENCIA_API_KEY') || '').trim()
-    if (!chave) {
-      console.log('[PROVA REAL PORTAL TRANSPARENCIA] Chave ausente no $os.getenv')
-      return
-    }
-
-    let ceisStatus = 0
-    let ceisLength = 0
-    try {
-      const res = $http.send({
-        url: 'https://api.portaldatransparencia.gov.br/api-de-dados/ceis?pagina=1',
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          'chave-api-dados': chave,
-          'User-Agent': 'GESTAO-GPLUS/1.0',
-        },
-        timeout: 20,
-      })
-      ceisStatus = res.statusCode
-      if (Array.isArray(res.json)) ceisLength = res.json.length
-    } catch (e1) {
-      ceisStatus = 500
-    }
-
-    let cnepStatus = 0
-    let cnepLength = 0
-    try {
-      const res = $http.send({
-        url: 'https://api.portaldatransparencia.gov.br/api-de-dados/cnep?pagina=1',
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          'chave-api-dados': chave,
-          'User-Agent': 'GESTAO-GPLUS/1.0',
-        },
-        timeout: 20,
-      })
-      cnepStatus = res.statusCode
-      if (Array.isArray(res.json)) cnepLength = res.json.length
-    } catch (e2) {
-      cnepStatus = 500
-    }
-
-    // Sincroniza fontes_prospeccao
-    try {
-      const fTransp = $app.findFirstRecordByData(
-        'fontes_prospeccao',
-        'slug',
-        'portal_transparencia',
-      )
-      if (fTransp) {
-        fTransp.set('chave_configurada', true)
-        fTransp.set('aviso_configuracao', '')
-        $app.save(fTransp)
-      }
-    } catch (_) {}
-
-    console.log(
-      '[PROVA REAL PORTAL TRANSPARENCIA] CEIS HTTP ' +
-        ceisStatus +
-        ' (' +
-        ceisLength +
-        ' registros) | CNEP HTTP ' +
-        cnepStatus +
-        ' (' +
-        cnepLength +
-        ' registros) | Total lidos: ' +
-        (ceisLength + cnepLength),
-    )
-  } catch (err) {
-    console.log('[PROVA REAL PORTAL TRANSPARENCIA] Erro: ' + err)
-  }
-})
-
 cronAdd('prospeccao_diaria_pncp', '0 3 * * *', () => {
   try {
     const fonte = $app.findFirstRecordByData('fontes_prospeccao', 'slug', 'pncp_contratos')

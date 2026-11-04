@@ -336,33 +336,102 @@ export const ordensServicoService = {
   },
 }
 
+/**
+ * Helper para obter email normalizado e id do prestador do usuário logado
+ */
+export async function getPrestadorAuthIdentidade(): Promise<{ email: string; pid: string }> {
+  const rawModel = (pb.authStore.record || pb.authStore.model) as Record<string, any> | null
+  const rawEmail = String(rawModel?.email || '')
+    .trim()
+    .toLowerCase()
+
+  let pid = String(
+    rawModel?.prestador_id || rawModel?.prestador || rawModel?.id_prestador || '',
+  ).trim()
+
+  if (!pid && rawEmail) {
+    try {
+      const records = await pb.collection('prestadores').getFullList<PrestadorRecord>({
+        filter: `email = '${rawEmail.replace(/'/g, "\\'")}'`,
+        limit: 1,
+      })
+      if (records[0]?.id) {
+        pid = records[0].id
+      }
+    } catch {
+      // Caso RLS de prestadores não permita leitura para executor, mantém pid vazio
+    }
+  }
+
+  return { email: rawEmail, pid }
+}
+
+/**
+ * Constrói filtro seguro por prestador:
+ * (prestador_id = '{pid}' || prestador_email = '{email}') se pid existir,
+ * senão apenas prestador_email = '{email}'.
+ */
+export function buildPrestadorFilter(
+  identidade: { email: string; pid: string },
+  filtroAdicional?: string,
+): string {
+  const safeEmail = identidade.email.replace(/'/g, "\\'")
+  const safePid = identidade.pid.replace(/'/g, "\\'")
+
+  let baseFilter = ''
+  if (safePid && safeEmail) {
+    baseFilter = `(prestador_id = '${safePid}' || prestador_email = '${safeEmail}')`
+  } else if (safePid) {
+    baseFilter = `prestador_id = '${safePid}'`
+  } else if (safeEmail) {
+    baseFilter = `prestador_email = '${safeEmail}'`
+  }
+
+  if (baseFilter && filtroAdicional) {
+    return `${baseFilter} && (${filtroAdicional})`
+  }
+  return baseFilter || filtroAdicional || ''
+}
+
 export const portalPrestadorService = {
   /**
    * Consulta as OS projetadas do portal pertencentes ao prestador autenticado
-   * (filtrado automaticamente pelo RLS: prestador_email = @request.auth.email)
+   * Filtra por (prestador_id = '{pid}' || prestador_email = '{email}')
    */
   async listMinhasOS(): Promise<PortalOsRecord[]> {
+    const ident = await getPrestadorAuthIdentidade()
+    const filter = buildPrestadorFilter(ident)
+
     return pb.collection('portal_os').getFullList<PortalOsRecord>({
+      filter: filter || undefined,
       sort: '-created',
     })
   },
 
   /**
    * Consulta os entregáveis técnicos projetados da OS
+   * Filtra por os_id e (prestador_id = '{pid}' || prestador_email = '{email}')
    */
   async listEntregaveis(osId: string): Promise<PortalEntregavelRecord[]> {
+    const ident = await getPrestadorAuthIdentidade()
+    const filter = buildPrestadorFilter(ident, `os_id = '${osId}'`)
+
     return pb.collection('portal_entregaveis').getFullList<PortalEntregavelRecord>({
-      filter: `os_id = '${osId}'`,
+      filter: filter || `os_id = '${osId}'`,
       sort: '-created',
     })
   },
 
   /**
    * Consulta os documentos técnicos projetados da OS
+   * Filtra por os_id e (prestador_id = '{pid}' || prestador_email = '{email}')
    */
   async listDocumentos(osId: string): Promise<PortalDocumentoRecord[]> {
+    const ident = await getPrestadorAuthIdentidade()
+    const filter = buildPrestadorFilter(ident, `os_id = '${osId}'`)
+
     return pb.collection('portal_documentos').getFullList<PortalDocumentoRecord>({
-      filter: `os_id = '${osId}'`,
+      filter: filter || `os_id = '${osId}'`,
       sort: '-created',
     })
   },

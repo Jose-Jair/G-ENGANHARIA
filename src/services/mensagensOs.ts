@@ -7,6 +7,7 @@
 
 import pb from '@/lib/pocketbase/client'
 import type { MensagemOsRecord, ContadoresMensagensNaoLidasResponse } from '@/types'
+import { getPrestadorAuthIdentidade } from '@/services/prestadores'
 
 export interface EnviarMensagemOsPayload {
   os: string
@@ -21,11 +22,36 @@ export interface EnviarMensagemOsPayload {
 export const mensagensOsService = {
   /**
    * Listar histórico de mensagens de uma OS, ordenadas cronologicamente.
+   * Para perfil executor (prestador), filtra por os_id e (os.prestador = '{pid}' || os.prestador.email = '{email}')
    */
   async listarPorOs(osId: string): Promise<MensagemOsRecord[]> {
     if (!osId) return []
+
+    const userRole = (pb.authStore.record || pb.authStore.model)?.role
+    let filter = `os = "${osId}"`
+
+    // Se for executor/prestador, aplica isolamento por prestador_id / prestador_email na relação os.prestador
+    if (userRole === 'executor') {
+      const ident = await getPrestadorAuthIdentidade()
+      const safeEmail = ident.email.replace(/'/g, "\\'")
+      const safePid = ident.pid.replace(/'/g, "\\'")
+
+      let prestadorCond = ''
+      if (safePid && safeEmail) {
+        prestadorCond = `(os.prestador = '${safePid}' || os.prestador.email = '${safeEmail}')`
+      } else if (safePid) {
+        prestadorCond = `os.prestador = '${safePid}'`
+      } else if (safeEmail) {
+        prestadorCond = `os.prestador.email = '${safeEmail}'`
+      }
+
+      if (prestadorCond) {
+        filter = `${filter} && ${prestadorCond}`
+      }
+    }
+
     return pb.collection('mensagens_os').getFullList<MensagemOsRecord>({
-      filter: `os = "${osId}"`,
+      filter,
       sort: '+created',
       expand: 'autor_usuario',
     })

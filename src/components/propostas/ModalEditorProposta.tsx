@@ -47,6 +47,8 @@ import { normalizarObjetoProposta } from '@/lib/formatters'
 import { catalogoServicosService } from '@/services/catalogoServicos'
 import { empresasService } from '@/services/empresas'
 import { clientesPfService } from '@/services/clientesPf'
+import { montarQualificacaoPf } from '@/lib/qualificacaoPf'
+import { ModalEnviarLinkCadastro } from '@/components/clientesPf/ModalEnviarLinkCadastro'
 import { contratosService } from '@/services/contratos'
 import { modelosService } from '@/services/modelos'
 import { parametrosService } from '@/services/parametros'
@@ -120,6 +122,7 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
   const [tipoCliente, setTipoCliente] = useState<'pj' | 'pf'>('pj')
   const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>('')
   const [selectedClientePfId, setSelectedClientePfId] = useState<string>('')
+  const [showEnviarLinkPf, setShowEnviarLinkPf] = useState(false)
   const [selectedContratoId, setSelectedContratoId] = useState<string>('')
   const [selectedModeloId, setSelectedModeloId] = useState<string>('')
 
@@ -729,6 +732,18 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
   // Verifica se há custo direto informado para a alçada
   const temCustoInformado = custoTotalItens > 0
 
+  // Aviso não bloqueante para cliente PF com cadastro incompleto (etapa 3/3 — B2b)
+  const clientePfSelecionado =
+    tipoCliente === 'pf' ? clientesPf.find((c) => c.id === selectedClientePfId) : undefined
+  const qualificacaoPfSelecionada = clientePfSelecionado
+    ? montarQualificacaoPf(clientePfSelecionado)
+    : null
+  const clientePfIncompleto = Boolean(
+    clientePfSelecionado &&
+    ((qualificacaoPfSelecionada?.faltando.length ?? 0) > 0 ||
+      (clientePfSelecionado.cadastro_status || '') !== 'completo'),
+  )
+
   useEffect(() => {
     const margemParaAlcada = temCustoInformado ? totais.margemEfetivaPercent : margemPercent
     const aval = propostasService.avaliarAlcada(
@@ -1129,6 +1144,41 @@ export const ModalEditorProposta: React.FC<ModalEditorPropostaProps> = ({
                       </Select>
                     </div>
                   </div>
+                )}
+
+                {/* Aviso não bloqueante: cliente PF com cadastro incompleto */}
+                {clientePfIncompleto && clientePfSelecionado && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row sm:items-start gap-3">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="flex-1 text-xs text-amber-900 space-y-1.5">
+                      <p className="font-semibold text-amber-950">
+                        Cadastro do cliente PF incompleto (aviso — não bloqueia a proposta)
+                      </p>
+                      <p className="text-[11px] text-amber-800">
+                        Dados que faltarão na qualificação do contrato:{' '}
+                        <strong>{(qualificacaoPfSelecionada?.faltando || []).join(', ')}</strong>. A
+                        proposta pode ser gerada normalmente.
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
+                        onClick={() => setShowEnviarLinkPf(true)}
+                      >
+                        Enviar link de cadastro
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {showEnviarLinkPf && clientePfSelecionado && (
+                  <ModalEnviarLinkCadastro
+                    open={showEnviarLinkPf}
+                    onOpenChange={setShowEnviarLinkPf}
+                    cliente={clientePfSelecionado}
+                    onSuccess={() => undefined}
+                  />
                 )}
               </div>
 

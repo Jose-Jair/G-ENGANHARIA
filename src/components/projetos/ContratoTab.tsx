@@ -18,6 +18,7 @@ import {
   MessageSquare,
   Sparkles,
   CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { geradorPacotesContratoService } from '@/services/geradorPacotesContrato'
@@ -27,7 +28,18 @@ import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ContratoServicoRecord, ProjetoRecord } from '@/types'
+import { ContratoServicoRecord, ProjetoRecord, ClientePfRecord } from '@/types'
+import { montarQualificacaoPf } from '@/lib/qualificacaoPf'
+import { ModalEnviarLinkCadastro } from '@/components/clientesPf/ModalEnviarLinkCadastro'
+import { ClientePfDetailModal } from '@/components/clientesPf/ClientePfDetailModal'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
 import { contratosServicoService } from '@/services/contratosServico'
 import { DossieContratoServicoGmais } from '@/components/contratosServico/DossieContratoServicoGmais'
@@ -131,6 +143,11 @@ export function ContratoTab({
   const [dossieOpen, setDossieOpen] = useState(false)
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false)
   const [showComplementoWhatsAppModal, setShowComplementoWhatsAppModal] = useState(false)
+  const [showAvisoPfIncompleto, setShowAvisoPfIncompleto] = useState(false)
+  const [showEnviarLinkPf, setShowEnviarLinkPf] = useState(false)
+  const [showCompletarClientePf, setShowCompletarClientePf] = useState(false)
+  const [confirmandoGerarPf, setConfirmandoGerarPf] = useState(false)
+  const [gerarMesmoAssimPf, setGerarMesmoAssimPf] = useState(false)
   const [segundosAssinando, setSegundosAssinando] = useState(0)
 
   React.useEffect(() => {
@@ -178,7 +195,30 @@ export function ContratoTab({
     ? `${getAppBaseUrl()}/completar-cadastro/${contrato.token_complemento_dados}`
     : ''
 
+  const clientePfContratante =
+    ((contrato.expand?.cliente_pf || projeto.expand?.cliente_pf) as
+      | ClientePfRecord
+      | null
+      | undefined) || null
+  const qualificacaoPfContratante = clientePfContratante
+    ? montarQualificacaoPf(clientePfContratante)
+    : null
+  const isClientePfIncompleto = Boolean(
+    clientePfContratante &&
+    ((qualificacaoPfContratante?.faltando.length ?? 0) > 0 ||
+      (clientePfContratante.cadastro_status || '') !== 'completo'),
+  )
+  const faltandoPf = isClientePfIncompleto ? qualificacaoPfContratante?.faltando || [] : []
+
   const handleAssinarComoAdmin = async () => {
+    if (isClientePfIncompleto && !gerarMesmoAssimPf) {
+      setShowAvisoPfIncompleto(true)
+      return
+    }
+    await executarAssinaturaAdmin()
+  }
+
+  const executarAssinaturaAdmin = async () => {
     setAssinandoAdmin(true)
 
     // Timeout de segurança visível (~30s) para evitar giro indefinido
@@ -215,6 +255,13 @@ export function ContratoTab({
     } finally {
       setAssinandoAdmin(false)
     }
+  }
+
+  const handleGerarMesmoAssimPf = () => {
+    setConfirmandoGerarPf(false)
+    setShowAvisoPfIncompleto(false)
+    setGerarMesmoAssimPf(true)
+    void executarAssinaturaAdmin()
   }
 
   const handleSalvarClausulas = async () => {
@@ -340,6 +387,51 @@ export function ContratoTab({
             </div>
           </div>
         )
+      )}
+
+      {/* Aviso amarelo: qualificação do cliente PF incompleta (etapa 3/3 — B2b) */}
+      {isClientePfIncompleto && !assinado && (
+        <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-lg flex flex-col gap-3">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-amber-900 space-y-1">
+              <p className="font-bold text-amber-950 text-sm">
+                Qualificação do cliente PF incompleta
+              </p>
+              <p>
+                Antes de gerar/emitir o contrato, faltam dados de qualificação:{' '}
+                <strong>{faltandoPf.join(', ') || 'verifique o cadastro do cliente'}</strong>.
+              </p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs border-amber-300 bg-amber-100/70 text-amber-900 hover:bg-amber-100"
+                  onClick={() => setShowEnviarLinkPf(true)}
+                >
+                  Enviar link de cadastro
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
+                  onClick={() => setShowCompletarClientePf(true)}
+                >
+                  Completar agora
+                </Button>
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                    onClick={() => setShowAvisoPfIncompleto(true)}
+                  >
+                    Gerar mesmo assim
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Cabeçalho do Contrato */}
@@ -844,6 +936,96 @@ export function ContratoTab({
           onEnvioConcluido={() => {
             onRefresh()
           }}
+        />
+      )}
+
+      {/* Diálogo do aviso PF (aberto ao tentar gerar/emitir com cadastro incompleto) */}
+      <Dialog open={showAvisoPfIncompleto} onOpenChange={setShowAvisoPfIncompleto}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-800">
+              <AlertTriangle className="w-5 h-5 text-amber-600" />
+              Cadastro do cliente PF incompleto
+            </DialogTitle>
+            <DialogDescription>
+              A qualificação do contratante no contrato ficará incompleta. Dados que faltam:{' '}
+              <strong>{faltandoPf.join(', ') || '—'}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setShowAvisoPfIncompleto(false)
+                setShowEnviarLinkPf(true)
+              }}
+            >
+              Enviar link de cadastro
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setShowAvisoPfIncompleto(false)
+                setShowCompletarClientePf(true)
+              }}
+            >
+              Completar agora
+            </Button>
+            {isAdmin && (
+              <Button
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                onClick={() => setConfirmandoGerarPf(true)}
+              >
+                Gerar mesmo assim
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação explícita para o admin prosseguir mesmo com dados faltando */}
+      <Dialog open={confirmandoGerarPf} onOpenChange={setConfirmandoGerarPf}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Gerar contrato mesmo com cadastro incompleto?</DialogTitle>
+            <DialogDescription>
+              O contrato será emitido com a qualificação atual do cliente PF, mesmo faltando:{' '}
+              <strong>{faltandoPf.join(', ') || '—'}</strong>. A ação fica registrada na auditoria e
+              não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmandoGerarPf(false)}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+              onClick={handleGerarMesmoAssimPf}
+            >
+              Sim, gerar mesmo assim
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {showEnviarLinkPf && clientePfContratante && (
+        <ModalEnviarLinkCadastro
+          open={showEnviarLinkPf}
+          onOpenChange={setShowEnviarLinkPf}
+          cliente={clientePfContratante}
+          onSuccess={onRefresh}
+        />
+      )}
+
+      {showCompletarClientePf && clientePfContratante && (
+        <ClientePfDetailModal
+          open={showCompletarClientePf}
+          onOpenChange={setShowCompletarClientePf}
+          cliente={clientePfContratante}
+          propostas={[]}
+          onClienteUpdated={() => onRefresh()}
         />
       )}
     </div>

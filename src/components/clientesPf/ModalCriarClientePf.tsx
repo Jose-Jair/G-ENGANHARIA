@@ -13,18 +13,44 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { User, ShieldCheck, FilePlus2, Loader2, AlertCircle, Mail } from 'lucide-react'
+import { User, ShieldCheck, FilePlus2, Loader2, AlertCircle, Mail, Link2 } from 'lucide-react'
 import { formatCpf, isValidCpf, cleanCpf } from '@/lib/cnpj'
+import { formatPhoneProgressive } from '@/lib/phone'
 import { useToast } from '@/hooks/use-toast'
 import { clientesPfService, CreateClientePfData } from '@/services/clientesPf'
 import { BASE_LEGAL_LGPD_LABELS, BaseLegalLgpd, TelefoneItem } from '@/types'
 import { ListaTelefones } from '@/components/comum/ListaTelefones'
 import { EnderecoComCep, EnderecoValue } from '@/components/comum/EnderecoComCep'
+import { ESTADOS_BRASIL } from '@/services/cep'
+import {
+  OPCOES_ESTADO_CIVIL,
+  ESTADOS_CIVIL_COM_REGIME,
+} from '@/components/clientesPf/cadastroClientePfConstants'
+
+type ModoCadastro = 'completo' | 'pre_cadastro'
 
 interface ModalCriarClientePfProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess: () => void
+  onSuccess: (criouPreCadastro?: boolean) => void
+}
+
+const FORM_VAZIO: CreateClientePfData = {
+  nome: '',
+  cpf: '',
+  email: '',
+  base_legal: 'consentimento',
+  consentimento_lgpd: false,
+  data_consentimento: new Date().toISOString().split('T')[0],
+  observacoes: '',
+  rg: '',
+  rg_orgao_emissor: '',
+  rg_uf: '',
+  estado_civil: '',
+  regime_bens: '',
+  profissao: '',
+  nacionalidade: '',
+  data_nascimento: '',
 }
 
 export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCriarClientePfProps) {
@@ -32,15 +58,11 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
   const [salvando, setSalvando] = useState(false)
   const [cpfError, setCpfError] = useState<string | null>(null)
 
-  const [formData, setFormData] = useState<CreateClientePfData>({
-    nome: '',
-    cpf: '',
-    email: '',
-    base_legal: 'consentimento',
-    consentimento_lgpd: false,
-    data_consentimento: new Date().toISOString().split('T')[0],
-    observacoes: '',
-  })
+  // Modo de cadastro: completo (fluxo atual) ou pré-cadastro (cliente completa pelo link)
+  const [modo, setModo] = useState<ModoCadastro>('completo')
+
+  const [formData, setFormData] = useState<CreateClientePfData>({ ...FORM_VAZIO })
+  const [telefoneSimples, setTelefoneSimples] = useState('')
 
   const [telefones, setTelefones] = useState<TelefoneItem[]>([])
   const [endereco, setEndereco] = useState<EnderecoValue>({
@@ -62,6 +84,9 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
     prazo: '20 dias',
   })
 
+  const isPreCadastro = modo === 'pre_cadastro'
+  const temContato = Boolean((formData.email || '').trim()) || Boolean(telefoneSimples.trim())
+
   const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = cleanCpf(e.target.value)
     setFormData((prev) => ({ ...prev, cpf: raw }))
@@ -81,45 +106,79 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
     window.location.href = `mailto:${formData.email.trim()}`
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!formData.nome.trim()) {
-      toast({
-        title: 'Nome obrigatório',
-        description: 'Informe o nome completo do cliente Pessoa Física.',
-        variant: 'destructive',
-      })
-      return
+  const trocarModo = (novoModo: ModoCadastro) => {
+    setModo(novoModo)
+    setCpfError(null)
+    if (novoModo === 'pre_cadastro') {
+      setIncluirProposta(false)
     }
+  }
 
+  const resetarFormulario = () => {
+    setFormData({ ...FORM_VAZIO, data_consentimento: new Date().toISOString().split('T')[0] })
+    setTelefoneSimples('')
+    setTelefones([])
+    setEndereco({
+      cep: '',
+      logradouro: '',
+      numero: '',
+      complemento: '',
+      bairro: '',
+      municipio: '',
+      uf: '',
+    })
+    setIncluirProposta(false)
+    setCpfError(null)
+    setModo('completo')
+  }
+
+  const validarPreCadastro = (): string | null => {
+    if (!formData.nome.trim()) {
+      return 'Informe o nome do cliente para criar o pré-cadastro.'
+    }
+    if (!temContato) {
+      return 'Informe pelo menos um contato: telefone ou e-mail.'
+    }
+    if (
+      formData.cpf &&
+      cleanCpf(formData.cpf).length === 11 &&
+      !isValidCpf(cleanCpf(formData.cpf))
+    ) {
+      return 'O CPF informado é inválido. Corrija ou deixe em branco para o cliente completar.'
+    }
+    return null
+  }
+
+  const validarCompleto = (): string | null => {
     const clean = cleanCpf(formData.cpf)
     if (!clean || clean.length !== 11 || !isValidCpf(clean)) {
       setCpfError('Informe um CPF válido com 11 dígitos.')
-      toast({
-        title: 'CPF inválido',
-        description: 'Dígitos verificadores do CPF informados não conferem.',
-        variant: 'destructive',
-      })
-      return
+      return 'CPF inválido: informe um CPF válido com 11 dígitos.'
     }
-
     if (!formData.consentimento_lgpd) {
-      toast({
-        title: 'Consentimento obrigatório',
-        description: 'É necessário registrar o consentimento LGPD para cadastrar o cliente.',
-        variant: 'destructive',
-      })
-      return
+      return 'É necessário registrar o consentimento LGPD para cadastrar o cliente.'
     }
-
     if (incluirProposta && !propostaData.escopo.trim()) {
-      toast({
-        title: 'Escopo da proposta obrigatório',
-        description: 'Preencha o escopo da proposta comercial vinculada ao cliente PF.',
-        variant: 'destructive',
-      })
-      return
+      return 'Preencha o escopo da proposta comercial vinculada ao cliente PF.'
+    }
+    return null
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (isPreCadastro) {
+      const erro = validarPreCadastro()
+      if (erro) {
+        toast({ title: 'Pré-cadastro incompleto', description: erro, variant: 'destructive' })
+        return
+      }
+    } else {
+      const erro = validarCompleto()
+      if (erro) {
+        toast({ title: 'Dados incompletos', description: erro, variant: 'destructive' })
+        return
+      }
     }
 
     // String compatível com o endereço de texto existente
@@ -133,12 +192,32 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
     ].filter(Boolean)
     const enderecoTexto = partesEndereco.join(', ')
 
+    const telefonesFinais: TelefoneItem[] = isPreCadastro
+      ? telefoneSimples.trim()
+        ? [
+            {
+              id: `${Date.now()}`,
+              numero: telefoneSimples.trim(),
+              tipo: 'celular',
+              whatsapp: true,
+            },
+          ]
+        : []
+      : telefones
+
     setSalvando(true)
     try {
       await clientesPfService.create({
         ...formData,
-        cpf: formatCpf(formData.cpf),
-        telefones,
+        cpf: isPreCadastro
+          ? cleanCpf(formData.cpf)
+            ? formatCpf(formData.cpf)
+            : ''
+          : formatCpf(formData.cpf),
+        email: (formData.email || '').trim(),
+        telefone: isPreCadastro ? telefoneSimples.trim() : undefined,
+        telefones: telefonesFinais,
+        consentimento_lgpd: isPreCadastro ? Boolean(formData.consentimento_lgpd) : true,
         cep: endereco.cep?.trim() || undefined,
         logradouro: endereco.logradouro?.trim() || undefined,
         numero: endereco.numero?.trim() || undefined,
@@ -147,23 +226,29 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
         municipio: endereco.municipio?.trim() || undefined,
         uf: endereco.uf?.trim() || undefined,
         endereco: enderecoTexto || undefined,
-        propostaOpcional: incluirProposta
-          ? {
-              numero: propostaData.numero,
-              escopo: propostaData.escopo,
-              preco: Number(propostaData.preco) || 0,
-              prazo: propostaData.prazo,
-            }
-          : undefined,
+        pre_cadastro: isPreCadastro,
+        propostaOpcional:
+          !isPreCadastro && incluirProposta
+            ? {
+                numero: propostaData.numero,
+                escopo: propostaData.escopo,
+                preco: Number(propostaData.preco) || 0,
+                prazo: propostaData.prazo,
+              }
+            : undefined,
       })
 
       toast({
-        title: 'Cliente PF cadastrado com sucesso!',
-        description: 'Cadastro realizado e registro auditado com consentimento LGPD.',
+        title: isPreCadastro ? 'Pré-cadastro criado!' : 'Cliente PF cadastrado com sucesso!',
+        description: isPreCadastro
+          ? 'Use "Enviar link de cadastro" na lista para o cliente completar os dados pelo link.'
+          : 'Cadastro realizado e registro auditado com consentimento LGPD.',
       })
 
+      const criouPre = isPreCadastro
+      resetarFormulario()
       onOpenChange(false)
-      onSuccess()
+      onSuccess(criouPre)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Falha ao cadastrar cliente PF.'
       toast({
@@ -197,7 +282,7 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
             type="submit"
             form="form-criar-cliente-pf"
             size="sm"
-            disabled={salvando || Boolean(cpfError)}
+            disabled={salvando || (!isPreCadastro && Boolean(cpfError))}
             className="bg-blue-600 hover:bg-blue-700 text-xs"
           >
             {salvando ? (
@@ -205,6 +290,8 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
                 <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                 Salvando...
               </>
+            ) : isPreCadastro ? (
+              'Salvar Pré-cadastro'
             ) : (
               'Salvar Cliente PF'
             )}
@@ -213,6 +300,48 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
       }
     >
       <form id="form-criar-cliente-pf" onSubmit={handleSubmit} className="space-y-4">
+        {/* Seletor de modo */}
+        <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/60 space-y-2">
+          <Label className="text-xs font-semibold text-slate-700">Como quer cadastrar?</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => trocarModo('completo')}
+              className={`text-left p-3 rounded-lg border transition-colors ${
+                !isPreCadastro
+                  ? 'border-[#D95A2B] bg-orange-50 ring-1 ring-[#D95A2B]/40'
+                  : 'border-slate-200 bg-white hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
+                <User className="w-3.5 h-3.5 text-[#D95A2B]" />
+                Cadastro completo agora
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                Você preenche todos os dados do cliente (CPF, contato, endereço e LGPD).
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => trocarModo('pre_cadastro')}
+              className={`text-left p-3 rounded-lg border transition-colors ${
+                isPreCadastro
+                  ? 'border-[#D95A2B] bg-orange-50 ring-1 ring-[#D95A2B]/40'
+                  : 'border-slate-200 bg-white hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
+                <Link2 className="w-3.5 h-3.5 text-[#D95A2B]" />
+                Pré-cadastro — o cliente completa pelo link
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                Salve só o nome e um contato. Depois, envie o link de cadastro para o cliente
+                completar os próprios dados (válido 7 dias, uso único).
+              </p>
+            </button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1 sm:col-span-2">
             <Label className="text-xs">
@@ -227,71 +356,250 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
             />
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs">
-              CPF (com validação estrita) <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              required
-              value={formatCpf(formData.cpf)}
-              onChange={handleCpfChange}
-              placeholder="000.000.000-00"
-              className={`text-xs h-9 font-mono bg-white ${
-                cpfError ? 'border-red-500 focus-visible:ring-red-400' : ''
-              }`}
-            />
-            {cpfError && (
-              <span className="text-[11px] text-red-600 flex items-center gap-1 mt-0.5">
-                <AlertCircle className="w-3 h-3" />
-                {cpfError}
-              </span>
-            )}
-          </div>
+          {!isPreCadastro ? (
+            <>
+              <div className="space-y-1">
+                <Label className="text-xs">
+                  CPF (com validação estrita) <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  required
+                  value={formatCpf(formData.cpf)}
+                  onChange={handleCpfChange}
+                  placeholder="000.000.000-00"
+                  className={`text-xs h-9 font-mono bg-white ${
+                    cpfError ? 'border-red-500 focus-visible:ring-red-400' : ''
+                  }`}
+                />
+                {cpfError && (
+                  <span className="text-[11px] text-red-600 flex items-center gap-1 mt-0.5">
+                    <AlertCircle className="w-3 h-3" />
+                    {cpfError}
+                  </span>
+                )}
+              </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs">E-mail (Único)</Label>
-            <div className="flex items-center gap-1.5">
-              <Input
-                type="email"
-                value={formData.email || ''}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="cliente@email.com"
-                className="text-xs h-9 bg-white flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleEnviarEmail}
-                disabled={!formData.email?.trim()}
-                className="h-9 px-2 text-xs text-blue-700 hover:bg-blue-50 border-blue-200 gap-1 shrink-0"
-                title="Abrir no cliente de e-mail padrão (mailto:)"
-              >
-                <Mail className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Enviar</span>
-              </Button>
+              <div className="space-y-1">
+                <Label className="text-xs">E-mail (Único)</Label>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="email"
+                    value={formData.email || ''}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="cliente@email.com"
+                    className="text-xs h-9 bg-white flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEnviarEmail}
+                    disabled={!formData.email?.trim()}
+                    className="h-9 px-2 text-xs text-blue-700 hover:bg-blue-50 border-blue-200 gap-1 shrink-0"
+                    title="Abrir no cliente de e-mail padrão (mailto:)"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Enviar</span>
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-1">
+                <Label className="text-xs">
+                  Telefone (WhatsApp) <span className="text-slate-400">— ou e-mail abaixo</span>
+                </Label>
+                <Input
+                  inputMode="tel"
+                  value={telefoneSimples}
+                  onChange={(e) =>
+                    setTelefoneSimples(formatPhoneProgressive(e.target.value) || e.target.value)
+                  }
+                  placeholder="(00) 00000-0000"
+                  className="text-xs h-9 font-mono bg-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">
+                  E-mail <span className="text-slate-400">— ou telefone acima</span>
+                </Label>
+                <Input
+                  type="email"
+                  value={formData.email || ''}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="cliente@email.com"
+                  className="text-xs h-9 bg-white"
+                />
+              </div>
+              {!temContato && (
+                <p className="text-[11px] text-amber-700 sm:col-span-2 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Informe pelo menos um contato (telefone ou e-mail) para conseguir enviar o link.
+                </p>
+              )}
+              <div className="sm:col-span-2 space-y-1">
+                <Label className="text-xs">
+                  CPF <span className="text-slate-400">(opcional no pré-cadastro)</span>
+                </Label>
+                <Input
+                  value={formatCpf(formData.cpf)}
+                  onChange={handleCpfChange}
+                  placeholder="000.000.000-00 — o cliente também pode informar no link"
+                  className={`text-xs h-9 font-mono bg-white ${
+                    cpfError ? 'border-red-500 focus-visible:ring-red-400' : ''
+                  }`}
+                />
+                {cpfError && (
+                  <span className="text-[11px] text-red-600 flex items-center gap-1 mt-0.5">
+                    <AlertCircle className="w-3 h-3" />
+                    {cpfError}
+                  </span>
+                )}
+              </div>
+              <div className="sm:col-span-2 rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-[11px] text-amber-900 leading-snug">
+                No pré-cadastro, o cliente receberá um link seguro e completará os próprios dados
+                (CPF, RG, endereço, contato e aceite LGPD). O cadastro fica em análise até a equipe
+                aprovar.
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Múltiplos Telefones com WhatsApp (fluxo completo) */}
+        {!isPreCadastro && (
+          <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50">
+            <ListaTelefones
+              telefones={telefones}
+              onChange={setTelefones}
+              label="Telefones do Cliente PF"
+              helperText="Adicione múltiplos números (fixo ou celular) com interruptor WhatsApp."
+            />
+          </div>
+        )}
+
+        {/* Campos novos opcionais — fluxo completo */}
+        {!isPreCadastro && (
+          <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50 space-y-3">
+            <span className="text-xs font-bold text-slate-700 uppercase">
+              Dados pessoais (opcionais)
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-[11px]">RG</Label>
+                <Input
+                  value={formData.rg || ''}
+                  onChange={(e) => setFormData({ ...formData, rg: e.target.value })}
+                  className="text-xs h-8 bg-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Órgão emissor</Label>
+                <Input
+                  value={formData.rg_orgao_emissor || ''}
+                  onChange={(e) => setFormData({ ...formData, rg_orgao_emissor: e.target.value })}
+                  placeholder="Ex: SSP"
+                  className="text-xs h-8 bg-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">UF do RG</Label>
+                <Select
+                  value={formData.rg_uf || ''}
+                  onValueChange={(v) => setFormData({ ...formData, rg_uf: v })}
+                >
+                  <SelectTrigger className="text-xs h-8 bg-white">
+                    <SelectValue placeholder="UF" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ESTADOS_BRASIL.map((uf) => (
+                      <SelectItem key={uf.sigla} value={uf.sigla}>
+                        {uf.sigla}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-[11px]">Estado civil</Label>
+                <Select
+                  value={formData.estado_civil || ''}
+                  onValueChange={(v) =>
+                    setFormData({
+                      ...formData,
+                      estado_civil: v,
+                      regime_bens: ESTADOS_CIVIL_COM_REGIME.includes(v)
+                        ? formData.regime_bens || ''
+                        : '',
+                    })
+                  }
+                >
+                  <SelectTrigger className="text-xs h-8 bg-white">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {OPCOES_ESTADO_CIVIL.map((ec) => (
+                      <SelectItem key={ec} value={ec}>
+                        {ec}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {ESTADOS_CIVIL_COM_REGIME.includes(formData.estado_civil || '') && (
+                <div className="space-y-1">
+                  <Label className="text-[11px]">Regime de bens</Label>
+                  <Input
+                    value={formData.regime_bens || ''}
+                    onChange={(e) => setFormData({ ...formData, regime_bens: e.target.value })}
+                    placeholder="Ex: comunhão parcial de bens"
+                    className="text-xs h-8 bg-white"
+                  />
+                </div>
+              )}
+              <div className="space-y-1">
+                <Label className="text-[11px]">Profissão</Label>
+                <Input
+                  value={formData.profissao || ''}
+                  onChange={(e) => setFormData({ ...formData, profissao: e.target.value })}
+                  className="text-xs h-8 bg-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Nacionalidade</Label>
+                <Input
+                  value={formData.nacionalidade || ''}
+                  onChange={(e) => setFormData({ ...formData, nacionalidade: e.target.value })}
+                  placeholder="Ex: Brasileira"
+                  className="text-xs h-8 bg-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Data de nascimento</Label>
+                <Input
+                  type="date"
+                  value={formData.data_nascimento || ''}
+                  onChange={(e) => setFormData({ ...formData, data_nascimento: e.target.value })}
+                  className="text-xs h-8 bg-white font-mono"
+                />
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* Múltiplos Telefones com WhatsApp */}
-        <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50">
-          <ListaTelefones
-            telefones={telefones}
-            onChange={setTelefones}
-            label="Telefones do Cliente PF"
-            helperText="Adicione múltiplos números (fixo ou celular) com interruptor WhatsApp."
-          />
-        </div>
+        )}
 
         {/* Endereço Segmentado com busca ViaCEP e fallback IBGE */}
-        <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50">
-          <EnderecoComCep
-            value={endereco}
-            onChange={setEndereco}
-            label="Endereço Completo do Cliente PF"
-          />
-        </div>
+        {!isPreCadastro && (
+          <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50">
+            <EnderecoComCep
+              value={endereco}
+              onChange={setEndereco}
+              label="Endereço Completo do Cliente PF"
+            />
+          </div>
+        )}
 
         <div className="space-y-1">
           <Label className="text-xs">Observações do Atendimento</Label>
@@ -365,78 +673,83 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
             >
               <strong>Consentimento formal registrado:</strong> O titular autorizou o tratamento de
               seus dados pessoais para execução de serviços de engenharia e emissão de ART/laudos
-              conforme as regras de auditoria do sistema.
+              conforme as regras de auditoria do sistema
+              {isPreCadastro
+                ? ' (o aceite formal do titular será coletado no link de cadastro).'
+                : '.'}
             </Label>
           </div>
         </div>
 
         {/* Vínculo opcional a proposta comercial */}
-        <div className="border border-blue-100 bg-blue-50/40 rounded-lg p-3 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <FilePlus2 className="w-4 h-4 text-blue-600" />
-              <Label
-                htmlFor="incluirPropostaPf"
-                className="text-xs font-semibold text-blue-950 cursor-pointer"
-              >
-                Vincular proposta comercial inicial agora? (Opcional)
-              </Label>
+        {!isPreCadastro && (
+          <div className="border border-blue-100 bg-blue-50/40 rounded-lg p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FilePlus2 className="w-4 h-4 text-blue-600" />
+                <Label
+                  htmlFor="incluirPropostaPf"
+                  className="text-xs font-semibold text-blue-950 cursor-pointer"
+                >
+                  Vincular proposta comercial inicial agora? (Opcional)
+                </Label>
+              </div>
+              <Switch
+                id="incluirPropostaPf"
+                checked={incluirProposta}
+                onCheckedChange={setIncluirProposta}
+              />
             </div>
-            <Switch
-              id="incluirPropostaPf"
-              checked={incluirProposta}
-              onCheckedChange={setIncluirProposta}
-            />
-          </div>
 
-          {incluirProposta && (
-            <div className="space-y-2 pt-2 border-t border-blue-200/60">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-[11px]">Número Proposta</Label>
-                  <Input
-                    value={propostaData.numero}
-                    onChange={(e) => setPropostaData({ ...propostaData, numero: e.target.value })}
-                    className="text-xs h-8 font-mono bg-white"
-                  />
+            {incluirProposta && (
+              <div className="space-y-2 pt-2 border-t border-blue-200/60">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Número Proposta</Label>
+                    <Input
+                      value={propostaData.numero}
+                      onChange={(e) => setPropostaData({ ...propostaData, numero: e.target.value })}
+                      className="text-xs h-8 font-mono bg-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Preço Total (R$)</Label>
+                    <Input
+                      type="number"
+                      step="500"
+                      value={propostaData.preco}
+                      onChange={(e) =>
+                        setPropostaData({
+                          ...propostaData,
+                          preco: Number(e.target.value) || 0,
+                        })
+                      }
+                      className="text-xs h-8 bg-white font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Prazo</Label>
+                    <Input
+                      value={propostaData.prazo}
+                      onChange={(e) => setPropostaData({ ...propostaData, prazo: e.target.value })}
+                      className="text-xs h-8 bg-white"
+                    />
+                  </div>
                 </div>
+
                 <div className="space-y-1">
-                  <Label className="text-[11px]">Preço Total (R$)</Label>
+                  <Label className="text-[11px]">Escopo Resumido</Label>
                   <Input
-                    type="number"
-                    step="500"
-                    value={propostaData.preco}
-                    onChange={(e) =>
-                      setPropostaData({
-                        ...propostaData,
-                        preco: Number(e.target.value) || 0,
-                      })
-                    }
-                    className="text-xs h-8 bg-white font-mono"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px]">Prazo</Label>
-                  <Input
-                    value={propostaData.prazo}
-                    onChange={(e) => setPropostaData({ ...propostaData, prazo: e.target.value })}
+                    value={propostaData.escopo}
+                    onChange={(e) => setPropostaData({ ...propostaData, escopo: e.target.value })}
+                    placeholder="Ex: Laudo técnico de estabilidade estrutural com recolhimento de ART"
                     className="text-xs h-8 bg-white"
                   />
                 </div>
               </div>
-
-              <div className="space-y-1">
-                <Label className="text-[11px]">Escopo Resumido</Label>
-                <Input
-                  value={propostaData.escopo}
-                  onChange={(e) => setPropostaData({ ...propostaData, escopo: e.target.value })}
-                  placeholder="Ex: Laudo técnico de estabilidade estrutural com recolhimento de ART"
-                  className="text-xs h-8 bg-white"
-                />
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </form>
     </ModalPadrao>
   )

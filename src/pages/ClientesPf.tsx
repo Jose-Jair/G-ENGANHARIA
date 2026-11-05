@@ -17,6 +17,7 @@ import {
   Filter,
   Download,
   UserCheck,
+  Send,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { exportService } from '@/services/exportService'
@@ -28,6 +29,7 @@ import { ModalExcluirAnonimizarClientePf } from '@/components/clientesPf/ModalEx
 import { parceirosService } from '@/services/parceiros'
 import { Link, useNavigate } from 'react-router-dom'
 import { Building2, Trash2 } from 'lucide-react'
+import { ModalEnviarLinkCadastro } from '@/components/clientesPf/ModalEnviarLinkCadastro'
 
 export function ClientesPfPage() {
   const { user } = useAuth()
@@ -51,6 +53,8 @@ export function ClientesPfPage() {
   const [clienteSelecionado, setClienteSelecionado] = useState<ClientePfRecord | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showExcluirModal, setShowExcluirModal] = useState(false)
+  const [showLinkModal, setShowLinkModal] = useState(false)
+  const [clienteConvite, setClienteConvite] = useState<ClientePfRecord | null>(null)
 
   // Permissões: Admin e Comercial criam/editam; Financeiro e Gestor leem; Executor sem acesso
   const canWrite = user?.role === 'admin' || user?.role === 'comercial'
@@ -112,6 +116,11 @@ export function ClientesPfPage() {
   const abrirDetalhe = (c: ClientePfRecord) => {
     setClienteSelecionado(c)
     setShowDetailModal(true)
+  }
+
+  const abrirConvite = (c: ClientePfRecord) => {
+    setClienteConvite(c)
+    setShowLinkModal(true)
   }
 
   return (
@@ -222,6 +231,19 @@ export function ClientesPfPage() {
             >
               <Plus className="w-4 h-4" />
               Novo Cliente PF
+            </Button>
+          )}
+
+          {canWrite && (
+            <Button
+              variant="outline"
+              onClick={() => abrirConvite(clientesFiltrados[0] || null)}
+              disabled={clientesFiltrados.length === 0}
+              title="Gerar/enviar link de cadastro para o cliente completar os próprios dados"
+              className="text-xs gap-1.5 shrink-0 text-slate-700 hover:text-[#D95A2B] hover:border-[#D95A2B]/50"
+            >
+              <Send className="w-4 h-4 text-[#D95A2B]" />
+              Enviar link de cadastro
             </Button>
           )}
         </div>
@@ -505,6 +527,21 @@ export function ClientesPfPage() {
                             Detalhes
                             <ChevronRight className="w-3.5 h-3.5 ml-1" />
                           </Button>
+                          {canWrite && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Enviar link de cadastro (o cliente completa os próprios dados pelo link)"
+                              className="h-7 text-xs text-[#D95A2B] hover:text-[#C44E22] hover:bg-orange-50"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                abrirConvite(cli)
+                              }}
+                            >
+                              <Send className="w-3.5 h-3.5" />
+                              <span className="hidden lg:inline">Enviar link</span>
+                            </Button>
+                          )}
                           {isAdmin && (
                             <Button
                               variant="ghost"
@@ -535,7 +572,7 @@ export function ClientesPfPage() {
       <ModalCriarClientePf
         open={showCreateModal}
         onOpenChange={setShowCreateModal}
-        onSuccess={carregarDados}
+        onSuccess={() => carregarDados()}
       />
 
       <ClientePfDetailModal
@@ -549,6 +586,14 @@ export function ClientesPfPage() {
           setClienteSelecionado(c)
           setShowExcluirModal(true)
         }}
+      />
+
+      {/* Modal Enviar Link de Cadastro (Admin/Comercial) */}
+      <ModalEnviarLinkCadastro
+        open={showLinkModal}
+        onOpenChange={setShowLinkModal}
+        cliente={clienteConvite}
+        onSuccess={carregarDados}
       />
 
       {/* Modal Exclusão / Anonimização LGPD (Admin) */}

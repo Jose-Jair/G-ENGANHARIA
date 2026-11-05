@@ -23,6 +23,15 @@ export interface CreateClientePfData {
   endereco?: string
   observacoes?: string
   pre_cadastro?: boolean
+  // Dados complementares opcionais (cadastro completo)
+  rg?: string
+  rg_orgao_emissor?: string
+  rg_uf?: string
+  estado_civil?: string
+  regime_bens?: string
+  profissao?: string
+  nacionalidade?: string
+  data_nascimento?: string
   // Proposta opcional
   propostaOpcional?: {
     numero: string
@@ -57,6 +66,17 @@ export interface ClientePfComMetricas extends ClientePfRecord {
   receitaAcumulada: number
   totalProjetos: number
   totalPropostas: number
+}
+
+/** Resposta do backend POST /backend/v1/clientes-pf/:id/convite */
+export interface CriarConviteResponse {
+  sucesso: boolean
+  convite_id: string
+  token: string
+  link: string
+  expira_em: string
+  email_enviado: boolean
+  cliente_status: string
 }
 
 export const clientesPfService = {
@@ -126,6 +146,15 @@ export const clientesPfService = {
       endereco: dados.endereco || '',
       observacoes: dados.observacoes || '',
       pre_cadastro: Boolean(dados.pre_cadastro),
+      rg: dados.rg || '',
+      rg_orgao_emissor: dados.rg_orgao_emissor || '',
+      rg_uf: dados.rg_uf || '',
+      estado_civil: dados.estado_civil || '',
+      regime_bens: dados.regime_bens || '',
+      profissao: dados.profissao || '',
+      nacionalidade: dados.nacionalidade || '',
+      data_nascimento: dados.data_nascimento || '',
+      cadastro_status: dados.pre_cadastro ? 'pre_cadastro' : 'completo',
     })
 
     // Se forneceu proposta opcional, cria vinculada
@@ -270,6 +299,21 @@ export const clientesPfService = {
    */
   async delete(id: string): Promise<boolean> {
     return await pb.collection('clientes_pf').delete(id)
+  },
+
+  /**
+   * Cria convite de cadastro para o cliente PF completar o próprio cadastro.
+   * Rota backend: POST /backend/v1/clientes-pf/:id/convite (admin/comercial).
+   * Por padrão NÃO envia e-mail — o e-mail só sai com enviar_email: true.
+   */
+  async criarConvite(
+    id: string,
+    options?: { enviar_email?: boolean },
+  ): Promise<CriarConviteResponse> {
+    return await pb.send<CriarConviteResponse>(`/backend/v1/clientes-pf/${id}/convite`, {
+      method: 'POST',
+      body: { enviar_email: Boolean(options?.enviar_email) },
+    })
   },
 
   /**

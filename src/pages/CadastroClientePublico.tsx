@@ -116,6 +116,7 @@ export function CadastroClientePublicoPage() {
       try {
         const resp = await pb.send<{ sucesso: boolean; dados: DadosIniciais }>(
           `/backend/v1/cadastro-cliente/${encodeURIComponent(token)}`,
+          {},
         )
         if (!ativo) return
         const d = resp.dados || {}

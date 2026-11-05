@@ -98,12 +98,13 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/convite', (e) => {
       '127.0.0.1'
 
     // (A) Cancela convite ativo anterior (qualquer status 'ativo' vira 'cancelado')
+    // Nota: clientes_pf_convites não possui campo autodate 'created'; ordenar por -id
     try {
       const ativos = $app.findRecordsByFilter(
         'clientes_pf_convites',
         "cliente_pf = '" + clienteId + "' && status = 'ativo'",
-        '-created',
-        20,
+        '-id',
+        50,
         0,
       )
       for (let i = 0; i < ativos.length; i++) {
@@ -436,33 +437,76 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     const email = (body.email || '').toString().trim().toLowerCase()
     const aceiteLgpd = body.aceite_lgpd === true || body.aceite_lgpd === 'true'
 
-    const faltantes = []
-    if (!docTipo || docTipoValidos.indexOf(docTipo) === -1) faltantes.push('doc_tipo')
-    if (docTipo === 'Outro' && !docTipoOutro) faltantes.push('doc_tipo_outro')
-    if (!cpf || !isValidCpf(cpf)) faltantes.push('cpf')
-    if (!rg) faltantes.push('rg')
-    if (!rgOrgao) faltantes.push('rg_orgao_emissor')
-    if (!rgUf || rgUf.length !== 2 || CPF_ESTADOS_UF.indexOf(rgUf) === -1) faltantes.push('rg_uf')
-    if (!estadoCivil || ESTADOS_CIVIS_VALIDOS.indexOf(estadoCivil) === -1) {
-      faltantes.push('estado_civil')
+    const errosPorCampo = {}
+    if (!docTipo || docTipoValidos.indexOf(docTipo) === -1) {
+      errosPorCampo.doc_tipo = 'Selecione o documento de identificação.'
     }
-    if (!profissao) faltantes.push('profissao')
-    if (!nacionalidade) faltantes.push('nacionalidade')
-    if (!dataNascimento) faltantes.push('data_nascimento')
-    if (!cep || soDigitos(cep).length < 8) faltantes.push('cep')
-    if (!logradouro) faltantes.push('logradouro')
-    if (!numero) faltantes.push('numero')
-    if (!bairro) faltantes.push('bairro')
-    if (!municipio) faltantes.push('municipio')
-    if (!uf || uf.length !== 2 || CPF_ESTADOS_UF.indexOf(uf) === -1) faltantes.push('uf')
-    if (!telefone) faltantes.push('telefone')
-    if (!email || !ehEmailValido(email)) faltantes.push('email')
-    if (!aceiteLgpd) faltantes.push('aceite_lgpd')
+    if (docTipo === 'Outro' && !docTipoOutro) {
+      errosPorCampo.doc_tipo_outro = 'Informe qual é o documento de identificação.'
+    }
+    if (!cpf) {
+      errosPorCampo.cpf = 'Informe o CPF.'
+    } else if (!isValidCpf(cpf)) {
+      errosPorCampo.cpf =
+        'Informe um CPF válido (11 dígitos, com os dígitos verificadores corretos).'
+    }
+    if (!rg) {
+      errosPorCampo.rg = 'Informe o número do documento.'
+    }
+    if (!rgOrgao) {
+      errosPorCampo.rg_orgao_emissor = 'Informe o órgão emissor.'
+    }
+    if (!rgUf || rgUf.length !== 2 || CPF_ESTADOS_UF.indexOf(rgUf) === -1) {
+      errosPorCampo.rg_uf = 'Selecione a UF do documento.'
+    }
+    if (!estadoCivil || ESTADOS_CIVIS_VALIDOS.indexOf(estadoCivil) === -1) {
+      errosPorCampo.estado_civil = 'Selecione o estado civil.'
+    }
+    if (!profissao) {
+      errosPorCampo.profissao = 'Informe a profissão.'
+    }
+    if (!nacionalidade) {
+      errosPorCampo.nacionalidade = 'Informe a nacionalidade.'
+    }
+    if (!dataNascimento) {
+      errosPorCampo.data_nascimento = 'Informe a data de nascimento.'
+    }
+    if (!cep || soDigitos(cep).length < 8) {
+      errosPorCampo.cep = 'Informe um CEP válido (8 dígitos).'
+    }
+    if (!logradouro) {
+      errosPorCampo.logradouro = 'Informe o logradouro.'
+    }
+    if (!numero) {
+      errosPorCampo.numero = 'Informe o número do endereço.'
+    }
+    if (!bairro) {
+      errosPorCampo.bairro = 'Informe o bairro.'
+    }
+    if (!municipio) {
+      errosPorCampo.municipio = 'Informe o município.'
+    }
+    if (!uf || uf.length !== 2 || CPF_ESTADOS_UF.indexOf(uf) === -1) {
+      errosPorCampo.uf = 'Selecione a UF do endereço.'
+    }
+    if (!telefone) {
+      errosPorCampo.telefone = 'Informe um telefone válido.'
+    }
+    if (!email) {
+      errosPorCampo.email = 'Informe o e-mail.'
+    } else if (!ehEmailValido(email)) {
+      errosPorCampo.email = 'Informe um e-mail válido.'
+    }
+    if (!aceiteLgpd) {
+      errosPorCampo.aceite_lgpd = 'É necessário marcar o aceite do tratamento de dados (LGPD).'
+    }
 
-    if (faltantes.length > 0) {
+    const camposFaltantes = Object.keys(errosPorCampo)
+    if (camposFaltantes.length > 0) {
       return e.json(400, {
-        error: 'Campos obrigatórios ausentes ou inválidos: ' + faltantes.join(', ') + '.',
-        campos: faltantes,
+        error: 'Campos obrigatórios ausentes ou inválidos: ' + camposFaltantes.join(', ') + '.',
+        campos: camposFaltantes,
+        erros: errosPorCampo,
       })
     }
 
@@ -471,14 +515,17 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
       const duplicados = $app.findRecordsByFilter(
         'clientes_pf',
         "cpf != '' && id != '" + clienteId + "'",
-        '',
+        '-id',
         500,
         0,
       )
       for (let i = 0; i < duplicados.length; i++) {
         if (soDigitos(duplicados[i].getString('cpf')) === cpf) {
+          const msgDup = 'Este CPF já está cadastrado. Fale com a G+ ENGENHARIA.'
           return e.json(409, {
-            error: 'Este CPF já consta em outro cadastro. Entre em contato com a nossa equipe.',
+            error: msgDup,
+            campos: ['cpf'],
+            erros: { cpf: msgDup },
           })
         }
       }
@@ -659,13 +706,13 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
       const duplicados = $app.findRecordsByFilter(
         'clientes_pf',
         "cpf != '' && id != '" + clienteId + "'",
-        '',
+        '-id',
         500,
         0,
       )
       for (let i = 0; i < duplicados.length; i++) {
         if (soDigitos(duplicados[i].getString('cpf')) === cpfNovo) {
-          return e.json(409, { error: 'Este CPF já consta em outro cadastro de cliente.' })
+          return e.json(409, { error: 'Este CPF já está cadastrado. Fale com a G+ ENGENHARIA.' })
         }
       }
     } catch (eDup) {

@@ -44,6 +44,12 @@ interface DadosIniciais {
 interface ErroBackend {
   error?: string
   campos?: string[]
+  erros?: Record<string, string>
+  data?: {
+    error?: string
+    campos?: string[]
+    erros?: Record<string, string>
+  }
 }
 
 const ENDERECO_VAZIO: EnderecoValue = {
@@ -78,9 +84,27 @@ const ROTULOS_CAMPO: Record<string, string> = {
   aceite_lgpd: 'É necessário marcar o aceite do tratamento de dados (LGPD).',
 }
 
-function extrairErroBackend(err: unknown): ErroBackend {
-  const resp = (err as { response?: ErroBackend } | null)?.response
-  return resp || {}
+function extrairErroBackend(err: unknown): {
+  error?: string
+  campos?: string[]
+  erros?: Record<string, string>
+} {
+  const anyErr = err as {
+    response?: ErroBackend
+    data?: { error?: string; campos?: string[]; erros?: Record<string, string> }
+    error?: string
+    campos?: string[]
+    erros?: Record<string, string>
+  } | null
+
+  const resp = anyErr?.response || anyErr?.data || anyErr || {}
+  const innerData = (resp as ErroBackend).data || {}
+
+  const error = (resp as ErroBackend).error || innerData.error || anyErr?.error
+  const campos = (resp as ErroBackend).campos || innerData.campos || anyErr?.campos
+  const erros = (resp as ErroBackend).erros || innerData.erros || anyErr?.erros
+
+  return { error, campos, erros }
 }
 
 export function CadastroClientePublicoPage() {
@@ -226,17 +250,32 @@ export function CadastroClientePublicoPage() {
       setTela('sucesso')
     } catch (err) {
       const resp = extrairErroBackend(err)
-      if (resp.error && resp.error.indexOf('já consta em outro cadastro') !== -1) {
+      const errosDoBackend = resp.erros || {}
+      const temErrosPorCampo = Object.keys(errosDoBackend).length > 0
+      const temCampos = Array.isArray(resp.campos) && resp.campos.length > 0
+
+      if (
+        (resp.error &&
+          (resp.error.indexOf('já consta em outro cadastro') !== -1 ||
+            resp.error.indexOf('já está cadastrado') !== -1)) ||
+        (errosDoBackend.cpf && errosDoBackend.cpf.indexOf('já está cadastrado') !== -1)
+      ) {
         setErros({ cpf: MENSAGEM_CPF_DUPLICADO })
-      } else if (resp.campos && resp.campos.length > 0) {
+      } else if (temErrosPorCampo || temCampos) {
         const mapeados: Record<string, string> = {}
-        for (const campo of resp.campos) {
-          mapeados[campo] =
-            campo === 'cpf' && resp.error && resp.error.indexOf('já consta') !== -1
-              ? MENSAGEM_CPF_DUPLICADO
-              : ROTULOS_CAMPO[campo] || 'Verifique este campo.'
+        if (temErrosPorCampo) {
+          for (const [campo, msg] of Object.entries(errosDoBackend)) {
+            mapeados[campo] = msg || ROTULOS_CAMPO[campo] || 'Verifique este campo.'
+          }
         }
-        if (!mapeados.aceite_lgpd) setAceiteLgpd(true) // backend exige; se veio erro só dele, reabre
+        if (temCampos) {
+          for (const campo of resp.campos!) {
+            if (!mapeados[campo]) {
+              mapeados[campo] = ROTULOS_CAMPO[campo] || 'Verifique este campo.'
+            }
+          }
+        }
+        if (!mapeados.aceite_lgpd) setAceiteLgpd(true)
         setErros(mapeados)
         if (mapeados.aceite_lgpd) setAceiteLgpd(false)
       } else {

@@ -89,6 +89,16 @@ function RedirecionarCotacao() {
   )
 }
 
+function RedirecionarCadastroCliente() {
+  const { token } = useParams<{ token: string }>()
+  return (
+    <Navigate
+      to={`/cadastro-cliente${token ? `?token=${encodeURIComponent(token)}` : ''}`}
+      replace
+    />
+  )
+}
+
 const App = () => (
   <BrowserRouter>
     <TooltipProvider>
@@ -104,6 +114,8 @@ const App = () => (
 
           {/* PARTE B1: Rota pública do convite de cadastro do Cliente PF (sem login, antes da rede de segurança de /_/*) */}
           <Route path="/cadastro-cliente" element={<CadastroClientePublicoPage />} />
+          {/* Reforço de rota pública com token no path redirecionando para query string */}
+          <Route path="/cadastro-cliente/:token" element={<RedirecionarCadastroCliente />} />
 
           {/* Public opt-out route for campaigns (LGPD) */}
           <Route path="/descadastro/:token" element={<DescadastroPage />} />

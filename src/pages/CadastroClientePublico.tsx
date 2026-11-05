@@ -42,11 +42,18 @@ interface DadosIniciais {
 }
 
 interface ErroBackend {
+  status?: number
+  statusText?: string
   error?: string
+  erro?: string
+  message?: string
   campos?: string[]
   erros?: Record<string, string>
   data?: {
+    status?: number
     error?: string
+    erro?: string
+    message?: string
     campos?: string[]
     erros?: Record<string, string>
   }
@@ -84,15 +91,27 @@ const ROTULOS_CAMPO: Record<string, string> = {
   aceite_lgpd: 'É necessário marcar o aceite do tratamento de dados (LGPD).',
 }
 
-function extrairErroBackend(err: unknown): {
+export function extrairErroBackend(err: unknown): {
+  status?: number
   error?: string
   campos?: string[]
   erros?: Record<string, string>
 } {
   const anyErr = err as {
-    response?: ErroBackend
-    data?: { error?: string; campos?: string[]; erros?: Record<string, string> }
+    status?: number
+    statusCode?: number
+    response?: ErroBackend & { status?: number }
+    data?: {
+      status?: number
+      error?: string
+      erro?: string
+      message?: string
+      campos?: string[]
+      erros?: Record<string, string>
+    }
     error?: string
+    erro?: string
+    message?: string
     campos?: string[]
     erros?: Record<string, string>
   } | null
@@ -100,11 +119,28 @@ function extrairErroBackend(err: unknown): {
   const resp = anyErr?.response || anyErr?.data || anyErr || {}
   const innerData = (resp as ErroBackend).data || {}
 
-  const error = (resp as ErroBackend).error || innerData.error || anyErr?.error
+  const status =
+    anyErr?.status ||
+    anyErr?.statusCode ||
+    (resp as ErroBackend).status ||
+    (resp as { statusCode?: number }).statusCode ||
+    innerData.status
+
+  const error =
+    (resp as ErroBackend).error ||
+    (resp as ErroBackend).erro ||
+    innerData.error ||
+    innerData.erro ||
+    anyErr?.error ||
+    anyErr?.erro ||
+    (resp as ErroBackend).message ||
+    innerData.message ||
+    anyErr?.message
+
   const campos = (resp as ErroBackend).campos || innerData.campos || anyErr?.campos
   const erros = (resp as ErroBackend).erros || innerData.erros || anyErr?.erros
 
-  return { error, campos, erros }
+  return { status: typeof status === 'number' ? status : undefined, error, campos, erros }
 }
 
 export function CadastroClientePublicoPage() {
@@ -279,7 +315,9 @@ export function CadastroClientePublicoPage() {
         setErros(mapeados)
         if (mapeados.aceite_lgpd) setAceiteLgpd(false)
       } else {
-        setErroGeral(resp.error || 'Não foi possível enviar o cadastro. Tente novamente.')
+        const msgBase = resp.error || 'Não foi possível enviar o cadastro. Tente novamente.'
+        const statusSufixo = resp.status ? ` (cód. ${resp.status})` : ''
+        setErroGeral(`${msgBase}${statusSufixo}`)
       }
     } finally {
       setEnviando(false)
@@ -365,7 +403,7 @@ export function CadastroClientePublicoPage() {
           {erroGeral && (
             <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{erroGeral}</span>
+              <span className="flex-1 leading-relaxed">{erroGeral}</span>
             </div>
           )}
 

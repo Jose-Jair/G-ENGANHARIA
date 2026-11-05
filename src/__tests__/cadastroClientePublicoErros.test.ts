@@ -69,4 +69,48 @@ describe('Validação do cadastro de cliente PF (rotas públicas e payload)', ()
     }
     expect(mapeados.cpf).toBe('Este CPF já está cadastrado. Fale com a G+ ENGENHARIA.')
   })
+
+  it('extrai mensagem de erro e status HTTP mesmo em caso de erro 500 do servidor', async () => {
+    const { extrairErroBackend } = await import('@/pages/CadastroClientePublico')
+
+    const erro500ComMsg = {
+      status: 500,
+      response: {
+        error:
+          'Não foi possível processar o envio do cadastro. Por favor, tente novamente em instantes.',
+      },
+    }
+    const extraido = extrairErroBackend(erro500ComMsg)
+    expect(extraido.status).toBe(500)
+    expect(extraido.error).toBe(
+      'Não foi possível processar o envio do cadastro. Por favor, tente novamente em instantes.',
+    )
+
+    const msgBase = extraido.error || 'Não foi possível enviar o cadastro. Tente novamente.'
+    const statusSufixo = extraido.status ? ` (cód. ${extraido.status})` : ''
+    const msgExibida = `${msgBase}${statusSufixo}`
+
+    expect(msgExibida).toContain('cód. 500')
+    expect(msgExibida).toContain('Não foi possível processar o envio do cadastro')
+  })
+
+  it('extrai mensagem genérica e código de status se o erro for resposta padrão do PocketBase', async () => {
+    const { extrairErroBackend } = await import('@/pages/CadastroClientePublico')
+
+    const erroPbPadrao = {
+      status: 500,
+      data: {
+        message: 'Something went wrong while processing your request.',
+      },
+    }
+    const extraido = extrairErroBackend(erroPbPadrao)
+    expect(extraido.status).toBe(500)
+    expect(extraido.error).toBe('Something went wrong while processing your request.')
+
+    const msgBase = extraido.error || 'Não foi possível enviar o cadastro. Tente novamente.'
+    const statusSufixo = extraido.status ? ` (cód. ${extraido.status})` : ''
+    const msgExibida = `${msgBase}${statusSufixo}`
+
+    expect(msgExibida).toBe('Something went wrong while processing your request. (cód. 500)')
+  })
 })

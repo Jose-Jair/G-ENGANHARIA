@@ -282,7 +282,27 @@ routerAdd('GET', '/backend/v1/cadastro-cliente/{token}', (e) => {
       },
     })
   } catch (err) {
-    return e.json(500, { error: 'Erro ao carregar dados do convite: ' + err })
+    try {
+      const errCol = $app.findCollectionByNameOrId('erros_sistema')
+      if (errCol) {
+        const errRec = new Record(errCol)
+        errRec.set('rota', '/backend/v1/cadastro-cliente/:token [GET]')
+        errRec.set(
+          'mensagem',
+          ('Erro ao carregar dados do convite: ' + (err.message || String(err))).slice(0, 1000),
+        )
+        errRec.set('hora', new Date().toISOString())
+        errRec.set('detalhes', {
+          erro: String(err),
+          stack: err && err.stack ? String(err.stack) : '',
+        })
+        $app.save(errRec)
+      }
+    } catch (_) {}
+    return e.json(500, {
+      error: 'Não foi possível carregar os dados do convite. Por favor, tente novamente.',
+      erro: 'Não foi possível carregar os dados do convite. Por favor, tente novamente.',
+    })
   }
 })
 
@@ -359,14 +379,16 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
 
     try {
       const janelaInicio = new Date(Date.now() - 10 * 60 * 1000).toISOString().replace('T', ' ')
-      const recentes = $app
+      const rowRate = {}
+      $app
         .db()
         .newQuery(
           'SELECT COUNT(*) AS total FROM clientes_pf_convites WHERE ip_envio = {:ip} AND enviado_em >= {:janela}',
         )
         .bind({ ip: ipCliente, janela: janelaInicio })
-        .one()
-      if (recentes && recentes.total >= 10) {
+        .one(rowRate)
+      const totalRecentes = parseInt(rowRate.total, 10) || 0
+      if (totalRecentes >= 10) {
         return e.json(429, {
           error: 'Muitas tentativas seguidas. Aguarde alguns minutos e tente novamente.',
         })
@@ -631,7 +653,28 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
       convite_id: convite.id,
     })
   } catch (err) {
-    return e.json(500, { error: 'Erro ao processar cadastro: ' + err })
+    try {
+      const errCol = $app.findCollectionByNameOrId('erros_sistema')
+      if (errCol) {
+        const errRec = new Record(errCol)
+        errRec.set('rota', '/backend/v1/cadastro-cliente/:token [POST]')
+        errRec.set(
+          'mensagem',
+          ('Erro ao processar cadastro: ' + (err.message || String(err))).slice(0, 1000),
+        )
+        errRec.set('hora', new Date().toISOString())
+        errRec.set('detalhes', {
+          erro: String(err),
+          stack: err && err.stack ? String(err.stack) : '',
+        })
+        $app.save(errRec)
+      }
+    } catch (_) {}
+    return e.json(500, {
+      error:
+        'Não foi possível processar o envio do cadastro. Por favor, tente novamente em instantes.',
+      erro: 'Não foi possível processar o envio do cadastro. Por favor, tente novamente em instantes.',
+    })
   }
 })
 

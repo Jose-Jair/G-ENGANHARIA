@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-05T01:41:36.685Z",
+  "generatedAt": "2026-11-05T13:13:58.154Z",
   "collections": [
     {
       "name": "users",
@@ -1190,9 +1190,74 @@
           "type": "text",
           "required": false,
           "system": false
+        },
+        {
+          "name": "rg",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rg_orgao_emissor",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rg_uf",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "estado_civil",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "solteiro(a)",
+            "casado(a)",
+            "união estável",
+            "divorciado(a)",
+            "separado(a)",
+            "viúvo(a)"
+          ]
+        },
+        {
+          "name": "regime_bens",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "profissao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nacionalidade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_nascimento",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cadastro_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["pre_cadastro", "aguardando_cliente", "em_revisao", "completo"]
         }
       ],
-      "indexes": []
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_clientes_pf_cpf_unico` ON `clientes_pf` (REPLACE(REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), ' ', ''), '/', '')) WHERE cpf != ''"
+      ]
     },
     {
       "name": "propostas",
@@ -8323,6 +8388,101 @@
       "indexes": [
         "CREATE INDEX idx_erros_sistema_created ON erros_sistema (created DESC)",
         "CREATE INDEX idx_erros_sistema_rota ON erros_sistema (rota)"
+      ]
+    },
+    {
+      "name": "clientes_pf_convites",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'comercial')",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "cliente_pf",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "clientes_pf"
+        },
+        {
+          "name": "token",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "expira_em",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ativo", "usado", "expirado", "cancelado", "aprovado", "recusado"]
+        },
+        {
+          "name": "canal",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["link", "whatsapp", "email"]
+        },
+        {
+          "name": "criado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "dados_enviados",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "enviado_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ip_envio",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "revisado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "revisado_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "motivo_recusa",
+          "type": "text",
+          "required": false,
+          "system": false
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_convites_token_hash` ON `clientes_pf_convites` (token)",
+        "CREATE INDEX `idx_convites_cliente` ON `clientes_pf_convites` (cliente_pf)",
+        "CREATE INDEX `idx_convites_status` ON `clientes_pf_convites` (status)"
       ]
     }
   ]

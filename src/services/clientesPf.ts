@@ -2,6 +2,8 @@ import pb from '@/lib/pocketbase/client'
 import { ClientePfRecord, PropostaRecord } from '@/types'
 import { cleanCpf } from '@/lib/cnpj'
 
+export type { ClientePfRecord }
+
 import { TelefoneItem } from '@/types'
 
 export interface CreateClientePfData {

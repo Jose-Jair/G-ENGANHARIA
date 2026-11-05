@@ -110,6 +110,21 @@ export const NotificacoesPage: React.FC = () => {
       return
     }
 
+    // Notificação de cliente PF que enviou cadastro para revisão
+    if (
+      refTipo === 'clientes_pf' ||
+      notif.tipo === ('cadastro_enviado' as any) ||
+      (notif.titulo && notif.titulo.toLowerCase().includes('cadastro enviado')) ||
+      (notif.mensagem && notif.mensagem.toLowerCase().includes('completou o cadastro'))
+    ) {
+      if (refId) {
+        navigate(`/clientes-pf?revisar=${encodeURIComponent(refId)}`)
+      } else {
+        navigate('/clientes-pf')
+      }
+      return
+    }
+
     if (refTipo === 'ordens_servico' || notif.tipo === 'mensagem_os') {
       navigate('/prestadores')
       return
@@ -137,6 +152,8 @@ export const NotificacoesPage: React.FC = () => {
       case 'versao_avaliada':
       case 'comentario_versao':
         return <FileCheck className="w-4 h-4 text-blue-600" />
+      case 'cadastro_enviado' as any:
+        return <UserCheck className="w-4 h-4 text-[#D95A2B]" />
       default:
         return <Bell className="w-4 h-4 text-slate-500" />
     }

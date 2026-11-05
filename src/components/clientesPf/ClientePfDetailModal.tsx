@@ -49,7 +49,12 @@ import { ListaTelefones } from '@/components/comum/ListaTelefones'
 import { EnderecoComCep, EnderecoValue } from '@/components/comum/EnderecoComCep'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
-import { Trash2 } from 'lucide-react'
+import { Trash2, IdCard } from 'lucide-react'
+import {
+  ESTADOS_CIVIS_OPTIONS,
+  UFS_BRASIL,
+} from '@/components/clientesPf/cadastroClientePfConstants'
+import { BadgeCadastroStatusPf } from '@/components/clientesPf/BadgeCadastroStatusPf'
 
 interface ClientePfDetailModalProps {
   open: boolean
@@ -83,6 +88,14 @@ export function ClientePfDetailModal({
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [observacoes, setObservacoes] = useState('')
+  const [rg, setRg] = useState('')
+  const [orgaoEmissor, setOrgaoEmissor] = useState('')
+  const [ufRg, setUfRg] = useState('')
+  const [estadoCivil, setEstadoCivil] = useState('')
+  const [regimeBens, setRegimeBens] = useState('')
+  const [profissao, setProfissao] = useState('')
+  const [nacionalidade, setNacionalidade] = useState('brasileira')
+  const [dataNascimento, setDataNascimento] = useState('')
   const [telefones, setTelefones] = useState<TelefoneItem[]>([])
   const [endereco, setEndereco] = useState<EnderecoValue>({
     cep: '',
@@ -100,6 +113,14 @@ export function ClientePfDetailModal({
     setNome(cliente.nome || '')
     setEmail(cliente.email || '')
     setObservacoes(cliente.observacoes || '')
+    setRg(cliente.rg || '')
+    setOrgaoEmissor(cliente.orgao_emissor || '')
+    setUfRg(cliente.uf_rg || '')
+    setEstadoCivil(cliente.estado_civil || '')
+    setRegimeBens(cliente.regime_bens || '')
+    setProfissao(cliente.profissao || '')
+    setNacionalidade(cliente.nacionalidade || 'brasileira')
+    setDataNascimento(cliente.data_nascimento ? cliente.data_nascimento.slice(0, 10) : '')
 
     // Carrega telefones (se array json existir ou converte telefone simples)
     if (cliente.telefones && Array.isArray(cliente.telefones) && cliente.telefones.length > 0) {
@@ -194,6 +215,14 @@ export function ClientePfDetailModal({
       const payload: UpdateClientePfData = {
         nome: nome.trim(),
         email: email.trim() || undefined,
+        rg: rg.trim() || undefined,
+        orgao_emissor: orgaoEmissor.trim() || undefined,
+        uf_rg: ufRg.trim() || undefined,
+        estado_civil: estadoCivil.trim() || undefined,
+        regime_bens: regimeBens.trim() || undefined,
+        profissao: profissao.trim() || undefined,
+        nacionalidade: nacionalidade.trim() || undefined,
+        data_nascimento: dataNascimento.trim() || undefined,
         telefones,
         cep: endereco.cep?.trim() || undefined,
         logradouro: endereco.logradouro?.trim() || undefined,
@@ -253,10 +282,11 @@ export function ClientePfDetailModal({
                 <User className="w-6 h-6" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <DialogTitle className="text-xl font-bold text-slate-900">
                     {cliente.nome}
                   </DialogTitle>
+                  <BadgeCadastroStatusPf cliente={cliente} />
                   <Badge
                     variant="outline"
                     className="text-xs bg-emerald-50 text-emerald-700 border-emerald-300 gap-1"
@@ -416,8 +446,183 @@ export function ClientePfDetailModal({
                     </div>
                   </div>
                 </div>
+                {/* Documentos Pessoais e Qualificação Civil */}
+                <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50 space-y-3">
+                  <div className="flex items-center gap-1.5 text-slate-700 font-semibold text-xs">
+                    <IdCard className="w-3.5 h-3.5 text-[#D95A2B]" />
+                    <span>Documentos e Qualificação Civil</span>
+                  </div>
 
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                    <div className="space-y-1">
+                      <Label className="text-xs">RG</Label>
+                      <Input
+                        value={rg}
+                        onChange={(e) => setRg(e.target.value)}
+                        placeholder="00.000.000-0"
+                        className="text-xs h-8 bg-white"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Órgão Emissor</Label>
+                      <Input
+                        value={orgaoEmissor}
+                        onChange={(e) => setOrgaoEmissor(e.target.value)}
+                        placeholder="SSP, DETRAN, etc."
+                        className="text-xs h-8 bg-white uppercase"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">UF do RG</Label>
+                      <select
+                        value={ufRg}
+                        onChange={(e) => setUfRg(e.target.value)}
+                        className="w-full text-xs h-8 border border-slate-200 rounded-md bg-white px-2 text-slate-800"
+                      >
+                        <option value="">Selecione...</option>
+                        {UFS_BRASIL.map((u) => (
+                          <option key={u} value={u}>
+                            {u}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Estado Civil</Label>
+                      <select
+                        value={estadoCivil}
+                        onChange={(e) => setEstadoCivil(e.target.value)}
+                        className="w-full text-xs h-8 border border-slate-200 rounded-md bg-white px-2 text-slate-800"
+                      >
+                        <option value="">Selecione...</option>
+                        {ESTADOS_CIVIS_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Regime de Bens</Label>
+                      <Input
+                        value={regimeBens}
+                        onChange={(e) => setRegimeBens(e.target.value)}
+                        placeholder="Ex: Comunhão parcial"
+                        className="text-xs h-8 bg-white"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Profissão</Label>
+                      <Input
+                        value={profissao}
+                        onChange={(e) => setProfissao(e.target.value)}
+                        placeholder="Ex: Engenheiro(a)"
+                        className="text-xs h-8 bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Nacionalidade</Label>
+                      <Input
+                        value={nacionalidade}
+                        onChange={(e) => setNacionalidade(e.target.value)}
+                        placeholder="Ex: brasileira"
+                        className="text-xs h-8 bg-white"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Data de Nascimento</Label>
+                      <Input
+                        type="date"
+                        value={dataNascimento}
+                        onChange={(e) => setDataNascimento(e.target.value)}
+                        className="text-xs h-8 bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
                 {/* Múltiplos telefones no modo edição */}
+                =======
+                {/* E-mail com botão mailto */}
+                <div className="flex items-center justify-between p-2.5 rounded-md bg-slate-50 border border-slate-100">
+                  <div className="flex items-center gap-2 text-slate-700 min-w-0">
+                    <Mail className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span className="font-semibold text-slate-500">E-mail:</span>
+                    <span className="font-medium text-slate-900 truncate">
+                      {cliente.email || 'Não informado'}
+                    </span>
+                  </div>
+                  {cliente.email && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleEnviarEmail}
+                      className="h-7 text-xs text-blue-700 hover:bg-blue-50 border-blue-200 gap-1 shrink-0"
+                      title="Abrir no cliente de e-mail padrão (mailto:)"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      Enviar E-mail
+                    </Button>
+                  )}
+                </div>
+                {/* Documentos Pessoais e Qualificação Civil (Visualização) */}
+                <div className="p-3 bg-slate-50 rounded-md border border-slate-200 space-y-2">
+                  <div className="flex items-center gap-1.5 text-slate-700 font-semibold text-xs">
+                    <IdCard className="w-4 h-4 text-[#D95A2B]" />
+                    <span>Documentos e Qualificação Civil</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">RG:</span>
+                      <span className="font-medium text-slate-800">
+                        {cliente.rg
+                          ? `${cliente.rg}${cliente.orgao_emissor ? ` (${cliente.orgao_emissor}${cliente.uf_rg ? `/${cliente.uf_rg}` : ''})` : ''}`
+                          : 'Não informado'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Estado Civil:</span>
+                      <span className="font-medium text-slate-800 capitalize">
+                        {cliente.estado_civil
+                          ? ESTADOS_CIVIS_OPTIONS.find((o) => o.value === cliente.estado_civil)
+                              ?.label || cliente.estado_civil
+                          : 'Não informado'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Regime de Bens:</span>
+                      <span className="font-medium text-slate-800">
+                        {cliente.regime_bens || 'Não informado'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Profissão:</span>
+                      <span className="font-medium text-slate-800">
+                        {cliente.profissao || 'Não informado'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Nacionalidade:</span>
+                      <span className="font-medium text-slate-800">
+                        {cliente.nacionalidade || 'Não informada'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Nascimento:</span>
+                      <span className="font-medium text-slate-800">
+                        {cliente.data_nascimento
+                          ? formatDateBr(cliente.data_nascimento)
+                          : 'Não informada'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
                 <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50">
                   <ListaTelefones
                     telefones={telefones}
@@ -426,7 +631,6 @@ export function ClientePfDetailModal({
                     helperText="Gerencie múltiplos números com botão WhatsApp e links diretos."
                   />
                 </div>
-
                 {/* Endereço segmentado no modo edição */}
                 <div className="p-3 border border-slate-200 rounded-lg bg-slate-50/50">
                   <EnderecoComCep
@@ -435,7 +639,6 @@ export function ClientePfDetailModal({
                     label="Endereço Completo do Cliente PF"
                   />
                 </div>
-
                 <div className="space-y-1">
                   <Label className="text-xs">Observações</Label>
                   <Textarea

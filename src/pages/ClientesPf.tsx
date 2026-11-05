@@ -27,9 +27,15 @@ import { ModalCriarClientePf } from '@/components/clientesPf/ModalCriarClientePf
 import { ClientePfDetailModal } from '@/components/clientesPf/ClientePfDetailModal'
 import { ModalExcluirAnonimizarClientePf } from '@/components/clientesPf/ModalExcluirAnonimizarClientePf'
 import { parceirosService } from '@/services/parceiros'
-import { Link, useNavigate } from 'react-router-dom'
-import { Building2, Trash2 } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Building2, Trash2, FileCheck } from 'lucide-react'
 import { ModalEnviarLinkCadastro } from '@/components/clientesPf/ModalEnviarLinkCadastro'
+import { ModalRevisaoCadastroClientePf } from '@/components/clientesPf/ModalRevisaoCadastroClientePf'
+import {
+  BadgeCadastroStatusPf,
+  getCadastroStatusPf,
+  CadastroStatusPf,
+} from '@/components/clientesPf/BadgeCadastroStatusPf'
 
 export function ClientesPfPage() {
   const { user } = useAuth()
@@ -44,9 +50,13 @@ export function ClientesPfPage() {
   const [propostas, setPropostas] = useState<PropostaRecord[]>([])
 
   // Busca e filtro
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Busca e filtro
   const [busca, setBusca] = useState('')
   const [filtroBaseLegal, setFiltroBaseLegal] = useState<string>('todos')
-  const [incluirPreCadastros, setIncluirPreCadastros] = useState(false)
+  const [filtroSituacao, setFiltroSituacao] = useState<string>('todos')
+  const [incluirPreCadastros, setIncluirPreCadastros] = useState(true)
 
   // Modais
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -55,6 +65,8 @@ export function ClientesPfPage() {
   const [showExcluirModal, setShowExcluirModal] = useState(false)
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [clienteConvite, setClienteConvite] = useState<ClientePfRecord | null>(null)
+  const [showRevisaoModal, setShowRevisaoModal] = useState(false)
+  const [clienteRevisao, setClienteRevisao] = useState<ClientePfRecord | null>(null)
 
   // Permissões: Admin e Comercial criam/editam; Financeiro e Gestor leem; Executor sem acesso
   const canWrite = user?.role === 'admin' || user?.role === 'comercial'
@@ -78,6 +90,22 @@ export function ClientesPfPage() {
   useEffect(() => {
     carregarDados()
   }, [incluirPreCadastros])
+
+  // Suporte a query param ?revisar=<cliente_id> (vindo de notificações do sino)
+  useEffect(() => {
+    const revisarId = searchParams.get('revisar')
+    if (!revisarId || clientes.length === 0) return
+
+    const alvo = clientes.find((c) => c.id === revisarId)
+    if (alvo) {
+      setClienteRevisao(alvo)
+      setShowRevisaoModal(true)
+      // Limpa o param da URL para não reabrir em refresh indesejado
+      const next = new URLSearchParams(searchParams)
+      next.delete('revisar')
+      setSearchParams(next, { replace: true })
+    }
+  }, [searchParams, clientes])
 
   // Métricas do topo
   const metricas = useMemo(() => {
@@ -109,9 +137,14 @@ export function ClientesPfPage() {
         return false
       }
 
+      if (filtroSituacao !== 'todos') {
+        const sit = getCadastroStatusPf(c)
+        if (sit !== filtroSituacao) return false
+      }
+
       return true
     })
-  }, [clientes, busca, filtroBaseLegal])
+  }, [clientes, busca, filtroBaseLegal, filtroSituacao])
 
   const abrirDetalhe = (c: ClientePfRecord) => {
     setClienteSelecionado(c)
@@ -121,6 +154,11 @@ export function ClientesPfPage() {
   const abrirConvite = (c: ClientePfRecord) => {
     setClienteConvite(c)
     setShowLinkModal(true)
+  }
+
+  const abrirRevisao = (c: ClientePfRecord) => {
+    setClienteRevisao(c)
+    setShowRevisaoModal(true)
   }
 
   return (
@@ -341,7 +379,7 @@ export function ClientesPfPage() {
       {/* Barra de Filtros */}
       <Card className="border-slate-200 bg-white shadow-xs">
         <CardContent className="p-3.5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
               <Input
@@ -350,6 +388,20 @@ export function ClientesPfPage() {
                 onChange={(e) => setBusca(e.target.value)}
                 className="text-xs h-8 pl-8"
               />
+            </div>
+
+            <div>
+              <select
+                value={filtroSituacao}
+                onChange={(e) => setFiltroSituacao(e.target.value)}
+                className="w-full text-xs h-8 border border-slate-200 rounded px-2.5 bg-white text-slate-700"
+              >
+                <option value="todos">Todas as Situações</option>
+                <option value="pre_cadastro">Pré-cadastro (cinza)</option>
+                <option value="aguardando_cliente">Aguardando cliente (amarelo)</option>
+                <option value="em_revisao">Em revisão (laranja)</option>
+                <option value="completo">Completo (verde)</option>
+              </select>
             </div>
 
             <div>
@@ -402,10 +454,11 @@ export function ClientesPfPage() {
               <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
                 <tr>
                   <th className="py-3 px-4">Nome do Cliente</th>
+                  <th className="py-3 px-3">Situação</th>
                   <th className="py-3 px-3">CPF</th>
                   <th className="py-3 px-3">Contato</th>
                   <th className="py-3 px-3">Base Legal LGPD</th>
-                  <th className="py-3 px-3 text-right">Receita Acumulada</th>
+                  <th className="py-3 px-3 text-right">Receita</th>
                   <th className="py-3 px-3 text-center">Nº Projetos</th>
                   <th className="py-3 px-4 text-right">Ação</th>
                 </tr>
@@ -452,115 +505,132 @@ export function ClientesPfPage() {
                     </td>
                   </tr>
                 ) : (
-                  clientesFiltrados.map((cli) => (
-                    <tr
-                      key={cli.id}
-                      onClick={() => abrirDetalhe(cli)}
-                      className="hover:bg-slate-50/80 cursor-pointer transition-colors"
-                    >
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-slate-900 hover:text-blue-600 flex items-center gap-1.5">
-                          <span>{cli.nome}</span>
-                          {cli.pre_cadastro && (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 font-normal"
-                            >
-                              Pré-cadastro
-                            </Badge>
+                  clientesFiltrados.map((cli) => {
+                    const statusCadastro = getCadastroStatusPf(cli)
+                    const emRevisao = statusCadastro === 'em_revisao'
+
+                    return (
+                      <tr
+                        key={cli.id}
+                        onClick={() => abrirDetalhe(cli)}
+                        className={`hover:bg-slate-50/80 cursor-pointer transition-colors ${
+                          emRevisao ? 'bg-orange-50/40' : ''
+                        }`}
+                      >
+                        <td className="py-3 px-4">
+                          <div className="font-semibold text-slate-900 hover:text-blue-600 flex items-center gap-1.5">
+                            <span>{cli.nome}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-400">
+                            {cli.endereco || 'Endereço não informado'}
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-3">
+                          <BadgeCadastroStatusPf cliente={cli} />
+                        </td>
+
+                        <td className="py-3 px-3 font-mono text-slate-700">
+                          {cli.cpf ? (
+                            formatCpf(cli.cpf)
+                          ) : (
+                            <span className="italic text-slate-400">Sem CPF (LGPD)</span>
                           )}
-                        </div>
-                        <div className="text-[11px] text-slate-400">
-                          {cli.endereco || 'Endereço não informado'}
-                        </div>
-                      </td>
+                        </td>
 
-                      <td className="py-3 px-3 font-mono text-slate-700">
-                        {cli.cpf ? (
-                          formatCpf(cli.cpf)
-                        ) : (
-                          <span className="italic text-slate-400">Sem CPF (LGPD)</span>
-                        )}
-                      </td>
+                        <td className="py-3 px-3 text-slate-600">
+                          <div>{cli.email || '-'}</div>
+                          <div className="text-[11px] text-slate-400">
+                            {formatPhoneBr(cli.telefone) || '-'}
+                          </div>
+                        </td>
 
-                      <td className="py-3 px-3 text-slate-600">
-                        <div>{cli.email || '-'}</div>
-                        <div className="text-[11px] text-slate-400">
-                          {formatPhoneBr(cli.telefone) || '-'}
-                        </div>
-                      </td>
-
-                      <td className="py-3 px-3">
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] bg-emerald-50 text-emerald-800 border-emerald-200"
-                        >
-                          {cli.base_legal?.replace('_', ' ') || 'consentimento'}
-                        </Badge>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">
-                          Desde: {formatDateBr(cli.data_consentimento)}
-                        </span>
-                      </td>
-
-                      <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
-                        {formatCurrencyBr(cli.receitaAcumulada)}
-                      </td>
-
-                      <td className="py-3 px-3 text-center">
-                        <span className="font-semibold text-slate-800">{cli.totalProjetos}</span>
-                        <span className="text-[10px] text-slate-400 block">
-                          ({cli.totalPropostas} prop.)
-                        </span>
-                      </td>
-
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs text-blue-600 hover:text-blue-800"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              abrirDetalhe(cli)
-                            }}
+                        <td className="py-3 px-3">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] bg-emerald-50 text-emerald-800 border-emerald-200"
                           >
-                            Detalhes
-                            <ChevronRight className="w-3.5 h-3.5 ml-1" />
-                          </Button>
-                          {canWrite && (
+                            {cli.base_legal?.replace('_', ' ') || 'consentimento'}
+                          </Badge>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">
+                            Desde: {formatDateBr(cli.data_consentimento)}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
+                          {formatCurrencyBr(cli.receitaAcumulada)}
+                        </td>
+
+                        <td className="py-3 px-3 text-center">
+                          <span className="font-semibold text-slate-800">{cli.totalProjetos}</span>
+                          <span className="text-[10px] text-slate-400 block">
+                            ({cli.totalPropostas} prop.)
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {canWrite && emRevisao && (
+                              <Button
+                                size="sm"
+                                title="Revisar dados enviados pelo cliente no convite"
+                                className="h-7 text-xs bg-[#D95A2B] hover:bg-[#C44E22] text-white gap-1 shadow-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  abrirRevisao(cli)
+                                }}
+                              >
+                                <FileCheck className="w-3.5 h-3.5" />
+                                Revisar cadastro
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
-                              title="Enviar link de cadastro (o cliente completa os próprios dados pelo link)"
-                              className="h-7 text-xs text-[#D95A2B] hover:text-[#C44E22] hover:bg-orange-50"
+                              className="h-7 text-xs text-blue-600 hover:text-blue-800"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                abrirConvite(cli)
+                                abrirDetalhe(cli)
                               }}
                             >
-                              <Send className="w-3.5 h-3.5" />
-                              <span className="hidden lg:inline">Enviar link</span>
+                              Detalhes
+                              <ChevronRight className="w-3.5 h-3.5 ml-1" />
                             </Button>
-                          )}
-                          {isAdmin && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              title="Excluir ou anonimizar segundo LGPD (exclusivo Admin)"
-                              className="h-7 w-7 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setClienteSelecionado(cli)
-                                setShowExcluirModal(true)
-                              }}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                            {canWrite && !emRevisao && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Enviar link de cadastro (o cliente completa os próprios dados pelo link)"
+                                className="h-7 text-xs text-[#D95A2B] hover:text-[#C44E22] hover:bg-orange-50"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  abrirConvite(cli)
+                                }}
+                              >
+                                <Send className="w-3.5 h-3.5" />
+                                <span className="hidden lg:inline">Enviar link</span>
+                              </Button>
+                            )}
+                            {isAdmin && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Excluir ou anonimizar segundo LGPD (exclusivo Admin)"
+                                className="h-7 w-7 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setClienteSelecionado(cli)
+                                  setShowExcluirModal(true)
+                                }}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>
@@ -594,6 +664,17 @@ export function ClientesPfPage() {
         onOpenChange={setShowLinkModal}
         cliente={clienteConvite}
         onSuccess={carregarDados}
+      />
+
+      {/* Modal Revisar Cadastro (Admin/Comercial) */}
+      <ModalRevisaoCadastroClientePf
+        open={showRevisaoModal}
+        onOpenChange={setShowRevisaoModal}
+        cliente={clienteRevisao}
+        onSuccess={carregarDados}
+        onGerarNovoLink={(c) => {
+          abrirConvite(c)
+        }}
       />
 
       {/* Modal Exclusão / Anonimização LGPD (Admin) */}

@@ -209,6 +209,11 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
     try {
       await clientesPfService.create({
         ...formData,
+        // Garante mapeamento bidirecional orgao_emissor / uf_rg
+        orgao_emissor: formData.orgao_emissor || formData.rg_orgao_emissor,
+        uf_rg: formData.uf_rg || formData.rg_uf,
+        rg_orgao_emissor: formData.rg_orgao_emissor || formData.orgao_emissor,
+        rg_uf: formData.rg_uf || formData.uf_rg,
         cpf: isPreCadastro
           ? cleanCpf(formData.cpf)
             ? formatCpf(formData.cpf)

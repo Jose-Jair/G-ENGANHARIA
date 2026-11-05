@@ -62,6 +62,16 @@ export interface UpdateClientePfData {
   endereco?: string
   observacoes?: string
   pre_cadastro?: boolean
+  // Dados complementares
+  rg?: string
+  rg_orgao_emissor?: string
+  rg_uf?: string
+  estado_civil?: string
+  regime_bens?: string
+  profissao?: string
+  nacionalidade?: string
+  data_nascimento?: string
+  cadastro_status?: 'pre_cadastro' | 'aguardando_cliente' | 'em_revisao' | 'completo'
 }
 
 export interface ClientePfComMetricas extends ClientePfRecord {
@@ -78,6 +88,38 @@ export interface CriarConviteResponse {
   link: string
   expira_em: string
   email_enviado: boolean
+  cliente_status: string
+}
+
+export interface ConviteClientePfRecord {
+  id: string
+  cliente_pf: string
+  token_hash: string
+  expira_em: string
+  status: 'ativo' | 'usado' | 'expirado' | 'cancelado' | 'aprovado' | 'recusado'
+  canal?: string
+  criado_por?: string
+  dados_enviados?: Record<string, unknown>
+  enviado_em?: string
+  ip_envio?: string
+  revisado_por?: string
+  revisado_em?: string
+  motivo_recusa?: string
+  created?: string
+  updated?: string
+}
+
+export interface AprovarConviteResponse {
+  sucesso: boolean
+  mensagem: string
+  cliente_id: string
+  cliente_status: string
+}
+
+export interface RecusarConviteResponse {
+  sucesso: boolean
+  mensagem: string
+  cliente_id: string
   cliente_status: string
 }
 
@@ -321,6 +363,51 @@ export const clientesPfService = {
   /**
    * Lista propostas ligadas ao cliente PF
    */
+  /**
+   * Busca o convite mais recente do cliente com status 'usado' (dados enviados pelo cliente aguardando revisão)
+   */
+  async getConviteUsadoMaisRecente(clientePfId: string): Promise<ConviteClientePfRecord | null> {
+    try {
+      const res = await pb
+        .collection('clientes_pf_convites')
+        .getList<ConviteClientePfRecord>(1, 1, {
+          filter: `cliente_pf = '${clientePfId}' && status = 'usado'`,
+          sort: '-enviado_em,-updated,-created',
+        })
+      return res.items[0] || null
+    } catch (err) {
+      console.warn('[clientesPfService] Erro ao buscar convite usado:', err)
+      return null
+    }
+  },
+
+  /**
+   * Aprova cadastro enviado pelo cliente no convite.
+   * Rota backend: POST /backend/v1/clientes-pf/convite/:convite_id/aprovar
+   */
+  async aprovarConvite(conviteId: string): Promise<AprovarConviteResponse> {
+    return await pb.send<AprovarConviteResponse>(
+      `/backend/v1/clientes-pf/convite/${conviteId}/aprovar`,
+      {
+        method: 'POST',
+      },
+    )
+  },
+
+  /**
+   * Recusa cadastro enviado pelo cliente com motivo obrigatório.
+   * Rota backend: POST /backend/v1/clientes-pf/convite/:convite_id/recusar
+   */
+  async recusarConvite(conviteId: string, motivo: string): Promise<RecusarConviteResponse> {
+    return await pb.send<RecusarConviteResponse>(
+      `/backend/v1/clientes-pf/convite/${conviteId}/recusar`,
+      {
+        method: 'POST',
+        body: { motivo: motivo.trim() },
+      },
+    )
+  },
+
   async listPropostas(clientePfId: string): Promise<PropostaRecord[]> {
     return await pb.collection('propostas').getFullList<PropostaRecord>({
       filter: `cliente_pf = '${clientePfId}'`,

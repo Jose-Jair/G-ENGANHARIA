@@ -19,7 +19,7 @@ import { cleanCpf, formatCpf, isValidCpf } from '@/lib/cnpj'
 import { formatPhoneDisplay, formatPhoneProgressive } from '@/lib/phone'
 import {
   OPCOES_ESTADO_CIVIL,
-  ESTADOS_CIVIL_COM_REGIME,
+  DOC_TIPOS_OPTIONS,
   TEXTO_ACEITE_LGPD_PUBLICO,
   MENSAGEM_CPF_DUPLICADO,
 } from '@/components/clientesPf/cadastroClientePfConstants'
@@ -58,9 +58,11 @@ const ENDERECO_VAZIO: EnderecoValue = {
 
 const ROTULOS_CAMPO: Record<string, string> = {
   cpf: 'Informe um CPF válido (11 dígitos, com os dígitos verificadores corretos).',
-  rg: 'Informe o RG.',
-  rg_orgao_emissor: 'Informe o órgão emissor do RG.',
-  rg_uf: 'Selecione a UF do órgão emissor do RG.',
+  doc_tipo: 'Selecione o documento de identificação.',
+  doc_tipo_outro: 'Informe qual é o documento de identificação.',
+  rg: 'Informe o número do documento.',
+  rg_orgao_emissor: 'Informe o órgão emissor.',
+  rg_uf: 'Selecione a UF do documento.',
   estado_civil: 'Selecione o estado civil.',
   profissao: 'Informe a profissão.',
   nacionalidade: 'Informe a nacionalidade.',
@@ -89,11 +91,12 @@ export function CadastroClientePublicoPage() {
   const [nomeCliente, setNomeCliente] = useState('')
   const [form, setForm] = useState({
     cpf: '',
+    doc_tipo: 'RG',
+    doc_tipo_outro: '',
     rg: '',
     rg_orgao_emissor: '',
     rg_uf: '',
     estado_civil: '',
-    regime_bens: '',
     profissao: '',
     nacionalidade: 'Brasileira',
     data_nascimento: '',
@@ -161,6 +164,10 @@ export function CadastroClientePublicoPage() {
     const errs: Record<string, string> = {}
     const cpfClean = cleanCpf(form.cpf)
     if (!cpfClean || cpfClean.length !== 11 || !isValidCpf(cpfClean)) errs.cpf = ROTULOS_CAMPO.cpf
+    if (!form.doc_tipo) errs.doc_tipo = ROTULOS_CAMPO.doc_tipo
+    if (form.doc_tipo === 'Outro' && !form.doc_tipo_outro.trim()) {
+      errs.doc_tipo_outro = ROTULOS_CAMPO.doc_tipo_outro
+    }
     if (!form.rg.trim()) errs.rg = ROTULOS_CAMPO.rg
     if (!form.rg_orgao_emissor.trim()) errs.rg_orgao_emissor = ROTULOS_CAMPO.rg_orgao_emissor
     if (!form.rg_uf) errs.rg_uf = ROTULOS_CAMPO.rg_uf
@@ -194,11 +201,12 @@ export function CadastroClientePublicoPage() {
         method: 'POST',
         body: {
           cpf: cleanCpf(form.cpf),
+          doc_tipo: form.doc_tipo || 'RG',
+          doc_tipo_outro: form.doc_tipo === 'Outro' ? form.doc_tipo_outro.trim() : '',
           rg: form.rg.trim(),
           rg_orgao_emissor: form.rg_orgao_emissor.trim(),
           rg_uf: form.rg_uf,
           estado_civil: form.estado_civil,
-          regime_bens: form.regime_bens.trim(),
           profissao: form.profissao.trim(),
           nacionalidade: form.nacionalidade.trim(),
           data_nascimento: form.data_nascimento,
@@ -349,45 +357,90 @@ export function CadastroClientePublicoPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">RG *</Label>
-                <Input
-                  value={form.rg}
-                  onChange={(e) => setCampo('rg', e.target.value)}
-                  className={`text-sm h-10 bg-white ${erros.rg ? 'border-red-500' : ''}`}
-                />
-                {erros.rg && <p className="text-[11px] text-red-600">{erros.rg}</p>}
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Órgão emissor *</Label>
-                <Input
-                  value={form.rg_orgao_emissor}
-                  onChange={(e) => setCampo('rg_orgao_emissor', e.target.value)}
-                  placeholder="Ex: SSP"
-                  className={`text-sm h-10 bg-white ${erros.rg_orgao_emissor ? 'border-red-500' : ''}`}
-                />
-                {erros.rg_orgao_emissor && (
-                  <p className="text-[11px] text-red-600">{erros.rg_orgao_emissor}</p>
+            {/* Documento de identificação: select primeiro, se 'Outro' campo adicional */}
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Documento de identificação *</Label>
+                  <Select
+                    value={form.doc_tipo}
+                    onValueChange={(v) => {
+                      setCampo('doc_tipo', v)
+                      if (v !== 'Outro') setCampo('doc_tipo_outro', '')
+                    }}
+                  >
+                    <SelectTrigger
+                      className={`text-sm h-10 bg-white ${erros.doc_tipo ? 'border-red-500' : ''}`}
+                    >
+                      <SelectValue placeholder="Selecione o tipo de documento" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DOC_TIPOS_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {erros.doc_tipo && <p className="text-[11px] text-red-600">{erros.doc_tipo}</p>}
+                </div>
+                {form.doc_tipo === 'Outro' && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Qual documento? *</Label>
+                    <Input
+                      value={form.doc_tipo_outro}
+                      onChange={(e) => setCampo('doc_tipo_outro', e.target.value)}
+                      placeholder="Ex: Passaporte, RNE..."
+                      className={`text-sm h-10 bg-white ${erros.doc_tipo_outro ? 'border-red-500' : ''}`}
+                    />
+                    {erros.doc_tipo_outro && (
+                      <p className="text-[11px] text-red-600">{erros.doc_tipo_outro}</p>
+                    )}
+                  </div>
                 )}
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">UF do RG *</Label>
-                <Select value={form.rg_uf} onValueChange={(v) => setCampo('rg_uf', v)}>
-                  <SelectTrigger
-                    className={`text-sm h-10 bg-white ${erros.rg_uf ? 'border-red-500' : ''}`}
-                  >
-                    <SelectValue placeholder="UF" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ESTADOS_BRASIL.map((uf) => (
-                      <SelectItem key={uf.sigla} value={uf.sigla}>
-                        {uf.sigla}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {erros.rg_uf && <p className="text-[11px] text-red-600">{erros.rg_uf}</p>}
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Número do documento *</Label>
+                  <Input
+                    value={form.rg}
+                    onChange={(e) => setCampo('rg', e.target.value)}
+                    placeholder="Número"
+                    className={`text-sm h-10 bg-white ${erros.rg ? 'border-red-500' : ''}`}
+                  />
+                  {erros.rg && <p className="text-[11px] text-red-600">{erros.rg}</p>}
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Órgão emissor *</Label>
+                  <Input
+                    value={form.rg_orgao_emissor}
+                    onChange={(e) => setCampo('rg_orgao_emissor', e.target.value)}
+                    placeholder="SSP, DETRAN, CREA, CAU, OAB..."
+                    className={`text-sm h-10 bg-white ${erros.rg_orgao_emissor ? 'border-red-500' : ''}`}
+                  />
+                  {erros.rg_orgao_emissor && (
+                    <p className="text-[11px] text-red-600">{erros.rg_orgao_emissor}</p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">UF *</Label>
+                  <Select value={form.rg_uf} onValueChange={(v) => setCampo('rg_uf', v)}>
+                    <SelectTrigger
+                      className={`text-sm h-10 bg-white ${erros.rg_uf ? 'border-red-500' : ''}`}
+                    >
+                      <SelectValue placeholder="UF" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ESTADOS_BRASIL.map((uf) => (
+                        <SelectItem key={uf.sigla} value={uf.sigla}>
+                          {uf.sigla}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {erros.rg_uf && <p className="text-[11px] text-red-600">{erros.rg_uf}</p>}
+                </div>
               </div>
             </div>
 
@@ -415,17 +468,6 @@ export function CadastroClientePublicoPage() {
                   <p className="text-[11px] text-red-600">{erros.estado_civil}</p>
                 )}
               </div>
-              {ESTADOS_CIVIL_COM_REGIME.includes(form.estado_civil) && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Regime de bens (opcional)</Label>
-                  <Input
-                    value={form.regime_bens}
-                    onChange={(e) => setCampo('regime_bens', e.target.value)}
-                    placeholder="Ex: comunhão parcial de bens"
-                    className="text-sm h-10 bg-white"
-                  />
-                </div>
-              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

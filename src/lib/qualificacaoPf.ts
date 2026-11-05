@@ -1,11 +1,10 @@
 import { ClientePfRecord } from '@/types'
-import { ESTADOS_CIVIL_COM_REGIME } from '@/components/clientesPf/cadastroClientePfConstants'
 
 /**
  * Montagem da qualificação do contratante pessoa física (B2b).
  * Padrão único usado no contrato e na proposta:
- * '{NOME}, {nacionalidade}, {estado civil}[, sob o regime de {regime de bens}],
- *  {profissão}, portador(a) do RG nº {rg} {órgão}/{UF}, inscrito(a) no CPF sob o nº {cpf},
+ * '{NOME}, {nacionalidade}, {estado civil}, {profissão},
+ *  portador(a) do {documento} nº {número} {órgão}/{UF}, inscrito(a) no CPF sob o nº {cpf},
  *  residente e domiciliado(a) em {logradouro}, nº {número}[, {complemento}],
  *  {bairro}, {município}/{UF}, CEP {cep}'
  */
@@ -29,7 +28,37 @@ export function formatarCpfPf(cpf: string): string {
 
 const texto = (v: unknown): string => String(v ?? '').trim()
 
-const REGIME_APENAS_PARA = ESTADOS_CIVIL_COM_REGIME
+/**
+ * Monta o trecho do documento de identificação com o artigo e formato gramatical correto:
+ * - RG: 'portador(a) do RG nº X SSP/CE'
+ * - CNH: 'portador(a) da CNH nº X DETRAN/CE'
+ * - Carteira profissional: 'portador(a) da carteira profissional nº X CREA/CE'
+ * - Outro: 'portador(a) do documento {doc_tipo_outro} nº X {órgão}/{UF}'
+ */
+export function montarTrechoDocumentoIdentificacao(
+  docTipo: string,
+  docTipoOutro: string,
+  numero: string,
+  orgao: string,
+  uf: string,
+): string {
+  if (!numero) return ''
+  const orgaoUf = orgao && uf ? ` ${orgao}/${uf}` : orgao ? ` ${orgao}` : uf ? ` /${uf}` : ''
+
+  const tipo = (docTipo || '').trim()
+  if (tipo === 'CNH') {
+    return `portador(a) da CNH nº ${numero}${orgaoUf}`
+  }
+  if (tipo === 'Carteira profissional') {
+    return `portador(a) da carteira profissional nº ${numero}${orgaoUf}`
+  }
+  if (tipo === 'Outro') {
+    const nomeDoc = (docTipoOutro || '').trim() || 'de identificação'
+    return `portador(a) do documento ${nomeDoc} nº ${numero}${orgaoUf}`
+  }
+  // Padrão ou 'RG': 'portador(a) do RG nº X SSP/CE'
+  return `portador(a) do RG nº ${numero}${orgaoUf}`
+}
 
 export function montarQualificacaoPf(cliente: ClientePfRecord): QualificacaoPf {
   const faltando: string[] = []
@@ -37,11 +66,12 @@ export function montarQualificacaoPf(cliente: ClientePfRecord): QualificacaoPf {
   const nome = texto(cliente?.nome)
   const nacionalidade = texto(cliente?.nacionalidade)
   const estadoCivil = texto(cliente?.estado_civil)
-  const regimeBens = texto(cliente?.regime_bens)
   const profissao = texto(cliente?.profissao)
-  const rg = texto(cliente?.rg)
-  const rgOrgao = texto(cliente?.rg_orgao_emissor)
-  const rgUf = texto(cliente?.rg_uf)
+  const docTipo = texto(cliente?.doc_tipo) || (cliente?.rg ? 'RG' : '')
+  const docTipoOutro = texto(cliente?.doc_tipo_outro)
+  const rgNumero = texto(cliente?.rg)
+  const rgOrgao = texto(cliente?.rg_orgao_emissor || cliente?.orgao_emissor)
+  const rgUf = texto(cliente?.rg_uf || cliente?.uf_rg)
   const cpfFormatado = formatarCpfPf(cliente?.cpf || '')
   const logradouro = texto(cliente?.logradouro)
   const numero = texto(cliente?.numero)
@@ -54,8 +84,10 @@ export function montarQualificacaoPf(cliente: ClientePfRecord): QualificacaoPf {
   if (!nacionalidade) faltando.push('nacionalidade')
   if (!estadoCivil) faltando.push('estado civil')
   if (!profissao) faltando.push('profissão')
-  if (!rg) faltando.push('número do RG')
-  if (!rgOrgao || !rgUf) faltando.push('órgão emissor/UF do RG')
+  if (!docTipo) faltando.push('tipo de documento de identificação')
+  if (docTipo === 'Outro' && !docTipoOutro) faltando.push('especificação do documento')
+  if (!rgNumero) faltando.push('número do documento')
+  if (!rgOrgao || !rgUf) faltando.push('órgão emissor/UF do documento')
   if (!cpfFormatado) faltando.push('CPF')
   if (!logradouro) faltando.push('logradouro do endereço')
   if (!numero) faltando.push('número do endereço')
@@ -68,22 +100,21 @@ export function montarQualificacaoPf(cliente: ClientePfRecord): QualificacaoPf {
     faltando.push(`cadastro completo (status atual: ${statusAtual})`)
   }
 
-  // Regra do regime de bens: só entra para casado(a)/união estável E regime preenchido
-  const usaRegime = REGIME_APENAS_PARA.includes(estadoCivil) && Boolean(regimeBens)
-  if (REGIME_APENAS_PARA.includes(estadoCivil) && !regimeBens) {
-    faltando.push('regime de bens (casado(a)/união estável)')
-  }
-
   const partes: string[] = []
   if (nome) partes.push(nome)
   else faltando.unshift('nome')
   if (nacionalidade) partes.push(nacionalidade)
   if (estadoCivil) partes.push(estadoCivil)
-  if (usaRegime) partes.push(`sob o regime de ${regimeBens}`)
   if (profissao) partes.push(profissao)
-  if (rg) {
-    const orgaoUf = rgOrgao && rgUf ? ` ${rgOrgao}/${rgUf}` : rgOrgao ? ` ${rgOrgao}` : ''
-    partes.push(`portador(a) do RG nº ${rg}${orgaoUf}`)
+  if (rgNumero) {
+    const trechoDoc = montarTrechoDocumentoIdentificacao(
+      docTipo || 'RG',
+      docTipoOutro,
+      rgNumero,
+      rgOrgao,
+      rgUf,
+    )
+    if (trechoDoc) partes.push(trechoDoc)
   }
   if (cpfFormatado) partes.push(`inscrito(a) no CPF sob o nº ${cpfFormatado}`)
 

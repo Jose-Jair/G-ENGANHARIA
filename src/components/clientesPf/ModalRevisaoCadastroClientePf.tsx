@@ -130,15 +130,28 @@ export function ModalRevisaoCadastroClientePf({
         atual: cliente.cpf ? formatCpf(cliente.cpf) : '',
         enviado: dados.cpf ? formatCpf(str(dados.cpf)) : '',
       },
-      { campo: 'RG', atual: str(cliente.rg), enviado: str(dados.rg) },
+      {
+        campo: 'Documento de identificação',
+        atual: str(cliente.doc_tipo) || (cliente.rg ? 'RG' : ''),
+        enviado: str(dados.doc_tipo) || (dados.rg ? 'RG' : ''),
+      },
+      ...(str(cliente.doc_tipo) === 'Outro' || str(dados.doc_tipo) === 'Outro'
+        ? [
+            {
+              campo: 'Qual documento?',
+              atual: str(cliente.doc_tipo_outro),
+              enviado: str(dados.doc_tipo_outro),
+            },
+          ]
+        : []),
+      { campo: 'Número do documento', atual: str(cliente.rg), enviado: str(dados.rg) },
       {
         campo: 'Órgão emissor',
         atual: str(cliente.rg_orgao_emissor),
         enviado: str(dados.rg_orgao_emissor),
       },
-      { campo: 'UF do RG', atual: str(cliente.rg_uf), enviado: str(dados.rg_uf) },
+      { campo: 'UF do documento', atual: str(cliente.rg_uf), enviado: str(dados.rg_uf) },
       { campo: 'Estado civil', atual: str(cliente.estado_civil), enviado: str(dados.estado_civil) },
-      { campo: 'Regime de bens', atual: str(cliente.regime_bens), enviado: str(dados.regime_bens) },
       { campo: 'Profissão', atual: str(cliente.profissao), enviado: str(dados.profissao) },
       {
         campo: 'Nacionalidade',

@@ -24,7 +24,7 @@ import { EnderecoComCep, EnderecoValue } from '@/components/comum/EnderecoComCep
 import { ESTADOS_BRASIL } from '@/services/cep'
 import {
   OPCOES_ESTADO_CIVIL,
-  ESTADOS_CIVIL_COM_REGIME,
+  DOC_TIPOS_OPTIONS,
 } from '@/components/clientesPf/cadastroClientePfConstants'
 
 type ModoCadastro = 'completo' | 'pre_cadastro'
@@ -43,11 +43,12 @@ const FORM_VAZIO: CreateClientePfData = {
   consentimento_lgpd: false,
   data_consentimento: new Date().toISOString().split('T')[0],
   observacoes: '',
+  doc_tipo: 'RG',
+  doc_tipo_outro: '',
   rg: '',
   rg_orgao_emissor: '',
   rg_uf: '',
   estado_civil: '',
-  regime_bens: '',
   profissao: '',
   nacionalidade: '',
   data_nascimento: '',
@@ -489,41 +490,84 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
             <span className="text-xs font-bold text-slate-700 uppercase">
               Dados pessoais (opcionais)
             </span>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <Label className="text-[11px]">RG</Label>
-                <Input
-                  value={formData.rg || ''}
-                  onChange={(e) => setFormData({ ...formData, rg: e.target.value })}
-                  className="text-xs h-8 bg-white"
-                />
+
+            {/* Documento de identificação: Select primeiro, se 'Outro' exige 'Qual documento?' */}
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px]">Documento de identificação</Label>
+                  <Select
+                    value={formData.doc_tipo || 'RG'}
+                    onValueChange={(v) =>
+                      setFormData({
+                        ...formData,
+                        doc_tipo: v,
+                        doc_tipo_outro: v === 'Outro' ? formData.doc_tipo_outro || '' : '',
+                      })
+                    }
+                  >
+                    <SelectTrigger className="text-xs h-8 bg-white">
+                      <SelectValue placeholder="Selecione o tipo de documento" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DOC_TIPOS_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {formData.doc_tipo === 'Outro' && (
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Qual documento? *</Label>
+                    <Input
+                      value={formData.doc_tipo_outro || ''}
+                      onChange={(e) => setFormData({ ...formData, doc_tipo_outro: e.target.value })}
+                      placeholder="Ex: Passaporte, RNE..."
+                      className="text-xs h-8 bg-white"
+                    />
+                  </div>
+                )}
               </div>
-              <div className="space-y-1">
-                <Label className="text-[11px]">Órgão emissor</Label>
-                <Input
-                  value={formData.rg_orgao_emissor || ''}
-                  onChange={(e) => setFormData({ ...formData, rg_orgao_emissor: e.target.value })}
-                  placeholder="Ex: SSP"
-                  className="text-xs h-8 bg-white"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[11px]">UF do RG</Label>
-                <Select
-                  value={formData.rg_uf || ''}
-                  onValueChange={(v) => setFormData({ ...formData, rg_uf: v })}
-                >
-                  <SelectTrigger className="text-xs h-8 bg-white">
-                    <SelectValue placeholder="UF" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ESTADOS_BRASIL.map((uf) => (
-                      <SelectItem key={uf.sigla} value={uf.sigla}>
-                        {uf.sigla}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px]">Número do documento</Label>
+                  <Input
+                    value={formData.rg || ''}
+                    onChange={(e) => setFormData({ ...formData, rg: e.target.value })}
+                    placeholder="Número"
+                    className="text-xs h-8 bg-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px]">Órgão emissor</Label>
+                  <Input
+                    value={formData.rg_orgao_emissor || ''}
+                    onChange={(e) => setFormData({ ...formData, rg_orgao_emissor: e.target.value })}
+                    placeholder="SSP, DETRAN, CREA, CAU, OAB..."
+                    className="text-xs h-8 bg-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px]">UF</Label>
+                  <Select
+                    value={formData.rg_uf || ''}
+                    onValueChange={(v) => setFormData({ ...formData, rg_uf: v })}
+                  >
+                    <SelectTrigger className="text-xs h-8 bg-white">
+                      <SelectValue placeholder="UF" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ESTADOS_BRASIL.map((uf) => (
+                        <SelectItem key={uf.sigla} value={uf.sigla}>
+                          {uf.sigla}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
@@ -536,9 +580,6 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
                     setFormData({
                       ...formData,
                       estado_civil: v,
-                      regime_bens: ESTADOS_CIVIL_COM_REGIME.includes(v)
-                        ? formData.regime_bens || ''
-                        : '',
                     })
                   }
                 >
@@ -554,17 +595,6 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
                   </SelectContent>
                 </Select>
               </div>
-              {ESTADOS_CIVIL_COM_REGIME.includes(formData.estado_civil || '') && (
-                <div className="space-y-1">
-                  <Label className="text-[11px]">Regime de bens</Label>
-                  <Input
-                    value={formData.regime_bens || ''}
-                    onChange={(e) => setFormData({ ...formData, regime_bens: e.target.value })}
-                    placeholder="Ex: comunhão parcial de bens"
-                    className="text-xs h-8 bg-white"
-                  />
-                </div>
-              )}
               <div className="space-y-1">
                 <Label className="text-[11px]">Profissão</Label>
                 <Input

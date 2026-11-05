@@ -487,15 +487,17 @@ export interface ClientePfRecord {
   endereco?: string
   observacoes?: string
   pre_cadastro?: boolean
-  // Campos novos (Migração 0132 — cadastro completo / link seguro)
+  // Campos novos (Migrações 0132 e 0133 — cadastro completo / link seguro / doc_tipo)
   cadastro_status?: CadastroStatusClientePf
+  doc_tipo?: 'RG' | 'CNH' | 'Carteira profissional' | 'Outro' | string
+  doc_tipo_outro?: string
   rg?: string
   rg_orgao_emissor?: string
   rg_uf?: string
   orgao_emissor?: string
   uf_rg?: string
   estado_civil?: string
-  regime_bens?: string
+  regime_bens?: string // mantido no banco, não usado na interface
   profissao?: string
   nacionalidade?: string
   data_nascimento?: string

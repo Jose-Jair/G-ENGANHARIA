@@ -53,7 +53,18 @@ export const UFS_BRASIL = [
   'TO',
 ] as const
 
-/** Estados civis que habilitam o campo opcional "regime de bens" */
+/** Tipos de documento de identificação aceitos */
+export const OPCOES_DOC_TIPO = ['RG', 'CNH', 'Carteira profissional', 'Outro'] as const
+export type DocTipoOpcao = (typeof OPCOES_DOC_TIPO)[number]
+
+export const DOC_TIPOS_OPTIONS: Array<{ value: DocTipoOpcao; label: string }> = [
+  { value: 'RG', label: 'RG' },
+  { value: 'CNH', label: 'CNH' },
+  { value: 'Carteira profissional', label: 'Carteira profissional (CREA, CAU, OAB...)' },
+  { value: 'Outro', label: 'Outro' },
+]
+
+/** Estados civis que anteriormente vinculavam regime de bens (mantido para compatibilidade histórica, não usado na UI) */
 export const ESTADOS_CIVIL_COM_REGIME: string[] = ['casado(a)', 'união estável']
 
 /** Texto curto do aceite LGPD na tela pública (obrigatório) */

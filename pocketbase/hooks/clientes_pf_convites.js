@@ -266,6 +266,11 @@ routerAdd('GET', '/backend/v1/cadastro-cliente/{token}', (e) => {
         cpf: cliente.getString('cpf'),
         email: cliente.getString('email'),
         telefone: cliente.getString('telefone'),
+        doc_tipo: cliente.getString('doc_tipo') || (cliente.getString('rg') ? 'RG' : ''),
+        doc_tipo_outro: cliente.getString('doc_tipo_outro'),
+        rg: cliente.getString('rg'),
+        rg_orgao_emissor: cliente.getString('rg_orgao_emissor'),
+        rg_uf: cliente.getString('rg_uf'),
         cep: cliente.getString('cep'),
         logradouro: cliente.getString('logradouro'),
         numero: cliente.getString('numero'),
@@ -407,6 +412,9 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     // -----------------------------------------------------------------------
     // Validação dos campos obrigatórios
     // -----------------------------------------------------------------------
+    const docTipoValidos = ['RG', 'CNH', 'Carteira profissional', 'Outro']
+    const docTipo = (body.doc_tipo || '').toString().trim()
+    const docTipoOutro = (body.doc_tipo_outro || '').toString().trim()
     const cpf = soDigitos(body.cpf)
     const rg = (body.rg || '').toString().trim()
     const rgOrgao = (body.rg_orgao_emissor || '').toString().trim()
@@ -428,6 +436,8 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     const aceiteLgpd = body.aceite_lgpd === true || body.aceite_lgpd === 'true'
 
     const faltantes = []
+    if (!docTipo || docTipoValidos.indexOf(docTipo) === -1) faltantes.push('doc_tipo')
+    if (docTipo === 'Outro' && !docTipoOutro) faltantes.push('doc_tipo_outro')
     if (!cpf || !isValidCpf(cpf)) faltantes.push('cpf')
     if (!rg) faltantes.push('rg')
     if (!rgOrgao) faltantes.push('rg_orgao_emissor')
@@ -479,6 +489,8 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     // Grava em dados_enviados do convite (NÃO no cliente)
     // -----------------------------------------------------------------------
     const dadosEnviados = {
+      doc_tipo: docTipo,
+      doc_tipo_outro: docTipo === 'Outro' ? docTipoOutro : '',
       cpf,
       rg,
       rg_orgao_emissor: rgOrgao,
@@ -661,10 +673,14 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
 
     // Copia dados_enviados -> cliente
     cliente.set('cpf', cpfNovo)
+    if (dados.doc_tipo) cliente.set('doc_tipo', dados.doc_tipo)
+    if (dados.doc_tipo_outro !== undefined)
+      cliente.set('doc_tipo_outro', dados.doc_tipo_outro || '')
     if (dados.rg) cliente.set('rg', dados.rg)
     if (dados.rg_orgao_emissor) cliente.set('rg_orgao_emissor', dados.rg_orgao_emissor)
     if (dados.rg_uf) cliente.set('rg_uf', dados.rg_uf)
     if (dados.estado_civil) cliente.set('estado_civil', dados.estado_civil)
+    // Mantém compatibilidade caso enviado, mas sem exigência
     if (dados.regime_bens) cliente.set('regime_bens', dados.regime_bens)
     if (dados.profissao) cliente.set('profissao', dados.profissao)
     if (dados.nacionalidade) cliente.set('nacionalidade', dados.nacionalidade)

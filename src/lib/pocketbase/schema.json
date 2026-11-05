@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-05T16:46:47.947Z",
+  "generatedAt": "2026-11-05T17:02:52.395Z",
   "collections": [
     {
       "name": "users",
@@ -1253,6 +1253,19 @@
           "required": false,
           "system": false,
           "selectValues": ["pre_cadastro", "aguardando_cliente", "em_revisao", "completo"]
+        },
+        {
+          "name": "doc_tipo",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["RG", "CNH", "Carteira profissional", "Outro"]
+        },
+        {
+          "name": "doc_tipo_outro",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

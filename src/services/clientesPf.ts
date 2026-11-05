@@ -26,6 +26,8 @@ export interface CreateClientePfData {
   observacoes?: string
   pre_cadastro?: boolean
   // Dados complementares opcionais (cadastro completo)
+  doc_tipo?: string
+  doc_tipo_outro?: string
   rg?: string
   rg_orgao_emissor?: string
   rg_uf?: string
@@ -65,6 +67,8 @@ export interface UpdateClientePfData {
   observacoes?: string
   pre_cadastro?: boolean
   // Dados complementares
+  doc_tipo?: string
+  doc_tipo_outro?: string
   rg?: string
   rg_orgao_emissor?: string
   rg_uf?: string

@@ -20,6 +20,7 @@ import {
 } from '@/lib/formatters'
 import { propostasService } from '@/services/propostas'
 import { areasAtuacaoService } from '@/services/areasAtuacao'
+import { montarQualificacaoPf } from '@/lib/qualificacaoPf'
 
 interface DossiePropostaGmaisProps {
   open: boolean
@@ -94,6 +95,13 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
     (proposta.expand?.empresa?.municipio
       ? `${proposta.expand?.empresa?.municipio} - ${proposta.expand?.empresa?.uf || ''}`
       : proposta.expand?.cliente_pf?.endereco) || ''
+
+  // Qualificação padronizada do contratante PESSOA FÍSICA (B2b) — PJ segue o layout original
+  const clientePfContratante =
+    proposta.expand?.cliente_pf || (proposta as any).cliente_pf_dados || null
+  const qualificacaoPfContratante = clientePfContratante
+    ? montarQualificacaoPf(clientePfContratante).texto
+    : ''
 
   const empreendimentoNome = proposta.empreendimento || contratanteNome
 
@@ -241,9 +249,17 @@ export const DossiePropostaGmais: React.FC<DossiePropostaGmaisProps> = ({
               <div className="text-[11px] text-slate-700">
                 <strong>Empreendimento:</strong> {empreendimentoNome}
               </div>
-              <div className="text-[11px] text-slate-600">Doc: {contratanteDoc}</div>
-              {contratanteEndereco && (
-                <div className="text-[11px] text-slate-600">{contratanteEndereco}</div>
+              {clientePfContratante && qualificacaoPfContratante ? (
+                <p className="text-[11px] text-slate-600 leading-relaxed text-justify mt-1">
+                  {qualificacaoPfContratante}
+                </p>
+              ) : (
+                <>
+                  <div className="text-[11px] text-slate-600">Doc: {contratanteDoc}</div>
+                  {contratanteEndereco && (
+                    <div className="text-[11px] text-slate-600">{contratanteEndereco}</div>
+                  )}
+                </>
               )}
             </div>
           </div>

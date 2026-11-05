@@ -12,6 +12,7 @@ import {
   normalizarCondicoesPagamento,
   normalizarObjetoProposta,
 } from '@/lib/formatters'
+import { montarQualificacaoPf } from '@/lib/qualificacaoPf'
 
 interface DossieContratoServicoGmaisProps {
   open: boolean
@@ -54,6 +55,12 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
     (contrato.expand?.empresa?.municipio
       ? `${contrato.expand?.empresa?.logradouro || ''} ${contrato.expand?.empresa?.numero || ''} - ${contrato.expand?.empresa?.municipio}/${contrato.expand?.empresa?.uf || ''}`.trim()
       : contrato.expand?.cliente_pf?.endereco) || ''
+
+  // Qualificação padronizada do contratante PESSOA FÍSICA (B2b) — PJ segue o layout original
+  const clientePfContratante = contrato.expand?.cliente_pf || null
+  const qualificacaoPfContratante = clientePfContratante
+    ? montarQualificacaoPf(clientePfContratante).texto
+    : ''
 
   const assinadoAdmin = Boolean(contrato.data_assinatura_admin)
   const assinadoCliente = Boolean(contrato.data_assinatura_cliente)
@@ -127,10 +134,18 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
               <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block">
                 CONTRATANTE
               </span>
-              <div className="font-bold text-slate-900 text-xs mt-0.5">{contratanteNome}</div>
-              <div className="text-[11px] text-slate-600">Documento: {contratanteDoc}</div>
-              {contratanteEndereco && (
-                <div className="text-[11px] text-slate-600">{contratanteEndereco}</div>
+              {clientePfContratante && qualificacaoPfContratante ? (
+                <p className="text-[11px] text-slate-700 leading-relaxed text-justify mt-0.5">
+                  {qualificacaoPfContratante}
+                </p>
+              ) : (
+                <>
+                  <div className="font-bold text-slate-900 text-xs mt-0.5">{contratanteNome}</div>
+                  <div className="text-[11px] text-slate-600">Documento: {contratanteDoc}</div>
+                  {contratanteEndereco && (
+                    <div className="text-[11px] text-slate-600">{contratanteEndereco}</div>
+                  )}
+                </>
               )}
             </div>
           </div>

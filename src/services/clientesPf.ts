@@ -29,6 +29,8 @@ export interface CreateClientePfData {
   rg?: string
   rg_orgao_emissor?: string
   rg_uf?: string
+  orgao_emissor?: string
+  uf_rg?: string
   estado_civil?: string
   regime_bens?: string
   profissao?: string
@@ -66,6 +68,8 @@ export interface UpdateClientePfData {
   rg?: string
   rg_orgao_emissor?: string
   rg_uf?: string
+  orgao_emissor?: string
+  uf_rg?: string
   estado_civil?: string
   regime_bens?: string
   profissao?: string

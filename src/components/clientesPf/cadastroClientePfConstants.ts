@@ -12,6 +12,47 @@ export const OPCOES_ESTADO_CIVIL = [
 
 export type EstadoCivilOpcao = (typeof OPCOES_ESTADO_CIVIL)[number]
 
+/** Opções com value e label para componentes select */
+export const ESTADOS_CIVIS_OPTIONS: Array<{ value: EstadoCivilOpcao; label: string }> = [
+  { value: 'solteiro(a)', label: 'Solteiro(a)' },
+  { value: 'casado(a)', label: 'Casado(a)' },
+  { value: 'união estável', label: 'União estável' },
+  { value: 'divorciado(a)', label: 'Divorciado(a)' },
+  { value: 'separado(a)', label: 'Separado(a)' },
+  { value: 'viúvo(a)', label: 'Viúvo(a)' },
+]
+
+/** Siglas das UFs do Brasil para selects */
+export const UFS_BRASIL = [
+  'AC',
+  'AL',
+  'AP',
+  'AM',
+  'BA',
+  'CE',
+  'DF',
+  'ES',
+  'GO',
+  'MA',
+  'MT',
+  'MS',
+  'MG',
+  'PA',
+  'PB',
+  'PR',
+  'PE',
+  'PI',
+  'RJ',
+  'RN',
+  'RS',
+  'RO',
+  'RR',
+  'SC',
+  'SP',
+  'SE',
+  'TO',
+] as const
+
 /** Estados civis que habilitam o campo opcional "regime de bens" */
 export const ESTADOS_CIVIL_COM_REGIME: string[] = ['casado(a)', 'união estável']
 

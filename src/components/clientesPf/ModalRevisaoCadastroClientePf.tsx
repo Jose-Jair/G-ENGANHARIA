@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { useToast } from '@/hooks/use-toast'
 import { clientesPfService, ClientePfRecord, ConviteClientePfRecord } from '@/services/clientesPf'
-import { formatCpf } from '@/lib/cnpj'
-import { formatPhoneBr } from '@/lib/formatters'
+import { formatCpf, formatPhoneBr } from '@/lib/cnpj'
 import {
   ModalRevisaoCadastroClientePfView,
   LinhaComparacao,

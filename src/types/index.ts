@@ -461,6 +461,12 @@ export const BASE_LEGAL_LGPD_LABELS: Record<BaseLegalLgpd, string> = {
   legitimo_interesse: 'Legítimo Interesse (Art. 7º, IX)',
 }
 
+export type CadastroStatusClientePf =
+  | 'pre_cadastro'
+  | 'aguardando_cliente'
+  | 'em_revisao'
+  | 'completo'
+
 export interface ClientePfRecord {
   id: string
   nome: string
@@ -481,6 +487,18 @@ export interface ClientePfRecord {
   endereco?: string
   observacoes?: string
   pre_cadastro?: boolean
+  // Campos novos (Migração 0132 — cadastro completo / link seguro)
+  cadastro_status?: CadastroStatusClientePf
+  rg?: string
+  rg_orgao_emissor?: string
+  rg_uf?: string
+  orgao_emissor?: string
+  uf_rg?: string
+  estado_civil?: string
+  regime_bens?: string
+  profissao?: string
+  nacionalidade?: string
+  data_nascimento?: string
   created: string
   updated: string
 }

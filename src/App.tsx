@@ -39,6 +39,7 @@ import { SubcontratoPublicoPage } from './pages/SubcontratoPublico'
 import { CadastroExecutorPublicoPage } from './pages/CadastroExecutorPublico'
 import { PreCadastroPublicoPage } from './pages/PreCadastroPublico'
 import RedefinirSenhaPage from './pages/RedefinirSenha'
+import { CadastroClientePublicoPage } from './pages/CadastroClientePublico'
 import { FinanceiroPage } from './pages/Financeiro'
 import { ManualUsoPage } from './pages/ManualUso'
 import { PortalExecutorPage } from './pages/PortalExecutor'
@@ -100,6 +101,9 @@ const App = () => (
 
           {/* Rota pública de definição/redefinição de senha (link do e-mail de reset e convite de prestador) */}
           <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
+
+          {/* PARTE B1: Rota pública do convite de cadastro do Cliente PF (sem login, antes da rede de segurança de /_/*) */}
+          <Route path="/cadastro-cliente" element={<CadastroClientePublicoPage />} />
 
           {/* Public opt-out route for campaigns (LGPD) */}
           <Route path="/descadastro/:token" element={<DescadastroPage />} />

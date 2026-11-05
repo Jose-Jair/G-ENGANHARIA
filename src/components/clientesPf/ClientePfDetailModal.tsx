@@ -51,6 +51,8 @@ import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
 import { Trash2, IdCard } from 'lucide-react'
 import {
+  DOC_TIPOS_OPTIONS,
+  DocTipoOpcao,
   ESTADOS_CIVIS_OPTIONS,
   UFS_BRASIL,
 } from '@/components/clientesPf/cadastroClientePfConstants'
@@ -88,11 +90,12 @@ export function ClientePfDetailModal({
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [observacoes, setObservacoes] = useState('')
+  const [docTipo, setDocTipo] = useState<DocTipoOpcao>('RG')
+  const [docTipoOutro, setDocTipoOutro] = useState('')
   const [rg, setRg] = useState('')
   const [orgaoEmissor, setOrgaoEmissor] = useState('')
   const [ufRg, setUfRg] = useState('')
   const [estadoCivil, setEstadoCivil] = useState('')
-  const [regimeBens, setRegimeBens] = useState('')
   const [profissao, setProfissao] = useState('')
   const [nacionalidade, setNacionalidade] = useState('brasileira')
   const [dataNascimento, setDataNascimento] = useState('')
@@ -113,11 +116,12 @@ export function ClientePfDetailModal({
     setNome(cliente.nome || '')
     setEmail(cliente.email || '')
     setObservacoes(cliente.observacoes || '')
+    setDocTipo((cliente.doc_tipo as DocTipoOpcao) || (cliente.rg ? 'RG' : 'RG'))
+    setDocTipoOutro(cliente.doc_tipo_outro || '')
     setRg(cliente.rg || '')
-    setOrgaoEmissor(cliente.orgao_emissor || '')
-    setUfRg(cliente.uf_rg || '')
+    setOrgaoEmissor(cliente.rg_orgao_emissor || cliente.orgao_emissor || '')
+    setUfRg(cliente.rg_uf || cliente.uf_rg || '')
     setEstadoCivil(cliente.estado_civil || '')
-    setRegimeBens(cliente.regime_bens || '')
     setProfissao(cliente.profissao || '')
     setNacionalidade(cliente.nacionalidade || 'brasileira')
     setDataNascimento(cliente.data_nascimento ? cliente.data_nascimento.slice(0, 10) : '')
@@ -199,6 +203,15 @@ export function ClientePfDetailModal({
       return
     }
 
+    if (docTipo === 'Outro' && !docTipoOutro.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Campo obrigatório',
+        description: 'Informe qual é o documento de identificação ("Qual documento?").',
+      })
+      return
+    }
+
     setSalvando(true)
     try {
       // Monta string de endereço compatível com o legado
@@ -212,14 +225,23 @@ export function ClientePfDetailModal({
       ].filter(Boolean)
       const enderecoTexto = partes.length > 0 ? partes.join(', ') : cliente.endereco
 
+      const cleanOrgao = orgaoEmissor.trim() || undefined
+      const cleanUf = ufRg.trim().toUpperCase() || undefined
+      const cleanDocTipo = docTipo || 'RG'
+      const cleanDocTipoOutro = cleanDocTipo === 'Outro' ? docTipoOutro.trim() : undefined
+
       const payload: UpdateClientePfData = {
         nome: nome.trim(),
         email: email.trim() || undefined,
+        doc_tipo: cleanDocTipo,
+        doc_tipo_outro: cleanDocTipoOutro,
         rg: rg.trim() || undefined,
-        orgao_emissor: orgaoEmissor.trim() || undefined,
-        uf_rg: ufRg.trim() || undefined,
+        rg_orgao_emissor: cleanOrgao,
+        orgao_emissor: cleanOrgao,
+        rg_uf: cleanUf,
+        uf_rg: cleanUf,
         estado_civil: estadoCivil.trim() || undefined,
-        regime_bens: regimeBens.trim() || undefined,
+        regime_bens: cliente.regime_bens || undefined,
         profissao: profissao.trim() || undefined,
         nacionalidade: nacionalidade.trim() || undefined,
         data_nascimento: dataNascimento.trim() || undefined,
@@ -453,27 +475,59 @@ export function ClientePfDetailModal({
                     <span>Documentos e Qualificação Civil</span>
                   </div>
 
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Documento de identificação</Label>
+                      <select
+                        value={docTipo}
+                        onChange={(e) => {
+                          const v = e.target.value as DocTipoOpcao
+                          setDocTipo(v)
+                          if (v !== 'Outro') setDocTipoOutro('')
+                        }}
+                        className="w-full text-xs h-8 border border-slate-200 rounded-md bg-white px-2 text-slate-800"
+                      >
+                        {DOC_TIPOS_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {docTipo === 'Outro' && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Qual documento? *</Label>
+                        <Input
+                          value={docTipoOutro}
+                          onChange={(e) => setDocTipoOutro(e.target.value)}
+                          placeholder="Ex: Passaporte, RNE..."
+                          className="text-xs h-8 bg-white"
+                        />
+                      </div>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                     <div className="space-y-1">
-                      <Label className="text-xs">RG</Label>
+                      <Label className="text-xs">Número do documento</Label>
                       <Input
                         value={rg}
                         onChange={(e) => setRg(e.target.value)}
-                        placeholder="00.000.000-0"
+                        placeholder="Número"
                         className="text-xs h-8 bg-white"
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Órgão Emissor</Label>
+                      <Label className="text-xs">Órgão emissor</Label>
                       <Input
                         value={orgaoEmissor}
                         onChange={(e) => setOrgaoEmissor(e.target.value)}
-                        placeholder="SSP, DETRAN, etc."
+                        placeholder="SSP, DETRAN, CREA, CAU, OAB..."
                         className="text-xs h-8 bg-white uppercase"
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">UF do RG</Label>
+                      <Label className="text-xs">UF</Label>
                       <select
                         value={ufRg}
                         onChange={(e) => setUfRg(e.target.value)}
@@ -489,7 +543,7 @@ export function ClientePfDetailModal({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
                     <div className="space-y-1">
                       <Label className="text-xs">Estado Civil</Label>
                       <select
@@ -504,15 +558,6 @@ export function ClientePfDetailModal({
                           </option>
                         ))}
                       </select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Regime de Bens</Label>
-                      <Input
-                        value={regimeBens}
-                        onChange={(e) => setRegimeBens(e.target.value)}
-                        placeholder="Ex: Comunhão parcial"
-                        className="text-xs h-8 bg-white"
-                      />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Profissão</Label>
@@ -575,187 +620,261 @@ export function ClientePfDetailModal({
               </div>
             ) : (
               /* MODO VISUALIZAÇÃO */
-              <Card className="border-slate-200">
-                <CardHeader className="p-4 pb-2">
-                  <CardTitle className="text-xs font-semibold text-slate-700 uppercase">
-                    Informações de Contato e Localização
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 pt-1 space-y-3 text-xs">
-                  {/* E-mail com botão mailto */}
-                  <div className="flex items-center justify-between p-2.5 rounded-md bg-slate-50 border border-slate-100">
-                    <div className="flex items-center gap-2 text-slate-700 min-w-0">
-                      <Mail className="w-4 h-4 text-blue-600 shrink-0" />
-                      <span className="font-semibold text-slate-500">E-mail:</span>
-                      <span className="font-medium text-slate-900 truncate">
-                        {cliente.email || 'Não informado'}
-                      </span>
+              <>
+                {/* Card Documento e Qualificação Civil */}
+                <Card className="border-slate-200">
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-xs font-semibold text-slate-700 uppercase flex items-center gap-1.5">
+                      <IdCard className="w-3.5 h-3.5 text-[#D95A2B]" />
+                      Documento e Qualificação Civil
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-1 space-y-2 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 bg-slate-50 p-3 rounded border border-slate-200">
+                      <div>
+                        <span className="text-[11px] text-slate-400 block">
+                          Documento de identificação:
+                        </span>
+                        <span className="font-semibold text-slate-800">
+                          {cliente.doc_tipo === 'Outro'
+                            ? cliente.doc_tipo_outro || 'Outro'
+                            : cliente.doc_tipo || (cliente.rg ? 'RG' : 'Não informado')}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-slate-400 block">
+                          Número do documento:
+                        </span>
+                        <span className="font-mono text-slate-800">
+                          {cliente.rg || 'Não informado'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-slate-400 block">Órgão emissor:</span>
+                        <span className="text-slate-800 uppercase">
+                          {cliente.rg_orgao_emissor || cliente.orgao_emissor || '-'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-slate-400 block">UF:</span>
+                        <span className="text-slate-800 font-mono">
+                          {cliente.rg_uf || cliente.uf_rg || '-'}
+                        </span>
+                      </div>
                     </div>
-                    {cliente.email && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleEnviarEmail}
-                        className="h-7 text-xs text-blue-700 hover:bg-blue-50 border-blue-200 gap-1 shrink-0"
-                        title="Abrir no cliente de e-mail padrão (mailto:)"
-                      >
-                        <Mail className="w-3.5 h-3.5" />
-                        Enviar E-mail
-                      </Button>
-                    )}
-                  </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-2.5 rounded border border-slate-200 text-[11px]">
+                      <div>
+                        <span className="text-slate-400 block">Estado civil:</span>
+                        <span className="text-slate-700 font-medium">
+                          {cliente.estado_civil || '-'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Profissão:</span>
+                        <span className="text-slate-700 font-medium">
+                          {cliente.profissao || '-'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Nacionalidade:</span>
+                        <span className="text-slate-700 font-medium">
+                          {cliente.nacionalidade || 'brasileira'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Data de nascimento:</span>
+                        <span className="text-slate-700 font-medium">
+                          {cliente.data_nascimento ? formatDateBr(cliente.data_nascimento) : '-'}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                  {/* Telefones com botão WhatsApp desktop / fallback Web */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 text-slate-500 font-semibold text-xs">
-                      <Phone className="w-4 h-4 text-orange-600" />
-                      <span>Telefones Cadastrados ({telefonesExibicao.length})</span>
+                <Card className="border-slate-200">
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-xs font-semibold text-slate-700 uppercase">
+                      Informações de Contato e Localização
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-1 space-y-3 text-xs">
+                    {/* E-mail com botão mailto */}
+                    <div className="flex items-center justify-between p-2.5 rounded-md bg-slate-50 border border-slate-100">
+                      <div className="flex items-center gap-2 text-slate-700 min-w-0">
+                        <Mail className="w-4 h-4 text-blue-600 shrink-0" />
+                        <span className="font-semibold text-slate-500">E-mail:</span>
+                        <span className="font-medium text-slate-900 truncate">
+                          {cliente.email || 'Não informado'}
+                        </span>
+                      </div>
+                      {cliente.email && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleEnviarEmail}
+                          className="h-7 text-xs text-blue-700 hover:bg-blue-50 border-blue-200 gap-1 shrink-0"
+                          title="Abrir no cliente de e-mail padrão (mailto:)"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          Enviar E-mail
+                        </Button>
+                      )}
                     </div>
 
-                    {telefonesExibicao.length === 0 ? (
-                      <p className="text-slate-400 italic text-[11px]">
-                        Nenhum telefone registrado.
-                      </p>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {telefonesExibicao.map((t) => {
-                          const hasWa = t.whatsapp ?? t.tipo === 'whatsapp'
-                          const clean = getWaDigitsOnly(t.numero) || cleanPhoneForWa(t.numero)
-                          const displayNumero = formatPhoneDisplay(t.numero, true) || t.numero
-                          return (
-                            <div
-                              key={t.id}
-                              className="p-2.5 rounded-md border border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2"
-                            >
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  {hasWa ? (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300 font-bold"
-                                    >
-                                      WhatsApp
-                                    </Badge>
-                                  ) : (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-[10px] bg-slate-100 text-slate-600"
-                                    >
-                                      {t.tipo || 'Telefone'}
-                                    </Badge>
-                                  )}
-                                  {t.ramalOuDescricao && (
-                                    <span className="text-[10px] text-slate-500 truncate">
-                                      {t.ramalOuDescricao}
-                                    </span>
-                                  )}
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (hasWa) {
-                                      openWhatsAppWithFallback({ phone: t.numero })
-                                    } else if (clean) {
-                                      window.location.href = `tel:${clean}`
-                                    }
-                                  }}
-                                  className={`font-mono text-xs font-bold block mt-1 text-left cursor-pointer hover:underline ${
-                                    hasWa ? 'text-emerald-800' : 'text-slate-900'
-                                  }`}
-                                  title={
-                                    hasWa
-                                      ? 'Abrir no aplicativo WhatsApp desktop (ou WhatsApp Web)'
-                                      : 'Ligar para o telefone'
-                                  }
-                                >
-                                  {displayNumero}
-                                </button>
-                              </div>
+                    {/* Telefones com botão WhatsApp desktop / fallback Web */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 text-slate-500 font-semibold text-xs">
+                        <Phone className="w-4 h-4 text-orange-600" />
+                        <span>Telefones Cadastrados ({telefonesExibicao.length})</span>
+                      </div>
 
-                              <div className="flex items-center gap-1 shrink-0">
-                                {clean && (
-                                  <a
-                                    href={`tel:${clean}`}
-                                    className="p-1.5 rounded hover:bg-slate-200 text-slate-600 hover:text-blue-700"
-                                    title="Ligar"
-                                  >
-                                    <PhoneCall className="w-3.5 h-3.5" />
-                                  </a>
-                                )}
-                                {hasWa && (
+                      {telefonesExibicao.length === 0 ? (
+                        <p className="text-slate-400 italic text-[11px]">
+                          Nenhum telefone registrado.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {telefonesExibicao.map((t) => {
+                            const hasWa = t.whatsapp ?? t.tipo === 'whatsapp'
+                            const clean = getWaDigitsOnly(t.numero) || cleanPhoneForWa(t.numero)
+                            const displayNumero = formatPhoneDisplay(t.numero, true) || t.numero
+                            return (
+                              <div
+                                key={t.id}
+                                className="p-2.5 rounded-md border border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2"
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    {hasWa ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300 font-bold"
+                                      >
+                                        WhatsApp
+                                      </Badge>
+                                    ) : (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] bg-slate-100 text-slate-600"
+                                      >
+                                        {t.tipo || 'Telefone'}
+                                      </Badge>
+                                    )}
+                                    {t.ramalOuDescricao && (
+                                      <span className="text-[10px] text-slate-500 truncate">
+                                        {t.ramalOuDescricao}
+                                      </span>
+                                    )}
+                                  </div>
                                   <button
                                     type="button"
-                                    onClick={() => openWhatsAppWithFallback({ phone: t.numero })}
-                                    className="p-1.5 rounded hover:bg-emerald-100 text-emerald-700 cursor-pointer"
-                                    title="Abrir no WhatsApp desktop (ou WhatsApp Web)"
+                                    onClick={() => {
+                                      if (hasWa) {
+                                        openWhatsAppWithFallback({ phone: t.numero })
+                                      } else if (clean) {
+                                        window.location.href = `tel:${clean}`
+                                      }
+                                    }}
+                                    className={`font-mono text-xs font-bold block mt-1 text-left cursor-pointer hover:underline ${
+                                      hasWa ? 'text-emerald-800' : 'text-slate-900'
+                                    }`}
+                                    title={
+                                      hasWa
+                                        ? 'Abrir no aplicativo WhatsApp desktop (ou WhatsApp Web)'
+                                        : 'Ligar para o telefone'
+                                    }
                                   >
-                                    <MessageSquare className="w-3.5 h-3.5" />
+                                    {displayNumero}
                                   </button>
-                                )}
+                                </div>
+
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {clean && (
+                                    <a
+                                      href={`tel:${clean}`}
+                                      className="p-1.5 rounded hover:bg-slate-200 text-slate-600 hover:text-blue-700"
+                                      title="Ligar"
+                                    >
+                                      <PhoneCall className="w-3.5 h-3.5" />
+                                    </a>
+                                  )}
+                                  {hasWa && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openWhatsAppWithFallback({ phone: t.numero })}
+                                      className="p-1.5 rounded hover:bg-emerald-100 text-emerald-700 cursor-pointer"
+                                      title="Abrir no WhatsApp desktop (ou WhatsApp Web)"
+                                    >
+                                      <MessageSquare className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Endereço segmentado e legado */}
-                  <div className="space-y-1 pt-2 border-t border-slate-100">
-                    <div className="flex items-center gap-2 text-slate-700">
-                      <MapPin className="w-4 h-4 text-orange-600 shrink-0" />
-                      <span className="font-semibold text-slate-500">Endereço:</span>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
 
-                    {temEnderecoSegmentado ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-3 rounded border border-slate-200 mt-1">
-                        <div>
-                          <span className="text-[11px] text-slate-400 block">Logradouro e Nº:</span>
-                          <span className="font-semibold text-slate-800">
-                            {cliente.logradouro || 'Sem logradouro'}
-                            {cliente.numero ? `, nº ${cliente.numero}` : ''}
-                          </span>
-                        </div>
-                        {cliente.complemento && (
+                    {/* Endereço segmentado e legado */}
+                    <div className="space-y-1 pt-2 border-t border-slate-100">
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <MapPin className="w-4 h-4 text-orange-600 shrink-0" />
+                        <span className="font-semibold text-slate-500">Endereço:</span>
+                      </div>
+
+                      {temEnderecoSegmentado ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-3 rounded border border-slate-200 mt-1">
                           <div>
-                            <span className="text-[11px] text-slate-400 block">Complemento:</span>
-                            <span className="text-slate-700">{cliente.complemento}</span>
+                            <span className="text-[11px] text-slate-400 block">
+                              Logradouro e Nº:
+                            </span>
+                            <span className="font-semibold text-slate-800">
+                              {cliente.logradouro || 'Sem logradouro'}
+                              {cliente.numero ? `, nº ${cliente.numero}` : ''}
+                            </span>
                           </div>
-                        )}
-                        <div>
-                          <span className="text-[11px] text-slate-400 block">Bairro:</span>
-                          <span className="text-slate-700">
-                            {cliente.bairro || 'Não informado'}
-                          </span>
+                          {cliente.complemento && (
+                            <div>
+                              <span className="text-[11px] text-slate-400 block">Complemento:</span>
+                              <span className="text-slate-700">{cliente.complemento}</span>
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-[11px] text-slate-400 block">Bairro:</span>
+                            <span className="text-slate-700">
+                              {cliente.bairro || 'Não informado'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[11px] text-slate-400 block">
+                              Município / UF / CEP:
+                            </span>
+                            <span className="font-mono text-slate-800">
+                              {cliente.municipio ? `${cliente.municipio}/${cliente.uf || ''}` : '-'}{' '}
+                              {cliente.cep ? `• CEP: ${cliente.cep}` : ''}
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-[11px] text-slate-400 block">
-                            Município / UF / CEP:
-                          </span>
-                          <span className="font-mono text-slate-800">
-                            {cliente.municipio ? `${cliente.municipio}/${cliente.uf || ''}` : '-'}{' '}
-                            {cliente.cep ? `• CEP: ${cliente.cep}` : ''}
-                          </span>
+                      ) : (
+                        <div className="p-2.5 bg-slate-50 rounded text-slate-700 text-xs border border-slate-100">
+                          {cliente.endereco || 'Endereço não informado'}
                         </div>
-                      </div>
-                    ) : (
-                      <div className="p-2.5 bg-slate-50 rounded text-slate-700 text-xs border border-slate-100">
-                        {cliente.endereco || 'Endereço não informado'}
+                      )}
+                    </div>
+
+                    {cliente.observacoes && (
+                      <div className="pt-2 border-t border-slate-100">
+                        <span className="text-slate-500 block mb-1">Observações:</span>
+                        <p className="p-2 bg-slate-50 rounded text-slate-600 text-[11px]">
+                          {cliente.observacoes}
+                        </p>
                       </div>
                     )}
-                  </div>
-
-                  {cliente.observacoes && (
-                    <div className="pt-2 border-t border-slate-100">
-                      <span className="text-slate-500 block mb-1">Observações:</span>
-                      <p className="p-2 bg-slate-50 rounded text-slate-600 text-[11px]">
-                        {cliente.observacoes}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </>
             )}
 
             {/* Cartão LGPD */}

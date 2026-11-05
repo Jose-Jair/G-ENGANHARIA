@@ -91,6 +91,161 @@ const ROTULOS_CAMPO: Record<string, string> = {
   aceite_lgpd: 'É necessário marcar o aceite do tratamento de dados (LGPD).',
 }
 
+export interface PayloadCadastroClientePf {
+  cpf: string
+  doc_tipo: string
+  doc_tipo_outro?: string
+  rg: string
+  rg_orgao_emissor: string
+  rg_uf: string
+  estado_civil: string
+  regime_bens?: string
+  profissao: string
+  nacionalidade: string
+  data_nascimento: string
+  cep: string
+  logradouro: string
+  numero: string
+  complemento?: string
+  bairro: string
+  municipio: string
+  uf: string
+  telefone: string
+  email: string
+  aceite_lgpd: boolean
+}
+
+export function validarPayloadCadastroClientePf(
+  payload: Partial<PayloadCadastroClientePf>,
+): Record<string, string> {
+  const erros: Record<string, string> = {}
+  const docTipoValidos = ['CIN', 'RG', 'CNH', 'Carteira profissional', 'Outro']
+  const estadosCivisValidos = [
+    'solteiro(a)',
+    'casado(a)',
+    'união estável',
+    'divorciado(a)',
+    'separado(a)',
+    'viúvo(a)',
+  ]
+  const cpfUfsValidas = [
+    'AC',
+    'AL',
+    'AP',
+    'AM',
+    'BA',
+    'CE',
+    'DF',
+    'ES',
+    'GO',
+    'MA',
+    'MT',
+    'MS',
+    'MG',
+    'PA',
+    'PB',
+    'PR',
+    'PE',
+    'PI',
+    'RJ',
+    'RN',
+    'RS',
+    'RO',
+    'RR',
+    'SC',
+    'SP',
+    'SE',
+    'TO',
+  ]
+
+  const clean = (v?: unknown) => (v || '').toString().trim()
+  const soDigitos = (v?: unknown) => (v || '').toString().replace(/\D/g, '')
+
+  const docTipo = clean(payload.doc_tipo)
+  const docTipoOutro = clean(payload.doc_tipo_outro)
+  const cpf = soDigitos(payload.cpf)
+  const rg = docTipo === 'CIN' ? cpf : clean(payload.rg)
+  const rgOrgao = clean(payload.rg_orgao_emissor)
+  const rgUf = clean(payload.rg_uf).toUpperCase()
+  const estadoCivil = clean(payload.estado_civil).toLowerCase()
+  const profissao = clean(payload.profissao)
+  const nacionalidade = clean(payload.nacionalidade)
+  const dataNascimento = clean(payload.data_nascimento)
+  const cep = soDigitos(payload.cep)
+  const logradouro = clean(payload.logradouro)
+  const numero = clean(payload.numero)
+  const bairro = clean(payload.bairro)
+  const municipio = clean(payload.municipio)
+  const uf = clean(payload.uf).toUpperCase()
+  const telefone = clean(payload.telefone)
+  const email = clean(payload.email).toLowerCase()
+  const aceiteLgpd = payload.aceite_lgpd === true || payload.aceite_lgpd === ('true' as unknown)
+
+  if (!docTipo || !docTipoValidos.includes(docTipo)) {
+    erros.doc_tipo = ROTULOS_CAMPO.doc_tipo
+  }
+  if (docTipo === 'Outro' && !docTipoOutro) {
+    erros.doc_tipo_outro = ROTULOS_CAMPO.doc_tipo_outro
+  }
+  if (!cpf) {
+    erros.cpf = 'Informe o CPF.'
+  } else if (!isValidCpf(cpf)) {
+    erros.cpf = ROTULOS_CAMPO.cpf
+  }
+  if (!rg) {
+    erros.rg = ROTULOS_CAMPO.rg
+  }
+  if (!rgOrgao) {
+    erros.rg_orgao_emissor = ROTULOS_CAMPO.rg_orgao_emissor
+  }
+  if (!rgUf || rgUf.length !== 2 || !cpfUfsValidas.includes(rgUf)) {
+    erros.rg_uf = ROTULOS_CAMPO.rg_uf
+  }
+  if (!estadoCivil || !estadosCivisValidos.includes(estadoCivil)) {
+    erros.estado_civil = ROTULOS_CAMPO.estado_civil
+  }
+  if (!profissao) {
+    erros.profissao = ROTULOS_CAMPO.profissao
+  }
+  if (!nacionalidade) {
+    erros.nacionalidade = ROTULOS_CAMPO.nacionalidade
+  }
+  if (!dataNascimento) {
+    erros.data_nascimento = ROTULOS_CAMPO.data_nascimento
+  }
+  if (!cep || cep.length < 8) {
+    erros.cep = ROTULOS_CAMPO.cep
+  }
+  if (!logradouro) {
+    erros.logradouro = ROTULOS_CAMPO.logradouro
+  }
+  if (!numero) {
+    erros.numero = ROTULOS_CAMPO.numero
+  }
+  if (!bairro) {
+    erros.bairro = ROTULOS_CAMPO.bairro
+  }
+  if (!municipio) {
+    erros.municipio = ROTULOS_CAMPO.municipio
+  }
+  if (!uf || uf.length !== 2 || !cpfUfsValidas.includes(uf)) {
+    erros.uf = ROTULOS_CAMPO.uf
+  }
+  if (!telefone) {
+    erros.telefone = ROTULOS_CAMPO.telefone
+  }
+  if (!email) {
+    erros.email = 'Informe o e-mail.'
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    erros.email = ROTULOS_CAMPO.email
+  }
+  if (!aceiteLgpd) {
+    erros.aceite_lgpd = ROTULOS_CAMPO.aceite_lgpd
+  }
+
+  return erros
+}
+
 export function extrairErroBackend(err: unknown): {
   status?: number
   error?: string
@@ -256,31 +411,39 @@ export function CadastroClientePublicoPage() {
     setErros(errs)
     if (Object.keys(errs).length > 0) return
 
+    const payloadEnvio: PayloadCadastroClientePf = {
+      cpf: cleanCpf(form.cpf),
+      doc_tipo: form.doc_tipo || 'RG',
+      doc_tipo_outro: form.doc_tipo === 'Outro' ? form.doc_tipo_outro.trim() : '',
+      rg: form.doc_tipo === 'CIN' ? cleanCpf(form.cpf) : form.rg.trim(),
+      rg_orgao_emissor: form.rg_orgao_emissor.trim(),
+      rg_uf: form.rg_uf,
+      estado_civil: form.estado_civil,
+      profissao: form.profissao.trim(),
+      nacionalidade: form.nacionalidade.trim(),
+      data_nascimento: form.data_nascimento,
+      cep: endereco.cep,
+      logradouro: endereco.logradouro.trim(),
+      numero: endereco.numero.trim(),
+      complemento: endereco.complemento.trim(),
+      bairro: endereco.bairro.trim(),
+      municipio: endereco.municipio.trim(),
+      uf: endereco.uf,
+      telefone: form.telefone.trim(),
+      email: form.email.trim().toLowerCase(),
+      aceite_lgpd: true,
+    }
+
     setEnviando(true)
     try {
       await pb.send(`/backend/v1/cadastro-cliente/${encodeURIComponent(token)}`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: {
-          cpf: cleanCpf(form.cpf),
-          doc_tipo: form.doc_tipo || 'RG',
-          doc_tipo_outro: form.doc_tipo === 'Outro' ? form.doc_tipo_outro.trim() : '',
-          rg: form.doc_tipo === 'CIN' ? cleanCpf(form.cpf) : form.rg.trim(),
-          rg_orgao_emissor: form.rg_orgao_emissor.trim(),
-          rg_uf: form.rg_uf,
-          estado_civil: form.estado_civil,
-          profissao: form.profissao.trim(),
-          nacionalidade: form.nacionalidade.trim(),
-          data_nascimento: form.data_nascimento,
-          cep: endereco.cep,
-          logradouro: endereco.logradouro.trim(),
-          numero: endereco.numero.trim(),
-          complemento: endereco.complemento.trim(),
-          bairro: endereco.bairro.trim(),
-          municipio: endereco.municipio.trim(),
-          uf: endereco.uf,
-          telefone: form.telefone.trim(),
-          email: form.email.trim().toLowerCase(),
-          aceite_lgpd: true,
+          ...payloadEnvio,
+          dados: payloadEnvio,
         },
       })
       setTela('sucesso')

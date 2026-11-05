@@ -77,9 +77,17 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/convite', (e) => {
 
     let body = {}
     try {
-      e.bindBody(body)
-    } catch (_) {
-      body = {}
+      const reqInfo = e.requestInfo ? e.requestInfo() : null
+      if (reqInfo && reqInfo.body && typeof reqInfo.body === 'object') {
+        body = reqInfo.body
+      }
+    } catch (_) {}
+    if (!body || Object.keys(body).length === 0) {
+      try {
+        e.bindBody(body)
+      } catch (_) {
+        body = {}
+      }
     }
     const enviarEmail =
       body.enviar_email === true || body.enviar_email === 'true' || body.enviar_email === 1
@@ -425,12 +433,27 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
       return e.json(404, { error: 'Link inválido ou expirado.' })
     }
 
-    let body = {}
+    let rawBody = {}
     try {
-      e.bindBody(body)
-    } catch (_) {
-      body = {}
+      const reqInfo = e.requestInfo ? e.requestInfo() : null
+      if (reqInfo && reqInfo.body && typeof reqInfo.body === 'object') {
+        rawBody = reqInfo.body
+      }
+    } catch (_) {}
+
+    if (!rawBody || Object.keys(rawBody).length === 0) {
+      try {
+        const parsed = {}
+        e.bindBody(parsed)
+        rawBody = parsed
+      } catch (_) {}
     }
+
+    // Suporte tanto para payload plano quanto para aninhado em { dados: { ... } }
+    const body =
+      rawBody && typeof rawBody.dados === 'object' && rawBody.dados !== null
+        ? Object.assign({}, rawBody, rawBody.dados)
+        : rawBody || {}
 
     // -----------------------------------------------------------------------
     // Validação dos campos obrigatórios
@@ -858,9 +881,17 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/recusar', (e) =>
 
     let body = {}
     try {
-      e.bindBody(body)
-    } catch (_) {
-      body = {}
+      const reqInfo = e.requestInfo ? e.requestInfo() : null
+      if (reqInfo && reqInfo.body && typeof reqInfo.body === 'object') {
+        body = reqInfo.body
+      }
+    } catch (_) {}
+    if (!body || Object.keys(body).length === 0) {
+      try {
+        e.bindBody(body)
+      } catch (_) {
+        body = {}
+      }
     }
     const motivo = (body.motivo || '').toString().trim()
     if (!motivo) {

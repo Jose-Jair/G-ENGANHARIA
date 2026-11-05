@@ -113,4 +113,58 @@ describe('Validação do cadastro de cliente PF (rotas públicas e payload)', ()
 
     expect(msgExibida).toBe('Something went wrong while processing your request. (cód. 500)')
   })
+
+  it('valida com sucesso payload idêntico ao do formulário (CIN, SSP, CE, solteiro)', async () => {
+    const { validarPayloadCadastroClientePf } = await import('@/pages/CadastroClientePublico')
+
+    // CPF válido de teste para validação
+    const payloadIdentico = {
+      cpf: '52998224725',
+      doc_tipo: 'CIN',
+      doc_tipo_outro: '',
+      rg: '52998224725',
+      rg_orgao_emissor: 'SSP',
+      rg_uf: 'CE',
+      estado_civil: 'solteiro(a)',
+      regime_bens: '',
+      profissao: 'Engenheiro Civil',
+      nacionalidade: 'Brasileira',
+      data_nascimento: '1985-06-15',
+      cep: '60000000',
+      logradouro: 'Rua das Flores',
+      numero: '123',
+      complemento: 'Apto 101',
+      bairro: 'Aldeota',
+      municipio: 'Fortaleza',
+      uf: 'CE',
+      telefone: '85999998888',
+      email: 'cliente.jose@exemplo.com.br',
+      aceite_lgpd: true,
+    }
+
+    const erros = validarPayloadCadastroClientePf(payloadIdentico)
+    expect(Object.keys(erros)).toHaveLength(0)
+    expect(erros).toEqual({})
+  })
+
+  it('aponta campos faltantes específicos se o payload estiver incompleto', async () => {
+    const { validarPayloadCadastroClientePf } = await import('@/pages/CadastroClientePublico')
+
+    const payloadIncompleto = {
+      cpf: '',
+      doc_tipo: '',
+      rg_orgao_emissor: '',
+      rg_uf: '',
+      estado_civil: '',
+      aceite_lgpd: false,
+    }
+
+    const erros = validarPayloadCadastroClientePf(payloadIncompleto)
+    expect(erros.cpf).toBe('Informe o CPF.')
+    expect(erros.doc_tipo).toBe('Selecione o documento de identificação.')
+    expect(erros.rg_orgao_emissor).toBe('Informe o órgão emissor.')
+    expect(erros.rg_uf).toBe('Selecione a UF do documento.')
+    expect(erros.estado_civil).toBe('Selecione o estado civil.')
+    expect(erros.aceite_lgpd).toBe('É necessário marcar o aceite do tratamento de dados (LGPD).')
+  })
 })

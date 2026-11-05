@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-05T17:02:52.395Z",
+  "generatedAt": "2026-11-05T17:29:14.065Z",
   "collections": [
     {
       "name": "users",
@@ -1259,7 +1259,7 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["RG", "CNH", "Carteira profissional", "Outro"]
+          "selectValues": ["CIN", "RG", "CNH", "Carteira profissional", "Outro"]
         },
         {
           "name": "doc_tipo_outro",

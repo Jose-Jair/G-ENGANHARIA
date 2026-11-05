@@ -107,6 +107,36 @@ describe('qualificacaoPf (B2b Ajuste v0.0.237)', () => {
       doc_tipo_outro: '',
     }
     const res = montarQualificacaoPf(cliIncompleto)
-    expect(res.faltando).toContain('especificação do documento')
+    expect(res.faltando).toContain('doc_tipo_outro')
+  })
+
+  it('formata CIN sem repetir o número na qualificação civil', () => {
+    const cliCin: ClientePfRecord = {
+      ...baseCliente,
+      doc_tipo: 'CIN',
+      rg: '529.982.247-25', // número é o próprio CPF
+      rg_orgao_emissor: 'SSP',
+      rg_uf: 'CE',
+    }
+    const res = montarQualificacaoPf(cliCin)
+    expect(res.texto).toContain(
+      'portador(a) da Carteira de Identidade Nacional, inscrito(a) no CPF sob o nº 529.982.247-25',
+    )
+    expect(res.texto).not.toContain('nº 529.982.247-25 SSP/CE')
+  })
+
+  it('formata RG cujo número é igual ao CPF sem repetir o número', () => {
+    const cliRgCpf: ClientePfRecord = {
+      ...baseCliente,
+      doc_tipo: 'RG',
+      rg: '52998224725',
+      rg_orgao_emissor: 'SSP',
+      rg_uf: 'CE',
+    }
+    const res = montarQualificacaoPf(cliRgCpf)
+    expect(res.texto).toContain(
+      'portador(a) do RG SSP/CE, inscrito(a) no CPF sob o nº 529.982.247-25',
+    )
+    expect(res.texto).not.toContain('nº 52998224725')
   })
 })

@@ -43,7 +43,7 @@ const FORM_VAZIO: CreateClientePfData = {
   consentimento_lgpd: false,
   data_consentimento: new Date().toISOString().split('T')[0],
   observacoes: '',
-  doc_tipo: 'RG',
+  doc_tipo: 'CIN',
   doc_tipo_outro: '',
   rg: '',
   rg_orgao_emissor: '',
@@ -90,7 +90,11 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
 
   const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = cleanCpf(e.target.value)
-    setFormData((prev) => ({ ...prev, cpf: raw }))
+    setFormData((prev) => ({
+      ...prev,
+      cpf: raw,
+      rg: prev.doc_tipo === 'CIN' ? formatCpf(raw) : prev.rg,
+    }))
     if (raw.length === 11) {
       if (!isValidCpf(raw)) {
         setCpfError('CPF inválido: os dígitos verificadores não conferem.')
@@ -497,13 +501,14 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
                 <div className="space-y-1">
                   <Label className="text-[11px]">Documento de identificação</Label>
                   <Select
-                    value={formData.doc_tipo || 'RG'}
+                    value={formData.doc_tipo || 'CIN'}
                     onValueChange={(v) =>
-                      setFormData({
-                        ...formData,
+                      setFormData((prev) => ({
+                        ...prev,
                         doc_tipo: v,
-                        doc_tipo_outro: v === 'Outro' ? formData.doc_tipo_outro || '' : '',
-                      })
+                        rg: v === 'CIN' ? (prev.cpf ? formatCpf(prev.cpf) : '') : prev.rg,
+                        doc_tipo_outro: v === 'Outro' ? prev.doc_tipo_outro || '' : '',
+                      }))
                     }
                   >
                     <SelectTrigger className="text-xs h-8 bg-white">
@@ -535,11 +540,29 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
                 <div className="space-y-1">
                   <Label className="text-[11px]">Número do documento</Label>
                   <Input
-                    value={formData.rg || ''}
-                    onChange={(e) => setFormData({ ...formData, rg: e.target.value })}
+                    value={
+                      formData.doc_tipo === 'CIN'
+                        ? formData.cpf
+                          ? formatCpf(formData.cpf)
+                          : ''
+                        : formData.rg || ''
+                    }
+                    readOnly={formData.doc_tipo === 'CIN'}
+                    onChange={(e) => {
+                      if (formData.doc_tipo !== 'CIN') {
+                        setFormData({ ...formData, rg: e.target.value })
+                      }
+                    }}
                     placeholder="Número"
-                    className="text-xs h-8 bg-white"
+                    className={`text-xs h-8 bg-white ${
+                      formData.doc_tipo === 'CIN'
+                        ? 'bg-slate-100 text-slate-600 cursor-not-allowed font-mono'
+                        : ''
+                    }`}
                   />
+                  {formData.doc_tipo === 'CIN' && (
+                    <p className="text-[10px] text-slate-500">Na CIN o número é o próprio CPF</p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[11px]">Órgão emissor</Label>

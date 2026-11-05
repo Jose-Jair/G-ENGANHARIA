@@ -40,7 +40,7 @@ import {
   X,
 } from 'lucide-react'
 import { formatCurrencyBr, formatDateBr, formatDateTimeBr } from '@/lib/formatters'
-import { formatCpf, cleanPhoneForWa } from '@/lib/cnpj'
+import { formatCpf, cleanCpf, cleanPhoneForWa } from '@/lib/cnpj'
 import { formatPhoneDisplay, getWaDigitsOnly } from '@/lib/phone'
 import { openWhatsAppWithFallback } from '@/lib/whatsapp'
 import { auditService } from '@/services/audit'
@@ -116,9 +116,12 @@ export function ClientePfDetailModal({
     setNome(cliente.nome || '')
     setEmail(cliente.email || '')
     setObservacoes(cliente.observacoes || '')
-    setDocTipo((cliente.doc_tipo as DocTipoOpcao) || (cliente.rg ? 'RG' : 'RG'))
+    const tipoInicial = (cliente.doc_tipo as DocTipoOpcao) || (cliente.rg ? 'RG' : 'CIN')
+    setDocTipo(tipoInicial)
     setDocTipoOutro(cliente.doc_tipo_outro || '')
-    setRg(cliente.rg || '')
+    const rgInicial =
+      tipoInicial === 'CIN' && cliente.cpf ? formatCpf(cliente.cpf) : cliente.rg || ''
+    setRg(rgInicial)
     setOrgaoEmissor(cliente.rg_orgao_emissor || cliente.orgao_emissor || '')
     setUfRg(cliente.rg_uf || cliente.uf_rg || '')
     setEstadoCivil(cliente.estado_civil || '')
@@ -229,13 +232,14 @@ export function ClientePfDetailModal({
       const cleanUf = ufRg.trim().toUpperCase() || undefined
       const cleanDocTipo = docTipo || 'RG'
       const cleanDocTipoOutro = cleanDocTipo === 'Outro' ? docTipoOutro.trim() : undefined
+      const rgFinal = cleanDocTipo === 'CIN' ? cleanCpf(cliente.cpf || '') : rg.trim() || undefined
 
       const payload: UpdateClientePfData = {
         nome: nome.trim(),
         email: email.trim() || undefined,
         doc_tipo: cleanDocTipo,
         doc_tipo_outro: cleanDocTipoOutro,
-        rg: rg.trim() || undefined,
+        rg: rgFinal,
         rg_orgao_emissor: cleanOrgao,
         orgao_emissor: cleanOrgao,
         rg_uf: cleanUf,
@@ -483,6 +487,9 @@ export function ClientePfDetailModal({
                         onChange={(e) => {
                           const v = e.target.value as DocTipoOpcao
                           setDocTipo(v)
+                          if (v === 'CIN') {
+                            setRg(cliente.cpf ? formatCpf(cliente.cpf) : '')
+                          }
                           if (v !== 'Outro') setDocTipoOutro('')
                         }}
                         className="w-full text-xs h-8 border border-slate-200 rounded-md bg-white px-2 text-slate-800"
@@ -511,11 +518,23 @@ export function ClientePfDetailModal({
                     <div className="space-y-1">
                       <Label className="text-xs">Número do documento</Label>
                       <Input
-                        value={rg}
-                        onChange={(e) => setRg(e.target.value)}
+                        value={docTipo === 'CIN' ? (cliente.cpf ? formatCpf(cliente.cpf) : '') : rg}
+                        readOnly={docTipo === 'CIN'}
+                        onChange={(e) => {
+                          if (docTipo !== 'CIN') setRg(e.target.value)
+                        }}
                         placeholder="Número"
-                        className="text-xs h-8 bg-white"
+                        className={`text-xs h-8 bg-white ${
+                          docTipo === 'CIN'
+                            ? 'bg-slate-100 text-slate-600 cursor-not-allowed font-mono'
+                            : ''
+                        }`}
                       />
+                      {docTipo === 'CIN' && (
+                        <p className="text-[10px] text-slate-500">
+                          Na CIN o número é o próprio CPF
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Órgão emissor</Label>

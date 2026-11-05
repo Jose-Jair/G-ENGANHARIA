@@ -412,11 +412,12 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     // -----------------------------------------------------------------------
     // Validação dos campos obrigatórios
     // -----------------------------------------------------------------------
-    const docTipoValidos = ['RG', 'CNH', 'Carteira profissional', 'Outro']
+    const docTipoValidos = ['CIN', 'RG', 'CNH', 'Carteira profissional', 'Outro']
     const docTipo = (body.doc_tipo || '').toString().trim()
     const docTipoOutro = (body.doc_tipo_outro || '').toString().trim()
     const cpf = soDigitos(body.cpf)
-    const rg = (body.rg || '').toString().trim()
+    // Se CIN, o número do documento é o próprio CPF (apenas dígitos)
+    const rg = docTipo === 'CIN' ? cpf : (body.rg || '').toString().trim()
     const rgOrgao = (body.rg_orgao_emissor || '').toString().trim()
     const rgUf = (body.rg_uf || '').toString().trim().toUpperCase()
     const estadoCivil = (body.estado_civil || '').toString().trim().toLowerCase()
@@ -676,7 +677,8 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
     if (dados.doc_tipo) cliente.set('doc_tipo', dados.doc_tipo)
     if (dados.doc_tipo_outro !== undefined)
       cliente.set('doc_tipo_outro', dados.doc_tipo_outro || '')
-    if (dados.rg) cliente.set('rg', dados.rg)
+    const rgFinal = dados.doc_tipo === 'CIN' ? cpfNovo : dados.rg || ''
+    if (rgFinal) cliente.set('rg', rgFinal)
     if (dados.rg_orgao_emissor) cliente.set('rg_orgao_emissor', dados.rg_orgao_emissor)
     if (dados.rg_uf) cliente.set('rg_uf', dados.rg_uf)
     if (dados.estado_civil) cliente.set('estado_civil', dados.estado_civil)

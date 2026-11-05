@@ -91,7 +91,7 @@ export function CadastroClientePublicoPage() {
   const [nomeCliente, setNomeCliente] = useState('')
   const [form, setForm] = useState({
     cpf: '',
-    doc_tipo: 'RG',
+    doc_tipo: 'CIN',
     doc_tipo_outro: '',
     rg: '',
     rg_orgao_emissor: '',
@@ -168,7 +168,8 @@ export function CadastroClientePublicoPage() {
     if (form.doc_tipo === 'Outro' && !form.doc_tipo_outro.trim()) {
       errs.doc_tipo_outro = ROTULOS_CAMPO.doc_tipo_outro
     }
-    if (!form.rg.trim()) errs.rg = ROTULOS_CAMPO.rg
+    const rgValor = form.doc_tipo === 'CIN' ? cleanCpf(form.cpf) : form.rg.trim()
+    if (!rgValor) errs.rg = ROTULOS_CAMPO.rg
     if (!form.rg_orgao_emissor.trim()) errs.rg_orgao_emissor = ROTULOS_CAMPO.rg_orgao_emissor
     if (!form.rg_uf) errs.rg_uf = ROTULOS_CAMPO.rg_uf
     if (!form.estado_civil) errs.estado_civil = ROTULOS_CAMPO.estado_civil
@@ -203,7 +204,7 @@ export function CadastroClientePublicoPage() {
           cpf: cleanCpf(form.cpf),
           doc_tipo: form.doc_tipo || 'RG',
           doc_tipo_outro: form.doc_tipo === 'Outro' ? form.doc_tipo_outro.trim() : '',
-          rg: form.rg.trim(),
+          rg: form.doc_tipo === 'CIN' ? cleanCpf(form.cpf) : form.rg.trim(),
           rg_orgao_emissor: form.rg_orgao_emissor.trim(),
           rg_uf: form.rg_uf,
           estado_civil: form.estado_civil,
@@ -337,7 +338,13 @@ export function CadastroClientePublicoPage() {
                 <Input
                   inputMode="numeric"
                   value={form.cpf}
-                  onChange={(e) => setCampo('cpf', formatCpf(cleanCpf(e.target.value)))}
+                  onChange={(e) => {
+                    const novoCpf = formatCpf(cleanCpf(e.target.value))
+                    setCampo('cpf', novoCpf)
+                    if (form.doc_tipo === 'CIN') {
+                      setCampo('rg', novoCpf)
+                    }
+                  }}
                   placeholder="000.000.000-00"
                   className={`text-sm h-10 font-mono bg-white ${erros.cpf ? 'border-red-500' : ''}`}
                 />
@@ -366,6 +373,9 @@ export function CadastroClientePublicoPage() {
                     value={form.doc_tipo}
                     onValueChange={(v) => {
                       setCampo('doc_tipo', v)
+                      if (v === 'CIN') {
+                        setCampo('rg', form.cpf || '')
+                      }
                       if (v !== 'Outro') setCampo('doc_tipo_outro', '')
                     }}
                   >
@@ -404,11 +414,23 @@ export function CadastroClientePublicoPage() {
                 <div className="space-y-1">
                   <Label className="text-xs">Número do documento *</Label>
                   <Input
-                    value={form.rg}
-                    onChange={(e) => setCampo('rg', e.target.value)}
+                    value={form.doc_tipo === 'CIN' ? form.cpf : form.rg}
+                    readOnly={form.doc_tipo === 'CIN'}
+                    onChange={(e) => {
+                      if (form.doc_tipo !== 'CIN') {
+                        setCampo('rg', e.target.value)
+                      }
+                    }}
                     placeholder="Número"
-                    className={`text-sm h-10 bg-white ${erros.rg ? 'border-red-500' : ''}`}
+                    className={`text-sm h-10 bg-white ${
+                      form.doc_tipo === 'CIN'
+                        ? 'bg-slate-100 text-slate-600 cursor-not-allowed font-mono'
+                        : ''
+                    } ${erros.rg ? 'border-red-500' : ''}`}
                   />
+                  {form.doc_tipo === 'CIN' && (
+                    <p className="text-[11px] text-slate-500">Na CIN o número é o próprio CPF</p>
+                  )}
                   {erros.rg && <p className="text-[11px] text-red-600">{erros.rg}</p>}
                 </div>
                 <div className="space-y-1">

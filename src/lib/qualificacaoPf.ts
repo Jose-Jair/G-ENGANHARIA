@@ -30,7 +30,11 @@ const texto = (v: unknown): string => String(v ?? '').trim()
 
 /**
  * Monta o trecho do documento de identificação com o artigo e formato gramatical correto:
- * - RG: 'portador(a) do RG nº X SSP/CE'
+ * - CIN: 'portador(a) da Carteira de Identidade Nacional' (não repete o número)
+ * - Se número do documento for igual ao CPF (apenas dígitos):
+ *     CIN → 'portador(a) da Carteira de Identidade Nacional'
+ *     RG  → 'portador(a) do RG {órgão}/{UF}'
+ * - RG normal: 'portador(a) do RG nº X SSP/CE'
  * - CNH: 'portador(a) da CNH nº X DETRAN/CE'
  * - Carteira profissional: 'portador(a) da carteira profissional nº X CREA/CE'
  * - Outro: 'portador(a) do documento {doc_tipo_outro} nº X {órgão}/{UF}'
@@ -41,11 +45,25 @@ export function montarTrechoDocumentoIdentificacao(
   numero: string,
   orgao: string,
   uf: string,
+  cpf?: string,
 ): string {
-  if (!numero) return ''
+  const tipo = (docTipo || '').trim()
   const orgaoUf = orgao && uf ? ` ${orgao}/${uf}` : orgao ? ` ${orgao}` : uf ? ` /${uf}` : ''
 
-  const tipo = (docTipo || '').trim()
+  const numDigitos = limpar(numero)
+  const cpfDigitos = limpar(cpf)
+  const numeroIgualAoCpf = Boolean(numDigitos && cpfDigitos && numDigitos === cpfDigitos)
+
+  if (tipo === 'CIN' || (numeroIgualAoCpf && tipo === 'CIN')) {
+    return 'portador(a) da Carteira de Identidade Nacional'
+  }
+
+  if (numeroIgualAoCpf && (!tipo || tipo === 'RG')) {
+    return `portador(a) do RG${orgaoUf}`
+  }
+
+  if (!numero) return ''
+
   if (tipo === 'CNH') {
     return `portador(a) da CNH nº ${numero}${orgaoUf}`
   }
@@ -113,6 +131,7 @@ export function montarQualificacaoPf(cliente: ClientePfRecord): QualificacaoPf {
       rgNumero,
       rgOrgao,
       rgUf,
+      cliente?.cpf,
     )
     if (trechoDoc) partes.push(trechoDoc)
   }

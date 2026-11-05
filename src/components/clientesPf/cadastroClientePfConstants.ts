@@ -54,10 +54,11 @@ export const UFS_BRASIL = [
 ] as const
 
 /** Tipos de documento de identificação aceitos */
-export const OPCOES_DOC_TIPO = ['RG', 'CNH', 'Carteira profissional', 'Outro'] as const
+export const OPCOES_DOC_TIPO = ['CIN', 'RG', 'CNH', 'Carteira profissional', 'Outro'] as const
 export type DocTipoOpcao = (typeof OPCOES_DOC_TIPO)[number]
 
 export const DOC_TIPOS_OPTIONS: Array<{ value: DocTipoOpcao; label: string }> = [
+  { value: 'CIN', label: 'CIN — Carteira de Identidade Nacional' },
   { value: 'RG', label: 'RG' },
   { value: 'CNH', label: 'CNH' },
   { value: 'Carteira profissional', label: 'Carteira profissional (CREA, CAU, OAB...)' },

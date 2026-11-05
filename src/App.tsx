@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -43,6 +43,35 @@ import { FinanceiroPage } from './pages/Financeiro'
 import { ManualUsoPage } from './pages/ManualUso'
 import { PortalExecutorPage } from './pages/PortalExecutor'
 import NotFound from './pages/NotFound'
+
+/* REDE DE SEGURANÇA — links ANTIGOS do e-mail de redefinição de senha do painel
+ * admin do PocketBase. Qualquer URL com '/_/' no caminho, ou '#/auth/confirm-password-reset/<token>'
+ * no hash, ou caminho '/confirm-password-reset/<token>' é redirecionada para a
+ * tela pública /redefinir-senha?token=<token> (v0.0.226). */
+function RedirecionarResetSenha() {
+  const location = useLocation()
+  const hash = location.hash || ''
+  const caminho = location.pathname + location.search
+
+  // 1) Hash '#/auth/confirm-password-reset/<token>' (formato antigo do painel)
+  const mHash = /#\/auth\/confirm-password-reset\/([^/?#]+)/.exec(hash)
+  if (mHash && mHash[1]) {
+    return <Navigate to={`/redefinir-senha?token=${encodeURIComponent(mHash[1])}`} replace />
+  }
+
+  // 2) Caminho contendo '/confirm-password-reset/<token>' (com ou sem prefixo /_/)
+  const mPath = /\/confirm-password-reset\/([^/?#]+)/.exec(caminho)
+  if (mPath && mPath[1]) {
+    return <Navigate to={`/redefinir-senha?token=${encodeURIComponent(mPath[1])}`} replace />
+  }
+
+  // 3) Qualquer outra URL com '/_/' no caminho: volta ao login
+  if (caminho.indexOf('/_/') === 0 || caminho.indexOf('/_/') !== -1) {
+    return <Navigate to="/login?recuperar=1" replace />
+  }
+
+  return <Navigate to="/login" replace />
+}
 
 function RedirecionarContrato() {
   const { token } = useParams<{ token: string }>()
@@ -326,6 +355,11 @@ const App = () => (
               }
             />
           </Route>
+
+          {/* Rede de segurança: links antigos do e-mail de reset (/_/, #/auth/confirm-password-reset/<token>) */}
+          <Route path="/_/*" element={<RedirecionarResetSenha />} />
+          <Route path="/_/auth/*" element={<RedirecionarResetSenha />} />
+          <Route path="/confirm-password-reset/:token" element={<RedirecionarResetSenha />} />
 
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />

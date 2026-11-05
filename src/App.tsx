@@ -38,6 +38,7 @@ import { CotacaoPublicaPage } from './pages/CotacaoPublica'
 import { SubcontratoPublicoPage } from './pages/SubcontratoPublico'
 import { CadastroExecutorPublicoPage } from './pages/CadastroExecutorPublico'
 import { PreCadastroPublicoPage } from './pages/PreCadastroPublico'
+import RedefinirSenhaPage from './pages/RedefinirSenha'
 import { FinanceiroPage } from './pages/Financeiro'
 import { ManualUsoPage } from './pages/ManualUso'
 import { PortalExecutorPage } from './pages/PortalExecutor'
@@ -67,6 +68,9 @@ const App = () => (
         <Routes>
           {/* Public login route */}
           <Route path="/login" element={<LoginPage />} />
+
+          {/* Rota pública de definição/redefinição de senha (link do e-mail de reset e convite de prestador) */}
+          <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
 
           {/* Public opt-out route for campaigns (LGPD) */}
           <Route path="/descadastro/:token" element={<DescadastroPage />} />

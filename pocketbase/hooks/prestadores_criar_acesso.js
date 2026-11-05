@@ -233,7 +233,8 @@ routerAdd('POST', '/backend/v1/prestadores/criar-acesso', (e) => {
 
       if (token) {
         try {
-          const resetLink = appUrl + '/_/#/auth/confirm-password-reset/' + token
+          // Link aponta para a tela pública do app "Defina sua senha" (evita 404 do painel admin padrão do PocketBase)
+          const resetLink = appUrl + '/redefinir-senha?token=' + encodeURIComponent(token)
           const senderAddress =
             ($app.settings().meta && $app.settings().meta.senderAddress) ||
             'nao-responder@gestaogmais.eng.br'

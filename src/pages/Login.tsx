@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { usersService } from '@/services/users'
 import {
@@ -30,6 +30,7 @@ export default function LoginPage() {
   const { login, confirmMfaLogin } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -41,10 +42,20 @@ export default function LoginPage() {
   const [totpCode, setTotpCode] = useState('')
 
   // Forgot password flow
-  const [showForgotModal, setShowForgotModal] = useState(false)
+  // Abre automaticamente quando chega de /redefinir-senha (botão "Enviar novo link" ou ?recuperar=1)
+  const [showForgotModal, setShowForgotModal] = useState(
+    () =>
+      searchParams.get('recuperar') === '1' ||
+      Boolean((location.state as { senhaDefinida?: boolean } | null)?.senhaDefinida),
+  )
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotSubmitting, setForgotSubmitting] = useState(false)
   const [forgotSuccess, setForgotSuccess] = useState(false)
+
+  // Aviso de sucesso exibido após definir a senha em /redefinir-senha
+  const senhaDefinidaSucesso = Boolean(
+    (location.state as { senhaDefinida?: boolean } | null)?.senhaDefinida,
+  )
 
   const getRedirectPath = (role: string) => {
     const from = (location.state as { from?: { pathname?: string } })?.from?.pathname
@@ -161,6 +172,15 @@ export default function LoginPage() {
           </CardHeader>
 
           <CardContent className="space-y-4">
+            {senhaDefinidaSucesso && (
+              <Alert className="bg-emerald-950/50 border-emerald-800 text-emerald-200">
+                <CheckCircle2 className="h-4 w-4" />
+                <AlertDescription>
+                  Senha definida com sucesso. Faça login com a nova senha.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {errorMessage && (
               <Alert variant="destructive" className="bg-red-950/50 border-red-800 text-red-200">
                 <AlertCircle className="h-4 w-4" />

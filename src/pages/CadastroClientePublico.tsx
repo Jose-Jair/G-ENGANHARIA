@@ -212,6 +212,12 @@ export function validarPayloadCadastroClientePf(
   }
   if (!dataNascimento) {
     erros.data_nascimento = ROTULOS_CAMPO.data_nascimento
+  } else {
+    const isoM = /^(\d{4})[-/](\d{2})[-/](\d{2})$/.exec(dataNascimento)
+    const brM = /^(\d{2})[-/](\d{2})[-/](\d{4})$/.exec(dataNascimento)
+    if (!isoM && !brM) {
+      erros.data_nascimento = 'Informe uma data de nascimento válida.'
+    }
   }
   if (!cep || cep.length < 8) {
     erros.cep = ROTULOS_CAMPO.cep
@@ -390,7 +396,15 @@ export function CadastroClientePublicoPage() {
     if (!form.estado_civil) errs.estado_civil = ROTULOS_CAMPO.estado_civil
     if (!form.profissao.trim()) errs.profissao = ROTULOS_CAMPO.profissao
     if (!form.nacionalidade.trim()) errs.nacionalidade = ROTULOS_CAMPO.nacionalidade
-    if (!form.data_nascimento) errs.data_nascimento = ROTULOS_CAMPO.data_nascimento
+    if (!form.data_nascimento) {
+      errs.data_nascimento = ROTULOS_CAMPO.data_nascimento
+    } else {
+      const isoM = /^(\d{4})[-/](\d{2})[-/](\d{2})$/.exec(form.data_nascimento.trim())
+      const brM = /^(\d{2})[-/](\d{2})[-/](\d{4})$/.exec(form.data_nascimento.trim())
+      if (!isoM && !brM) {
+        errs.data_nascimento = 'Informe uma data de nascimento válida.'
+      }
+    }
     if (!endereco.cep || endereco.cep.replace(/\D/g, '').length !== 8) errs.cep = ROTULOS_CAMPO.cep
     if (!endereco.logradouro.trim()) errs.logradouro = ROTULOS_CAMPO.logradouro
     if (!endereco.numero.trim()) errs.numero = ROTULOS_CAMPO.numero

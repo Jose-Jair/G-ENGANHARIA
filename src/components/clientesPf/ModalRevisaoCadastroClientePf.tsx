@@ -222,9 +222,16 @@ export function ModalRevisaoCadastroClientePf({
     } catch (err: unknown) {
       const msg = extrairMensagemErro(err)
       setErroApi(msg)
+      const descErro =
+        err &&
+        typeof err === 'object' &&
+        'message' in err &&
+        typeof (err as { message: unknown }).message === 'string'
+          ? (err as { message: string }).message
+          : 'Não foi possível concluir a aprovação.'
       toast({
         title: 'Erro ao aprovar cadastro',
-        description: msg,
+        description: descErro,
         variant: 'destructive',
       })
     } finally {

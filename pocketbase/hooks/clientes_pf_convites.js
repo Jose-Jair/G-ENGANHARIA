@@ -78,16 +78,11 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/convite', (e) => {
     let body = {}
     try {
       const reqInfo = e.requestInfo ? e.requestInfo() : null
-      if (reqInfo && reqInfo.body && typeof reqInfo.body === 'object') {
+      if (reqInfo && reqInfo.body && typeof reqInfo.body === 'object' && reqInfo.body !== null) {
         body = reqInfo.body
       }
-    } catch (_) {}
-    if (!body || Object.keys(body).length === 0) {
-      try {
-        e.bindBody(body)
-      } catch (_) {
-        body = {}
-      }
+    } catch (_) {
+      body = {}
     }
     const enviarEmail =
       body.enviar_email === true || body.enviar_email === 'true' || body.enviar_email === 1
@@ -228,7 +223,30 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/convite', (e) => {
       cliente_status: 'aguardando_cliente',
     })
   } catch (err) {
-    return e.json(500, { error: 'Erro ao criar convite de cadastro: ' + err })
+    let errStr = ''
+    try {
+      errStr = (err && (err.message || String(err))) || ''
+    } catch (_) {
+      errStr = 'erro desconhecido'
+    }
+    try {
+      const errCol = $app.findCollectionByNameOrId('erros_sistema')
+      if (errCol) {
+        const errRec = new Record(errCol)
+        errRec.set('rota', '/backend/v1/clientes-pf/:id/convite [POST]')
+        errRec.set('mensagem', ('Erro ao criar convite: ' + errStr).slice(0, 1000))
+        errRec.set('hora', new Date().toISOString())
+        errRec.set('detalhes', {
+          erro: errStr,
+          stack: err && err.stack ? String(err.stack) : '',
+        })
+        $app.save(errRec)
+      }
+    } catch (_) {}
+    return e.json(500, {
+      error: 'Não foi possível criar o link de cadastro. Por favor, tente novamente.',
+      detalhe: errStr.slice(0, 200),
+    })
   }
 })
 
@@ -386,17 +404,19 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
       '127.0.0.1'
 
     try {
-      const janelaInicio = new Date(Date.now() - 10 * 60 * 1000).toISOString().replace('T', ' ')
-      const rowRate = {}
-      $app
-        .db()
-        .newQuery(
-          'SELECT COUNT(*) AS total FROM clientes_pf_convites WHERE ip_envio = {:ip} AND enviado_em >= {:janela}',
-        )
-        .bind({ ip: ipCliente, janela: janelaInicio })
-        .one(rowRate)
-      const totalRecentes = parseInt(rowRate.total, 10) || 0
-      if (totalRecentes >= 10) {
+      const janelaInicio = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+      const recentes = $app.findRecordsByFilter(
+        'clientes_pf_convites',
+        "ip_envio = '" +
+          ipCliente.replace(/'/g, "''") +
+          "' && enviado_em >= '" +
+          janelaInicio +
+          "'",
+        '-id',
+        20,
+        0,
+      )
+      if (recentes && recentes.length >= 10) {
         return e.json(429, {
           error: 'Muitas tentativas seguidas. Aguarde alguns minutos e tente novamente.',
         })
@@ -436,18 +456,10 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     let rawBody = {}
     try {
       const reqInfo = e.requestInfo ? e.requestInfo() : null
-      if (reqInfo && reqInfo.body && typeof reqInfo.body === 'object') {
+      if (reqInfo && reqInfo.body && typeof reqInfo.body === 'object' && reqInfo.body !== null) {
         rawBody = reqInfo.body
       }
     } catch (_) {}
-
-    if (!rawBody || Object.keys(rawBody).length === 0) {
-      try {
-        const parsed = {}
-        e.bindBody(parsed)
-        rawBody = parsed
-      } catch (_) {}
-    }
 
     // Suporte tanto para payload plano quanto para aninhado em { dados: { ... } }
     const body =
@@ -470,7 +482,30 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     const regimeBens = (body.regime_bens || '').toString().trim()
     const profissao = (body.profissao || '').toString().trim()
     const nacionalidade = (body.nacionalidade || '').toString().trim()
-    const dataNascimento = (body.data_nascimento || '').toString().trim()
+    const dataNascimentoRaw = (body.data_nascimento || '').toString().trim()
+    let dataNascimentoNorm = ''
+    if (dataNascimentoRaw) {
+      // Normalização A3: aceita AAAA-MM-DD ou DD/MM/AAAA e converte para AAAA-MM-DD
+      const isoM = /^(\d{4})[-/](\d{2})[-/](\d{2})$/.exec(dataNascimentoRaw)
+      if (isoM) {
+        const y = parseInt(isoM[1], 10)
+        const m = parseInt(isoM[2], 10)
+        const d = parseInt(isoM[3], 10)
+        if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1900 && y <= 2100) {
+          dataNascimentoNorm = isoM[1] + '-' + isoM[2] + '-' + isoM[3]
+        }
+      } else {
+        const brM = /^(\d{2})[-/](\d{2})[-/](\d{4})$/.exec(dataNascimentoRaw)
+        if (brM) {
+          const d = parseInt(brM[1], 10)
+          const m = parseInt(brM[2], 10)
+          const y = parseInt(brM[3], 10)
+          if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1900 && y <= 2100) {
+            dataNascimentoNorm = brM[3] + '-' + brM[2] + '-' + brM[1]
+          }
+        }
+      }
+    }
     const cep = (body.cep || '').toString().trim()
     const logradouro = (body.logradouro || '').toString().trim()
     const numero = (body.numero || '').toString().trim()
@@ -513,8 +548,10 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     if (!nacionalidade) {
       errosPorCampo.nacionalidade = 'Informe a nacionalidade.'
     }
-    if (!dataNascimento) {
+    if (!dataNascimentoRaw) {
       errosPorCampo.data_nascimento = 'Informe a data de nascimento.'
+    } else if (!dataNascimentoNorm) {
+      errosPorCampo.data_nascimento = 'Informe uma data de nascimento válida.'
     }
     if (!cep || soDigitos(cep).length < 8) {
       errosPorCampo.cep = 'Informe um CEP válido (8 dígitos).'
@@ -592,7 +629,7 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
       regime_bens: regimeBens,
       profissao,
       nacionalidade,
-      data_nascimento: dataNascimento,
+      data_nascimento: dataNascimentoNorm || dataNascimentoRaw,
       cep,
       logradouro,
       numero,
@@ -676,18 +713,21 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
       convite_id: convite.id,
     })
   } catch (err) {
+    let errStr = ''
+    try {
+      errStr = (err && (err.message || String(err))) || ''
+    } catch (_) {
+      errStr = 'erro desconhecido'
+    }
     try {
       const errCol = $app.findCollectionByNameOrId('erros_sistema')
       if (errCol) {
         const errRec = new Record(errCol)
         errRec.set('rota', '/backend/v1/cadastro-cliente/:token [POST]')
-        errRec.set(
-          'mensagem',
-          ('Erro ao processar cadastro: ' + (err.message || String(err))).slice(0, 1000),
-        )
+        errRec.set('mensagem', ('Erro ao processar cadastro: ' + errStr).slice(0, 1000))
         errRec.set('hora', new Date().toISOString())
         errRec.set('detalhes', {
-          erro: String(err),
+          erro: errStr,
           stack: err && err.stack ? String(err.stack) : '',
         })
         $app.save(errRec)
@@ -697,6 +737,7 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
       error:
         'Não foi possível processar o envio do cadastro. Por favor, tente novamente em instantes.',
       erro: 'Não foi possível processar o envio do cadastro. Por favor, tente novamente em instantes.',
+      detalhe: errStr.slice(0, 200),
     })
   }
 })
@@ -722,6 +763,30 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
     resto = (soma * 10) % 11
     if (resto === 10 || resto === 11) resto = 0
     return resto === parseInt(clean.charAt(10), 10)
+  }
+  function normalizarDataNasc(raw) {
+    if (!raw) return ''
+    const limpo = (raw || '').toString().trim()
+    if (!limpo) return ''
+    const isoM = /^(\d{4})[-/](\d{2})[-/](\d{2})$/.exec(limpo)
+    if (isoM) {
+      const y = parseInt(isoM[1], 10)
+      const m = parseInt(isoM[2], 10)
+      const d = parseInt(isoM[3], 10)
+      if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1900 && y <= 2100) {
+        return isoM[1] + '-' + isoM[2] + '-' + isoM[3]
+      }
+    }
+    const brM = /^(\d{2})[-/](\d{2})[-/](\d{4})$/.exec(limpo)
+    if (brM) {
+      const d = parseInt(brM[1], 10)
+      const m = parseInt(brM[2], 10)
+      const y = parseInt(brM[3], 10)
+      if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1900 && y <= 2100) {
+        return brM[3] + '-' + brM[2] + '-' + brM[1]
+      }
+    }
+    return ''
   }
 
   try {
@@ -763,11 +828,13 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
       dados = {}
     }
 
-    // Revalidar CPF único antes de gravar no cliente
+    // Revalidar CPF antes de gravar no cliente
     const cpfNovo = soDigitos(dados.cpf)
     if (!cpfNovo || !isValidCpf(cpfNovo)) {
       return e.json(400, { error: 'O CPF informado pelo cliente é inválido.' })
     }
+
+    // Regra A4: checa duplicado em OUTROS clientes (id != clienteId)
     try {
       const duplicados = $app.findRecordsByFilter(
         'clientes_pf',
@@ -785,38 +852,64 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
       console.log('Aviso ao revalidar CPF único na aprovação: ' + eDup)
     }
 
-    // Copia dados_enviados -> cliente
-    cliente.set('cpf', cpfNovo)
-    if (dados.doc_tipo) cliente.set('doc_tipo', dados.doc_tipo)
-    if (dados.doc_tipo_outro !== undefined)
-      cliente.set('doc_tipo_outro', dados.doc_tipo_outro || '')
-    const rgFinal = dados.doc_tipo === 'CIN' ? cpfNovo : dados.rg || ''
-    if (rgFinal) cliente.set('rg', rgFinal)
-    if (dados.rg_orgao_emissor) cliente.set('rg_orgao_emissor', dados.rg_orgao_emissor)
-    if (dados.rg_uf) cliente.set('rg_uf', dados.rg_uf)
-    if (dados.estado_civil) cliente.set('estado_civil', dados.estado_civil)
-    // Mantém compatibilidade caso enviado, mas sem exigência
-    if (dados.regime_bens) cliente.set('regime_bens', dados.regime_bens)
-    if (dados.profissao) cliente.set('profissao', dados.profissao)
-    if (dados.nacionalidade) cliente.set('nacionalidade', dados.nacionalidade)
-    if (dados.data_nascimento) cliente.set('data_nascimento', dados.data_nascimento)
-    if (dados.cep) cliente.set('cep', dados.cep)
-    if (dados.logradouro) cliente.set('logradouro', dados.logradouro)
-    if (dados.numero) cliente.set('numero', dados.numero)
-    if (dados.complemento) cliente.set('complemento', dados.complemento)
-    if (dados.bairro) cliente.set('bairro', dados.bairro)
-    if (dados.municipio) cliente.set('municipio', dados.municipio)
-    if (dados.uf) cliente.set('uf', dados.uf)
-    if (dados.telefone) cliente.set('telefone', dados.telefone)
-    if (dados.email) cliente.set('email', dados.email)
+    // Regra A4: Só seta CPF se for diferente do CPF atual do cliente
+    const cpfAtualCliente = soDigitos(cliente.getString('cpf'))
+    if (cpfNovo && cpfNovo !== cpfAtualCliente) {
+      cliente.set('cpf', cpfNovo)
+    }
+
+    const docTipo = (dados.doc_tipo || '').toString().trim()
+    if (docTipo) cliente.set('doc_tipo', docTipo)
+    if (dados.doc_tipo_outro !== undefined) {
+      cliente.set('doc_tipo_outro', (dados.doc_tipo_outro || '').toString())
+    }
+
+    // Regra A4: quando CIN, rg recebe CPF (11 dígitos); só seta se diferente
+    const rgFinal = docTipo === 'CIN' ? cpfNovo : (dados.rg || '').toString().trim()
+    const rgAtualCliente = soDigitos(cliente.getString('rg'))
+    if (docTipo === 'CIN') {
+      if (rgFinal && rgFinal !== rgAtualCliente) {
+        cliente.set('rg', rgFinal)
+      }
+    } else if (rgFinal) {
+      cliente.set('rg', rgFinal)
+    }
+
+    if (dados.rg_orgao_emissor)
+      cliente.set('rg_orgao_emissor', dados.rg_orgao_emissor.toString().trim())
+    if (dados.rg_uf) cliente.set('rg_uf', dados.rg_uf.toString().trim().toUpperCase())
+    if (dados.estado_civil)
+      cliente.set('estado_civil', dados.estado_civil.toString().trim().toLowerCase())
+    if (dados.regime_bens) cliente.set('regime_bens', dados.regime_bens.toString().trim())
+    if (dados.profissao) cliente.set('profissao', dados.profissao.toString().trim())
+    if (dados.nacionalidade) cliente.set('nacionalidade', dados.nacionalidade.toString().trim())
+
+    // Regra A3: normalizar data_nascimento para 'AAAA-MM-DD'
+    const dataNascNorm = normalizarDataNasc(dados.data_nascimento)
+    if (dataNascNorm) {
+      cliente.set('data_nascimento', dataNascNorm)
+    }
+
+    if (dados.cep) cliente.set('cep', dados.cep.toString().trim())
+    if (dados.logradouro) cliente.set('logradouro', dados.logradouro.toString().trim())
+    if (dados.numero) cliente.set('numero', dados.numero.toString().trim())
+    if (dados.complemento !== undefined)
+      cliente.set('complemento', (dados.complemento || '').toString().trim())
+    if (dados.bairro) cliente.set('bairro', dados.bairro.toString().trim())
+    if (dados.municipio) cliente.set('municipio', dados.municipio.toString().trim())
+    if (dados.uf) cliente.set('uf', dados.uf.toString().trim().toUpperCase())
+    if (dados.telefone) cliente.set('telefone', dados.telefone.toString().trim())
+    if (dados.email) cliente.set('email', dados.email.toString().trim().toLowerCase())
+
     cliente.set('consentimento_lgpd', true)
-    cliente.set('data_consentimento', new Date().toISOString())
+    // Regra A3: data_consentimento no formato 'AAAA-MM-DD HH:mm:ss.000Z'
+    cliente.set('data_consentimento', new Date().toISOString().replace('T', ' '))
     cliente.set('cadastro_status', 'completo')
     $app.save(cliente)
 
     convite.set('status', 'aprovado')
     convite.set('revisado_por', auth.id)
-    convite.set('revisado_em', new Date().toISOString())
+    convite.set('revisado_em', new Date().toISOString().replace('T', ' '))
     $app.save(convite)
 
     const ipAcao =
@@ -842,12 +935,39 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
 
     return e.json(200, {
       sucesso: true,
-      mensagem: 'Cadastro aprovado e dados copiados para o cliente.',
+      mensagem: 'Cadastro aprovado e dados copiados para o cliente com sucesso.',
       cliente_id: clienteId,
       cliente_status: 'completo',
     })
   } catch (err) {
-    return e.json(500, { error: 'Erro ao aprovar cadastro: ' + err })
+    let errStr = ''
+    try {
+      errStr = (err && (err.message || String(err))) || ''
+    } catch (_) {
+      errStr = 'erro desconhecido'
+    }
+
+    // Regra A2: gravar em erros_sistema SEM dados pessoais (sem CPF/token/nome)
+    try {
+      const errCol = $app.findCollectionByNameOrId('erros_sistema')
+      if (errCol) {
+        const errRec = new Record(errCol)
+        errRec.set('rota', '/backend/v1/clientes-pf/convite/:id/aprovar [POST]')
+        errRec.set('mensagem', ('Erro ao aprovar cadastro: ' + errStr).slice(0, 1000))
+        errRec.set('hora', new Date().toISOString())
+        errRec.set('detalhes', {
+          erro: errStr,
+          stack: err && err.stack ? String(err.stack) : '',
+        })
+        $app.save(errRec)
+      }
+    } catch (_) {}
+
+    // Regra A1: resposta JSON clara em português, sem concatenação arriscada
+    return e.json(500, {
+      error: 'Não foi possível aprovar o cadastro do cliente. Por favor, tente novamente.',
+      detalhe: errStr.slice(0, 200),
+    })
   }
 })
 
@@ -882,16 +1002,11 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/recusar', (e) =>
     let body = {}
     try {
       const reqInfo = e.requestInfo ? e.requestInfo() : null
-      if (reqInfo && reqInfo.body && typeof reqInfo.body === 'object') {
+      if (reqInfo && reqInfo.body && typeof reqInfo.body === 'object' && reqInfo.body !== null) {
         body = reqInfo.body
       }
-    } catch (_) {}
-    if (!body || Object.keys(body).length === 0) {
-      try {
-        e.bindBody(body)
-      } catch (_) {
-        body = {}
-      }
+    } catch (_) {
+      body = {}
     }
     const motivo = (body.motivo || '').toString().trim()
     if (!motivo) {
@@ -908,7 +1023,7 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/recusar', (e) =>
 
     convite.set('status', 'recusado')
     convite.set('revisado_por', auth.id)
-    convite.set('revisado_em', new Date().toISOString())
+    convite.set('revisado_em', new Date().toISOString().replace('T', ' '))
     convite.set('motivo_recusa', motivo)
     $app.save(convite)
 
@@ -943,6 +1058,31 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/recusar', (e) =>
       cliente_status: 'pre_cadastro',
     })
   } catch (err) {
-    return e.json(500, { error: 'Erro ao recusar cadastro: ' + err })
+    let errStr = ''
+    try {
+      errStr = (err && (err.message || String(err))) || ''
+    } catch (_) {
+      errStr = 'erro desconhecido'
+    }
+
+    try {
+      const errCol = $app.findCollectionByNameOrId('erros_sistema')
+      if (errCol) {
+        const errRec = new Record(errCol)
+        errRec.set('rota', '/backend/v1/clientes-pf/convite/:id/recusar [POST]')
+        errRec.set('mensagem', ('Erro ao recusar cadastro: ' + errStr).slice(0, 1000))
+        errRec.set('hora', new Date().toISOString())
+        errRec.set('detalhes', {
+          erro: errStr,
+          stack: err && err.stack ? String(err.stack) : '',
+        })
+        $app.save(errRec)
+      }
+    } catch (_) {}
+
+    return e.json(500, {
+      error: 'Não foi possível recusar o cadastro. Por favor, tente novamente.',
+      detalhe: errStr.slice(0, 200),
+    })
   }
 })

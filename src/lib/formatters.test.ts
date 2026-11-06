@@ -3,6 +3,7 @@ import {
   formatPrazoRelativo,
   normalizarCondicoesPagamento,
   normalizarObjetoProposta,
+  formatarNomeProprio,
 } from './formatters'
 
 describe('normalizarObjetoProposta', () => {
@@ -109,5 +110,42 @@ describe('formatPrazoRelativo', () => {
     expect(res.texto).toBe('atrasado há 3 dias')
     expect(res.dias).toBe(-3)
     expect(res.atrasado).toBe(true)
+  })
+})
+
+describe('formatarNomeProprio (Item C)', () => {
+  it('coloca primeira letra de cada palavra em maiúscula', () => {
+    expect(formatarNomeProprio('carlos eduardo silva')).toBe('Carlos Eduardo Silva')
+    expect(formatarNomeProprio('CARLOS EDUARDO SILVA')).toBe('Carlos Eduardo Silva')
+  })
+
+  it('mantém em minúsculas as conectivas de, da, do, das, dos, e', () => {
+    expect(formatarNomeProprio('maria da silva')).toBe('Maria da Silva')
+    expect(formatarNomeProprio('joão de sousa e silva')).toBe('João de Sousa e Silva')
+    expect(formatarNomeProprio('PEDRO DO CARMO DOS SANTOS DAS NEVES')).toBe(
+      'Pedro do Carmo dos Santos das Neves',
+    )
+  })
+
+  it('mantém conectiva em maiúscula se for a primeira palavra', () => {
+    expect(formatarNomeProprio('de oliveira')).toBe('De Oliveira')
+  })
+
+  it('preserva siglas de 2 letras que já estejam todas em maiúsculas (ex: UF)', () => {
+    expect(formatarNomeProprio('rua das flores, CE')).toBe('Rua das Flores, CE')
+    expect(formatarNomeProprio('avenida brasil SP')).toBe('Avenida Brasil SP')
+    expect(formatarNomeProprio('FORTALEZA CE')).toBe('Fortaleza CE')
+  })
+
+  it('aplica corretamente em logradouro, bairro e município', () => {
+    expect(formatarNomeProprio('avenida santos dumont')).toBe('Avenida Santos Dumont')
+    expect(formatarNomeProprio('jardim das américas')).toBe('Jardim das Américas')
+    expect(formatarNomeProprio('juazeiro do norte')).toBe('Juazeiro do Norte')
+  })
+
+  it('lida com valores nulos, vazios ou espaços', () => {
+    expect(formatarNomeProprio(null)).toBe('')
+    expect(formatarNomeProprio(undefined)).toBe('')
+    expect(formatarNomeProprio('   ')).toBe('')
   })
 })

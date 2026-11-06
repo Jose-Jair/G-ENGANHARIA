@@ -152,6 +152,70 @@ export function normalizarCondicoesPagamento(texto?: string | null): string {
   return resultado
 }
 
+/**
+ * Converte um texto de nome próprio (pessoa, logradouro, bairro, município) para Title Case:
+ * - Primeira letra maiúscula de cada palavra
+ * - Conectivas mantidas em minúsculas: 'de', 'da', 'do', 'das', 'dos', 'e'
+ * - Preserva siglas de 2 letras que já estejam todas em maiúsculas (ex: CE, SP, RJ, RN, DF)
+ */
+export function formatarNomeProprio(texto?: string | null): string {
+  if (!texto) return ''
+  const str = String(texto).trim()
+  if (!str) return ''
+
+  const conectivas = new Set(['de', 'da', 'do', 'das', 'dos', 'e'])
+
+  // Divide por espaços mantendo agrupamento limpo
+  const palavras = str.split(/\s+/)
+
+  const formatadas = palavras.map((palavra, index) => {
+    if (!palavra) return ''
+
+    // Se tiver traço (ex: São-Vicente ou Guia-Lopes), trata cada parte separada por hífen
+    if (palavra.includes('-')) {
+      const subPartes = palavra.split('-')
+      return subPartes
+        .map((sub, subIdx) => {
+          if (!sub) return ''
+          // Preserva sigla de 2 letras se já for toda maiúscula
+          if (
+            sub.length === 2 &&
+            sub === sub.toUpperCase() &&
+            /^[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ]{2}$/.test(sub)
+          ) {
+            return sub
+          }
+          const subLower = sub.toLowerCase()
+          if (conectivas.has(subLower) && (index > 0 || subIdx > 0)) {
+            return subLower
+          }
+          return sub.charAt(0).toUpperCase() + sub.slice(1).toLowerCase()
+        })
+        .join('-')
+    }
+
+    // Preserva sigla de 2 letras se já for toda maiúscula (ex: CE, SP, DF)
+    if (
+      palavra.length === 2 &&
+      palavra === palavra.toUpperCase() &&
+      /^[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ]{2}$/.test(palavra)
+    ) {
+      return palavra
+    }
+
+    const lower = palavra.toLowerCase()
+
+    // Conectivas permanecem minúsculas, exceto se for a primeira palavra da frase
+    if (conectivas.has(lower) && index > 0) {
+      return lower
+    }
+
+    return palavra.charAt(0).toUpperCase() + palavra.slice(1).toLowerCase()
+  })
+
+  return formatadas.join(' ')
+}
+
 export function formatCurrencyBr(value?: number | null): string {
   if (value === undefined || value === null || isNaN(value)) return 'R$ 0,00'
   return new Intl.NumberFormat('pt-BR', {

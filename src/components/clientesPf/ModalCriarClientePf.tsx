@@ -16,6 +16,7 @@ import {
 import { User, ShieldCheck, FilePlus2, Loader2, AlertCircle, Mail, Link2 } from 'lucide-react'
 import { formatCpf, isValidCpf, cleanCpf } from '@/lib/cnpj'
 import { formatPhoneProgressive } from '@/lib/phone'
+import { formatarNomeProprio } from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
 import { clientesPfService, CreateClientePfData } from '@/services/clientesPf'
 import { BASE_LEGAL_LGPD_LABELS, BaseLegalLgpd, TelefoneItem } from '@/types'
@@ -215,6 +216,9 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
     try {
       await clientesPfService.create({
         ...formData,
+        // Aplica formatarNomeProprio em nome, logradouro, bairro, municipio
+        // (NÃO aplicar em profissão, complemento, e-mail)
+        nome: formatarNomeProprio(formData.nome),
         // Garante mapeamento bidirecional orgao_emissor / uf_rg
         orgao_emissor: formData.orgao_emissor || formData.rg_orgao_emissor,
         uf_rg: formData.uf_rg || formData.rg_uf,
@@ -230,11 +234,13 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
         telefones: telefonesFinais,
         consentimento_lgpd: isPreCadastro ? Boolean(formData.consentimento_lgpd) : true,
         cep: endereco.cep?.trim() || undefined,
-        logradouro: endereco.logradouro?.trim() || undefined,
+        logradouro: endereco.logradouro?.trim()
+          ? formatarNomeProprio(endereco.logradouro)
+          : undefined,
         numero: endereco.numero?.trim() || undefined,
         complemento: endereco.complemento?.trim() || undefined,
-        bairro: endereco.bairro?.trim() || undefined,
-        municipio: endereco.municipio?.trim() || undefined,
+        bairro: endereco.bairro?.trim() ? formatarNomeProprio(endereco.bairro) : undefined,
+        municipio: endereco.municipio?.trim() ? formatarNomeProprio(endereco.municipio) : undefined,
         uf: endereco.uf?.trim() || undefined,
         endereco: enderecoTexto || undefined,
         pre_cadastro: isPreCadastro,

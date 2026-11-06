@@ -385,6 +385,57 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
   function ehEmailValido(v) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || '').toString().trim())
   }
+  function formatarNomeProprio(texto) {
+    if (!texto) return ''
+    const str = String(texto).trim()
+    if (!str) return ''
+    const conectivas = { de: true, da: true, do: true, das: true, dos: true, e: true }
+    const palavras = str.split(/\s+/)
+    const formatadas = []
+    for (let index = 0; index < palavras.length; index++) {
+      const palavra = palavras[index]
+      if (!palavra) continue
+      if (palavra.indexOf('-') !== -1) {
+        const subPartes = palavra.split('-')
+        const subFormatadas = []
+        for (let subIdx = 0; subIdx < subPartes.length; subIdx++) {
+          const sub = subPartes[subIdx]
+          if (!sub) continue
+          if (
+            sub.length === 2 &&
+            sub === sub.toUpperCase() &&
+            /^[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ]{2}$/.test(sub)
+          ) {
+            subFormatadas.push(sub)
+            continue
+          }
+          const subLower = sub.toLowerCase()
+          if (conectivas[subLower] && (index > 0 || subIdx > 0)) {
+            subFormatadas.push(subLower)
+          } else {
+            subFormatadas.push(sub.charAt(0).toUpperCase() + sub.slice(1).toLowerCase())
+          }
+        }
+        formatadas.push(subFormatadas.join('-'))
+        continue
+      }
+      if (
+        palavra.length === 2 &&
+        palavra === palavra.toUpperCase() &&
+        /^[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ]{2}$/.test(palavra)
+      ) {
+        formatadas.push(palavra)
+        continue
+      }
+      const lower = palavra.toLowerCase()
+      if (conectivas[lower] && index > 0) {
+        formatadas.push(lower)
+      } else {
+        formatadas.push(palavra.charAt(0).toUpperCase() + palavra.slice(1).toLowerCase())
+      }
+    }
+    return formatadas.join(' ')
+  }
   const CPF_ESTADOS_UF = [
     'AC',
     'AL',
@@ -667,7 +718,14 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
 
     // -----------------------------------------------------------------------
     // Grava em dados_enviados do convite (NÃO no cliente)
+    // Aplica formatarNomeProprio em nome, logradouro, bairro, municipio
+    // (NÃO aplicar em profissão, complemento, e-mail)
     // -----------------------------------------------------------------------
+    const nomeNormalizado = body.nome ? formatarNomeProprio(body.nome) : undefined
+    const logradouroNormalizado = formatarNomeProprio(logradouro)
+    const bairroNormalizado = formatarNomeProprio(bairro)
+    const municipioNormalizado = formatarNomeProprio(municipio)
+
     const dadosEnviados = {
       genero: genero,
       doc_tipo: docTipo,
@@ -682,16 +740,19 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
       nacionalidade,
       data_nascimento: dataNascimentoNorm || dataNascimentoRaw,
       cep,
-      logradouro,
+      logradouro: logradouroNormalizado,
       numero,
       complemento,
-      bairro,
-      municipio,
+      bairro: bairroNormalizado,
+      municipio: municipioNormalizado,
       uf,
       telefone,
       email,
       aceite_lgpd: aceiteLgpd,
       submetido_em: new Date().toISOString(),
+    }
+    if (nomeNormalizado) {
+      dadosEnviados.nome = nomeNormalizado
     }
 
     convite.set('dados_enviados', dadosEnviados)
@@ -841,6 +902,57 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
     }
     return ''
   }
+  function formatarNomeProprio(texto) {
+    if (!texto) return ''
+    const str = String(texto).trim()
+    if (!str) return ''
+    const conectivas = { de: true, da: true, do: true, das: true, dos: true, e: true }
+    const palavras = str.split(/\s+/)
+    const formatadas = []
+    for (let index = 0; index < palavras.length; index++) {
+      const palavra = palavras[index]
+      if (!palavra) continue
+      if (palavra.indexOf('-') !== -1) {
+        const subPartes = palavra.split('-')
+        const subFormatadas = []
+        for (let subIdx = 0; subIdx < subPartes.length; subIdx++) {
+          const sub = subPartes[subIdx]
+          if (!sub) continue
+          if (
+            sub.length === 2 &&
+            sub === sub.toUpperCase() &&
+            /^[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ]{2}$/.test(sub)
+          ) {
+            subFormatadas.push(sub)
+            continue
+          }
+          const subLower = sub.toLowerCase()
+          if (conectivas[subLower] && (index > 0 || subIdx > 0)) {
+            subFormatadas.push(subLower)
+          } else {
+            subFormatadas.push(sub.charAt(0).toUpperCase() + sub.slice(1).toLowerCase())
+          }
+        }
+        formatadas.push(subFormatadas.join('-'))
+        continue
+      }
+      if (
+        palavra.length === 2 &&
+        palavra === palavra.toUpperCase() &&
+        /^[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ]{2}$/.test(palavra)
+      ) {
+        formatadas.push(palavra)
+        continue
+      }
+      const lower = palavra.toLowerCase()
+      if (conectivas[lower] && index > 0) {
+        formatadas.push(lower)
+      } else {
+        formatadas.push(palavra.charAt(0).toUpperCase() + palavra.slice(1).toLowerCase())
+      }
+    }
+    return formatadas.join(' ')
+  }
 
   try {
     const auth = e.auth
@@ -984,13 +1096,22 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
       cliente.set('data_nascimento', dataNascNorm)
     }
 
+    // Normalização com formatarNomeProprio antes de cliente.set()
+    // campos: nome (se vier nos dados ou se já no cliente), logradouro, bairro, municipio
+    // (NÃO aplicar em profissão, complemento, e-mail)
+    const nomeAtual = dados.nome || cliente.getString('nome') || ''
+    if (nomeAtual) {
+      cliente.set('nome', formatarNomeProprio(nomeAtual))
+    }
+
     if (dados.cep) cliente.set('cep', dados.cep.toString().trim())
-    if (dados.logradouro) cliente.set('logradouro', dados.logradouro.toString().trim())
+    if (dados.logradouro)
+      cliente.set('logradouro', formatarNomeProprio(dados.logradouro.toString()))
     if (dados.numero) cliente.set('numero', dados.numero.toString().trim())
     if (dados.complemento !== undefined)
       cliente.set('complemento', (dados.complemento || '').toString().trim())
-    if (dados.bairro) cliente.set('bairro', dados.bairro.toString().trim())
-    if (dados.municipio) cliente.set('municipio', dados.municipio.toString().trim())
+    if (dados.bairro) cliente.set('bairro', formatarNomeProprio(dados.bairro.toString()))
+    if (dados.municipio) cliente.set('municipio', formatarNomeProprio(dados.municipio.toString()))
     if (dados.uf) cliente.set('uf', dados.uf.toString().trim().toUpperCase())
     if (dados.telefone) cliente.set('telefone', dados.telefone.toString().trim())
     if (dados.email) cliente.set('email', dados.email.toString().trim().toLowerCase())

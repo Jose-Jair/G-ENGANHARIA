@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T13:08:13.292Z",
+  "generatedAt": "2026-11-06T13:10:19.648Z",
   "collections": [
     {
       "name": "users",
@@ -1266,6 +1266,13 @@
           "type": "text",
           "required": false,
           "system": false
+        },
+        {
+          "name": "genero",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["masculino", "feminino"]
         }
       ],
       "indexes": [

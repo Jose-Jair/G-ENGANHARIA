@@ -131,6 +131,11 @@ export function ModalRevisaoCadastroClientePf({
         enviado: dados.cpf ? formatCpf(str(dados.cpf)) : '',
       },
       {
+        campo: 'Gênero',
+        atual: str(cliente.genero),
+        enviado: str(dados.genero),
+      },
+      {
         campo: 'Documento de identificação',
         atual: str(cliente.doc_tipo) || (cliente.rg ? 'RG' : ''),
         enviado: str(dados.doc_tipo) || (dados.rg ? 'RG' : ''),

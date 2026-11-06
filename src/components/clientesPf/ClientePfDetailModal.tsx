@@ -90,6 +90,7 @@ export function ClientePfDetailModal({
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [observacoes, setObservacoes] = useState('')
+  const [genero, setGenero] = useState<string>('')
   const [docTipo, setDocTipo] = useState<DocTipoOpcao>('RG')
   const [docTipoOutro, setDocTipoOutro] = useState('')
   const [rg, setRg] = useState('')
@@ -116,6 +117,7 @@ export function ClientePfDetailModal({
     setNome(cliente.nome || '')
     setEmail(cliente.email || '')
     setObservacoes(cliente.observacoes || '')
+    setGenero(cliente.genero || '')
     const tipoInicial = (cliente.doc_tipo as DocTipoOpcao) || (cliente.rg ? 'RG' : 'CIN')
     setDocTipo(tipoInicial)
     setDocTipoOutro(cliente.doc_tipo_outro || '')
@@ -237,6 +239,7 @@ export function ClientePfDetailModal({
       const payload: UpdateClientePfData = {
         nome: nome.trim(),
         email: email.trim() || undefined,
+        genero: genero || undefined,
         doc_tipo: cleanDocTipo,
         doc_tipo_outro: cleanDocTipoOutro,
         rg: rgFinal,
@@ -481,6 +484,21 @@ export function ClientePfDetailModal({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
                     <div className="space-y-1">
+                      <Label className="text-xs">Gênero</Label>
+                      <select
+                        value={genero}
+                        onChange={(e) => setGenero(e.target.value)}
+                        className="w-full text-xs h-8 border border-slate-200 rounded-md bg-white px-2 text-slate-800"
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="masculino">Masculino</option>
+                        <option value="feminino">Feminino</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                    <div className="space-y-1">
                       <Label className="text-xs">Documento de identificação</Label>
                       <select
                         value={docTipo}
@@ -649,7 +667,13 @@ export function ClientePfDetailModal({
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-4 pt-1 space-y-2 text-xs">
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 bg-slate-50 p-3 rounded border border-slate-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 bg-slate-50 p-3 rounded border border-slate-200">
+                      <div>
+                        <span className="text-[11px] text-slate-400 block">Gênero:</span>
+                        <span className="font-semibold text-slate-800 capitalize">
+                          {cliente.genero || 'Não informado'}
+                        </span>
+                      </div>
                       <div>
                         <span className="text-[11px] text-slate-400 block">
                           Documento de identificação:

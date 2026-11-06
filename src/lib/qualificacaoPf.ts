@@ -39,6 +39,89 @@ const texto = (v: unknown): string => String(v ?? '').trim()
  * - Carteira profissional: 'portador(a) da carteira profissional nº X CREA/CE'
  * - Outro: 'portador(a) do documento {doc_tipo_outro} nº X {órgão}/{UF}'
  */
+export function flexionarPortador(genero?: string): string {
+  const g = (genero || '').trim().toLowerCase()
+  if (g === 'masculino') return 'portador'
+  if (g === 'feminino') return 'portadora'
+  return 'portador(a)'
+}
+
+export function flexionarInscrito(genero?: string): string {
+  const g = (genero || '').trim().toLowerCase()
+  if (g === 'masculino') return 'inscrito'
+  if (g === 'feminino') return 'inscrita'
+  return 'inscrito(a)'
+}
+
+export function flexionarResidente(genero?: string): string {
+  const g = (genero || '').trim().toLowerCase()
+  if (g === 'masculino') return 'residente e domiciliado'
+  if (g === 'feminino') return 'residente e domiciliada'
+  return 'residente e domiciliado(a)'
+}
+
+export function flexionarNacionalidade(nacionalidade: string, genero?: string): string {
+  const nac = (nacionalidade || '').trim()
+  if (!nac) return ''
+  const g = (genero || '').trim().toLowerCase()
+  const nacLower = nac.toLowerCase()
+  const ehBrasileiro = nacLower === 'brasileiro' || nacLower === 'brasileira'
+
+  if (g === 'masculino') {
+    return ehBrasileiro ? 'brasileiro' : nacLower
+  }
+  if (g === 'feminino') {
+    return ehBrasileiro ? 'brasileira' : nacLower
+  }
+  // Sem gênero: manter a forma neutra atual com '(a)' e 'de nacionalidade {nacionalidade}'
+  // Se for brasileiro/brasileira, a forma neutra padrão é 'de nacionalidade brasileira' ou 'de nacionalidade {nacionalidade}'
+  return `de nacionalidade ${nacLower}`
+}
+
+export function flexionarEstadoCivil(estadoCivil: string, genero?: string): string {
+  const ec = (estadoCivil || '').trim().toLowerCase()
+  if (!ec) return ''
+  const g = (genero || '').trim().toLowerCase()
+
+  if (ec.includes('união estável') || ec.includes('uniao estavel')) {
+    return 'em união estável'
+  }
+
+  if (g === 'masculino') {
+    if (ec.startsWith('solteir')) return 'solteiro'
+    if (ec.startsWith('casad')) return 'casado'
+    if (ec.startsWith('divorciad')) return 'divorciado'
+    if (ec.startsWith('separad')) return 'separado'
+    if (ec.startsWith('viúv') || ec.startsWith('viuv')) return 'viúvo'
+    return ec
+  }
+
+  if (g === 'feminino') {
+    if (ec.startsWith('solteir')) return 'solteira'
+    if (ec.startsWith('casad')) return 'casada'
+    if (ec.startsWith('divorciad')) return 'divorciada'
+    if (ec.startsWith('separad')) return 'separada'
+    if (ec.startsWith('viúv') || ec.startsWith('viuv')) return 'viúva'
+    return ec
+  }
+
+  // Sem gênero: mantém a forma neutra atual com '(a)'
+  if (ec.startsWith('solteir')) return 'solteiro(a)'
+  if (ec.startsWith('casad')) return 'casado(a)'
+  if (ec.startsWith('divorciad')) return 'divorciado(a)'
+  if (ec.startsWith('separad')) return 'separado(a)'
+  if (ec.startsWith('viúv') || ec.startsWith('viuv')) return 'viúvo(a)'
+  return ec
+}
+
+/**
+ * Monta o trecho do documento de identificação com o artigo e formato gramatical correto:
+ * - CIN: '{portador/portadora/portador(a)} da Carteira de Identidade Nacional'
+ * - RG: '{portador/portadora/portador(a)} do RG nº X SSP/CE'
+ * - CNH: '{portador/portadora/portador(a)} da CNH nº X DETRAN/CE'
+ * - Carteira profissional: '{portador/portadora/portador(a)} da carteira profissional nº X CREA/CE'
+ * - Outro: '{portador/portadora/portador(a)} do documento {doc_tipo_outro} nº X {órgão}/{UF}'
+ */
 export function montarTrechoDocumentoIdentificacao(
   docTipo: string,
   docTipoOutro: string,
@@ -46,36 +129,38 @@ export function montarTrechoDocumentoIdentificacao(
   orgao: string,
   uf: string,
   cpf?: string,
+  genero?: string,
 ): string {
   const tipo = (docTipo || '').trim()
   const orgaoUf = orgao && uf ? ` ${orgao}/${uf}` : orgao ? ` ${orgao}` : uf ? ` /${uf}` : ''
+  const termoPortador = flexionarPortador(genero)
 
   const numDigitos = limpar(numero)
   const cpfDigitos = limpar(cpf)
   const numeroIgualAoCpf = Boolean(numDigitos && cpfDigitos && numDigitos === cpfDigitos)
 
   if (tipo === 'CIN' || (numeroIgualAoCpf && tipo === 'CIN')) {
-    return 'portador(a) da Carteira de Identidade Nacional'
+    return `${termoPortador} da Carteira de Identidade Nacional`
   }
 
   if (numeroIgualAoCpf && (!tipo || tipo === 'RG')) {
-    return `portador(a) do RG${orgaoUf}`
+    return `${termoPortador} do RG${orgaoUf}`
   }
 
   if (!numero) return ''
 
   if (tipo === 'CNH') {
-    return `portador(a) da CNH nº ${numero}${orgaoUf}`
+    return `${termoPortador} da CNH nº ${numero}${orgaoUf}`
   }
   if (tipo === 'Carteira profissional') {
-    return `portador(a) da carteira profissional nº ${numero}${orgaoUf}`
+    return `${termoPortador} da carteira profissional nº ${numero}${orgaoUf}`
   }
   if (tipo === 'Outro') {
     const nomeDoc = (docTipoOutro || '').trim() || 'de identificação'
-    return `portador(a) do documento ${nomeDoc} nº ${numero}${orgaoUf}`
+    return `${termoPortador} do documento ${nomeDoc} nº ${numero}${orgaoUf}`
   }
-  // Padrão ou 'RG': 'portador(a) do RG nº X SSP/CE'
-  return `portador(a) do RG nº ${numero}${orgaoUf}`
+  // Padrão ou 'RG': '{portador(a)} do RG nº X SSP/CE'
+  return `${termoPortador} do RG nº ${numero}${orgaoUf}`
 }
 
 export function montarQualificacaoPf(cliente: ClientePfRecord): QualificacaoPf {
@@ -118,11 +203,17 @@ export function montarQualificacaoPf(cliente: ClientePfRecord): QualificacaoPf {
     faltando.push(`cadastro completo (status atual: ${statusAtual})`)
   }
 
+  const genero = texto(cliente?.genero)
+  const termoInscrito = flexionarInscrito(genero)
+  const termoResidente = flexionarResidente(genero)
+  const nacFlex = flexionarNacionalidade(nacionalidade, genero)
+  const ecFlex = flexionarEstadoCivil(estadoCivil, genero)
+
   const partes: string[] = []
   if (nome) partes.push(nome)
   else faltando.unshift('nome')
-  if (nacionalidade) partes.push(nacionalidade)
-  if (estadoCivil) partes.push(estadoCivil)
+  if (nacFlex) partes.push(nacFlex)
+  if (ecFlex) partes.push(ecFlex)
   if (profissao) partes.push(profissao)
   if (rgNumero) {
     const trechoDoc = montarTrechoDocumentoIdentificacao(
@@ -132,10 +223,11 @@ export function montarQualificacaoPf(cliente: ClientePfRecord): QualificacaoPf {
       rgOrgao,
       rgUf,
       cliente?.cpf,
+      genero,
     )
     if (trechoDoc) partes.push(trechoDoc)
   }
-  if (cpfFormatado) partes.push(`inscrito(a) no CPF sob o nº ${cpfFormatado}`)
+  if (cpfFormatado) partes.push(`${termoInscrito} no CPF sob o nº ${cpfFormatado}`)
 
   const partesEndereco: string[] = []
   if (logradouro) partesEndereco.push(logradouro)
@@ -146,7 +238,7 @@ export function montarQualificacaoPf(cliente: ClientePfRecord): QualificacaoPf {
   if (cep) partesEndereco.push(`CEP ${cep}`)
 
   if (partesEndereco.length > 0) {
-    partes.push(`residente e domiciliado(a) em ${partesEndereco.join(', ')}`)
+    partes.push(`${termoResidente} em ${partesEndereco.join(', ')}`)
   }
 
   return {

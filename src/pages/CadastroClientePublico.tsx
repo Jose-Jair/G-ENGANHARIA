@@ -70,6 +70,7 @@ const ENDERECO_VAZIO: EnderecoValue = {
 }
 
 const ROTULOS_CAMPO: Record<string, string> = {
+  genero: 'Selecione o gênero (Masculino ou Feminino).',
   cpf: 'Informe um CPF válido (11 dígitos, com os dígitos verificadores corretos).',
   doc_tipo: 'Selecione o documento de identificação.',
   doc_tipo_outro: 'Informe qual é o documento de identificação.',
@@ -92,6 +93,7 @@ const ROTULOS_CAMPO: Record<string, string> = {
 }
 
 export interface PayloadCadastroClientePf {
+  genero: string
   cpf: string
   doc_tipo: string
   doc_tipo_outro?: string
@@ -161,6 +163,7 @@ export function validarPayloadCadastroClientePf(
   const clean = (v?: unknown) => (v || '').toString().trim()
   const soDigitos = (v?: unknown) => (v || '').toString().replace(/\D/g, '')
 
+  const genero = clean(payload.genero).toLowerCase()
   const docTipo = clean(payload.doc_tipo)
   const docTipoOutro = clean(payload.doc_tipo_outro)
   const cpf = soDigitos(payload.cpf)
@@ -181,6 +184,9 @@ export function validarPayloadCadastroClientePf(
   const email = clean(payload.email).toLowerCase()
   const aceiteLgpd = payload.aceite_lgpd === true || payload.aceite_lgpd === ('true' as unknown)
 
+  if (!genero || (genero !== 'masculino' && genero !== 'feminino')) {
+    erros.genero = ROTULOS_CAMPO.genero
+  }
   if (!docTipo || !docTipoValidos.includes(docTipo)) {
     erros.doc_tipo = ROTULOS_CAMPO.doc_tipo
   }
@@ -311,6 +317,7 @@ export function CadastroClientePublicoPage() {
   const [tela, setTela] = useState<Tela>('carregando')
   const [nomeCliente, setNomeCliente] = useState('')
   const [form, setForm] = useState({
+    genero: '',
     cpf: '',
     doc_tipo: 'CIN',
     doc_tipo_outro: '',
@@ -426,6 +433,7 @@ export function CadastroClientePublicoPage() {
     if (Object.keys(errs).length > 0) return
 
     const payloadEnvio: PayloadCadastroClientePf = {
+      genero: form.genero,
       cpf: cleanCpf(form.cpf),
       doc_tipo: form.doc_tipo || 'RG',
       doc_tipo_outro: form.doc_tipo === 'Outro' ? form.doc_tipo_outro.trim() : '',
@@ -620,6 +628,24 @@ export function CadastroClientePublicoPage() {
 
             {/* Documento de identificação: select primeiro, se 'Outro' campo adicional */}
             <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Gênero *</Label>
+                  <Select value={form.genero} onValueChange={(v) => setCampo('genero', v)}>
+                    <SelectTrigger
+                      className={`text-sm h-10 bg-white ${erros.genero ? 'border-red-500' : ''}`}
+                    >
+                      <SelectValue placeholder="Selecione o gênero" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="masculino">Masculino</SelectItem>
+                      <SelectItem value="feminino">Feminino</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {erros.genero && <p className="text-[11px] text-red-600">{erros.genero}</p>}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Documento de identificação *</Label>

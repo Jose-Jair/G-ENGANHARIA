@@ -487,8 +487,9 @@ export interface ClientePfRecord {
   endereco?: string
   observacoes?: string
   pre_cadastro?: boolean
-  // Campos novos (Migrações 0132 e 0133 — cadastro completo / link seguro / doc_tipo)
+  // Campos novos (Migrações 0132, 0133 e 0139 — cadastro completo / link seguro / doc_tipo / genero)
   cadastro_status?: CadastroStatusClientePf
+  genero?: 'masculino' | 'feminino' | string
   doc_tipo?: 'RG' | 'CNH' | 'Carteira profissional' | 'Outro' | string
   doc_tipo_outro?: string
   rg?: string

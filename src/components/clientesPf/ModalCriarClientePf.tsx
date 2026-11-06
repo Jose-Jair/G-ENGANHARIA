@@ -43,6 +43,7 @@ const FORM_VAZIO: CreateClientePfData = {
   consentimento_lgpd: false,
   data_consentimento: new Date().toISOString().split('T')[0],
   observacoes: '',
+  genero: '',
   doc_tipo: 'CIN',
   doc_tipo_outro: '',
   rg: '',
@@ -497,6 +498,24 @@ export function ModalCriarClientePf({ open, onOpenChange, onSuccess }: ModalCria
 
             {/* Documento de identificação: Select primeiro, se 'Outro' exige 'Qual documento?' */}
             <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px]">Gênero</Label>
+                  <Select
+                    value={formData.genero || ''}
+                    onValueChange={(v) => setFormData((prev) => ({ ...prev, genero: v }))}
+                  >
+                    <SelectTrigger className="text-xs h-8 bg-white">
+                      <SelectValue placeholder="Selecione o gênero" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="masculino">Masculino</SelectItem>
+                      <SelectItem value="feminino">Feminino</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-[11px]">Documento de identificação</Label>

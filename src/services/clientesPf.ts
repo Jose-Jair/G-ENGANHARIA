@@ -26,6 +26,7 @@ export interface CreateClientePfData {
   observacoes?: string
   pre_cadastro?: boolean
   // Dados complementares opcionais (cadastro completo)
+  genero?: 'masculino' | 'feminino' | string
   doc_tipo?: string
   doc_tipo_outro?: string
   rg?: string
@@ -67,6 +68,7 @@ export interface UpdateClientePfData {
   observacoes?: string
   pre_cadastro?: boolean
   // Dados complementares
+  genero?: 'masculino' | 'feminino' | string
   doc_tipo?: string
   doc_tipo_outro?: string
   rg?: string

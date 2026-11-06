@@ -509,6 +509,8 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     // -----------------------------------------------------------------------
     // Validação dos campos obrigatórios
     // -----------------------------------------------------------------------
+    const generoValidos = ['masculino', 'feminino']
+    const genero = (body.genero || '').toString().trim().toLowerCase()
     const docTipoValidos = ['CIN', 'RG', 'CNH', 'Carteira profissional', 'Outro']
     const docTipo = (body.doc_tipo || '').toString().trim()
     const docTipoOutro = (body.doc_tipo_outro || '').toString().trim()
@@ -557,6 +559,9 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     const aceiteLgpd = body.aceite_lgpd === true || body.aceite_lgpd === 'true'
 
     const errosPorCampo = {}
+    if (!genero || generoValidos.indexOf(genero) === -1) {
+      errosPorCampo.genero = 'Selecione o gênero (Masculino ou Feminino).'
+    }
     if (!docTipo || docTipoValidos.indexOf(docTipo) === -1) {
       errosPorCampo.doc_tipo = 'Selecione o documento de identificação.'
     }
@@ -664,6 +669,7 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     // Grava em dados_enviados do convite (NÃO no cliente)
     // -----------------------------------------------------------------------
     const dadosEnviados = {
+      genero: genero,
       doc_tipo: docTipo,
       doc_tipo_outro: docTipo === 'Outro' ? docTipoOutro : '',
       cpf,
@@ -939,6 +945,11 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
     const cpfAtualCliente = soDigitos(cliente.getString('cpf'))
     if (cpfNovo && cpfNovo !== cpfAtualCliente) {
       cliente.set('cpf', cpfNovo)
+    }
+
+    const generoAprovado = (dados.genero || '').toString().trim().toLowerCase()
+    if (generoAprovado === 'masculino' || generoAprovado === 'feminino') {
+      cliente.set('genero', generoAprovado)
     }
 
     const docTipo = (dados.doc_tipo || '').toString().trim()

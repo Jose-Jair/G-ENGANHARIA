@@ -65,6 +65,15 @@ export const DOC_TIPOS_OPTIONS: Array<{ value: DocTipoOpcao; label: string }> = 
   { value: 'Outro', label: 'Outro' },
 ]
 
+/** Opções de gênero aceitas pelo backend */
+export const OPCOES_GENERO = ['masculino', 'feminino'] as const
+export type GeneroOpcao = (typeof OPCOES_GENERO)[number]
+
+export const GENEROS_OPTIONS: Array<{ value: GeneroOpcao; label: string }> = [
+  { value: 'masculino', label: 'Masculino' },
+  { value: 'feminino', label: 'Feminino' },
+]
+
 /** Estados civis que anteriormente vinculavam regime de bens (mantido para compatibilidade histórica, não usado na UI) */
 export const ESTADOS_CIVIL_COM_REGIME: string[] = ['casado(a)', 'união estável']
 

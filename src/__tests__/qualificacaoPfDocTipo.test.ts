@@ -33,7 +33,7 @@ describe('qualificacaoPf (B2b Ajuste v0.0.237)', () => {
     expect(res.texto).not.toContain('comunhão')
     expect(res.faltando).not.toContain('regime de bens (casado(a)/união estável)')
     expect(res.texto).toContain(
-      'Maria da Silva, brasileira, casado(a), Engenheira Civil, portador(a) do RG nº 1234567 SSP/CE, inscrito(a) no CPF sob o nº 123.456.789-01, residente e domiciliado(a) em Rua das Flores, nº 100, Aldeota, Fortaleza/CE, CEP 60000-000',
+      'Maria da Silva, de nacionalidade brasileira, casado(a), Engenheira Civil, portador(a) do RG nº 1234567 SSP/CE, inscrito(a) no CPF sob o nº 123.456.789-01, residente e domiciliado(a) em Rua das Flores, nº 100, Aldeota, Fortaleza/CE, CEP 60000-000',
     )
   })
 
@@ -138,5 +138,103 @@ describe('qualificacaoPf (B2b Ajuste v0.0.237)', () => {
       'portador(a) do RG SSP/CE, inscrito(a) no CPF sob o nº 529.982.247-25',
     )
     expect(res.texto).not.toContain('nº 52998224725')
+  })
+
+  describe('flexão por gênero (Item B)', () => {
+    it('flexiona para masculino: brasileiro, solteiro, portador, inscrito, residente e domiciliado', () => {
+      const cliMasc: ClientePfRecord = {
+        ...baseCliente,
+        nome: 'João de Sousa',
+        genero: 'masculino',
+        estado_civil: 'solteiro',
+        nacionalidade: 'Brasileiro',
+      }
+      const res = montarQualificacaoPf(cliMasc)
+      expect(res.texto).toContain('brasileiro, solteiro')
+      expect(res.texto).toContain('portador do RG nº 1234567 SSP/CE')
+      expect(res.texto).toContain('inscrito no CPF sob o nº 123.456.789-01')
+      expect(res.texto).toContain('residente e domiciliado em Rua das Flores')
+      expect(res.texto).not.toContain('portador(a)')
+      expect(res.texto).not.toContain('inscrito(a)')
+      expect(res.texto).not.toContain('domiciliado(a)')
+    })
+
+    it('flexiona para feminino: brasileira, solteira, portadora, inscrita, residente e domiciliada', () => {
+      const cliFem: ClientePfRecord = {
+        ...baseCliente,
+        nome: 'Maria da Silva',
+        genero: 'feminino',
+        estado_civil: 'solteira',
+        nacionalidade: 'Brasileira',
+      }
+      const res = montarQualificacaoPf(cliFem)
+      expect(res.texto).toContain('brasileira, solteira')
+      expect(res.texto).toContain('portadora do RG nº 1234567 SSP/CE')
+      expect(res.texto).toContain('inscrita no CPF sob o nº 123.456.789-01')
+      expect(res.texto).toContain('residente e domiciliada em Rua das Flores')
+      expect(res.texto).not.toContain('portador(a)')
+      expect(res.texto).not.toContain('inscrito(a)')
+      expect(res.texto).not.toContain('domiciliado(a)')
+    })
+
+    it('flexiona estados civis masculinos e femininos e união estável invariável', () => {
+      const civis = [
+        { mascIn: 'casado', mascOut: 'casado', femIn: 'casada', femOut: 'casada' },
+        { mascIn: 'divorciado', mascOut: 'divorciado', femIn: 'divorciada', femOut: 'divorciada' },
+        { mascIn: 'separado', mascOut: 'separado', femIn: 'separada', femOut: 'separada' },
+        { mascIn: 'viúvo', mascOut: 'viúvo', femIn: 'viúva', femOut: 'viúva' },
+        {
+          mascIn: 'em união estável',
+          mascOut: 'em união estável',
+          femIn: 'em união estável',
+          femOut: 'em união estável',
+        },
+      ]
+
+      for (const item of civis) {
+        const resMasc = montarQualificacaoPf({
+          ...baseCliente,
+          genero: 'masculino',
+          estado_civil: item.mascIn,
+        })
+        expect(resMasc.texto).toContain(item.mascOut)
+        const resFem = montarQualificacaoPf({
+          ...baseCliente,
+          genero: 'feminino',
+          estado_civil: item.femIn,
+        })
+        expect(resFem.texto).toContain(item.femOut)
+      }
+    })
+
+    it('mantém nacionalidade estrangeira em minúsculas conforme digitado', () => {
+      const resMasc = montarQualificacaoPf({
+        ...baseCliente,
+        genero: 'masculino',
+        nacionalidade: 'Portuguesa',
+      })
+      expect(resMasc.texto).toContain(', portuguesa, ')
+      const resFem = montarQualificacaoPf({
+        ...baseCliente,
+        genero: 'feminino',
+        nacionalidade: 'Italiana',
+      })
+      expect(resFem.texto).toContain(', italiana, ')
+    })
+
+    it('sem gênero: mantém forma neutra atual com (a) e de nacionalidade {nacionalidade}', () => {
+      const cliNeutro: ClientePfRecord = {
+        ...baseCliente,
+        genero: undefined,
+        estado_civil: 'solteiro',
+        nacionalidade: 'brasileira',
+      }
+      const res = montarQualificacaoPf(cliNeutro)
+      expect(res.texto).toContain('de nacionalidade brasileira')
+      expect(res.texto).toContain('solteiro(a)')
+      expect(res.texto).toContain('portador(a)')
+      expect(res.texto).toContain('inscrito(a)')
+      expect(res.texto).toContain('residente e domiciliado(a)')
+    })
   })
 })

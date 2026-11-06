@@ -54,7 +54,24 @@ export function ModalEnviarLinkCadastro({
       setEmailEnviado(false)
       onSuccess()
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Falha ao gerar o link de cadastro.'
+      const anyErr = err as Record<string, unknown> | null
+      const resp = (anyErr?.response as Record<string, unknown> | undefined) || {}
+      const respData = (resp?.data as Record<string, unknown> | undefined) || {}
+      const data = (anyErr?.data as Record<string, unknown> | undefined) || {}
+      const msg =
+        (typeof resp.message === 'string' && resp.message) ||
+        (typeof resp.error === 'string' && resp.error) ||
+        (typeof resp.erro === 'string' && resp.erro) ||
+        (typeof respData.message === 'string' && respData.message) ||
+        (typeof respData.error === 'string' && respData.error) ||
+        (typeof respData.erro === 'string' && respData.erro) ||
+        (typeof data.error === 'string' && data.error) ||
+        (typeof data.erro === 'string' && data.erro) ||
+        (typeof data.message === 'string' && data.message) ||
+        (typeof anyErr?.error === 'string' && anyErr.error) ||
+        (typeof anyErr?.erro === 'string' && anyErr.erro) ||
+        (typeof anyErr?.message === 'string' && anyErr.message) ||
+        (err instanceof Error ? err.message : 'Falha ao gerar o link de cadastro.')
       toast({
         title: 'Erro ao gerar o link',
         description: msg,
@@ -124,7 +141,24 @@ export function ModalEnviarLinkCadastro({
         })
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Falha ao reenviar o convite.'
+      const anyErr = err as Record<string, unknown> | null
+      const resp = (anyErr?.response as Record<string, unknown> | undefined) || {}
+      const respData = (resp?.data as Record<string, unknown> | undefined) || {}
+      const data = (anyErr?.data as Record<string, unknown> | undefined) || {}
+      const msg =
+        (typeof resp.message === 'string' && resp.message) ||
+        (typeof resp.error === 'string' && resp.error) ||
+        (typeof resp.erro === 'string' && resp.erro) ||
+        (typeof respData.message === 'string' && respData.message) ||
+        (typeof respData.error === 'string' && respData.error) ||
+        (typeof respData.erro === 'string' && respData.erro) ||
+        (typeof data.error === 'string' && data.error) ||
+        (typeof data.erro === 'string' && data.erro) ||
+        (typeof data.message === 'string' && data.message) ||
+        (typeof anyErr?.error === 'string' && anyErr.error) ||
+        (typeof anyErr?.erro === 'string' && anyErr.erro) ||
+        (typeof anyErr?.message === 'string' && anyErr.message) ||
+        (err instanceof Error ? err.message : 'Falha ao reenviar o convite.')
       toast({ title: 'Erro ao reenviar', description: msg, variant: 'destructive' })
     } finally {
       setCarregando(false)

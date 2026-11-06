@@ -362,10 +362,28 @@ export const clientesPfService = {
     id: string,
     options?: { enviar_email?: boolean },
   ): Promise<CriarConviteResponse> {
-    return await pb.send<CriarConviteResponse>(`/backend/v1/clientes-pf/${id}/convite`, {
-      method: 'POST',
-      body: { enviar_email: Boolean(options?.enviar_email) },
-    })
+    try {
+      return await pb.send<CriarConviteResponse>(`/backend/v1/clientes-pf/${id}/convite`, {
+        method: 'POST',
+        body: { enviar_email: Boolean(options?.enviar_email) },
+      })
+    } catch (err: unknown) {
+      const anyErr = err as Record<string, unknown> | null
+      const resp = (anyErr?.response as Record<string, unknown> | undefined) || {}
+      const data = (anyErr?.data as Record<string, unknown> | undefined) || {}
+      const msg =
+        (typeof resp.message === 'string' && resp.message) ||
+        (typeof resp.error === 'string' && resp.error) ||
+        (typeof resp.erro === 'string' && resp.erro) ||
+        (typeof data.error === 'string' && data.error) ||
+        (typeof data.erro === 'string' && data.erro) ||
+        (typeof data.message === 'string' && data.message) ||
+        (typeof anyErr?.message === 'string' && anyErr.message) ||
+        (err instanceof Error ? err.message : 'Falha ao criar convite.')
+      const e = new Error(msg)
+      Object.assign(e, anyErr)
+      throw e
+    }
   },
 
   /**
@@ -394,12 +412,30 @@ export const clientesPfService = {
    * Rota backend: POST /backend/v1/clientes-pf/convite/:convite_id/aprovar
    */
   async aprovarConvite(conviteId: string): Promise<AprovarConviteResponse> {
-    return await pb.send<AprovarConviteResponse>(
-      `/backend/v1/clientes-pf/convite/${conviteId}/aprovar`,
-      {
-        method: 'POST',
-      },
-    )
+    try {
+      return await pb.send<AprovarConviteResponse>(
+        `/backend/v1/clientes-pf/convite/${conviteId}/aprovar`,
+        {
+          method: 'POST',
+        },
+      )
+    } catch (err: unknown) {
+      const anyErr = err as Record<string, unknown> | null
+      const resp = (anyErr?.response as Record<string, unknown> | undefined) || {}
+      const data = (anyErr?.data as Record<string, unknown> | undefined) || {}
+      const msg =
+        (typeof resp.message === 'string' && resp.message) ||
+        (typeof resp.error === 'string' && resp.error) ||
+        (typeof resp.erro === 'string' && resp.erro) ||
+        (typeof data.error === 'string' && data.error) ||
+        (typeof data.erro === 'string' && data.erro) ||
+        (typeof data.message === 'string' && data.message) ||
+        (typeof anyErr?.message === 'string' && anyErr.message) ||
+        (err instanceof Error ? err.message : 'Falha ao aprovar convite.')
+      const e = new Error(msg)
+      Object.assign(e, anyErr)
+      throw e
+    }
   },
 
   /**
@@ -407,13 +443,31 @@ export const clientesPfService = {
    * Rota backend: POST /backend/v1/clientes-pf/convite/:convite_id/recusar
    */
   async recusarConvite(conviteId: string, motivo: string): Promise<RecusarConviteResponse> {
-    return await pb.send<RecusarConviteResponse>(
-      `/backend/v1/clientes-pf/convite/${conviteId}/recusar`,
-      {
-        method: 'POST',
-        body: { motivo: motivo.trim() },
-      },
-    )
+    try {
+      return await pb.send<RecusarConviteResponse>(
+        `/backend/v1/clientes-pf/convite/${conviteId}/recusar`,
+        {
+          method: 'POST',
+          body: { motivo: motivo.trim() },
+        },
+      )
+    } catch (err: unknown) {
+      const anyErr = err as Record<string, unknown> | null
+      const resp = (anyErr?.response as Record<string, unknown> | undefined) || {}
+      const data = (anyErr?.data as Record<string, unknown> | undefined) || {}
+      const msg =
+        (typeof resp.message === 'string' && resp.message) ||
+        (typeof resp.error === 'string' && resp.error) ||
+        (typeof resp.erro === 'string' && resp.erro) ||
+        (typeof data.error === 'string' && data.error) ||
+        (typeof data.erro === 'string' && data.erro) ||
+        (typeof data.message === 'string' && data.message) ||
+        (typeof anyErr?.message === 'string' && anyErr.message) ||
+        (err instanceof Error ? err.message : 'Falha ao recusar convite.')
+      const e = new Error(msg)
+      Object.assign(e, anyErr)
+      throw e
+    }
   },
 
   async listPropostas(clientePfId: string): Promise<PropostaRecord[]> {

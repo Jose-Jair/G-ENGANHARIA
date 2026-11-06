@@ -288,15 +288,15 @@ export function extrairErroBackend(err: unknown): {
     innerData.status
 
   const error =
+    (resp as ErroBackend).message ||
     (resp as ErroBackend).error ||
     (resp as ErroBackend).erro ||
+    innerData.message ||
     innerData.error ||
     innerData.erro ||
+    anyErr?.message ||
     anyErr?.error ||
-    anyErr?.erro ||
-    (resp as ErroBackend).message ||
-    innerData.message ||
-    anyErr?.message
+    anyErr?.erro
 
   const campos = (resp as ErroBackend).campos || innerData.campos || anyErr?.campos
   const erros = (resp as ErroBackend).erros || innerData.erros || anyErr?.erros

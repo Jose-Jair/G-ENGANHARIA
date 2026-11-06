@@ -3,6 +3,7 @@ import {
   normalizarDataNascimento,
   mapearDadosAprovacaoClientePf,
   DadosEnviadosClientePf,
+  extrairDadosEnviadosSeguro,
 } from '../services/mapeamentoClientePf'
 
 describe('Mapeamento e Normalização — Aprovação de Cadastro Cliente PF', () => {
@@ -117,6 +118,45 @@ describe('Mapeamento e Normalização — Aprovação de Cadastro Cliente PF', (
 
       const resultado = mapearDadosAprovacaoClientePf(payloadJose, clienteExistente)
       expect(resultado.cpf).toBe('60454885393')
+    })
+
+    it('extrai com sucesso dados_enviados chegando como STRING JSON (como o JSVM do PocketBase entrega) e mapeia cpf e doc_tipo', () => {
+      // Simulação fiel do JSVM do PocketBase quando o campo JSON é lido com getString('dados_enviados')
+      const jsonStringDoJsvm = JSON.stringify(payloadJose)
+
+      // Leitura segura do hook:
+      // const raw = convite.getString('dados_enviados')
+      // const dados = raw ? JSON.parse(raw) : {}
+      const dadosExtraidos = extrairDadosEnviadosSeguro(jsonStringDoJsvm)
+
+      expect(dadosExtraidos).toBeDefined()
+      expect(typeof dadosExtraidos).toBe('object')
+      expect(dadosExtraidos.cpf).toBe('604.548.853-93')
+      expect(dadosExtraidos.doc_tipo).toBe('CIN')
+      expect(dadosExtraidos.rg_orgao_emissor).toBe('SSP')
+      expect(dadosExtraidos.rg_uf).toBe('CE')
+      expect(dadosExtraidos.estado_civil).toBe('solteiro(a)')
+
+      // Mapeamento para clientes_pf
+      const clienteExistente = { id: 'cli_jose_sem_cpf', nome: 'José', cpf: '' }
+      const resultado = mapearDadosAprovacaoClientePf(dadosExtraidos, clienteExistente)
+
+      expect(resultado.cpf).toBe('60454885393')
+      expect(resultado.doc_tipo).toBe('CIN')
+      expect(resultado.rg).toBe('60454885393')
+      expect(resultado.rg_orgao_emissor).toBe('SSP')
+      expect(resultado.rg_uf).toBe('CE')
+      expect(resultado.estado_civil).toBe('solteiro(a)')
+      expect(resultado.cadastro_status).toBe('completo')
+    })
+
+    it('fallback se dados_enviados já vier como objeto JS', () => {
+      const dadosExtraidos = extrairDadosEnviadosSeguro(payloadJose)
+      expect(dadosExtraidos.cpf).toBe('604.548.853-93')
+      expect(dadosExtraidos.doc_tipo).toBe('CIN')
+      const resultado = mapearDadosAprovacaoClientePf(dadosExtraidos)
+      expect(resultado.cpf).toBe('60454885393')
+      expect(resultado.doc_tipo).toBe('CIN')
     })
   })
 })

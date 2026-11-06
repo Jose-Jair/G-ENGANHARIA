@@ -49,11 +49,14 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/convite', (e) => {
 
   try {
     const auth = e.auth
-    if (!auth) return e.json(401, { error: 'Autenticação necessária.' })
+    if (!auth)
+      return e.json(401, { error: 'Autenticação necessária.', message: 'Autenticação necessária.' })
     const role = auth.getString('role')
     if (role !== 'admin' && role !== 'comercial') {
+      const msg403 = 'Apenas Administradores e equipe Comercial podem criar convites de cadastro.'
       return e.json(403, {
-        error: 'Apenas Administradores e equipe Comercial podem criar convites de cadastro.',
+        error: msg403,
+        message: msg403,
       })
     }
 
@@ -62,17 +65,26 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/convite', (e) => {
     try {
       cliente = $app.findRecordById('clientes_pf', clienteId)
     } catch (_) {
-      return e.json(404, { error: 'Cliente PF não encontrado.' })
+      return e.json(404, {
+        error: 'Cliente PF não encontrado.',
+        message: 'Cliente PF não encontrado.',
+      })
     }
 
     // Nome obrigatório; CPF é opcional em pré-cadastro, mas se vier tem de ser válido
     const nomeCliente = (cliente.getString('nome') || '').trim()
     if (!nomeCliente) {
-      return e.json(400, { error: 'O cliente precisa ter nome para receber o convite.' })
+      return e.json(400, {
+        error: 'O cliente precisa ter nome para receber o convite.',
+        message: 'O cliente precisa ter nome para receber o convite.',
+      })
     }
     const cpfAtual = soDigitos(cliente.getString('cpf'))
     if (cpfAtual && !isValidCpf(cpfAtual)) {
-      return e.json(400, { error: 'O CPF já cadastrado para este cliente é inválido.' })
+      return e.json(400, {
+        error: 'O CPF já cadastrado para este cliente é inválido.',
+        message: 'O CPF já cadastrado para este cliente é inválido.',
+      })
     }
 
     let body = {}
@@ -89,8 +101,10 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/convite', (e) => {
 
     const emailCliente = (cliente.getString('email') || '').trim()
     if (enviarEmail && (!emailCliente || emailCliente.indexOf('@') === -1)) {
+      const msgEmail = 'O cliente não possui e-mail cadastrado para envio do convite.'
       return e.json(400, {
-        error: 'O cliente não possui e-mail cadastrado para envio do convite.',
+        error: msgEmail,
+        message: msgEmail,
       })
     }
 
@@ -243,8 +257,11 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/convite', (e) => {
         $app.save(errRec)
       }
     } catch (_) {}
+    const msg500 = 'Não foi possível criar o link de cadastro. Por favor, tente novamente.'
     return e.json(500, {
-      error: 'Não foi possível criar o link de cadastro. Por favor, tente novamente.',
+      error: msg500,
+      erro: msg500,
+      message: msg500,
       detalhe: errStr.slice(0, 200),
     })
   }
@@ -256,7 +273,7 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/convite', (e) => {
 routerAdd('GET', '/backend/v1/cadastro-cliente/{token}', (e) => {
   try {
     const token = (e.request.pathValue('token') || '').trim()
-    if (!token) return e.json(400, { error: 'Token inválido.' })
+    if (!token) return e.json(400, { error: 'Token inválido.', message: 'Token inválido.' })
 
     const tokenHash = $security.sha256(token)
     let convite
@@ -265,15 +282,21 @@ routerAdd('GET', '/backend/v1/cadastro-cliente/{token}', (e) => {
     } catch (_) {
       convite = null
     }
-    if (!convite) return e.json(404, { error: 'Link inválido ou expirado.' })
+    if (!convite)
+      return e.json(404, {
+        error: 'Link inválido ou expirado.',
+        message: 'Link inválido ou expirado.',
+      })
 
     if (convite.getString('status') !== 'ativo') {
-      return e.json(410, { error: 'Este link já foi utilizado ou não está mais disponível.' })
+      const msg410 = 'Este link já foi utilizado ou não está mais disponível.'
+      return e.json(410, { error: msg410, message: msg410 })
     }
 
     const expiraEm = convite.getString('expira_em')
     if (expiraEm && new Date(expiraEm).getTime() < Date.now()) {
-      return e.json(410, { error: 'Este link expirou. Solicite um novo link à nossa equipe.' })
+      const msgExp = 'Este link expirou. Solicite um novo link à nossa equipe.'
+      return e.json(410, { error: msgExp, message: msgExp })
     }
 
     const clienteId = convite.getString('cliente_pf')
@@ -281,7 +304,10 @@ routerAdd('GET', '/backend/v1/cadastro-cliente/{token}', (e) => {
     try {
       cliente = $app.findRecordById('clientes_pf', clienteId)
     } catch (_) {
-      return e.json(404, { error: 'Link inválido ou expirado.' })
+      return e.json(404, {
+        error: 'Link inválido ou expirado.',
+        message: 'Link inválido ou expirado.',
+      })
     }
 
     // Devolve SOMENTE nome e dados já existentes DESSE cliente (pré-preenchimento)
@@ -325,9 +351,11 @@ routerAdd('GET', '/backend/v1/cadastro-cliente/{token}', (e) => {
         $app.save(errRec)
       }
     } catch (_) {}
+    const msg500 = 'Não foi possível carregar os dados do convite. Por favor, tente novamente.'
     return e.json(500, {
-      error: 'Não foi possível carregar os dados do convite. Por favor, tente novamente.',
-      erro: 'Não foi possível carregar os dados do convite. Por favor, tente novamente.',
+      error: msg500,
+      erro: msg500,
+      message: msg500,
     })
   }
 })
@@ -417,8 +445,10 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
         0,
       )
       if (recentes && recentes.length >= 10) {
+        const msg429 = 'Muitas tentativas seguidas. Aguarde alguns minutos e tente novamente.'
         return e.json(429, {
-          error: 'Muitas tentativas seguidas. Aguarde alguns minutos e tente novamente.',
+          error: msg429,
+          message: msg429,
         })
       }
     } catch (eRate) {
@@ -426,7 +456,7 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     }
 
     const token = (e.request.pathValue('token') || '').trim()
-    if (!token) return e.json(400, { error: 'Token inválido.' })
+    if (!token) return e.json(400, { error: 'Token inválido.', message: 'Token inválido.' })
     const tokenHash = $security.sha256(token)
 
     let convite
@@ -435,14 +465,20 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     } catch (_) {
       convite = null
     }
-    if (!convite) return e.json(404, { error: 'Link inválido ou expirado.' })
+    if (!convite)
+      return e.json(404, {
+        error: 'Link inválido ou expirado.',
+        message: 'Link inválido ou expirado.',
+      })
 
     if (convite.getString('status') !== 'ativo') {
-      return e.json(410, { error: 'Este link já foi utilizado ou não está mais disponível.' })
+      const msg410 = 'Este link já foi utilizado ou não está mais disponível.'
+      return e.json(410, { error: msg410, message: msg410 })
     }
     const expiraEm = convite.getString('expira_em')
     if (expiraEm && new Date(expiraEm).getTime() < Date.now()) {
-      return e.json(410, { error: 'Este link expirou. Solicite um novo link à nossa equipe.' })
+      const msgExp = 'Este link expirou. Solicite um novo link à nossa equipe.'
+      return e.json(410, { error: msgExp, message: msgExp })
     }
 
     const clienteId = convite.getString('cliente_pf')
@@ -450,7 +486,10 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     try {
       cliente = $app.findRecordById('clientes_pf', clienteId)
     } catch (_) {
-      return e.json(404, { error: 'Link inválido ou expirado.' })
+      return e.json(404, {
+        error: 'Link inválido ou expirado.',
+        message: 'Link inválido ou expirado.',
+      })
     }
 
     let rawBody = {}
@@ -585,8 +624,12 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
 
     const camposFaltantes = Object.keys(errosPorCampo)
     if (camposFaltantes.length > 0) {
+      const msgFaltam =
+        'Campos obrigatórios ausentes ou inválidos: ' + camposFaltantes.join(', ') + '.'
       return e.json(400, {
-        error: 'Campos obrigatórios ausentes ou inválidos: ' + camposFaltantes.join(', ') + '.',
+        error: msgFaltam,
+        erro: msgFaltam,
+        message: msgFaltam,
         campos: camposFaltantes,
         erros: errosPorCampo,
       })
@@ -606,6 +649,8 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
           const msgDup = 'Este CPF já está cadastrado. Fale com a G+ ENGENHARIA.'
           return e.json(409, {
             error: msgDup,
+            erro: msgDup,
+            message: msgDup,
             campos: ['cpf'],
             erros: { cpf: msgDup },
           })
@@ -733,10 +778,12 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
         $app.save(errRec)
       }
     } catch (_) {}
+    const msg500 =
+      'Não foi possível processar o envio do cadastro. Por favor, tente novamente em instantes.'
     return e.json(500, {
-      error:
-        'Não foi possível processar o envio do cadastro. Por favor, tente novamente em instantes.',
-      erro: 'Não foi possível processar o envio do cadastro. Por favor, tente novamente em instantes.',
+      error: msg500,
+      erro: msg500,
+      message: msg500,
       detalhe: errStr.slice(0, 200),
     })
   }
@@ -791,11 +838,14 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
 
   try {
     const auth = e.auth
-    if (!auth) return e.json(401, { error: 'Autenticação necessária.' })
+    if (!auth)
+      return e.json(401, { error: 'Autenticação necessária.', message: 'Autenticação necessária.' })
     const role = auth.getString('role')
     if (role !== 'admin' && role !== 'comercial') {
+      const msg403 = 'Apenas Administradores e equipe Comercial podem aprovar cadastros.'
       return e.json(403, {
-        error: 'Apenas Administradores e equipe Comercial podem aprovar cadastros.',
+        error: msg403,
+        message: msg403,
       })
     }
 
@@ -804,12 +854,14 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
     try {
       convite = $app.findRecordById('clientes_pf_convites', conviteId)
     } catch (_) {
-      return e.json(404, { error: 'Convite não encontrado.' })
+      return e.json(404, { error: 'Convite não encontrado.', message: 'Convite não encontrado.' })
     }
 
     if (convite.getString('status') !== 'usado') {
+      const msgStatus = 'Somente convites com dados já enviados pelo cliente podem ser aprovados.'
       return e.json(400, {
-        error: 'Somente convites com dados já enviados pelo cliente podem ser aprovados.',
+        error: msgStatus,
+        message: msgStatus,
       })
     }
 
@@ -818,20 +870,50 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
     try {
       cliente = $app.findRecordById('clientes_pf', clienteId)
     } catch (_) {
-      return e.json(404, { error: 'Cliente PF não encontrado.' })
+      return e.json(404, {
+        error: 'Cliente PF não encontrado.',
+        message: 'Cliente PF não encontrado.',
+      })
     }
 
     let dados = {}
     try {
-      dados = convite.get('dados_enviados') || {}
+      const raw = convite.getString('dados_enviados')
+      if (raw) {
+        dados = JSON.parse(raw)
+      } else {
+        const direto = convite.get('dados_enviados')
+        if (direto && typeof direto === 'object') {
+          dados = direto
+        } else if (typeof direto === 'string' && direto) {
+          dados = JSON.parse(direto)
+        } else {
+          dados = {}
+        }
+      }
     } catch (_) {
+      try {
+        const direto = convite.get('dados_enviados')
+        if (direto && typeof direto === 'object') {
+          dados = direto
+        } else if (typeof direto === 'string' && direto) {
+          dados = JSON.parse(direto)
+        } else {
+          dados = {}
+        }
+      } catch (_) {
+        dados = {}
+      }
+    }
+    if (!dados || typeof dados !== 'object') {
       dados = {}
     }
 
     // Revalidar CPF antes de gravar no cliente
     const cpfNovo = soDigitos(dados.cpf)
     if (!cpfNovo || !isValidCpf(cpfNovo)) {
-      return e.json(400, { error: 'O CPF informado pelo cliente é inválido.' })
+      const msgCpf = 'O CPF informado pelo cliente é inválido.'
+      return e.json(400, { error: msgCpf, message: msgCpf })
     }
 
     // Regra A4: checa duplicado em OUTROS clientes (id != clienteId)
@@ -845,7 +927,8 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
       )
       for (let i = 0; i < duplicados.length; i++) {
         if (soDigitos(duplicados[i].getString('cpf')) === cpfNovo) {
-          return e.json(409, { error: 'Este CPF já está cadastrado. Fale com a G+ ENGENHARIA.' })
+          const msgDup = 'Este CPF já está cadastrado. Fale com a G+ ENGENHARIA.'
+          return e.json(409, { error: msgDup, message: msgDup })
         }
       }
     } catch (eDup) {
@@ -964,8 +1047,11 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
     } catch (_) {}
 
     // Regra A1: resposta JSON clara em português, sem concatenação arriscada
+    const msg500 = 'Não foi possível aprovar o cadastro do cliente. Por favor, tente novamente.'
     return e.json(500, {
-      error: 'Não foi possível aprovar o cadastro do cliente. Por favor, tente novamente.',
+      error: msg500,
+      erro: msg500,
+      message: msg500,
       detalhe: errStr.slice(0, 200),
     })
   }
@@ -977,11 +1063,14 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
 routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/recusar', (e) => {
   try {
     const auth = e.auth
-    if (!auth) return e.json(401, { error: 'Autenticação necessária.' })
+    if (!auth)
+      return e.json(401, { error: 'Autenticação necessária.', message: 'Autenticação necessária.' })
     const role = auth.getString('role')
     if (role !== 'admin' && role !== 'comercial') {
+      const msg403 = 'Apenas Administradores e equipe Comercial podem recusar cadastros.'
       return e.json(403, {
-        error: 'Apenas Administradores e equipe Comercial podem recusar cadastros.',
+        error: msg403,
+        message: msg403,
       })
     }
 
@@ -990,12 +1079,14 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/recusar', (e) =>
     try {
       convite = $app.findRecordById('clientes_pf_convites', conviteId)
     } catch (_) {
-      return e.json(404, { error: 'Convite não encontrado.' })
+      return e.json(404, { error: 'Convite não encontrado.', message: 'Convite não encontrado.' })
     }
 
     if (convite.getString('status') !== 'usado') {
+      const msgStatus = 'Somente convites com dados já enviados pelo cliente podem ser recusados.'
       return e.json(400, {
-        error: 'Somente convites com dados já enviados pelo cliente podem ser recusados.',
+        error: msgStatus,
+        message: msgStatus,
       })
     }
 
@@ -1010,7 +1101,8 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/recusar', (e) =>
     }
     const motivo = (body.motivo || '').toString().trim()
     if (!motivo) {
-      return e.json(400, { error: 'É obrigatório informar o motivo da recusa.' })
+      const msgMotivo = 'É obrigatório informar o motivo da recusa.'
+      return e.json(400, { error: msgMotivo, message: msgMotivo })
     }
 
     const clienteId = convite.getString('cliente_pf')
@@ -1018,7 +1110,10 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/recusar', (e) =>
     try {
       cliente = $app.findRecordById('clientes_pf', clienteId)
     } catch (_) {
-      return e.json(404, { error: 'Cliente PF não encontrado.' })
+      return e.json(404, {
+        error: 'Cliente PF não encontrado.',
+        message: 'Cliente PF não encontrado.',
+      })
     }
 
     convite.set('status', 'recusado')
@@ -1080,8 +1175,11 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/recusar', (e) =>
       }
     } catch (_) {}
 
+    const msg500 = 'Não foi possível recusar o cadastro. Por favor, tente novamente.'
     return e.json(500, {
-      error: 'Não foi possível recusar o cadastro. Por favor, tente novamente.',
+      error: msg500,
+      erro: msg500,
+      message: msg500,
       detalhe: errStr.slice(0, 200),
     })
   }

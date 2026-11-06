@@ -193,15 +193,25 @@ export function ModalRevisaoCadastroClientePf({
   const extrairMensagemErro = (err: unknown): string => {
     if (err && typeof err === 'object') {
       const anyErr = err as Record<string, unknown>
-      const responseData = (anyErr.response as Record<string, unknown> | undefined)?.data as
-        | Record<string, unknown>
-        | undefined
-      if (responseData && typeof responseData.error === 'string') {
-        return responseData.error
-      }
-      if (typeof anyErr.message === 'string') {
-        return anyErr.message
-      }
+      const resp = anyErr.response as Record<string, unknown> | undefined
+      const respData = (resp?.data as Record<string, unknown> | undefined) || undefined
+      const data = anyErr.data as Record<string, unknown> | undefined
+
+      const msg =
+        (typeof resp?.message === 'string' && resp.message) ||
+        (typeof resp?.error === 'string' && resp.error) ||
+        (typeof resp?.erro === 'string' && resp.erro) ||
+        (typeof respData?.message === 'string' && respData.message) ||
+        (typeof respData?.error === 'string' && respData.error) ||
+        (typeof respData?.erro === 'string' && respData.erro) ||
+        (typeof data?.error === 'string' && data.error) ||
+        (typeof data?.erro === 'string' && data.erro) ||
+        (typeof data?.message === 'string' && data.message) ||
+        (typeof anyErr.error === 'string' && anyErr.error) ||
+        (typeof anyErr.erro === 'string' && anyErr.erro) ||
+        (typeof anyErr.message === 'string' && anyErr.message)
+
+      if (msg) return msg
     }
     if (err instanceof Error) return err.message
     return 'Falha na operação.'
@@ -222,16 +232,9 @@ export function ModalRevisaoCadastroClientePf({
     } catch (err: unknown) {
       const msg = extrairMensagemErro(err)
       setErroApi(msg)
-      const descErro =
-        err &&
-        typeof err === 'object' &&
-        'message' in err &&
-        typeof (err as { message: unknown }).message === 'string'
-          ? (err as { message: string }).message
-          : 'Não foi possível concluir a aprovação.'
       toast({
         title: 'Erro ao aprovar cadastro',
-        description: descErro,
+        description: msg,
         variant: 'destructive',
       })
     } finally {

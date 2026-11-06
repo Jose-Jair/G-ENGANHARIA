@@ -122,6 +122,26 @@ export interface CamposAtualizacaoClientePf {
  * - Se o cliente já tiver CPF igual (apenas dígitos), NÃO inclui `cpf` no objeto de atualização.
  * - Se doc_tipo for 'CIN', rg recebe o CPF (apenas dígitos); se o cliente já tiver RG igual, não seta.
  */
+/**
+ * Extrai dados enviados de forma segura, suportando tanto string JSON (como o JSVM
+ * do PocketBase entrega via getString) quanto objeto já parseado.
+ */
+export function extrairDadosEnviadosSeguro(rawOuObjeto: unknown): DadosEnviadosClientePf {
+  if (!rawOuObjeto) return {}
+  if (typeof rawOuObjeto === 'string') {
+    try {
+      const parsed = JSON.parse(rawOuObjeto)
+      return parsed && typeof parsed === 'object' ? parsed : {}
+    } catch {
+      return {}
+    }
+  }
+  if (typeof rawOuObjeto === 'object') {
+    return rawOuObjeto as DadosEnviadosClientePf
+  }
+  return {}
+}
+
 export function mapearDadosAprovacaoClientePf(
   dados: DadosEnviadosClientePf,
   clienteExistente?: ClientePfExistente,

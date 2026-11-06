@@ -198,7 +198,9 @@ export const ClienteAutocomplete: React.FC<ClienteAutocompleteProps> = ({
                 <span className="font-semibold text-slate-900 truncate">
                   {selectedClientePf.nome}
                 </span>
-                {selectedClientePf.pre_cadastro && (
+                {(selectedClientePf.cadastro_status
+                  ? selectedClientePf.cadastro_status !== 'completo'
+                  : selectedClientePf.pre_cadastro) && (
                   <Badge
                     variant="outline"
                     className="text-[9px] px-1 py-0 bg-amber-50 text-amber-700 border-amber-200 shrink-0"
@@ -425,7 +427,9 @@ export const ClienteAutocomplete: React.FC<ClienteAutocompleteProps> = ({
                       <div className="min-w-0 pr-2">
                         <div className="font-semibold text-slate-900 flex items-center gap-1.5 flex-wrap">
                           <span className="truncate">{c.nome}</span>
-                          {c.pre_cadastro && (
+                          {(c.cadastro_status
+                            ? c.cadastro_status !== 'completo'
+                            : c.pre_cadastro) && (
                             <Badge
                               variant="outline"
                               className="text-[9px] px-1 py-0 bg-amber-50 text-amber-700 border-amber-200"

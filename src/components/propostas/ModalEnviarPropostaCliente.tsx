@@ -417,7 +417,9 @@ export function ModalEnviarPropostaCliente({
                   </>
                 )}
               </span>
-              {(emp?.pre_cadastro || pf?.pre_cadastro) && (
+              {(emp?.pre_cadastro ||
+                (pf &&
+                  (pf.cadastro_status ? pf.cadastro_status !== 'completo' : pf.pre_cadastro))) && (
                 <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-900 border border-amber-300">
                   Pré-cadastro ativo
                 </span>

@@ -988,6 +988,7 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/aprovar', (e) =>
     // Regra A3: data_consentimento no formato 'AAAA-MM-DD HH:mm:ss.000Z'
     cliente.set('data_consentimento', new Date().toISOString().replace('T', ' '))
     cliente.set('cadastro_status', 'completo')
+    cliente.set('pre_cadastro', false)
     $app.save(cliente)
 
     convite.set('status', 'aprovado')
@@ -1123,6 +1124,7 @@ routerAdd('POST', '/backend/v1/clientes-pf/convite/{convite_id}/recusar', (e) =>
     $app.save(convite)
 
     cliente.set('cadastro_status', 'pre_cadastro')
+    cliente.set('pre_cadastro', true)
     $app.save(cliente)
 
     const ipAcao =

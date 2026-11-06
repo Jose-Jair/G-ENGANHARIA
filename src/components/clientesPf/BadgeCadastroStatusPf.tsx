@@ -8,9 +8,9 @@ export function getCadastroStatusPf(cliente: Partial<ClientePfRecord>): Cadastro
   if (cliente.cadastro_status) {
     return cliente.cadastro_status as CadastroStatusPf
   }
-  // Registros antigos ou sem o campo:
+  // Registros antigos ou sem o campo cadastro_status:
   // Se pre_cadastro for explicitamente true, é pre_cadastro.
-  // Caso contrário, a migração 0132 padronizou existentes como 'completo'.
+  // Caso contrário, existentes sem o campo são considerados 'completo'.
   if (cliente.pre_cadastro) {
     return 'pre_cadastro'
   }

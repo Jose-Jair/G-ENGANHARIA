@@ -169,7 +169,9 @@ export function ModalExcluirAnonimizarClientePf({
             <span className="text-[11px] text-slate-500 block">Cliente selecionado:</span>
             <div className="font-semibold text-slate-900 text-sm flex items-center justify-between">
               <span>{cliente.nome}</span>
-              {cliente.pre_cadastro && (
+              {(cliente.cadastro_status
+                ? cliente.cadastro_status !== 'completo'
+                : cliente.pre_cadastro) && (
                 <Badge
                   variant="outline"
                   className="text-[10px] bg-amber-50 text-amber-700 border-amber-200"

@@ -2,7 +2,7 @@ import React from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Printer, FileText } from 'lucide-react'
+import { Printer, FileText, CheckCircle2 } from 'lucide-react'
 import { GPlusLogo } from '@/components/GPlusLogo'
 import { ContratoServicoRecord } from '@/types'
 import {
@@ -13,6 +13,7 @@ import {
   normalizarObjetoProposta,
 } from '@/lib/formatters'
 import { montarQualificacaoPf } from '@/lib/qualificacaoPf'
+import { extrairSnapshotAssinatura, obterDadosRenderizacaoContrato } from '@/lib/snapshotContrato'
 
 interface DossieContratoServicoGmaisProps {
   open: boolean
@@ -31,39 +32,85 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
     window.print()
   }
 
+  // Snapshot de assinatura imutável (se existir, o dossiê renderiza SOMENTE a partir dele)
+  const snapshot = extrairSnapshotAssinatura(contrato.snapshot_assinatura)
+  const isCongelado = Boolean(snapshot)
+
+  // Data do selo: snapshot_em do contrato ou gerado_em do snapshot
+  const dataSelo = contrato.snapshot_em || snapshot?.gerado_em
+
   // Dados oficiais da Contratada / GMAIS ENGENHARIA LTDA
-  const proponenteNome = 'GMAIS ENGENHARIA LTDA'
-  const proponenteCnpj = '66.862.835/0001-69'
-  const proponenteEmail = 'grupomais.sae@gmail.com'
+  const proponenteNome = snapshot?.contratada?.nome || 'GMAIS ENGENHARIA LTDA'
+  const proponenteCnpj = snapshot?.contratada?.cnpj || '66.862.835/0001-69'
+  const proponenteEmail = snapshot?.contratada?.email || 'grupomais.sae@gmail.com'
   const proponenteEndereco =
+    snapshot?.contratada?.endereco ||
     'Av. Juvenco Gomes de Freitas, 354, Planalto Nelândia, Tauá – CE, CEP 63.660-000'
-  const proponenteWhats = '(88) 92188-6547'
-  const proponenteRespTecnico = 'Eng. Civil José Jair Oliveira Alves, CREA-CE 346391'
-  const proponenteSlogan = 'Conectando ideias, somando resultados'
+  const proponenteWhats = snapshot?.contratada?.telefone || '(88) 92188-6547'
+  const proponenteRespTecnico =
+    snapshot?.contratada?.responsavel_tecnico ||
+    'Eng. Civil José Jair Oliveira Alves, CREA-CE 346391'
+  const proponenteSlogan = snapshot?.contratada?.slogan || 'Conectando ideias, somando resultados'
 
   // Dados do Contratante
-  const contratanteNome =
-    contrato.expand?.empresa?.razao_social ||
-    contrato.expand?.empresa?.nome_fantasia ||
-    contrato.expand?.cliente_pf?.nome ||
-    'Cliente Não Informado'
+  const contratanteNome = snapshot
+    ? snapshot.contratante?.nome || 'Cliente Não Informado'
+    : contrato.expand?.empresa?.razao_social ||
+      contrato.expand?.empresa?.nome_fantasia ||
+      contrato.expand?.cliente_pf?.nome ||
+      'Cliente Não Informado'
 
-  const contratanteDoc =
-    contrato.expand?.empresa?.cnpj || contrato.expand?.cliente_pf?.cpf || 'Não informado'
+  const contratanteDoc = snapshot
+    ? snapshot.contratante?.documento || 'Não informado'
+    : contrato.expand?.empresa?.cnpj || contrato.expand?.cliente_pf?.cpf || 'Não informado'
 
-  const contratanteEndereco =
-    (contrato.expand?.empresa?.municipio
-      ? `${contrato.expand?.empresa?.logradouro || ''} ${contrato.expand?.empresa?.numero || ''} - ${contrato.expand?.empresa?.municipio}/${contrato.expand?.empresa?.uf || ''}`.trim()
-      : contrato.expand?.cliente_pf?.endereco) || ''
+  const contratanteEndereco = snapshot
+    ? snapshot.contratante?.endereco || ''
+    : (contrato.expand?.empresa?.municipio
+        ? `${contrato.expand?.empresa?.logradouro || ''} ${contrato.expand?.empresa?.numero || ''} - ${contrato.expand?.empresa?.municipio}/${contrato.expand?.empresa?.uf || ''}`.trim()
+        : contrato.expand?.cliente_pf?.endereco) || ''
 
-  // Qualificação padronizada do contratante PESSOA FÍSICA (B2b) — PJ segue o layout original
-  const clientePfContratante = contrato.expand?.cliente_pf || null
+  // Qualificação do contratante (em texto corrido)
+  // Quando com snapshot: usa sempre o texto_qualificacao congelado
+  // Quando ao vivo: PF usa montarQualificacaoPf, PJ segue layout bloco/padrão
+  const textoQualificacaoSnapshot = snapshot?.contratante?.texto_qualificacao || ''
+  const clientePfContratante = !snapshot ? contrato.expand?.cliente_pf || null : null
   const qualificacaoPfContratante = clientePfContratante
     ? montarQualificacaoPf(clientePfContratante).texto
     : ''
 
-  const assinadoAdmin = Boolean(contrato.data_assinatura_admin)
-  const assinadoCliente = Boolean(contrato.data_assinatura_cliente)
+  // Resolução unificada via helper oficial de renderização
+  const dadosRenderizacao = obterDadosRenderizacaoContrato(
+    contrato,
+    !snapshot ? contrato.expand?.cliente_pf || null : null,
+  )
+
+  const objetoTexto = dadosRenderizacao.objetoTexto
+  const prazoDias = dadosRenderizacao.prazoDias
+  const notaPrazoTexto =
+    dadosRenderizacao.notaPrazo ||
+    'Os prazos serão contados em dias corridos a partir da data de assinatura deste contrato e da disponibilização de todos os elementos técnicos necessários.'
+  const valorTotal = dadosRenderizacao.valorTotal
+  const parcelasLista = dadosRenderizacao.parcelas
+  const clausulasTexto = dadosRenderizacao.clausulasTexto
+
+  // Signatários
+  const assinadoAdmin = Boolean(dadosRenderizacao.assinaturaAdmin?.data)
+  const adminNome = dadosRenderizacao.assinaturaAdmin?.assinante || 'Diretoria G+'
+  const adminDataAssinatura = dadosRenderizacao.assinaturaAdmin?.data
+  const adminIp = dadosRenderizacao.assinaturaAdmin?.ip || 'Auditado'
+  const adminHash = dadosRenderizacao.assinaturaAdmin?.hash
+
+  const assinadoCliente = Boolean(dadosRenderizacao.assinaturaCliente?.data)
+  const clienteNomeSignatario = dadosRenderizacao.assinaturaCliente?.assinante || 'Contratante'
+  const clienteDocSignatario = dadosRenderizacao.assinaturaCliente?.documento || 'Não informado'
+  const clienteDataAssinatura = dadosRenderizacao.assinaturaCliente?.data
+  const clienteIp = dadosRenderizacao.assinaturaCliente?.ip || 'Auditado'
+  const clienteHash = dadosRenderizacao.assinaturaCliente?.hash
+
+  const propostaNumeroExibicao = snapshot
+    ? snapshot.proposta_numero || contrato.expand?.proposta?.numero || 'S/N'
+    : contrato.expand?.proposta?.numero || 'S/N'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -73,7 +120,21 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-orange-500" />
             <div>
-              <div className="font-bold text-sm">Contrato de Prestação de Serviços Técnicos</div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm">
+                  Contrato de Prestação de Serviços Técnicos
+                </span>
+                {isCongelado && dataSelo && (
+                  <Badge
+                    variant="outline"
+                    data-testid="selo-versao-assinada"
+                    className="bg-emerald-950/80 text-emerald-300 border-emerald-500/40 text-[10px] font-medium gap-1 py-0.5 px-2"
+                  >
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                    Versão assinada em {formatDateBr(dataSelo)}
+                  </Badge>
+                )}
+              </div>
               <div className="text-[11px] text-slate-300">
                 Instrumento nº {contrato.numero} • Layout Oficial GMAIS
               </div>
@@ -102,11 +163,23 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
               <div className="text-sm font-black tracking-wide text-slate-900 uppercase">
                 Contrato de Prestação de Serviços Técnicos
               </div>
-              <div className="text-base font-mono font-bold text-orange-600 mt-0.5">
-                {contrato.numero}
+              <div className="flex items-center justify-end gap-2 mt-0.5">
+                <span className="text-base font-mono font-bold text-orange-600">
+                  {contrato.numero}
+                </span>
+                {isCongelado && dataSelo && (
+                  <Badge
+                    variant="outline"
+                    data-testid="selo-versao-assinada-documento"
+                    className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[10px] font-semibold gap-1 py-0.5 px-2 print:border-emerald-600 print:text-emerald-900"
+                  >
+                    <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                    Versão assinada em {formatDateBr(dataSelo)}
+                  </Badge>
+                )}
               </div>
               <div className="text-[11px] text-slate-500">
-                Proposta de Origem: {contrato.expand?.proposta?.numero || 'S/N'} • Emissão:{' '}
+                Proposta de Origem: {propostaNumeroExibicao} • Emissão:{' '}
                 {formatDateBr(contrato.created)}
               </div>
             </div>
@@ -134,13 +207,28 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
               <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block">
                 CONTRATANTE
               </span>
-              {clientePfContratante && qualificacaoPfContratante ? (
-                <p className="text-[11px] text-slate-700 leading-relaxed text-justify mt-0.5">
+              {textoQualificacaoSnapshot ? (
+                <p
+                  data-testid="qualificacao-contratante-snapshot"
+                  className="text-[11px] text-slate-700 leading-relaxed text-justify mt-0.5"
+                >
+                  {textoQualificacaoSnapshot}
+                </p>
+              ) : clientePfContratante && qualificacaoPfContratante ? (
+                <p
+                  data-testid="qualificacao-contratante-pf-vivo"
+                  className="text-[11px] text-slate-700 leading-relaxed text-justify mt-0.5"
+                >
                   {qualificacaoPfContratante}
                 </p>
               ) : (
                 <>
-                  <div className="font-bold text-slate-900 text-xs mt-0.5">{contratanteNome}</div>
+                  <div
+                    data-testid="nome-contratante"
+                    className="font-bold text-slate-900 text-xs mt-0.5"
+                  >
+                    {contratanteNome}
+                  </div>
                   <div className="text-[11px] text-slate-600">Documento: {contratanteDoc}</div>
                   {contratanteEndereco && (
                     <div className="text-[11px] text-slate-600">{contratanteEndereco}</div>
@@ -155,15 +243,11 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
             <h2 className="dossie-titulo-clausula text-xs font-bold uppercase tracking-wide text-slate-900 border-b border-slate-300 pb-1 [break-after:avoid] [page-break-after:avoid]">
               <span>Cláusula 1ª — Do Objeto dos Serviços</span>
             </h2>
-            <p className="text-justify text-slate-800 leading-relaxed whitespace-pre-line">
-              {normalizarObjetoProposta(
-                contrato.objeto ||
-                  'Prestação de serviços técnicos especializados de engenharia consultiva e desenvolvimento de projetos executivos.',
-                (contrato as any).empreendimento ||
-                  (contrato.expand as any)?.proposta?.empreendimento,
-              )
-                .replace(/\n{3,}/g, '\n\n')
-                .trim()}
+            <p
+              data-testid="objeto-contrato"
+              className="text-justify text-slate-800 leading-relaxed whitespace-pre-line"
+            >
+              {objetoTexto}
             </p>
           </section>
 
@@ -175,14 +259,11 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
             <div className="text-slate-800 space-y-1">
               <p>
                 O prazo total estimado para o desenvolvimento dos serviços ora contratados é de{' '}
-                <strong>{contrato.prazo_dias || 30} dias corridos</strong>.
+                <strong data-testid="prazo-dias">{prazoDias} dias corridos</strong>.
               </p>
               <p className="text-[11px] text-slate-600 italic leading-normal">
                 <strong>Nota de Prazo:</strong>{' '}
-                {(
-                  contrato.nota_prazo ||
-                  'Os prazos serão contados em dias corridos a partir da data de assinatura deste contrato e da disponibilização de todos os elementos técnicos necessários.'
-                ).trim()}
+                <span data-testid="nota-prazo">{notaPrazoTexto}</span>
               </p>
             </div>
           </section>
@@ -194,17 +275,27 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
             </h2>
 
             <div className="p-3 bg-slate-50 border border-slate-300 rounded flex items-center justify-between">
-              <span className="font-bold text-slate-900 uppercase text-xs">
-                VALOR TOTAL DOS SERVIÇOS:
-              </span>
-              <span className="font-mono text-base font-bold text-orange-600">
-                {formatCurrencyBr(contrato.valor_total)}
+              <div>
+                <span className="font-bold text-slate-900 uppercase text-xs">
+                  VALOR TOTAL DOS SERVIÇOS:
+                </span>
+                {dadosRenderizacao.valorExtenso && (
+                  <div className="text-[11px] text-slate-600 italic">
+                    ({dadosRenderizacao.valorExtenso})
+                  </div>
+                )}
+              </div>
+              <span
+                data-testid="valor-total"
+                className="font-mono text-base font-bold text-orange-600"
+              >
+                {formatCurrencyBr(valorTotal)}
               </span>
             </div>
 
-            {contrato.parcelas_json && contrato.parcelas_json.length > 0 && (
+            {parcelasLista.length > 0 && (
               <div className="border border-slate-300 rounded overflow-hidden overflow-x-auto print:overflow-visible mt-2">
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-left text-xs" data-testid="tabela-parcelas">
                   <thead className="bg-slate-100 text-slate-900 font-bold border-b border-slate-300">
                     <tr>
                       <th className="py-2 px-3 text-center w-12">#</th>
@@ -214,15 +305,16 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {contrato.parcelas_json.map((p, idx) => (
+                    {parcelasLista.map((p, idx) => (
                       <tr key={idx} className="hover:bg-slate-50">
-                        <td className="py-2 px-3 text-center font-mono">{p.ordem || idx + 1}</td>
+                        <td className="py-2 px-3 text-center font-mono">{p.numero || idx + 1}</td>
                         <td className="py-2 px-3 font-medium text-slate-900">
-                          {normalizarCondicoesPagamento(p.descricao)} ({p.gatilho})
+                          {normalizarCondicoesPagamento(p.descricao)}{' '}
+                          {p.gatilho ? `(${p.gatilho})` : ''}
                         </td>
                         <td className="py-2 px-3 text-center font-mono">{p.percentual}%</td>
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
-                          {formatCurrencyBr(p.valor)}
+                          {formatCurrencyBr(p.valor || 0)}
                         </td>
                       </tr>
                     ))}
@@ -238,14 +330,7 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
               <span>Cláusula 4ª — Das Cláusulas e Condições Gerais</span>
             </h2>
             <div className="text-slate-800 whitespace-pre-line leading-relaxed text-justify text-[11px] p-3.5 bg-slate-50 border border-slate-300 rounded space-y-2">
-              <div>
-                {(
-                  contrato.clausulas_texto ||
-                  'CLÁUSULA 1ª — As alterações no projeto ou nas premissas solicitadas pela CONTRATANTE incorrerão em custos adicionais correspondentes às horas técnicas de retrabalho necessárias.\n\nCLÁUSULA 2ª — Os documentos e arquivos digitais são de uso exclusivo para o empreendimento objeto deste contrato.\n\nCLÁUSULA 3ª — A rescisão imotivada sujeitará a parte infratora à quitação dos serviços executados, acrescida de multa rescisória compensatória de 20% sobre o saldo remanescente.'
-                )
-                  .replace(/\n{3,}/g, '\n\n')
-                  .trim()}
-              </div>
+              <div data-testid="clausulas-texto">{clausulasTexto}</div>
               <div className="pt-2 border-t border-slate-200 text-slate-700 font-medium">
                 <strong>CLÁUSULA DE ACEITE DE ASSINATURA ELETRÔNICA:</strong> As partes declaram e
                 reconhecem expressamente a validade, integridade e eficácia jurídica desta
@@ -280,17 +365,22 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
                   <div className="space-y-1 text-[11px] text-slate-700">
                     <div>
                       <strong>Signatário:</strong>{' '}
-                      {contrato.expand?.assinante_admin?.name || 'Diretoria G+'}
+                      <span data-testid="signatario-admin-nome">{adminNome}</span>
                     </div>
                     <div>
                       <strong>Data/Hora:</strong>{' '}
-                      {formatDateTimeBr(contrato.data_assinatura_admin!)}
+                      <span data-testid="signatario-admin-data">
+                        {adminDataAssinatura ? formatDateTimeBr(adminDataAssinatura) : 'Auditado'}
+                      </span>
                     </div>
                     <div>
-                      <strong>IP:</strong> {contrato.admin_ip || 'Auditado'}
+                      <strong>IP:</strong> {adminIp}
                     </div>
-                    <div className="font-mono text-[9px] text-emerald-800 break-all">
-                      Hash: {contrato.admin_hash}
+                    <div
+                      data-testid="signatario-admin-hash"
+                      className="font-mono text-[9px] text-emerald-800 break-all"
+                    >
+                      Hash: {adminHash}
                     </div>
                   </div>
                 ) : (
@@ -308,20 +398,29 @@ export const DossieContratoServicoGmais: React.FC<DossieContratoServicoGmaisProp
                 {assinadoCliente ? (
                   <div className="space-y-1 text-[11px] text-slate-700">
                     <div>
-                      <strong>Signatário:</strong> {contrato.cliente_nome_assinante}
+                      <strong>Signatário:</strong>{' '}
+                      <span data-testid="signatario-cliente-nome">{clienteNomeSignatario}</span>
                     </div>
                     <div>
-                      <strong>Documento:</strong> {contrato.cliente_documento_assinante}
+                      <strong>Documento:</strong>{' '}
+                      <span data-testid="signatario-cliente-doc">{clienteDocSignatario}</span>
                     </div>
                     <div>
                       <strong>Data/Hora:</strong>{' '}
-                      {formatDateTimeBr(contrato.data_assinatura_cliente!)}
+                      <span data-testid="signatario-cliente-data">
+                        {clienteDataAssinatura
+                          ? formatDateTimeBr(clienteDataAssinatura)
+                          : 'Auditado'}
+                      </span>
                     </div>
                     <div>
-                      <strong>IP:</strong> {contrato.cliente_ip || 'Auditado'}
+                      <strong>IP:</strong> {clienteIp}
                     </div>
-                    <div className="font-mono text-[9px] text-emerald-800 break-all">
-                      Hash: {contrato.cliente_hash}
+                    <div
+                      data-testid="signatario-cliente-hash"
+                      className="font-mono text-[9px] text-emerald-800 break-all"
+                    >
+                      Hash: {clienteHash}
                     </div>
                   </div>
                 ) : (

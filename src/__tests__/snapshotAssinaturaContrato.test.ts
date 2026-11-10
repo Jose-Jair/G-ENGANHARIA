@@ -2,10 +2,14 @@ import { describe, it, expect } from 'vitest'
 import {
   montarObjetoSnapshotContrato,
   montarQualificacaoPj,
+  extrairSnapshotAssinatura,
+  formatarSeloSnapshot,
+  obterDadosRenderizacaoContrato,
   DADOS_CONTRATADA_PADRAO,
 } from '@/lib/snapshotContrato'
+import type { ContratoServicoRecord, ClientePfRecord } from '@/types'
 
-describe('Snapshot de Assinatura de Contrato de Serviço (Item C - Etapa 2)', () => {
+describe('Snapshot de Assinatura de Contrato de Serviço (Item C - Etapas 2 e 3)', () => {
   it('monta snapshot completo para contratante PF com doc_tipo CIN', () => {
     const clientePf = {
       id: 'cpf123',
@@ -190,7 +194,6 @@ describe('Snapshot de Assinatura de Contrato de Serviço (Item C - Etapa 2)', ()
       snapshot_em: '2026-11-01T10:00:00.000Z',
     }
 
-    // Regra da trava write-once:
     const validarWriteOnce = (
       orig: typeof originalRecord,
       novoValorAssinatura: string,
@@ -208,7 +211,6 @@ describe('Snapshot de Assinatura de Contrato de Serviço (Item C - Etapa 2)', ()
       return true
     }
 
-    // Tentativa com mesmo valor é permitida
     expect(
       validarWriteOnce(
         originalRecord,
@@ -217,7 +219,6 @@ describe('Snapshot de Assinatura de Contrato de Serviço (Item C - Etapa 2)', ()
       ),
     ).toBe(true)
 
-    // Tentativa de alterar snapshot_assinatura é barrada com a mensagem em português
     expect(() =>
       validarWriteOnce(
         originalRecord,
@@ -226,7 +227,6 @@ describe('Snapshot de Assinatura de Contrato de Serviço (Item C - Etapa 2)', ()
       ),
     ).toThrow('O snapshot de assinatura é imutável')
 
-    // Tentativa de alterar snapshot_em é barrada com a mensagem em português
     expect(() =>
       validarWriteOnce(
         originalRecord,
@@ -235,10 +235,159 @@ describe('Snapshot de Assinatura de Contrato de Serviço (Item C - Etapa 2)', ()
       ),
     ).toThrow('O snapshot de assinatura é imutável')
 
-    // Quando registro original estava vazio, é permitido gravar pela primeira vez
     const originalVazio = { snapshot_assinatura: '', snapshot_em: '' }
     expect(validarWriteOnce(originalVazio, '{"versao_schema":1}', '2026-11-10T12:00:00.000Z')).toBe(
       true,
     )
+  })
+
+  describe('Etapa 3 - Renderização a partir do Snapshot vs Ao Vivo', () => {
+    it('formata o selo discreto com padrão dd/mm/aaaa', () => {
+      const selo = formatarSeloSnapshot('2026-11-10T15:30:00.000Z')
+      expect(selo).toBe('Versão assinada em 10/11/2026')
+
+      const seloVazio = formatarSeloSnapshot(null)
+      expect(seloVazio).toBe('Versão assinada')
+    })
+
+    it('extrai snapshot com segurança tanto de string JSON quanto de objeto parsed', () => {
+      const objetoJson = {
+        versao_schema: 1,
+        contratante: { nome: 'Cliente Teste' },
+        signatarios: { admin: {}, cliente: {} },
+      }
+      expect(extrairSnapshotAssinatura(objetoJson)).not.toBeNull()
+      expect(extrairSnapshotAssinatura(JSON.stringify(objetoJson))).not.toBeNull()
+      expect(extrairSnapshotAssinatura(null)).toBeNull()
+      expect(extrairSnapshotAssinatura('')).toBeNull()
+      expect(extrairSnapshotAssinatura('{invalid json')).toBeNull()
+    })
+
+    it('imutabilidade: cliente muda de nome após assinatura → dados de renderização continuam mostrando nome e qualificação originais do snapshot', () => {
+      // Snapshot congelado na assinatura
+      const snapshotOriginal = montarObjetoSnapshotContrato({
+        contratoId: 'ctr_imutavel',
+        contratoNumero: 'CTR-2026-0088',
+        clientePf: {
+          nome: 'Nome Antigo do Cliente',
+          cpf: '11122233344',
+          genero: 'masculino',
+          nacionalidade: 'brasileiro',
+          estado_civil: 'solteiro',
+          profissao: 'Arquiteto',
+          municipio: 'Tauá',
+          uf: 'CE',
+        },
+        objeto: 'Objeto original do contrato congelado',
+        valorTotal: 12000,
+        prazoDias: 20,
+        signatarioAdmin: {
+          nome: 'Admin Original',
+          dataAssinatura: '2026-11-01T10:00:00.000Z',
+          ip: '10.0.0.1',
+          hash: 'hashadmin',
+        },
+        signatarioCliente: {
+          nome: 'Nome Antigo do Cliente',
+          documento: '111.222.333-44',
+          dataAssinatura: '2026-11-01T11:00:00.000Z',
+          ip: '10.0.0.2',
+          hash: 'hashcli',
+        },
+      })
+
+      // Contrato com snapshot_assinatura e snapshot_em preenchidos
+      const contratoComSnapshot: ContratoServicoRecord = {
+        id: 'ctr_imutavel',
+        numero: 'CTR-2026-0088',
+        status: 'assinado',
+        objeto: 'Objeto no registro de contrato (alterado)',
+        valor_total: 99999, // valor alterado posteriormente no registro
+        prazo_dias: 90,
+        snapshot_assinatura: JSON.stringify(snapshotOriginal),
+        snapshot_em: '2026-11-01T11:00:00.000Z',
+        created: '2026-10-25T10:00:00.000Z',
+      } as any
+
+      // Cliente PF que teve o cadastro vivo alterado posteriormente (ex: casou e mudou de nome, endereço)
+      const clientePfCadastroAlterado: ClientePfRecord = {
+        id: 'cpf1',
+        nome: 'NOME NOVO TOTALMENTE DIFERENTE DA SILVA',
+        cpf: '11122233344',
+        profissao: 'Empresário',
+        municipio: 'Fortaleza',
+        uf: 'CE',
+      } as any
+
+      // Executa a resolução dos dados de renderização
+      const dados = obterDadosRenderizacaoContrato(contratoComSnapshot, clientePfCadastroAlterado)
+
+      // 1. Fonte deve ser 'snapshot'
+      expect(dados.fonte).toBe('snapshot')
+
+      // 2. Selo deve estar presente com a data formatada dd/mm/aaaa
+      expect(dados.seloAssinatura).toBe('Versão assinada em 01/11/2026')
+
+      // 3. Nome do cliente deve ser o NOME ANTIGO do snapshot, NÃO o novo
+      expect(dados.qualificacaoContratante).toContain('Nome Antigo do Cliente')
+      expect(dados.qualificacaoContratante).not.toContain('NOME NOVO TOTALMENTE DIFERENTE')
+
+      // 4. Objeto, prazo e valor total devem refletir o snapshot, não o banco vivo
+      expect(dados.objetoTexto).toBe('Objeto original do contrato congelado')
+      expect(dados.valorTotal).toBe(12000)
+      expect(dados.prazoDias).toBe(20)
+
+      // 5. Signatário reflete o snapshot
+      expect(dados.assinaturaCliente?.assinante).toBe('Nome Antigo do Cliente')
+    })
+
+    it('contrato sem snapshot (rascunho/não assinado): continua resolvendo ao vivo a partir do cadastro do cliente, sem selo', () => {
+      // Contrato em elaboração (sem snapshot)
+      const contratoSemSnapshot: ContratoServicoRecord = {
+        id: 'ctr_rascunho',
+        numero: 'CTR-2026-0099',
+        status: 'rascunho',
+        objeto: 'Elaboração de projetos ao vivo',
+        valor_total: 8500,
+        prazo_dias: 30,
+        snapshot_assinatura: null,
+        snapshot_em: null,
+        created: '2026-11-10T10:00:00.000Z',
+      } as any
+
+      const clientePfAoVivo: ClientePfRecord = {
+        id: 'cpf2',
+        nome: 'Cliente Ao Vivo Ativo',
+        cpf: '99988877766',
+        genero: 'masculino',
+        nacionalidade: 'brasileiro',
+        estado_civil: 'solteiro',
+        profissao: 'Engenheiro',
+        logradouro: 'Rua Principal',
+        numero: '100',
+        bairro: 'Centro',
+        municipio: 'Tauá',
+        uf: 'CE',
+        cep: '63660-000',
+      } as any
+
+      const dados = obterDadosRenderizacaoContrato(contratoSemSnapshot, clientePfAoVivo)
+
+      // 1. Fonte deve ser 'cadastro_vivo'
+      expect(dados.fonte).toBe('cadastro_vivo')
+
+      // 2. Selo deve ser null (não assinado)
+      expect(dados.seloAssinatura).toBeNull()
+
+      // 3. Qualificação reflete os dados vivos do cliente
+      expect(dados.qualificacaoContratante).toContain('Cliente Ao Vivo Ativo')
+      expect(dados.qualificacaoContratante).toContain('999.888.777-66')
+      expect(dados.qualificacaoContratante).toContain('Rua Principal, nº 100')
+
+      // 4. Objeto e valores refletem o registro vivo do contrato
+      expect(dados.objetoTexto).toBe('Elaboração de projetos ao vivo')
+      expect(dados.valorTotal).toBe(8500)
+      expect(dados.prazoDias).toBe(30)
+    })
   })
 })

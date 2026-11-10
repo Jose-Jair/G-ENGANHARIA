@@ -306,7 +306,14 @@ export function ContratoServicoPublicoPage() {
             <div className="flex items-center gap-3">
               <CheckCircle2 className="w-6 h-6 text-emerald-100 shrink-0" />
               <div>
-                <div className="font-bold text-sm">Contrato de Prestação de Serviços Assinado</div>
+                <div className="font-bold text-sm flex items-center gap-2 flex-wrap">
+                  <span>Contrato de Prestação de Serviços Assinado</span>
+                  {contrato.snapshot_assinatura && (
+                    <span className="bg-emerald-700/80 text-white px-2 py-0.5 rounded text-[11px] font-normal">
+                      Versão assinada em {formatDateBr(contrato.snapshot_em || contrato.created)}
+                    </span>
+                  )}
+                </div>
                 <div className="text-xs text-emerald-100">
                   Assinado digitalmente por ambas as partes. Data do cliente:{' '}
                   {formatDateTimeBr(contrato.data_assinatura_cliente!)}.

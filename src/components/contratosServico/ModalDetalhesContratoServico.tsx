@@ -247,6 +247,14 @@ export function ModalDetalhesContratoServico({
                         ? 'Aguardando Assinatura Admin'
                         : 'Aguardando Assinatura Cliente'}
                 </Badge>
+                {contrato.snapshot_assinatura && (
+                  <Badge
+                    variant="outline"
+                    className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[11px] font-medium"
+                  >
+                    Versão assinada em {formatDateBr(contrato.snapshot_em || contrato.created)}
+                  </Badge>
+                )}
               </div>
               <DialogDescription className="text-xs mt-1 truncate">
                 Contrato de Prestação de Serviços Técnicos originado da Proposta{' '}

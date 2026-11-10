@@ -462,6 +462,14 @@ export function ContratoTab({
                         ? 'Aguardando Assinatura Admin'
                         : 'Aguardando Assinatura Cliente'}
                 </Badge>
+                {contrato.snapshot_assinatura && (
+                  <Badge
+                    variant="outline"
+                    className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[11px] font-medium"
+                  >
+                    Versão assinada em {formatDateBr(contrato.snapshot_em || contrato.created)}
+                  </Badge>
+                )}
               </div>
               <p className="text-xs text-slate-500 mt-1">
                 Contrato de Prestação de Serviços Técnicos de Engenharia • Vinculado ao Projeto{' '}

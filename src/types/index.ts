@@ -842,6 +842,8 @@ export interface ContratoServicoRecord {
   cliente_declaracao?: boolean
   cliente_hash?: string
   arquivo_pdf_assinado?: string
+  snapshot_assinatura?: any
+  snapshot_em?: string
   created: string
   updated: string
   expand?: {

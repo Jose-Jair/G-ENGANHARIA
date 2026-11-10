@@ -119,6 +119,8 @@ describe('Validação do cadastro de cliente PF (rotas públicas e payload)', ()
 
     // CPF válido de teste para validação
     const payloadIdentico = {
+      nome: 'José Jair Oliveira Alves',
+      genero: 'masculino',
       cpf: '52998224725',
       doc_tipo: 'CIN',
       doc_tipo_outro: '',
@@ -151,6 +153,8 @@ describe('Validação do cadastro de cliente PF (rotas públicas e payload)', ()
     const { validarPayloadCadastroClientePf } = await import('@/pages/CadastroClientePublico')
 
     const payloadIncompleto = {
+      nome: '',
+      genero: '',
       cpf: '',
       doc_tipo: '',
       rg_orgao_emissor: '',
@@ -160,11 +164,50 @@ describe('Validação do cadastro de cliente PF (rotas públicas e payload)', ()
     }
 
     const erros = validarPayloadCadastroClientePf(payloadIncompleto)
+    expect(erros.nome).toBe('Informe seu nome completo (ao menos nome e sobrenome).')
+    expect(erros.genero).toBe('Selecione o gênero (Masculino ou Feminino).')
     expect(erros.cpf).toBe('Informe o CPF.')
     expect(erros.doc_tipo).toBe('Selecione o documento de identificação.')
     expect(erros.rg_orgao_emissor).toBe('Informe o órgão emissor.')
     expect(erros.rg_uf).toBe('Selecione a UF do documento.')
     expect(erros.estado_civil).toBe('Selecione o estado civil.')
     expect(erros.aceite_lgpd).toBe('É necessário marcar o aceite do tratamento de dados (LGPD).')
+  })
+
+  it('exige ao menos duas palavras no campo nome no front', async () => {
+    const { validarPayloadCadastroClientePf } = await import('@/pages/CadastroClientePublico')
+
+    const payloadUmNome = {
+      nome: 'José',
+      genero: 'masculino',
+      cpf: '52998224725',
+      doc_tipo: 'CIN',
+      rg: '52998224725',
+      rg_orgao_emissor: 'SSP',
+      rg_uf: 'CE',
+      estado_civil: 'solteiro(a)',
+      profissao: 'Engenheiro',
+      nacionalidade: 'Brasileira',
+      data_nascimento: '1985-06-15',
+      cep: '60000000',
+      logradouro: 'Rua das Flores',
+      numero: '123',
+      bairro: 'Centro',
+      municipio: 'Fortaleza',
+      uf: 'CE',
+      telefone: '85999998888',
+      email: 'jose@exemplo.com',
+      aceite_lgpd: true,
+    }
+
+    const errosUmNome = validarPayloadCadastroClientePf(payloadUmNome)
+    expect(errosUmNome.nome).toBe('Informe seu nome completo (ao menos nome e sobrenome).')
+
+    const payloadCompleto = {
+      ...payloadUmNome,
+      nome: 'José Jair',
+    }
+    const errosCompleto = validarPayloadCadastroClientePf(payloadCompleto)
+    expect(errosCompleto.nome).toBeUndefined()
   })
 })

@@ -70,6 +70,7 @@ const ENDERECO_VAZIO: EnderecoValue = {
 }
 
 const ROTULOS_CAMPO: Record<string, string> = {
+  nome: 'Informe seu nome completo (ao menos nome e sobrenome).',
   genero: 'Selecione o gênero (Masculino ou Feminino).',
   cpf: 'Informe um CPF válido (11 dígitos, com os dígitos verificadores corretos).',
   doc_tipo: 'Selecione o documento de identificação.',
@@ -93,6 +94,7 @@ const ROTULOS_CAMPO: Record<string, string> = {
 }
 
 export interface PayloadCadastroClientePf {
+  nome: string
   genero: string
   cpf: string
   doc_tipo: string
@@ -163,6 +165,7 @@ export function validarPayloadCadastroClientePf(
   const clean = (v?: unknown) => (v || '').toString().trim()
   const soDigitos = (v?: unknown) => (v || '').toString().replace(/\D/g, '')
 
+  const nome = clean(payload.nome)
   const genero = clean(payload.genero).toLowerCase()
   const docTipo = clean(payload.doc_tipo)
   const docTipoOutro = clean(payload.doc_tipo_outro)
@@ -184,6 +187,10 @@ export function validarPayloadCadastroClientePf(
   const email = clean(payload.email).toLowerCase()
   const aceiteLgpd = payload.aceite_lgpd === true || payload.aceite_lgpd === ('true' as unknown)
 
+  const palavrasNome = nome.split(/\s+/).filter(Boolean)
+  if (!nome || palavrasNome.length < 2) {
+    erros.nome = ROTULOS_CAMPO.nome
+  }
   if (!genero || (genero !== 'masculino' && genero !== 'feminino')) {
     erros.genero = ROTULOS_CAMPO.genero
   }
@@ -317,6 +324,7 @@ export function CadastroClientePublicoPage() {
   const [tela, setTela] = useState<Tela>('carregando')
   const [nomeCliente, setNomeCliente] = useState('')
   const [form, setForm] = useState({
+    nome: '',
     genero: '',
     cpf: '',
     doc_tipo: 'CIN',
@@ -354,6 +362,7 @@ export function CadastroClientePublicoPage() {
         setNomeCliente(d.nome || '')
         setForm((prev) => ({
           ...prev,
+          nome: d.nome || '',
           cpf: d.cpf ? formatCpf(cleanCpf(d.cpf)) : '',
           telefone: d.telefone ? formatPhoneDisplay(d.telefone, false) : '',
           email: d.email || '',
@@ -390,6 +399,10 @@ export function CadastroClientePublicoPage() {
 
   const validarFormulario = (): Record<string, string> => {
     const errs: Record<string, string> = {}
+    const palavrasNome = form.nome.trim().split(/\s+/).filter(Boolean)
+    if (!form.nome.trim() || palavrasNome.length < 2) {
+      errs.nome = ROTULOS_CAMPO.nome
+    }
     const cpfClean = cleanCpf(form.cpf)
     if (!cpfClean || cpfClean.length !== 11 || !isValidCpf(cpfClean)) errs.cpf = ROTULOS_CAMPO.cpf
     if (!form.doc_tipo) errs.doc_tipo = ROTULOS_CAMPO.doc_tipo
@@ -433,6 +446,7 @@ export function CadastroClientePublicoPage() {
     if (Object.keys(errs).length > 0) return
 
     const payloadEnvio: PayloadCadastroClientePf = {
+      nome: form.nome.trim(),
       genero: form.genero,
       cpf: cleanCpf(form.cpf),
       doc_tipo: form.doc_tipo || 'RG',
@@ -593,6 +607,21 @@ export function CadastroClientePublicoPage() {
           )}
 
           <form onSubmit={enviar} className="space-y-4" noValidate>
+            {/* Nome completo */}
+            <div className="space-y-1">
+              <Label className="text-xs">Nome completo *</Label>
+              <Input
+                value={form.nome}
+                onChange={(e) => setCampo('nome', e.target.value)}
+                placeholder="Ex.: João da Silva Santos"
+                className={`text-sm h-10 bg-white ${erros.nome ? 'border-red-500' : ''}`}
+              />
+              <p className="text-[11px] text-slate-500">
+                Informe seu nome completo, como no documento
+              </p>
+              {erros.nome && <p className="text-[11px] text-red-600">{erros.nome}</p>}
+            </div>
+
             {/* Identificação */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">

@@ -124,7 +124,7 @@ export function ModalRevisaoCadastroClientePf({
     const enviadoTelefone = formatPhoneBr(str(dados.telefone)) || str(dados.telefone)
 
     const itens: { campo: string; atual: string; enviado: string }[] = [
-      { campo: 'Nome', atual: str(cliente.nome), enviado: str(dados.nome) },
+      { campo: 'Nome completo', atual: str(cliente.nome), enviado: str(dados.nome) },
       {
         campo: 'CPF',
         atual: cliente.cpf ? formatCpf(cliente.cpf) : '',

@@ -3,7 +3,10 @@
  * pelo cliente no cadastro público antes da gravação e aprovação em clientes_pf.
  */
 
+import { formatarNomeProprio } from '../lib/formatters'
+
 export interface DadosEnviadosClientePf {
+  nome?: string
   doc_tipo?: string
   doc_tipo_outro?: string
   cpf?: string
@@ -91,6 +94,7 @@ export function normalizarDataHoraPb(d: Date = new Date()): string {
 }
 
 export interface CamposAtualizacaoClientePf {
+  nome?: string
   cpf?: string
   rg?: string
   doc_tipo?: string
@@ -153,6 +157,11 @@ export function mapearDadosAprovacaoClientePf(
     consentimento_lgpd: true,
     data_consentimento: normalizarDataHoraPb(),
     cadastro_status: 'completo',
+  }
+
+  const nomeNovo = (dados.nome || clienteExistente?.nome || '').trim()
+  if (nomeNovo) {
+    campos.nome = formatarNomeProprio(nomeNovo)
   }
 
   // Regra A4: Só atualiza CPF se o cliente existente NÃO possuir o mesmo CPF já gravado

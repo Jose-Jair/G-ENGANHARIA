@@ -560,6 +560,8 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     // -----------------------------------------------------------------------
     // Validação dos campos obrigatórios
     // -----------------------------------------------------------------------
+    const nome = (body.nome || '').toString().trim()
+    const palavrasNome = nome ? nome.split(/\s+/).filter(Boolean) : []
     const generoValidos = ['masculino', 'feminino']
     const genero = (body.genero || '').toString().trim().toLowerCase()
     const docTipoValidos = ['CIN', 'RG', 'CNH', 'Carteira profissional', 'Outro']
@@ -610,6 +612,9 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     const aceiteLgpd = body.aceite_lgpd === true || body.aceite_lgpd === 'true'
 
     const errosPorCampo = {}
+    if (!nome || palavrasNome.length < 2) {
+      errosPorCampo.nome = 'Informe seu nome completo (ao menos nome e sobrenome).'
+    }
     if (!genero || generoValidos.indexOf(genero) === -1) {
       errosPorCampo.genero = 'Selecione o gênero (Masculino ou Feminino).'
     }
@@ -727,6 +732,7 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
     const municipioNormalizado = formatarNomeProprio(municipio)
 
     const dadosEnviados = {
+      nome: nomeNormalizado || formatarNomeProprio(nome),
       genero: genero,
       doc_tipo: docTipo,
       doc_tipo_outro: docTipo === 'Outro' ? docTipoOutro : '',
@@ -751,10 +757,6 @@ routerAdd('POST', '/backend/v1/cadastro-cliente/{token}', (e) => {
       aceite_lgpd: aceiteLgpd,
       submetido_em: new Date().toISOString(),
     }
-    if (nomeNormalizado) {
-      dadosEnviados.nome = nomeNormalizado
-    }
-
     convite.set('dados_enviados', dadosEnviados)
     convite.set('status', 'usado')
     convite.set('enviado_em', new Date().toISOString())

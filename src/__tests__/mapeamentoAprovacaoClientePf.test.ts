@@ -158,5 +158,27 @@ describe('Mapeamento e Normalização — Aprovação de Cadastro Cliente PF', (
       expect(resultado.cpf).toBe('60454885393')
       expect(resultado.doc_tipo).toBe('CIN')
     })
+
+    it('dados_enviados chegando como STRING JSON com nome "josé jair oliveira alves" -> mapeamento/aprovação produz cliente.nome "José Jair Oliveira Alves"', () => {
+      const stringJsonJsVm = JSON.stringify({
+        nome: 'josé jair oliveira alves',
+        cpf: '529.982.247-25',
+        doc_tipo: 'RG',
+        rg: '1234567',
+        logradouro: 'rua das flores',
+        bairro: 'centro',
+        municipio: 'fortaleza',
+        uf: 'CE',
+      })
+
+      const dadosExtraidos = extrairDadosEnviadosSeguro(stringJsonJsVm)
+      expect(dadosExtraidos.nome).toBe('josé jair oliveira alves')
+
+      const clienteExistente = { id: 'cli_pre_cadastro', nome: 'José' }
+      const resultado = mapearDadosAprovacaoClientePf(dadosExtraidos, clienteExistente)
+
+      expect(resultado.nome).toBe('José Jair Oliveira Alves')
+      expect(resultado.cadastro_status).toBe('completo')
+    })
   })
 })

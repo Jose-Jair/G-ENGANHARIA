@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T12:47:45.420Z",
+  "generatedAt": "2026-11-10T13:10:13.929Z",
   "collections": [
     {
       "name": "users",
@@ -4173,6 +4173,18 @@
           "required": false,
           "system": false,
           "selectValues": ["pendente", "aceito", "recusado"]
+        },
+        {
+          "name": "snapshot_assinatura",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "snapshot_em",
+          "type": "date",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

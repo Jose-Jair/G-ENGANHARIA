@@ -5290,6 +5290,262 @@ routerAdd('POST', '/backend/v1/contratos-servico/assinar-cliente', (e) => {
     const assinadoBilateralmente = Boolean(contrato.getString('data_assinatura_admin'))
     if (assinadoBilateralmente) {
       contrato.set('status', 'assinado')
+
+      // SNAPSHOT DE ASSINATURA (Item C - Etapa 2): Congela o contrato exatamente como
+      // assinado bilateralmente. Idempotente (grava só se snapshot_assinatura estiver vazio).
+      try {
+        const snapAtual = (contrato.getString('snapshot_assinatura') || '').trim()
+        if (!snapAtual) {
+          const formatarCpfIn = function (v) {
+            const dig = String(v || '').replace(/\D/g, '')
+            if (dig.length !== 11) return v || ''
+            return dig.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+          }
+          const formatarCnpjIn = function (v) {
+            const dig = String(v || '').replace(/\D/g, '')
+            if (dig.length !== 14) return v || ''
+            return dig.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+          }
+
+          let clientePfRec = null
+          let empresaRec = null
+          const clientePfId = contrato.getString('cliente_pf')
+          const empresaId = contrato.getString('empresa')
+
+          if (clientePfId) {
+            try {
+              clientePfRec = $app.findRecordById('clientes_pf', clientePfId)
+            } catch (_) {}
+          }
+          if (empresaId) {
+            try {
+              empresaRec = $app.findRecordById('empresas', empresaId)
+            } catch (_) {}
+          }
+
+          let contratanteSnap = null
+
+          if (clientePfRec) {
+            const nomePf = clientePfRec.getString('nome') || 'Cliente PF'
+            const generoPf = (clientePfRec.getString('genero') || '').toLowerCase()
+            const nacPf =
+              clientePfRec.getString('nacionalidade') ||
+              (generoPf === 'feminino' ? 'brasileira' : 'brasileiro')
+            const ecPf = clientePfRec.getString('estado_civil') || 'solteiro(a)'
+            const profPf = clientePfRec.getString('profissao') || 'autônomo(a)'
+            const docTipoPf = clientePfRec.getString('doc_tipo') || 'RG'
+            const docNumPf = (clientePfRec.getString('rg') || '').trim()
+            const docOrgaoPf = (clientePfRec.getString('rg_orgao_emissor') || '').trim()
+            const docUfPf = (clientePfRec.getString('rg_uf') || '').trim()
+            const cpfPfLimpo = (clientePfRec.getString('cpf') || '').replace(/\D/g, '')
+            const cpfPfFormatado = formatarCpfIn(cpfPfLimpo)
+
+            let docClausula = ''
+            if (docTipoPf === 'CIN') {
+              if (docNumPf && docNumPf.replace(/\D/g, '') !== cpfPfLimpo) {
+                docClausula = 'portador(a) da Carteira de Identidade Nacional sob o nº ' + docNumPf
+              } else {
+                docClausula = 'portador(a) da Carteira de Identidade Nacional'
+              }
+            } else if (docTipoPf === 'CNH') {
+              docClausula = 'portador(a) da CNH sob o nº ' + (docNumPf || 'Não informado')
+            } else if (docTipoPf === 'Carteira profissional') {
+              const compl = [docOrgaoPf, docUfPf].filter(Boolean).join('/')
+              docClausula =
+                'portador(a) da Carteira Profissional sob o nº ' +
+                (docNumPf || 'Não informado') +
+                (compl ? ' (' + compl + ')' : '')
+            } else if (docTipoPf === 'Outro') {
+              const compl = [docOrgaoPf, docUfPf].filter(Boolean).join('/')
+              docClausula =
+                'portador(a) de documento de identidade nº ' +
+                (docNumPf || 'Não informado') +
+                (compl ? ' (' + compl + ')' : '')
+            } else {
+              const compl = [docOrgaoPf, docUfPf].filter(Boolean).join('/')
+              docClausula =
+                'portador(a) do RG sob o nº ' +
+                (docNumPf || 'Não informado') +
+                (compl ? ' ' + compl : '')
+            }
+
+            const enderecoPartesPf = []
+            if (clientePfRec.getString('logradouro'))
+              enderecoPartesPf.push(clientePfRec.getString('logradouro').trim())
+            if (clientePfRec.getString('numero'))
+              enderecoPartesPf.push('nº ' + clientePfRec.getString('numero').trim())
+            if (clientePfRec.getString('complemento'))
+              enderecoPartesPf.push(clientePfRec.getString('complemento').trim())
+            if (clientePfRec.getString('bairro'))
+              enderecoPartesPf.push(clientePfRec.getString('bairro').trim())
+            const munPf = clientePfRec.getString('municipio')
+            const ufPf = clientePfRec.getString('uf')
+            if (munPf || ufPf) {
+              enderecoPartesPf.push([munPf, ufPf].filter(Boolean).join('/'))
+            }
+            if (clientePfRec.getString('cep'))
+              enderecoPartesPf.push('CEP ' + clientePfRec.getString('cep').trim())
+            const enderecoTextoPf =
+              enderecoPartesPf.length > 0 ? enderecoPartesPf.join(', ') : 'Endereço não informado'
+
+            const textoQualPf = [
+              nomePf + ',',
+              nacPf + ',',
+              ecPf + ',',
+              profPf + ',',
+              docClausula + ',',
+              'inscrito(a) no CPF sob o nº ' + (cpfPfFormatado || 'Não informado') + ',',
+              'residente e domiciliado(a) em ' + enderecoTextoPf + '.',
+            ].join(' ')
+
+            contratanteSnap = {
+              tipo: 'pf',
+              nome: nomePf,
+              documento: cpfPfFormatado,
+              endereco: enderecoTextoPf,
+              texto_qualificacao: textoQualPf,
+            }
+          } else if (empresaRec) {
+            const nomePj =
+              empresaRec.getString('razao_social') ||
+              empresaRec.getString('nome_fantasia') ||
+              'Empresa Contratante'
+            const cnpjPj = formatarCnpjIn(empresaRec.getString('cnpj'))
+
+            const enderecoPartesPj = []
+            if (empresaRec.getString('logradouro'))
+              enderecoPartesPj.push(empresaRec.getString('logradouro').trim())
+            if (empresaRec.getString('numero'))
+              enderecoPartesPj.push('nº ' + empresaRec.getString('numero').trim())
+            if (empresaRec.getString('complemento'))
+              enderecoPartesPj.push(empresaRec.getString('complemento').trim())
+            if (empresaRec.getString('bairro'))
+              enderecoPartesPj.push(empresaRec.getString('bairro').trim())
+            const munPj = empresaRec.getString('municipio')
+            const ufPj = empresaRec.getString('uf')
+            if (munPj || ufPj) {
+              enderecoPartesPj.push([munPj, ufPj].filter(Boolean).join('/'))
+            }
+            if (empresaRec.getString('cep'))
+              enderecoPartesPj.push('CEP ' + empresaRec.getString('cep').trim())
+            const enderecoTextoPj =
+              enderecoPartesPj.length > 0 ? enderecoPartesPj.join(', ') : 'Endereço não informado'
+
+            const textoQualPj =
+              nomePj +
+              ', pessoa jurídica de direito privado, inscrita no CNPJ sob o nº ' +
+              (cnpjPj || 'Não informado') +
+              ', com sede em ' +
+              enderecoTextoPj
+
+            contratanteSnap = {
+              tipo: 'pj',
+              nome: nomePj,
+              documento: cnpjPj,
+              endereco: enderecoTextoPj,
+              texto_qualificacao: textoQualPj,
+            }
+          } else {
+            contratanteSnap = {
+              tipo: 'pj',
+              nome: 'Contratante Não Informado',
+              documento: 'Não informado',
+              endereco: 'Não informado',
+              texto_qualificacao: 'Contratante não qualificado',
+            }
+          }
+
+          let propostaRec = null
+          const propostaId = contrato.getString('proposta')
+          if (propostaId) {
+            try {
+              propostaRec = $app.findRecordById('propostas', propostaId)
+            } catch (_) {}
+          }
+
+          let parcelasSnap = []
+          try {
+            const rawParc = contrato.getString('parcelas_json')
+            if (rawParc) {
+              const parsed = JSON.parse(rawParc)
+              if (Array.isArray(parsed)) parcelasSnap = parsed
+            }
+          } catch (_) {}
+
+          let adminNomeSnap = 'Diretoria G+'
+          const adminUserId = contrato.getString('assinante_admin')
+          if (adminUserId) {
+            try {
+              const uRec = $app.findRecordById('users', adminUserId)
+              if (uRec) adminNomeSnap = uRec.getString('name') || adminNomeSnap
+            } catch (_) {}
+          }
+
+          const objetoSnap =
+            (contrato.getString('objeto') || '').trim() ||
+            'Prestação de serviços técnicos especializados de engenharia consultiva e desenvolvimento de projetos executivos.'
+          const escopoSnap = (contrato.getString('escopo') || '').trim() || objetoSnap
+
+          const clausulasSnap =
+            (contrato.getString('clausulas_texto') || '').trim() ||
+            'CLÁUSULA 1ª — As alterações no projeto ou nas premissas solicitadas pela CONTRATANTE incorrerão em custos adicionais correspondentes às horas técnicas de retrabalho necessárias.\n\nCLÁUSULA 2ª — Os documentos e arquivos digitais são de uso exclusivo para o empreendimento objeto deste contrato.\n\nCLÁUSULA 3ª — A rescisão imotivada sujeitará a parte infratora à quitação dos serviços executados, acrescida de multa rescisória compensatória de 20% sobre o saldo remanescente.'
+
+          const notaPrazoSnap =
+            (contrato.getString('nota_prazo') || '').trim() ||
+            'Os prazos serão contados em dias corridos a partir da data de assinatura deste contrato e da disponibilização de todos os elementos técnicos necessários.'
+
+          const snapshotObj = {
+            versao_schema: 1,
+            contrato_id: contrato.id,
+            contrato_numero: contrato.getString('numero'),
+            proposta_numero: propostaRec ? propostaRec.getString('numero') : '',
+            gerado_em: nowIso,
+            contratada: {
+              nome: 'GMAIS ENGENHARIA LTDA',
+              cnpj: '66.862.835/0001-69',
+              email: 'grupomais.sae@gmail.com',
+              endereco:
+                'Av. Juvenco Gomes de Freitas, 354, Planalto Nelândia, Tauá – CE, CEP 63.660-000',
+              telefone: '(88) 92188-6547',
+              responsavel_tecnico: 'Eng. Civil José Jair Oliveira Alves, CREA-CE 346391',
+              slogan: 'Conectando ideias, somando resultados',
+              texto_qualificacao:
+                'GMAIS ENGENHARIA LTDA, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº 66.862.835/0001-69, com sede na Av. Juvenco Gomes de Freitas, 354, Planalto Nelândia, Tauá – CE, CEP 63.660-000, neste ato representada por seu Responsável Técnico Eng. Civil José Jair Oliveira Alves, CREA-CE 346391',
+            },
+            contratante: contratanteSnap,
+            objeto: objetoSnap,
+            escopo: escopoSnap,
+            prazo_dias: contrato.getInt('prazo_dias') || 30,
+            nota_prazo: notaPrazoSnap,
+            valor_total: contrato.getFloat('valor_total') || 0,
+            parcelas: parcelasSnap,
+            clausulas_texto: clausulasSnap,
+            signatarios: {
+              admin: {
+                nome: adminNomeSnap,
+                qualificacao: 'Diretoria G+ / Responsável Técnico',
+                documento: 'CREA-CE 346391',
+                data_assinatura: contrato.getString('data_assinatura_admin'),
+                ip: contrato.getString('admin_ip') || 'Auditado',
+                hash: contrato.getString('admin_hash') || '',
+              },
+              cliente: {
+                nome: nomeAssinante,
+                qualificacao: 'Contratante / Representante Legal',
+                documento: documentoAssinante,
+                data_assinatura: nowIso,
+                ip: clientIp || 'Auditado',
+                hash: clientHash,
+              },
+            },
+          }
+
+          contrato.set('snapshot_assinatura', JSON.stringify(snapshotObj))
+          contrato.set('snapshot_em', nowIso)
+        }
+      } catch (errSnap) {
+        console.log('Aviso ao montar snapshot_assinatura no cliente: ' + errSnap)
+      }
     } else {
       contrato.set('status', 'aguardando_assinatura_admin')
     }
@@ -7358,6 +7614,257 @@ routerAdd(
       const assinadoBilateralmente = Boolean(contrato.getString('data_assinatura_cliente'))
       if (assinadoBilateralmente) {
         contrato.set('status', 'assinado')
+
+        // SNAPSHOT DE ASSINATURA (Item C - Etapa 2): Congela o contrato exatamente como
+        // assinado bilateralmente. Idempotente (grava só se snapshot_assinatura estiver vazio).
+        try {
+          const snapAtual = (contrato.getString('snapshot_assinatura') || '').trim()
+          if (!snapAtual) {
+            const formatarCpfIn = function (v) {
+              const dig = String(v || '').replace(/\D/g, '')
+              if (dig.length !== 11) return v || ''
+              return dig.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+            }
+            const formatarCnpjIn = function (v) {
+              const dig = String(v || '').replace(/\D/g, '')
+              if (dig.length !== 14) return v || ''
+              return dig.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+            }
+
+            let clientePfRec = null
+            let empresaRec = null
+            const clientePfId = contrato.getString('cliente_pf')
+            const empresaId = contrato.getString('empresa')
+
+            if (clientePfId) {
+              try {
+                clientePfRec = $app.findRecordById('clientes_pf', clientePfId)
+              } catch (_) {}
+            }
+            if (empresaId) {
+              try {
+                empresaRec = $app.findRecordById('empresas', empresaId)
+              } catch (_) {}
+            }
+
+            let contratanteSnap = null
+
+            if (clientePfRec) {
+              const nomePf = clientePfRec.getString('nome') || 'Cliente PF'
+              const generoPf = (clientePfRec.getString('genero') || '').toLowerCase()
+              const nacPf =
+                clientePfRec.getString('nacionalidade') ||
+                (generoPf === 'feminino' ? 'brasileira' : 'brasileiro')
+              const ecPf = clientePfRec.getString('estado_civil') || 'solteiro(a)'
+              const profPf = clientePfRec.getString('profissao') || 'autônomo(a)'
+              const docTipoPf = clientePfRec.getString('doc_tipo') || 'RG'
+              const docNumPf = (clientePfRec.getString('rg') || '').trim()
+              const docOrgaoPf = (clientePfRec.getString('rg_orgao_emissor') || '').trim()
+              const docUfPf = (clientePfRec.getString('rg_uf') || '').trim()
+              const cpfPfLimpo = (clientePfRec.getString('cpf') || '').replace(/\D/g, '')
+              const cpfPfFormatado = formatarCpfIn(cpfPfLimpo)
+
+              let docClausula = ''
+              if (docTipoPf === 'CIN') {
+                if (docNumPf && docNumPf.replace(/\D/g, '') !== cpfPfLimpo) {
+                  docClausula =
+                    'portador(a) da Carteira de Identidade Nacional sob o nº ' + docNumPf
+                } else {
+                  docClausula = 'portador(a) da Carteira de Identidade Nacional'
+                }
+              } else if (docTipoPf === 'CNH') {
+                docClausula = 'portador(a) da CNH sob o nº ' + (docNumPf || 'Não informado')
+              } else if (docTipoPf === 'Carteira profissional') {
+                const compl = [docOrgaoPf, docUfPf].filter(Boolean).join('/')
+                docClausula =
+                  'portador(a) da Carteira Profissional sob o nº ' +
+                  (docNumPf || 'Não informado') +
+                  (compl ? ' (' + compl + ')' : '')
+              } else if (docTipoPf === 'Outro') {
+                const compl = [docOrgaoPf, docUfPf].filter(Boolean).join('/')
+                docClausula =
+                  'portador(a) de documento de identidade nº ' +
+                  (docNumPf || 'Não informado') +
+                  (compl ? ' (' + compl + ')' : '')
+              } else {
+                const compl = [docOrgaoPf, docUfPf].filter(Boolean).join('/')
+                docClausula =
+                  'portador(a) do RG sob o nº ' +
+                  (docNumPf || 'Não informado') +
+                  (compl ? ' ' + compl : '')
+              }
+
+              const enderecoPartesPf = []
+              if (clientePfRec.getString('logradouro'))
+                enderecoPartesPf.push(clientePfRec.getString('logradouro').trim())
+              if (clientePfRec.getString('numero'))
+                enderecoPartesPf.push('nº ' + clientePfRec.getString('numero').trim())
+              if (clientePfRec.getString('complemento'))
+                enderecoPartesPf.push(clientePfRec.getString('complemento').trim())
+              if (clientePfRec.getString('bairro'))
+                enderecoPartesPf.push(clientePfRec.getString('bairro').trim())
+              const munPf = clientePfRec.getString('municipio')
+              const ufPf = clientePfRec.getString('uf')
+              if (munPf || ufPf) {
+                enderecoPartesPf.push([munPf, ufPf].filter(Boolean).join('/'))
+              }
+              if (clientePfRec.getString('cep'))
+                enderecoPartesPf.push('CEP ' + clientePfRec.getString('cep').trim())
+              const enderecoTextoPf =
+                enderecoPartesPf.length > 0 ? enderecoPartesPf.join(', ') : 'Endereço não informado'
+
+              const textoQualPf = [
+                nomePf + ',',
+                nacPf + ',',
+                ecPf + ',',
+                profPf + ',',
+                docClausula + ',',
+                'inscrito(a) no CPF sob o nº ' + (cpfPfFormatado || 'Não informado') + ',',
+                'residente e domiciliado(a) em ' + enderecoTextoPf + '.',
+              ].join(' ')
+
+              contratanteSnap = {
+                tipo: 'pf',
+                nome: nomePf,
+                documento: cpfPfFormatado,
+                endereco: enderecoTextoPf,
+                texto_qualificacao: textoQualPf,
+              }
+            } else if (empresaRec) {
+              const nomePj =
+                empresaRec.getString('razao_social') ||
+                empresaRec.getString('nome_fantasia') ||
+                'Empresa Contratante'
+              const cnpjPj = formatarCnpjIn(empresaRec.getString('cnpj'))
+
+              const enderecoPartesPj = []
+              if (empresaRec.getString('logradouro'))
+                enderecoPartesPj.push(empresaRec.getString('logradouro').trim())
+              if (empresaRec.getString('numero'))
+                enderecoPartesPj.push('nº ' + empresaRec.getString('numero').trim())
+              if (empresaRec.getString('complemento'))
+                enderecoPartesPj.push(empresaRec.getString('complemento').trim())
+              if (empresaRec.getString('bairro'))
+                enderecoPartesPj.push(empresaRec.getString('bairro').trim())
+              const munPj = empresaRec.getString('municipio')
+              const ufPj = empresaRec.getString('uf')
+              if (munPj || ufPj) {
+                enderecoPartesPj.push([munPj, ufPj].filter(Boolean).join('/'))
+              }
+              if (empresaRec.getString('cep'))
+                enderecoPartesPj.push('CEP ' + empresaRec.getString('cep').trim())
+              const enderecoTextoPj =
+                enderecoPartesPj.length > 0 ? enderecoPartesPj.join(', ') : 'Endereço não informado'
+
+              const textoQualPj =
+                nomePj +
+                ', pessoa jurídica de direito privado, inscrita no CNPJ sob o nº ' +
+                (cnpjPj || 'Não informado') +
+                ', com sede em ' +
+                enderecoTextoPj
+
+              contratanteSnap = {
+                tipo: 'pj',
+                nome: nomePj,
+                documento: cnpjPj,
+                endereco: enderecoTextoPj,
+                texto_qualificacao: textoQualPj,
+              }
+            } else {
+              contratanteSnap = {
+                tipo: 'pj',
+                nome: 'Contratante Não Informado',
+                documento: 'Não informado',
+                endereco: 'Não informado',
+                texto_qualificacao: 'Contratante não qualificado',
+              }
+            }
+
+            let propostaRec = null
+            const propostaId = contrato.getString('proposta')
+            if (propostaId) {
+              try {
+                propostaRec = $app.findRecordById('propostas', propostaId)
+              } catch (_) {}
+            }
+
+            let parcelasSnap = []
+            try {
+              const rawParc = contrato.getString('parcelas_json')
+              if (rawParc) {
+                const parsed = JSON.parse(rawParc)
+                if (Array.isArray(parsed)) parcelasSnap = parsed
+              }
+            } catch (_) {}
+
+            const adminNomeSnap =
+              (reqInfo.auth ? reqInfo.auth.getString('name') : '') || 'Diretoria G+'
+
+            const objetoSnap =
+              (contrato.getString('objeto') || '').trim() ||
+              'Prestação de serviços técnicos especializados de engenharia consultiva e desenvolvimento de projetos executivos.'
+            const escopoSnap = (contrato.getString('escopo') || '').trim() || objetoSnap
+
+            const clausulasSnap =
+              (contrato.getString('clausulas_texto') || '').trim() ||
+              'CLÁUSULA 1ª — As alterações no projeto ou nas premissas solicitadas pela CONTRATANTE incorrerão em custos adicionais correspondentes às horas técnicas de retrabalho necessárias.\n\nCLÁUSULA 2ª — Os documentos e arquivos digitais são de uso exclusivo para o empreendimento objeto deste contrato.\n\nCLÁUSULA 3ª — A rescisão imotivada sujeitará a parte infratora à quitação dos serviços executados, acrescida de multa rescisória compensatória de 20% sobre o saldo remanescente.'
+
+            const notaPrazoSnap =
+              (contrato.getString('nota_prazo') || '').trim() ||
+              'Os prazos serão contados em dias corridos a partir da data de assinatura deste contrato e da disponibilização de todos os elementos técnicos necessários.'
+
+            const snapshotObj = {
+              versao_schema: 1,
+              contrato_id: contrato.id,
+              contrato_numero: contrato.getString('numero'),
+              proposta_numero: propostaRec ? propostaRec.getString('numero') : '',
+              gerado_em: nowIso,
+              contratada: {
+                nome: 'GMAIS ENGENHARIA LTDA',
+                cnpj: '66.862.835/0001-69',
+                email: 'grupomais.sae@gmail.com',
+                endereco:
+                  'Av. Juvenco Gomes de Freitas, 354, Planalto Nelândia, Tauá – CE, CEP 63.660-000',
+                telefone: '(88) 92188-6547',
+                responsavel_tecnico: 'Eng. Civil José Jair Oliveira Alves, CREA-CE 346391',
+                slogan: 'Conectando ideias, somando resultados',
+                texto_qualificacao:
+                  'GMAIS ENGENHARIA LTDA, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº 66.862.835/0001-69, com sede na Av. Juvenco Gomes de Freitas, 354, Planalto Nelândia, Tauá – CE, CEP 63.660-000, neste ato representada por seu Responsável Técnico Eng. Civil José Jair Oliveira Alves, CREA-CE 346391',
+              },
+              contratante: contratanteSnap,
+              objeto: objetoSnap,
+              escopo: escopoSnap,
+              prazo_dias: contrato.getInt('prazo_dias') || 30,
+              nota_prazo: notaPrazoSnap,
+              valor_total: contrato.getFloat('valor_total') || 0,
+              parcelas: parcelasSnap,
+              clausulas_texto: clausulasSnap,
+              signatarios: {
+                admin: {
+                  nome: adminNomeSnap,
+                  qualificacao: 'Diretoria G+ / Responsável Técnico',
+                  documento: 'CREA-CE 346391',
+                  data_assinatura: nowIso,
+                  ip: clientIp || 'Auditado',
+                  hash: adminHash,
+                },
+                cliente: {
+                  nome: contrato.getString('assinante_cliente_nome') || 'Contratante',
+                  qualificacao: 'Contratante / Representante Legal',
+                  documento: contrato.getString('assinante_cliente_doc') || 'Não informado',
+                  data_assinatura: contrato.getString('data_assinatura_cliente'),
+                  ip: contrato.getString('cliente_ip') || 'Auditado',
+                  hash: contrato.getString('cliente_hash') || '',
+                },
+              },
+            }
+
+            contrato.set('snapshot_assinatura', JSON.stringify(snapshotObj))
+            contrato.set('snapshot_em', nowIso)
+          }
+        } catch (errSnap) {
+          console.log('Aviso ao montar snapshot_assinatura no admin: ' + errSnap)
+        }
       } else {
         contrato.set('status', 'aguardando_assinatura_cliente')
       }
@@ -8017,3 +8524,59 @@ try {
     }
   } catch (_) {}
 }
+
+// -----------------------------------------------------------------------------
+// TRAVA WRITE-ONCE: snapshot_assinatura e snapshot_em são imutáveis (Item C - Etapa 2)
+// Rejeita qualquer tentativa de alterar os campos quando já preenchidos no registro original.
+// -----------------------------------------------------------------------------
+onRecordUpdateRequest((e) => {
+  const rec = e.record
+  if (!rec || rec.collection().name !== 'contratos_servico') {
+    e.next()
+    return
+  }
+
+  const orig = rec.original()
+  if (orig) {
+    const origAssinatura = (orig.getString('snapshot_assinatura') || '').trim()
+    const origEm = (orig.getString('snapshot_em') || '').trim()
+
+    const novoAssinatura = (rec.getString('snapshot_assinatura') || '').trim()
+    const novoEm = (rec.getString('snapshot_em') || '').trim()
+
+    if (origAssinatura && novoAssinatura !== origAssinatura) {
+      throw new BadRequestError('O snapshot de assinatura é imutável')
+    }
+    if (origEm && novoEm !== origEm) {
+      throw new BadRequestError('O snapshot de assinatura é imutável')
+    }
+  }
+
+  e.next()
+}, 'contratos_servico')
+
+onRecordUpdate((e) => {
+  const rec = e.record
+  if (!rec || rec.collection().name !== 'contratos_servico') {
+    e.next()
+    return
+  }
+
+  const orig = rec.original()
+  if (orig) {
+    const origAssinatura = (orig.getString('snapshot_assinatura') || '').trim()
+    const origEm = (orig.getString('snapshot_em') || '').trim()
+
+    const novoAssinatura = (rec.getString('snapshot_assinatura') || '').trim()
+    const novoEm = (rec.getString('snapshot_em') || '').trim()
+
+    if (origAssinatura && novoAssinatura !== origAssinatura) {
+      throw new BadRequestError('O snapshot de assinatura é imutável')
+    }
+    if (origEm && novoEm !== origEm) {
+      throw new BadRequestError('O snapshot de assinatura é imutável')
+    }
+  }
+
+  e.next()
+}, 'contratos_servico')

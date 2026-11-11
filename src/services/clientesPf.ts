@@ -338,14 +338,33 @@ export const clientesPfService = {
     mensagem: string
     propostas_vinculadas?: number
   }> {
-    return await pb.send<{
-      acao: 'excluido' | 'anonimizado'
-      mensagem: string
-      propostas_vinculadas?: number
-    }>(`/backend/v1/clientes-pf/${id}/excluir-ou-anonimizar`, {
-      method: 'POST',
-      body: { confirmacao_nome: confirmacaoNome },
-    })
+    try {
+      return await pb.send<{
+        acao: 'excluido' | 'anonimizado'
+        mensagem: string
+        propostas_vinculadas?: number
+      }>(`/backend/v1/clientes-pf/${id}/excluir-ou-anonimizar`, {
+        method: 'POST',
+        body: { confirmacao_nome: confirmacaoNome },
+      })
+    } catch (err: unknown) {
+      // Propaga a mensagem real do backend (padrão dos modais de revisão/convite desde a v0.0.245)
+      const anyErr = err as Record<string, unknown> | null
+      const resp = (anyErr?.response as Record<string, unknown> | undefined) || {}
+      const data = (anyErr?.data as Record<string, unknown> | undefined) || {}
+      const msg =
+        (typeof resp.message === 'string' && resp.message) ||
+        (typeof resp.error === 'string' && resp.error) ||
+        (typeof resp.erro === 'string' && resp.erro) ||
+        (typeof data.error === 'string' && data.error) ||
+        (typeof data.erro === 'string' && data.erro) ||
+        (typeof data.message === 'string' && data.message) ||
+        (typeof anyErr?.message === 'string' && anyErr.message) ||
+        (err instanceof Error ? err.message : 'Falha ao excluir/anonimizar cliente PF.')
+      const e = new Error(msg)
+      Object.assign(e, anyErr)
+      throw e
+    }
   },
 
   /**

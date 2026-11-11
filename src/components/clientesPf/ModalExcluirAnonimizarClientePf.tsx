@@ -72,11 +72,24 @@ export function ModalExcluirAnonimizarClientePf({
       onOpenChange(false)
       onSuccess(idAfetado)
     } catch (err: unknown) {
+      // Mensagem real do backend em português (padrão dos modais de revisão/convite desde a v0.0.245)
+      const anyErr = err as Record<string, unknown> | null
+      const resp = (anyErr?.response as Record<string, unknown> | undefined) || {}
+      const data = (anyErr?.data as Record<string, unknown> | undefined) || {}
+      const msgReal =
+        (typeof resp.message === 'string' && resp.message) ||
+        (typeof resp.error === 'string' && resp.error) ||
+        (typeof resp.erro === 'string' && resp.erro) ||
+        (typeof data.error === 'string' && data.error) ||
+        (typeof data.erro === 'string' && data.erro) ||
+        (typeof data.message === 'string' && data.message) ||
+        (typeof anyErr?.message === 'string' && anyErr.message) ||
+        (err instanceof Error ? err.message : '') ||
+        'Falha ao processar exclusão/anonimização.'
       toast({
         variant: 'destructive',
         title: 'Erro na operação',
-        description:
-          err instanceof Error ? err.message : 'Falha ao processar exclusão/anonimização.',
+        description: msgReal,
       })
     } finally {
       setSubmitting(false)

@@ -67,10 +67,16 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/excluir-ou-anonimizar', (e) => {
 
   const temPropostas = propostas && propostas.length > 0
 
+  // IP real via headers (PB v0.23: requestInfo() NÃO tem remoteIP — padrão do projeto)
   let remoteIP = ''
   try {
-    const reqInfo = e.requestInfo()
-    if (reqInfo) remoteIP = reqInfo.remoteIP || ''
+    remoteIP =
+      (e.request &&
+        e.request.getHeader &&
+        (e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip'))) ||
+      (e.requestInfo().headers &&
+        (e.requestInfo().headers['x-forwarded-for'] || e.requestInfo().headers['x-real-ip'])) ||
+      ''
   } catch (_) {}
 
   const auditCol = $app.findCollectionByNameOrId('audit_logs')
@@ -188,30 +194,36 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/excluir-ou-anonimizar', (e) => {
   }
 })
 
-// Reforço no hook onRecordDelete para clientes_pf:
-// Se um usuário não-Admin tentar invocar delete direto, barrar;
-// Se o cliente tiver propostas vinculadas, impedir exclusão física direta e orientar uso do fluxo de anonimização.
-onRecordDelete((e) => {
+// Reforço da exclusão de clientes_pf, em DUAS camadas (regra do dono):
+// 1) onRecordDeleteRequest (hook de REQUISIÇÃO, onde e.auth existe): bloqueia exclusão
+//    direta pela API por usuário não-Admin. Aqui o contexto HTTP existe, então e.auth é confiável.
+//    IMPORTANTE: não checar admin em hook de MODELO — quando a exclusão vem de rota interna
+//    ($app.delete em /excluir-ou-anonimizar), não há requestInfo/auth e a checagem cairia
+//    no catch com isAdmin=false, bloqueando exclusão legítima do Admin.
+// 2) onRecordDelete (hook de MODELO): apenas a regra de negócio "não excluir se tiver
+//    propostas" — vale sempre, inclusive nas rotas internas.
+onRecordDeleteRequest((e) => {
   const rec = e.record
-  if (rec.collection().name !== 'clientes_pf') {
+  if (!rec || rec.collection().name !== 'clientes_pf') {
     e.next()
     return
   }
 
-  // Verificar se quem está chamando é Admin
-  let isAdmin = false
-  try {
-    const reqInfo = e.requestInfo()
-    if (reqInfo && reqInfo.auth && reqInfo.auth.getString('role') === 'admin') {
-      isAdmin = true
-    }
-  } catch (_) {}
-
-  // Se não for admin, recusar
+  const isAdmin = !!(e.auth && e.auth.getString('role') === 'admin')
   if (!isAdmin) {
     throw new BadRequestError(
       'Apenas usuários com perfil Administrador podem excluir registros de clientes PF.',
     )
+  }
+
+  e.next()
+}, 'clientes_pf')
+
+onRecordDelete((e) => {
+  const rec = e.record
+  if (!rec || rec.collection().name !== 'clientes_pf') {
+    e.next()
+    return
   }
 
   // Se tiver propostas, não permitir delete físico direto; deve usar a anonimização LGPD

@@ -182,7 +182,6 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/excluir-ou-anonimizar', (e) => {
         email: cliente.getString('email'),
       }
 
-      let erroValidacaoMsg = ''
       const removidos = {
         clientes_pf_convites: [],
         empresas_espelho: [],
@@ -191,11 +190,13 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/excluir-ou-anonimizar', (e) => {
         clientes_pf: [clienteId],
       }
 
-      $app.runInTransaction((txApp) => {
-        // Helpers inline no callback (sem variáveis fora do escopo — padrão do projeto)
+      $app.runInTransaction(($app) => {
+        // Helpers inline no callback (sem variáveis fora do escopo — padrão do projeto).
+        // O parâmetro $app sombreia o global dentro da transação: todas as operações
+        // abaixo usam a conexão da transação (padrão PocketBase runInTransaction).
         function coletarParaExclusao(colecao, filtro) {
           try {
-            return txApp.findRecordsByFilter(colecao, filtro, '-id', 500, 0)
+            return $app.findRecordsByFilter(colecao, filtro, '-id', 500, 0)
           } catch (errBusca) {
             console.log('Aviso ao buscar ' + colecao + ' para exclusão do cliente PF: ' + errBusca)
             return []
@@ -204,14 +205,17 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/excluir-ou-anonimizar', (e) => {
 
         function apagarTodos(registros) {
           for (let i = 0; i < registros.length; i++) {
-            txApp.delete(registros[i])
+            $app.delete(registros[i])
           }
         }
 
-        // (a) Convites de cadastro do cliente
-        const convites = coletarParaExclusao(
+        // (a) Convites de cadastro do cliente (relação obrigatória clientes_pf_convites.cliente_pf)
+        const convites = $app.findRecordsByFilter(
           'clientes_pf_convites',
           "cliente_pf = '" + clienteId + "'",
+          '-id',
+          500,
+          0,
         )
         for (let i = 0; i < convites.length; i++) {
           removidos.clientes_pf_convites.push(convites[i].id)
@@ -219,16 +223,31 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/excluir-ou-anonimizar', (e) => {
         apagarTodos(convites)
 
         // (b) Empresa espelho + dependentes do espelho SEM propostas
-        const espelhos = coletarParaExclusao('empresas', "cliente_pf_ref = '" + clienteId + "'")
+        const espelhos = $app.findRecordsByFilter(
+          'empresas',
+          "cliente_pf_ref = '" + clienteId + "'",
+          '-id',
+          500,
+          0,
+        )
         for (let i = 0; i < espelhos.length; i++) {
           const espelho = espelhos[i]
           removidos.empresas_espelho.push(espelho.id)
+
+          // Só apaga fisicamente o espelho deste cliente (relação cliente_pf_ref, tipo pf)
+          const refEspelho = (espelho.getString('cliente_pf_ref') || '').trim()
+          const tipoEspelho = (espelho.getString('tipo_cliente') || '').trim()
+          if (refEspelho !== clienteId || (tipoEspelho && tipoEspelho !== 'pf')) {
+            erroValidacaoMsg =
+              'A empresa vinculada a este cliente PF não é um espelho do tipo Pessoa Física e não pode ser excluída automaticamente. Verifique o cadastro da empresa antes de excluir o cliente.'
+            throw new Error(erroValidacaoMsg)
+          }
 
           // Espelho com propostas/contratos não pode sair fisicamente (integridade fiscal)
           const propsEspelho = coletarParaExclusao('propostas', "empresa = '" + espelho.id + "'")
           if (propsEspelho && propsEspelho.length > 0) {
             erroValidacaoMsg =
-              'A empresa espelho deste cliente PF possui propostas vinculadas e não pode ser excluída fisicamente para manter a integridade fiscal/contratual. Utilize o fluxo de Anonimização LGPD.'
+              'A empresa espelho deste cliente possui propostas vinculadas e não pode ser excluída fisicamente para manter a integridade fiscal/contratual. Utilize o fluxo de Anonimização LGPD.'
             throw new Error(erroValidacaoMsg)
           }
           const contratosEspelho = coletarParaExclusao(
@@ -237,7 +256,7 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/excluir-ou-anonimizar', (e) => {
           )
           if (contratosEspelho && contratosEspelho.length > 0) {
             erroValidacaoMsg =
-              'A empresa espelho deste cliente PF possui contratos públicos vinculados e não pode ser excluída fisicamente. Utilize o fluxo de Anonimização LGPD.'
+              'A empresa espelho deste cliente possui contratos públicos vinculados e não pode ser excluída fisicamente. Utilize o fluxo de Anonimização LGPD.'
             throw new Error(erroValidacaoMsg)
           }
 
@@ -258,7 +277,7 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/excluir-ou-anonimizar', (e) => {
             }
           }
 
-          txApp.delete(espelho)
+          $app.delete(espelho)
         }
 
         // (c) Notificações ligadas ao cliente, espelho ou convites
@@ -277,7 +296,7 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/excluir-ou-anonimizar', (e) => {
         }
 
         // (d) Por último, o cliente
-        txApp.delete(cliente)
+        $app.delete(cliente)
       })
 
       // Auditoria EXCLUSAO_CLIENTE_PF: lista do que saiu (ids por coleção), usuário e data
@@ -349,3 +368,46 @@ routerAdd('POST', '/backend/v1/clientes-pf/{id}/excluir-ou-anonimizar', (e) => {
     })
   }
 })
+
+// ---------------------------------------------------------------------------
+// Hook de REQUISIÇÃO (DELETE /api/collections/clientes_pf/records/{id}):
+// checagem de permissão — somente Admin pode excluir cliente PF direto pela API.
+// Fica aqui (e não no hook de MODELO) porque e.auth só existe no contexto HTTP
+// de requisição; em rotas internas ($app.delete) hooks de MODELO rodam sem ele.
+onRecordDeleteRequest((e) => {
+  const auth = e.auth
+  const isAdmin = !!auth && auth.getString('role') === 'admin'
+  if (!isAdmin) {
+    throw new ForbiddenError(
+      'Apenas usuários com perfil Administrador podem excluir registros de clientes PF.',
+    )
+  }
+  e.next()
+}, 'clientes_pf')
+
+// ---------------------------------------------------------------------------
+// Hook de MODELO (vale sempre, inclusive nas rotas internas): regra de negócio —
+// cliente PF com propostas vinculadas não sai fisicamente do banco (LGPD/
+// integridade fiscal). Sem checagem de permissão aqui: em rotas internas não
+// existe contexto HTTP para decidir permissão.
+onRecordDelete((e) => {
+  const cliente = e.record
+  let propostasVinculadas = []
+  try {
+    propostasVinculadas = $app.findRecordsByFilter(
+      'propostas',
+      "cliente_pf = '" + cliente.id + "'",
+      '-created',
+      1,
+      0,
+    )
+  } catch (errBusca) {
+    console.log('Erro ao verificar propostas na exclusão de cliente PF: ' + errBusca)
+  }
+  if (propostasVinculadas && propostasVinculadas.length > 0) {
+    throw new BadRequestError(
+      'Cliente PF possui propostas vinculadas e não pode ser excluído fisicamente. Utilize o fluxo de Anonimização LGPD.',
+    )
+  }
+  e.next()
+}, 'clientes_pf')

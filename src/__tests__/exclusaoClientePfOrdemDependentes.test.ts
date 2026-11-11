@@ -16,15 +16,12 @@
  * sem cascade, provando que a ordem correta remove todos e a ordem errada falha.
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 
-const hookPath = resolve(__dirname, '../../pocketbase/hooks/clientes_pf_operations.js')
-const hookFonte = readFileSync(hookPath, 'utf-8')
+// Lê o código-fonte REAL do hook via raw import (padrão do projeto — ver
+// exclusaoClientePfHookSeguranca.test.ts), sem node:fs (TS2591/TS2304).
+import codigoHookReal from '../../pocketbase/hooks/clientes_pf_operations.js?raw'
 
-// Extrai só o corpo do handler da rota de exclusão/anonimização
-const inicioRota = hookFonte.indexOf('clientes-pf/')
-const fimRota = hookFonte.indexOf('excluir-ou-anonimizar')
+const hookFonte = codigoHookReal
 
 describe('Hook de exclusão de cliente PF — rota excluir-ou-anonimizar', () => {
   it('apaga dependentes ANTES do cliente, dentro de UMA transação', () => {
@@ -91,12 +88,15 @@ describe('Simulação da ordem de exclusão (dependentes antes do cliente)', () 
   function criarAppSimulado() {
     const vivos = new Map<string, Rec>()
     const ordemExclusao: string[] = []
+    // 'adicionar' vive DENTRO do escopo do mock e é exposto pelo próprio app
+    // (TS2304 no padrão antigo, que a chamava fora do mock).
     const adicionar = (r: Rec) => vivos.set(r.id, r)
 
     // Relações obrigatórias (sem cascade) — clientes_pf_convites.cliente_pf é a que gerou o bug
     const dependenciasObrigatorias: Array<{ col: string; campo: string; alvo: string }> = []
 
     const app = {
+      adicionar,
       // registra dependência: um registro de colOrigem.campo aponta para alvo (obrigatório)
       registrarDependencia(colOrigem: string, campo: string, alvo: string) {
         dependenciasObrigatorias.push({ col: colOrigem, campo, alvo })
@@ -132,9 +132,9 @@ describe('Simulação da ordem de exclusão (dependentes antes do cliente)', () 
     const convite = { id: 'nwmwim2os0gs23t', col: 'clientes_pf_convites' }
     const espelho = { id: 'lp985l7eio9x3d4', col: 'empresas' }
 
-    adicionar(cliente)
-    adicionar(convite)
-    adicionar(espelho)
+    app.adicionar(cliente)
+    app.adicionar(convite)
+    app.adicionar(espelho)
     app.registrarDependencia('clientes_pf_convites', 'cliente_pf', cliente.id)
 
     // Ordem correta (a do hook, dentro de runInTransaction)
@@ -156,9 +156,9 @@ describe('Simulação da ordem de exclusão (dependentes antes do cliente)', () 
     const convite = { id: 'nwmwim2os0gs23t', col: 'clientes_pf_convites' }
     const espelho = { id: 'lp985l7eio9x3d4', col: 'empresas' }
 
-    adicionar(cliente)
-    adicionar(convite)
-    adicionar(espelho)
+    app.adicionar(cliente)
+    app.adicionar(convite)
+    app.adicionar(espelho)
     app.registrarDependencia('clientes_pf_convites', 'cliente_pf', cliente.id)
 
     expect(() => app.delete(cliente)).toThrowError(/Integrity constraint violation/)

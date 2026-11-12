@@ -1,6 +1,7 @@
 import pb from '@/lib/pocketbase/client'
 import { EmpresaRecord, EtapaFunil, CurvaABC, StatusEmpresa } from '@/types'
 import { cleanCnpj, formatCnpj } from '@/lib/cnpj'
+import { calcularCurvaOficial } from '@/lib/curvaOficial'
 
 export interface EmpresaFilters {
   busca?: string
@@ -181,14 +182,13 @@ export const empresasService = {
   },
 
   /**
-   * Recalcula a curva ABC da empresa baseada no somatório de contratos ativos
-   * Curva A: > 5M
-   * Curva B: 1M a 5M
-   * Curva C: < 1M
+   * Recalcula a curva ABC da empresa pela REGRA OFICIAL centralizada
+   * (ver src/lib/curvaOficial.ts): A = score >= 70 ou valor ativo >= R$ 1 mi;
+   * B = score >= 40 ou valor ativo >= R$ 200 mil; inativa = sempre C.
+   * O somatório de contratos ativos vem do backend (hook); aqui usamos
+   * apenas score + status; para forçar um valor, passe-o como parâmetro.
    */
-  calcularCurva(totalValorContratos: number): CurvaABC {
-    if (totalValorContratos >= 1000000) return 'A'
-    if (totalValorContratos > 0) return 'B'
-    return 'C'
+  calcularCurva(totalValorContratos: number, score?: number, status?: string): CurvaABC {
+    return calcularCurvaOficial(score ?? 0, totalValorContratos, status)
   },
 }

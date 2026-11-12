@@ -17,7 +17,6 @@ import {
   ETAPA_FUNIL_LABELS,
   EtapaFunil,
 } from '@/types'
-import { scoreCurvaService } from '@/services/scoreCurva'
 import { financeiroService, ResumoFinanceiro } from '@/services/financeiro'
 import { toquesService } from '@/services/toques'
 import { parceirosService } from '@/services/parceiros'
@@ -319,31 +318,20 @@ export const dashboardService = {
       valorTotalContratosGestao += Number(c.valor) || 0
     }
 
-    // Curva ABC automática por índice composto e Pareto usando scoreCurvaService
+    // Curva ABC pelo CAMPO OFICIAL empresas.curva (mantido pelo hook de backend,
+    // regra única de src/lib/curvaOficial.ts). Sem regra própria no front.
     const curvaABC = {
       A: { count: 0, valor: 0 },
       B: { count: 0, valor: 0 },
       C: { count: 0, valor: 0 },
     }
 
-    const mapaContratosAtivos = new Map<string, ContratoRecord[]>()
-    for (const empId of Object.keys(contratosPorEmpresa)) {
-      mapaContratosAtivos.set(empId, contratosPorEmpresa[empId])
-    }
-
-    const empresasAtivas = empresas.filter((e) => e.status === 'ativa')
-    const mapaClassificacao = scoreCurvaService.classificarBaseEmpresas(
-      empresasAtivas,
-      mapaContratosAtivos,
-    )
-
-    for (const emp of empresasAtivas) {
-      const resScore =
-        mapaClassificacao.get(emp.id) ||
-        scoreCurvaService.calcular(contratosPorEmpresa[emp.id] || [], emp.cnae)
-      const curva = resScore.curva || 'C'
+    for (const emp of empresas) {
+      const curva = (emp.curva || 'C') as 'A' | 'B' | 'C'
+      const ctsAtivos = contratosPorEmpresa[emp.id] || []
+      const valorAtivo = ctsAtivos.reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
       curvaABC[curva].count++
-      curvaABC[curva].valor += resScore.totalValorAtivo
+      curvaABC[curva].valor += valorAtivo
     }
 
     // =========================================================================

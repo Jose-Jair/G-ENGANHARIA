@@ -409,7 +409,9 @@ export default function EmpresasImportarPage() {
               email: item.email,
               telefone: item.telefone,
               etapa_funil: 'identificada', // Sempre identificada para nova empresa
-              curva: empresasService.calcularCurva(item.valorNumber),
+              // Curva provisória da nova empresa pela REGRA OFICIAL (função única);
+              // o hook de backend recalcula pelo valor ativo real após os contratos.
+              curva: empresasService.calcularCurva(item.valorNumber, 0, 'ativa'),
               status: 'ativa',
               responsavel: user?.id,
               observacoes: `Importada via planilha em ${new Date().toLocaleDateString('pt-BR')}`,

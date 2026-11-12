@@ -4,6 +4,7 @@ import {
   ContratoRecord,
   ContatoRecord,
   CenarioEntrada,
+  CurvaABC,
   UserRecord,
   AuditLogRecord,
 } from '@/types'
@@ -15,7 +16,7 @@ import { brasilApiService } from '@/services/brasilApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { cleanCnpj, formatCnpj, isValidCnpj, cleanPhoneForWa, formatPhoneBr } from '@/lib/cnpj'
 import { openWhatsAppWithFallback } from '@/lib/whatsapp'
-import { scoreCurvaService } from '@/services/scoreCurva'
+import { calcularCurvaOficial, contratoSituacaoAtiva } from '@/lib/curvaOficial'
 import { TelefoneEmpresaItem } from '@/types'
 import { formatCurrencyBr, formatDateBr } from '@/lib/formatters'
 import { EmpresaContratosTab } from './EmpresaContratosTab'
@@ -318,36 +319,24 @@ export function EmpresaDetailModal({
       setMotivosInativacao(motsInat)
       setMotivosCancelamento(motsCanc)
 
-      // Apurar Curva ABC e explicação com a base atual
+      // Curva EXIBIDA = campo oficial empresas.curva (mantido pelo hook de backend
+      // pela regra única de src/lib/curvaOficial.ts). A explicação localiza o motivo.
       try {
-        const todasEmpresas = await empresasService.list()
-        const todosContratos = await contratosService.listAll()
-        const contratosMap = new Map<string, ContratoRecord[]>()
-        todosContratos.forEach((c) => {
-          if (!contratosMap.has(c.empresa)) contratosMap.set(c.empresa, [])
-          contratosMap.get(c.empresa)!.push(c)
-        })
-        const classificacao = scoreCurvaService.classificarBaseEmpresas(todasEmpresas, contratosMap)
-        const res = classificacao.get(empId)
-        if (res) {
-          setCurva(res.curva)
-          setScoreCalculado(res.score)
-          setExplicacaoCurva(res.explicacao || '')
-          // Se mudou curva no cálculo, sincroniza no banco
-          if (empresa && (empresa.curva !== res.curva || empresa.score !== res.score)) {
-            empresasService.update(empId, { curva: res.curva, score: res.score }).catch(() => {})
-          }
-        } else {
-          const calcIsolado = scoreCurvaService.calcular(cts, empresa?.cnae)
-          setCurva(calcIsolado.curva)
-          setScoreCalculado(calcIsolado.score)
-          setExplicacaoCurva(calcIsolado.explicacao || '')
-        }
+        setCurva((empresa?.curva as CurvaABC) || 'C')
+        const contratosAtivos = cts.filter((c) => contratoSituacaoAtiva(c.situacao))
+        const valorAtivo = contratosAtivos.reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
+        const scoreEmp = Number(empresa?.score) || 0
+        const statusEmp = empresa?.status || ''
+        const curvaTeorica = calcularCurvaOficial(scoreEmp, valorAtivo, statusEmp)
+        setScoreCalculado(scoreEmp)
+        setExplicacaoCurva(
+          `Curva ${curvaTeorica} pela regra oficial: ` +
+            (statusEmp === 'inativa'
+              ? 'empresa inativa = sempre Curva C'
+              : `score ${scoreEmp} e valor ativo ${formatCurrencyBR(valorAtivo)}`),
+        )
       } catch (e) {
-        const calcIsolado = scoreCurvaService.calcular(cts, empresa?.cnae)
-        setCurva(calcIsolado.curva)
-        setScoreCalculado(calcIsolado.score)
-        setExplicacaoCurva(calcIsolado.explicacao || '')
+        setCurva((empresa?.curva as CurvaABC) || 'C')
       }
 
       const calc = toquesService.calcularStatusToques(tqs, diasAlerta || 5)

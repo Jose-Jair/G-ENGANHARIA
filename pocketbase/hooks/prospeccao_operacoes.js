@@ -86,9 +86,15 @@ routerAdd(
         100,
         Math.max(0, Math.round(normValor * 0.5 + normVigencia * 0.3 + normQtd * 0.2)),
       )
+      // REGRA OFICIAL DE CURVA (mesma de src/lib/curvaOficial.ts):
+      // A se score >= 70 ou valor >= 1.000.000; B se score >= 40 ou valor >= 200.000; senão C.
+      const CORTE_SCORE_A = 70
+      const CORTE_SCORE_B = 40
+      const CORTE_VALOR_A = 1000000
+      const CORTE_VALOR_B = 200000
       let curva = 'C'
-      if (score >= 40 || valor >= 1000000) curva = 'A'
-      else if (score >= 15 || valor >= 200000) curva = 'B'
+      if (score >= CORTE_SCORE_A || valor >= CORTE_VALOR_A) curva = 'A'
+      else if (score >= CORTE_SCORE_B || valor >= CORTE_VALOR_B) curva = 'B'
       return { score, curva }
     }
 
@@ -1040,6 +1046,18 @@ routerAdd(
           if (sug.get('vigencia_fim')) cRec.set('vigencia_fim', sug.get('vigencia_fim'))
           $app.save(cRec)
 
+          // REGRA OFICIAL DE CURVA (mesma de src/lib/curvaOficial.ts): recalcula a
+          // curva da empresa recém-incorporada com base no valor ativo real.
+          try {
+            const empRelida = $app.findRecordById('empresas', novaEmp.id)
+            const somaAtiva = valorEstimado
+            const curvaOficial = calcularScoreCurvaProvisorio(somaAtiva, 12).curva
+            if ((empRelida.get('curva') || 'C') !== curvaOficial) {
+              empRelida.set('curva', curvaOficial)
+              $app.save(empRelida)
+            }
+          } catch (_) {}
+
           sug.set('status', 'incorporada')
           sug.set('empresa_criada', novaEmp.id)
           sug.set('status_sancao', sancoesCheck.status_sancao)
@@ -1152,9 +1170,15 @@ routerAdd(
         100,
         Math.max(0, Math.round(normValor * 0.5 + normVigencia * 0.3 + normQtd * 0.2)),
       )
+      // REGRA OFICIAL DE CURVA (mesma de src/lib/curvaOficial.ts):
+      // A se score >= 70 ou valor >= 1.000.000; B se score >= 40 ou valor >= 200.000; senão C.
+      const CORTE_SCORE_A = 70
+      const CORTE_SCORE_B = 40
+      const CORTE_VALOR_A = 1000000
+      const CORTE_VALOR_B = 200000
       let curva = 'C'
-      if (score >= 40 || valor >= 1000000) curva = 'A'
-      else if (score >= 15 || valor >= 200000) curva = 'B'
+      if (score >= CORTE_SCORE_A || valor >= CORTE_VALOR_A) curva = 'A'
+      else if (score >= CORTE_SCORE_B || valor >= CORTE_VALOR_B) curva = 'B'
       return { score, curva }
     }
 
@@ -1448,9 +1472,15 @@ routerAdd(
         100,
         Math.max(0, Math.round(normValor * 0.5 + normVigencia * 0.3 + normQtd * 0.2)),
       )
+      // REGRA OFICIAL DE CURVA (mesma de src/lib/curvaOficial.ts):
+      // A se score >= 70 ou valor >= 1.000.000; B se score >= 40 ou valor >= 200.000; senão C.
+      const CORTE_SCORE_A = 70
+      const CORTE_SCORE_B = 40
+      const CORTE_VALOR_A = 1000000
+      const CORTE_VALOR_B = 200000
       let curva = 'C'
-      if (score >= 40 || valor >= 1000000) curva = 'A'
-      else if (score >= 15 || valor >= 200000) curva = 'B'
+      if (score >= CORTE_SCORE_A || valor >= CORTE_VALOR_A) curva = 'A'
+      else if (score >= CORTE_SCORE_B || valor >= CORTE_VALOR_B) curva = 'B'
       return { score, curva }
     }
 

@@ -491,7 +491,7 @@ export function DashboardPage() {
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">
-                  Curva A (&ge; R$ 5M)
+                  Curva A (score &ge; 70 ou &ge; R$ 1 mi)
                 </span>
                 <Badge className="bg-emerald-600 text-white text-[10px]">Classe A</Badge>
               </div>

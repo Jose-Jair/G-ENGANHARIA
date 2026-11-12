@@ -52,13 +52,16 @@ describe('Rodada 14 — Prospecção Automática (Parte 1: PNCP e Fontes Federai
     expect(completo.score).toBeLessThanOrEqual(100)
   })
 
-  // 3. SCORE CURVA ABC PROVISÓRIO
-  it('deve calcular score da curva ABC provisório proporcional ao valor do contrato', () => {
+  // 3. SCORE CURVA ABC PROVISÓRIO (função única de curva: curvaOficial.ts)
+  it('deve calcular score da curva ABC provisório pela REGRA OFICIAL (score >= 70/40 ou valor >= 1mi/200k)', () => {
     const pequeno = calcularScoreCurvaProvisorio(50000, 12)
     expect(pequeno.curva).toBe('C')
 
-    const medio = calcularScoreCurvaProvisorio(350000, 24)
-    expect(medio.curva).toBe('B')
+    const medioBaixo = calcularScoreCurvaProvisorio(250000, 24)
+    expect(medioBaixo.curva).toBe('B')
+
+    const medio = calcularScoreCurvaProvisorio(1200000, 24)
+    expect(medio.curva).toBe('A')
 
     const grande = calcularScoreCurvaProvisorio(1500000, 36)
     expect(grande.curva).toBe('A')

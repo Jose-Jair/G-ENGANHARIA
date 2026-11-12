@@ -233,7 +233,13 @@ export const dashboardService = {
       pb
         .collection('empresas')
         .getFullList<EmpresaRecord>({ filter: 'pre_cadastro != true', sort: 'razao_social' }),
-      pb.collection('contratos').getFullList<ContratoRecord>({ sort: '-created' }),
+      // Contratos filtrados no SERVIDOR: só os ATIVOS (situacao sem encerr/cancel/
+      // rescind) alimentam a Curva ABC — contagem pelo campo empresas.curva.
+      pb.collection('contratos').getFullList<ContratoRecord>({
+        sort: '-created',
+        filter:
+          "situacao !~ 'encerr' && situacao !~ 'cancel' && situacao !~ 'rescind' && status_revisao != 'rascunho_pendente'",
+      }),
       pb
         .collection('toques')
         .getFullList({ filter: 'status != "cancelado"', expand: 'empresa,empresa.responsavel' }),
@@ -305,12 +311,10 @@ export const dashboardService = {
       }
     }
 
-    // Mapa de contratos ativos por empresa
+    // Mapa de contratos ATIVOS por empresa (a busca já veio filtrada do servidor)
     const contratosPorEmpresa: Record<string, ContratoRecord[]> = {}
     let valorTotalContratosGestao = 0
     for (const c of contratos) {
-      const sit = (c.situacao || '').toLowerCase()
-      if (sit.includes('encerr') || sit.includes('cancel') || sit.includes('rescind')) continue
       if (!contratosPorEmpresa[c.empresa]) {
         contratosPorEmpresa[c.empresa] = []
       }

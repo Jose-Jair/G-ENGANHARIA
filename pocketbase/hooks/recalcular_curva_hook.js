@@ -12,6 +12,14 @@
  *  - contratos: create / update / delete  -> recalcula a curva da empresa dona
  *  - empresas:  update que altere score_relevancia (ou score) ou status
  *
+ * Sobre o gatilho de EMPRESAS: a gravação da curva do dono pela função
+ * recalcularCurvaEmpresa é feita com $app.save DENTRO do callback — mas o
+ * PocketBase v0.23 dispara onRecordUpdateRequest apenas para gravações via API
+ * REST (rota de coleção). $app.save dentro de um hook de requisição NÃO dispara
+ * outro onRecordUpdateRequest, portanto não há reentrância/loop: a curva da
+ * empresa só é recalculada quando score_relevancia (ou score) ou status mudaram
+ * — nunca quando SÓ a curva mudou (evita travar/gravar por cima do dono).
+ *
  * Só grava se a curva calculada for diferente (idempotente). NÃO toca em
  * score, etapa_funil, responsável, próxima ação nem qualquer outro campo.
  *

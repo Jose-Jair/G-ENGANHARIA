@@ -86,16 +86,10 @@ routerAdd(
         100,
         Math.max(0, Math.round(normValor * 0.5 + normVigencia * 0.3 + normQtd * 0.2)),
       )
-      // REGRA OFICIAL DE CURVA (mesma de src/lib/curvaOficial.ts):
-      // A se score >= 70 ou valor >= 1.000.000; B se score >= 40 ou valor >= 200.000; senão C.
-      const CORTE_SCORE_A = 70
-      const CORTE_SCORE_B = 40
-      const CORTE_VALOR_A = 1000000
-      const CORTE_VALOR_B = 200000
-      let curva = 'C'
-      if (score >= CORTE_SCORE_A || valor >= CORTE_VALOR_A) curva = 'A'
-      else if (score >= CORTE_SCORE_B || valor >= CORTE_VALOR_B) curva = 'B'
-      return { score, curva }
+      // FUNÇÃO ÚNICA DE CURVA (curva_comum.js na MESMA VM — espelho de
+      // src/lib/curvaOficial.ts): A se score >= 70 ou valor >= 1.000.000;
+      // B se score >= 40 ou valor >= 200.000; senão C.
+      return { score, curva: calcularCurvaBackend(score, valor, null) }
     }
 
     function enriquecerBrasilApi(cnpjLimpo) {
@@ -1051,7 +1045,7 @@ routerAdd(
           try {
             const empRelida = $app.findRecordById('empresas', novaEmp.id)
             const somaAtiva = valorEstimado
-            const curvaOficial = calcularScoreCurvaProvisorio(somaAtiva, 12).curva
+            const curvaOficial = calcularCurvaBackend(null, somaAtiva, null)
             if ((empRelida.get('curva') || 'C') !== curvaOficial) {
               empRelida.set('curva', curvaOficial)
               $app.save(empRelida)
@@ -1170,16 +1164,10 @@ routerAdd(
         100,
         Math.max(0, Math.round(normValor * 0.5 + normVigencia * 0.3 + normQtd * 0.2)),
       )
-      // REGRA OFICIAL DE CURVA (mesma de src/lib/curvaOficial.ts):
-      // A se score >= 70 ou valor >= 1.000.000; B se score >= 40 ou valor >= 200.000; senão C.
-      const CORTE_SCORE_A = 70
-      const CORTE_SCORE_B = 40
-      const CORTE_VALOR_A = 1000000
-      const CORTE_VALOR_B = 200000
-      let curva = 'C'
-      if (score >= CORTE_SCORE_A || valor >= CORTE_VALOR_A) curva = 'A'
-      else if (score >= CORTE_SCORE_B || valor >= CORTE_VALOR_B) curva = 'B'
-      return { score, curva }
+      // FUNÇÃO ÚNICA DE CURVA (curva_comum.js na MESMA VM — espelho de
+      // src/lib/curvaOficial.ts): A se score >= 70 ou valor >= 1.000.000;
+      // B se score >= 40 ou valor >= 200.000; senão C.
+      return { score, curva: calcularCurvaBackend(score, valor, null) }
     }
 
     const auditCol = $app.findCollectionByNameOrId('lotes_prospeccao_auditoria')
@@ -1472,16 +1460,10 @@ routerAdd(
         100,
         Math.max(0, Math.round(normValor * 0.5 + normVigencia * 0.3 + normQtd * 0.2)),
       )
-      // REGRA OFICIAL DE CURVA (mesma de src/lib/curvaOficial.ts):
-      // A se score >= 70 ou valor >= 1.000.000; B se score >= 40 ou valor >= 200.000; senão C.
-      const CORTE_SCORE_A = 70
-      const CORTE_SCORE_B = 40
-      const CORTE_VALOR_A = 1000000
-      const CORTE_VALOR_B = 200000
-      let curva = 'C'
-      if (score >= CORTE_SCORE_A || valor >= CORTE_VALOR_A) curva = 'A'
-      else if (score >= CORTE_SCORE_B || valor >= CORTE_VALOR_B) curva = 'B'
-      return { score, curva }
+      // FUNÇÃO ÚNICA DE CURVA (curva_comum.js na MESMA VM — espelho de
+      // src/lib/curvaOficial.ts): A se score >= 70 ou valor >= 1.000.000;
+      // B se score >= 40 ou valor >= 200.000; senão C.
+      return { score, curva: calcularCurvaBackend(score, valor, null) }
     }
 
     let fonteRec = null

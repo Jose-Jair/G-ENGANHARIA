@@ -1,3 +1,5 @@
+import { calcularCurvaOficial } from '@/lib/curvaOficial'
+
 export function limparCnpj(val: string | null | undefined): string {
   if (!val) return ''
   return String(val).replace(/\D/g, '')
@@ -84,16 +86,9 @@ export function calcularScoreCurvaProvisorio(
   const indiceFloat = normValor * 0.5 + normVigencia * 0.3 + normQtd * 0.2
   const score = Math.min(100, Math.max(0, Math.round(indiceFloat)))
 
-  let curva: 'A' | 'B' | 'C' = 'C'
-  if (score >= 40 || valor >= 1000000) {
-    curva = 'A'
-  } else if (score >= 15 || valor >= 200000) {
-    curva = 'B'
-  } else {
-    curva = 'C'
-  }
-
-  return { score, curva }
+  // FUNÇÃO ÚNICA DE CURVA (src/lib/curvaOficial.ts): A se score >= 70 ou
+  // valor >= 1.000.000; B se score >= 40 ou valor >= 200.000; senão C.
+  return { score, curva: calcularCurvaOficial(score, valor, null) }
 }
 
 export interface ContratoBrutoProspeccao {

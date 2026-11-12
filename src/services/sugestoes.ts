@@ -8,6 +8,7 @@ import {
 } from '@/types'
 import { CreateEmpresaData } from './empresas'
 import { cleanCnpj } from '@/lib/cnpj'
+import { calcularCurvaOficial } from '@/lib/curvaOficial'
 
 export interface CreateSugestaoData {
   razao_social: string
@@ -93,8 +94,10 @@ export const sugestoesService = {
       email: sugestao.email || '',
       telefone: sugestao.telefone || '',
       etapa_funil: 'identificada',
-      curva: 'C',
-      score: 60,
+      // Curva provisória pela FUNÇÃO ÚNICA (curvaOficial.ts); o hook de requisição
+      // de contratos recalcula pela regra oficial assim que o rascunho é gravado.
+      curva: calcularCurvaOficial(Number(sugestao.score_relevancia) || 60, 0, 'ativa'),
+      score: Number(sugestao.score_relevancia) || 60,
       status: 'ativa',
       responsavel: usuarioId,
       observacoes: `Empresa originada da fila de sugestões (${sugestao.fonte.toUpperCase()}). ${sugestao.observacoes || ''}`,

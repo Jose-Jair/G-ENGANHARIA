@@ -72,7 +72,7 @@ export function EmpresaContratosTab({
   // Campos adicionais do formulário (número e vigências)
   const [numero, setNumero] = useState('')
   const [modalidade, setModalidade] = useState('')
-  const [saldo, setSaldo] = useState<number | ''>('')
+  const [saldoInput, setSaldoInput] = useState('')
   const [vigenciaInicio, setVigenciaInicio] = useState('')
   const [vigenciaFim, setVigenciaFim] = useState('')
   const [linkEdital, setLinkEdital] = useState('')
@@ -95,7 +95,7 @@ export function EmpresaContratosTab({
     setFonte('')
     setNumero('')
     setModalidade('')
-    setSaldo('')
+    setSaldoInput('')
     setVigenciaInicio('')
     setVigenciaFim('')
     setLinkEdital('')
@@ -120,7 +120,7 @@ export function EmpresaContratosTab({
     setFonte(c.fonte || '')
     setNumero(c.numero || '')
     setModalidade(c.modalidade || '')
-    setSaldo(typeof c.saldo === 'number' ? c.saldo : '')
+    setSaldoInput(typeof c.saldo === 'number' && c.saldo > 0 ? formatCurrencyBr(c.saldo) : '')
     setVigenciaInicio(c.vigencia_inicio ? c.vigencia_inicio.slice(0, 10) : '')
     setVigenciaFim(c.vigencia_fim ? c.vigencia_fim.slice(0, 10) : '')
     setLinkEdital(c.link_edital || '')
@@ -267,6 +267,12 @@ export function EmpresaContratosTab({
     const numeroFinal =
       numero.trim() || editingContrato?.numero || `CT-${Date.now().toString().slice(-6)}`
 
+    // Saldo separado do valor global: se o usuário deixar o Saldo vazio,
+    // grava saldo = valor global.
+    const saldoNumerico = parseCurrencyInput(saldoInput)
+    const saldoFinal =
+      typeof saldoNumerico === 'number' && saldoNumerico > 0 ? saldoNumerico : valorNumerico
+
     const payload: any = {
       empresa: empresaId,
       orgao: orgao.trim(),
@@ -274,7 +280,7 @@ export function EmpresaContratosTab({
       objeto: objeto.trim(),
       modalidade: modalidade.trim(),
       valor: valorNumerico,
-      saldo: typeof saldo === 'number' && saldo > 0 ? saldo : valorNumerico,
+      saldo: saldoFinal,
       vigencia_inicio: vigenciaInicio ? `${vigenciaInicio} 00:00:00.000Z` : undefined,
       vigencia_fim: vigenciaFim ? `${vigenciaFim} 00:00:00.000Z` : undefined,
       situacao: situacao.trim() || 'Em Execução',
@@ -598,7 +604,7 @@ export function EmpresaContratosTab({
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="valorInput">Valor Contratado (R$) *</Label>
+                <Label htmlFor="valorInput">Valor global (R$) *</Label>
                 <Input
                   id="valorInput"
                   placeholder="R$ 0,00"
@@ -606,6 +612,22 @@ export function EmpresaContratosTab({
                   onChange={(e) => setValorInput(formatCurrencyInput(e.target.value))}
                   className="font-mono text-base font-semibold"
                   required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="saldoInput">
+                  Saldo (R$){' '}
+                  <span className="text-[11px] font-normal text-slate-400">
+                    — se vazio, assume o Valor global
+                  </span>
+                </Label>
+                <Input
+                  id="saldoInput"
+                  placeholder="R$ 0,00"
+                  value={saldoInput}
+                  onChange={(e) => setSaldoInput(formatCurrencyInput(e.target.value))}
+                  className="font-mono"
                 />
               </div>
 

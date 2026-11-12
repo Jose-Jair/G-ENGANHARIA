@@ -160,9 +160,7 @@ migrate(
     } catch (eAntes) {
       console.log(LOG + ' aviso ao contar antes do backfill: ' + eAntes)
     }
-    console.log(
-      LOG + ' antes do backfill: registros a preencher (nulo/0 com saldo>0) = ' + antesN,
-    )
+    console.log(LOG + ' antes do backfill: registros a preencher (nulo/0 com saldo>0) = ' + antesN)
 
     app
       .db()

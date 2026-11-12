@@ -39,13 +39,14 @@ routerAdd(
       }
       const modelo = modelos[0]
 
+      // padrão JSVM v0.23 (Record não tem getFileName/getFilePath):
+      // nome via record.get + caminho via record.baseFilesPath()
       let anexoReader = null
       let anexoNome = 'portfolio-gmais.pdf'
       try {
-        const nomeAnexo = modelo.getFileName('anexo_portfolio') || ''
-        const caminhoAnexo = modelo.getFilePath('anexo_portfolio') || ''
-        if (nomeAnexo && caminhoAnexo) {
-          anexoReader = $app.newFilesystem().getFile(caminhoAnexo)
+        const nomeAnexo = modelo.getString('anexo_portfolio') || ''
+        if (nomeAnexo) {
+          anexoReader = $app.newFilesystem().getFile(modelo.baseFilesPath() + '/' + nomeAnexo)
           anexoNome = nomeAnexo
         }
       } catch (aErr) {
@@ -66,15 +67,22 @@ routerAdd(
         const corpo = modelo.getString('corpo_html').replace(/\{\{empresa\}\}/g, nomeEmpresa)
         const assunto = modelo.getString('assunto')
 
+        // mailer.Message da JSVM não tem replyTo (e não aceita atribuir depois de criar):
+        // o remetente já é grupomais.sae@gmail.com, então as respostas voltam para ele.
+        // attachments deve nascer como mapa vazio NO construtor (undefined depois falha).
         const msg = new MailerMessage({
           from: { address: 'grupomais.sae@gmail.com', name: 'G+ Engenharia' },
           to: [{ address: emailTeste, name: 'Teste' }],
           subject: assunto,
           html: corpo,
+          attachments: {},
         })
-        msg.replyTo = { address: 'grupomais.sae@gmail.com', name: 'G+ Engenharia' }
         if (anexoReader) {
-          msg.attachments[anexoNome] = anexoReader
+          try {
+            msg.attachments[anexoNome] = anexoReader.reader.open()
+          } catch (anexoErr) {
+            console.log('aviso anexo (abertura): ' + anexoErr)
+          }
         }
         $app.newMailClient().send(msg)
 
@@ -355,13 +363,14 @@ cronAdd('disparo-lote-toque1', '* * * * *', () => {
     const assunto = modelo.getString('assunto')
 
     // ---------- Anexo do portfólio ----------
+    // padrão JSVM v0.23 (Record não tem getFileName/getFilePath):
+    // nome via record.get + caminho via record.baseFilesPath()
     let anexoReader = null
     let anexoNome = 'portfolio-gmais.pdf'
     try {
-      const nomeAnexo = modelo.getFileName('anexo_portfolio') || ''
-      const caminhoAnexo = modelo.getFilePath('anexo_portfolio') || ''
-      if (nomeAnexo && caminhoAnexo) {
-        anexoReader = $app.newFilesystem().getFile(caminhoAnexo)
+      const nomeAnexo = modelo.getString('anexo_portfolio') || ''
+      if (nomeAnexo) {
+        anexoReader = $app.newFilesystem().getFile(modelo.baseFilesPath() + '/' + nomeAnexo)
         anexoNome = nomeAnexo
       }
     } catch (aErr) {
@@ -370,15 +379,22 @@ cronAdd('disparo-lote-toque1', '* * * * *', () => {
 
     // ---------- Envio ----------
     try {
+      // mailer.Message da JSVM não tem replyTo (e não aceita atribuir depois de criar):
+      // o remetente já é grupomais.sae@gmail.com, então as respostas voltam para ele.
+      // attachments deve nascer como mapa vazio NO construtor (undefined depois falha).
       const msg = new MailerMessage({
         from: { address: 'grupomais.sae@gmail.com', name: 'G+ Engenharia' },
         to: [{ address: emailEmpresa.trim(), name: nomeEmpresa }],
         subject: assunto,
         html: corpoHtml,
+        attachments: {},
       })
-      msg.replyTo = { address: 'grupomais.sae@gmail.com', name: 'G+ Engenharia' }
       if (anexoReader) {
-        msg.attachments[anexoNome] = anexoReader
+        try {
+          msg.attachments[anexoNome] = anexoReader.reader.open()
+        } catch (anexoErr) {
+          console.log('aviso anexo (abertura): ' + anexoErr)
+        }
       }
       $app.newMailClient().send(msg)
     } catch (mailErr) {

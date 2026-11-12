@@ -30,6 +30,15 @@ routerAdd(
       if (empresaIds.length > 500) {
         return e.json(400, { message: 'Máximo de 500 empresas por lote' })
       }
+      if (emailTeste) {
+        // Modo teste: exige exatamente 1 id de empresa como placeholder (mesma validação do lote)
+        if (empresaIds.length !== 1) {
+          return e.json(400, {
+            message:
+              'Modo teste: informe exatamente 1 id de empresa como placeholder (empresa_ids)',
+          })
+        }
+      }
 
       const modelos = $app.findRecordsByFilter('modelos_email', 'ativo = true', '-created', 1, 0)
       if (!modelos.length) {
@@ -40,17 +49,34 @@ routerAdd(
       const modelo = modelos[0]
 
       // padrão JSVM v0.23 (Record não tem getFileName/getFilePath):
-      // nome via record.get + caminho via record.baseFilesPath()
+      // fsys.getReader(chave) devolve blob.Reader (io.ReadSeekCloser: read/seek/close/
+      // contentType/size) — é ELE que vai no mapa attachments; NÃO tem .reader/.open().
       let anexoReader = null
-      let anexoNome = 'portfolio-gmais.pdf'
-      try {
-        const nomeAnexo = modelo.getString('anexo_portfolio') || ''
-        if (nomeAnexo) {
-          anexoReader = $app.newFilesystem().getFile(modelo.baseFilesPath() + '/' + nomeAnexo)
-          anexoNome = nomeAnexo
+      let anexoFs = null
+      let anexoNome = ''
+      let anexoErro = ''
+      let anexoTamanho = 0
+      const nomeAnexo = (modelo.getString('anexo_portfolio') || '').trim()
+      if (nomeAnexo) {
+        try {
+          // filesystem fica ABERTO até depois do send (fechar antes pode invalidar o reader)
+          anexoFs = $app.newFilesystem()
+          anexoReader = anexoFs.getReader(modelo.baseFilesPath() + '/' + nomeAnexo)
+          anexoNome = 'PORTFOLIO_G+ENGENHARIA_2026.pdf'
+          try {
+            anexoTamanho = anexoReader.size()
+          } catch (_) {}
+        } catch (aErr) {
+          anexoErro = 'falha ao abrir anexo_portfolio (' + nomeAnexo + '): ' + aErr
+          try {
+            if (anexoReader) anexoReader.close()
+          } catch (_) {}
+          try {
+            if (anexoFs) anexoFs.close()
+          } catch (_) {}
+          anexoReader = null
+          anexoFs = null
         }
-      } catch (aErr) {
-        console.log('aviso anexo_portfolio: ' + aErr)
       }
 
       const baseUrl =
@@ -69,22 +95,57 @@ routerAdd(
 
         // mailer.Message da JSVM não tem replyTo (e não aceita atribuir depois de criar):
         // o remetente já é grupomais.sae@gmail.com, então as respostas voltam para ele.
-        // attachments deve nascer como mapa vazio NO construtor (undefined depois falha).
+        // O anexo deve estar NO CONSTRUTOR como mapa {nome: io.Reader}.
+        // Falha no anexo ABORTA ANTES do envio: nenhum e-mail de teste sai sem anexo.
+        if (anexoErro || !anexoReader) {
+          try {
+            if (anexoFs) anexoFs.close()
+          } catch (_) {}
+          return e.json(500, {
+            teste: true,
+            enviado: false,
+            anexo: nomeAnexo,
+            anexo_incluido: false,
+            message:
+              'Falha no anexo do portfólio — NENHUM E-MAIL ENVIADO: ' +
+              (anexoErro || 'reader do anexo indisponível'),
+          })
+        }
+        const attachments = {}
+        attachments[anexoNome] = anexoReader
+
         const msg = new MailerMessage({
           from: { address: 'grupomais.sae@gmail.com', name: 'G+ Engenharia' },
           to: [{ address: emailTeste, name: 'Teste' }],
           subject: assunto,
           html: corpo,
-          attachments: {},
+          attachments: attachments,
         })
-        if (anexoReader) {
+
+        try {
+          $app.newMailClient().send(msg)
+        } catch (sendErr) {
           try {
-            msg.attachments[anexoNome] = anexoReader.reader.open()
-          } catch (anexoErr) {
-            console.log('aviso anexo (abertura): ' + anexoErr)
-          }
+            if (anexoReader) anexoReader.close()
+          } catch (_) {}
+          try {
+            if (anexoFs) anexoFs.close()
+          } catch (_) {}
+          return e.json(500, {
+            teste: true,
+            enviado: false,
+            para: emailTeste,
+            anexo: anexoNome || nomeAnexo,
+            anexo_incluido: false,
+            message: 'Falha no envio do e-mail de teste: ' + sendErr,
+          })
         }
-        $app.newMailClient().send(msg)
+        try {
+          if (anexoReader) anexoReader.close()
+        } catch (_) {}
+        try {
+          if (anexoFs) anexoFs.close()
+        } catch (_) {}
 
         try {
           const auditCol = $app.findCollectionByNameOrId('audit_logs')
@@ -97,13 +158,21 @@ routerAdd(
           aRec.set('detalhes', {
             email_teste: emailTeste,
             empresa_placeholder: nomeEmpresa,
-            com_anexo: !!anexoReader,
+            com_anexo: true,
+            anexo_tamanho_bytes: anexoTamanho,
           })
           aRec.set('ip', (reqInfo.headers && reqInfo.headers['x-forwarded-for']) || '')
           $app.save(aRec)
         } catch (_) {}
 
-        return e.json(200, { teste: true, enviado: true, para: emailTeste })
+        return e.json(200, {
+          teste: true,
+          enviado: true,
+          para: emailTeste,
+          anexo: anexoNome,
+          anexo_incluido: true,
+          anexo_tamanho_bytes: anexoTamanho,
+        })
       }
 
       // ---- modo LOTE: cria lote e enfileira ----
@@ -364,52 +433,102 @@ cronAdd('disparo-lote-toque1', '* * * * *', () => {
 
     // ---------- Anexo do portfólio ----------
     // padrão JSVM v0.23 (Record não tem getFileName/getFilePath):
-    // nome via record.get + caminho via record.baseFilesPath()
+    // fsys.getReader(chave) devolve blob.Reader (io.ReadSeekCloser: read/seek/close/
+    // contentType/size) — é ELE que vai no mapa attachments; NÃO tem .reader/.open().
     let anexoReader = null
-    let anexoNome = 'portfolio-gmais.pdf'
-    try {
-      const nomeAnexo = modelo.getString('anexo_portfolio') || ''
-      if (nomeAnexo) {
-        anexoReader = $app.newFilesystem().getFile(modelo.baseFilesPath() + '/' + nomeAnexo)
-        anexoNome = nomeAnexo
+    let anexoFs = null
+    let anexoNome = ''
+    let anexoErro = ''
+    const nomeAnexo = (modelo.getString('anexo_portfolio') || '').trim()
+    if (nomeAnexo) {
+      try {
+        // filesystem fica ABERTO até depois do send (fechar antes pode invalidar o reader)
+        anexoFs = $app.newFilesystem()
+        anexoReader = anexoFs.getReader(modelo.baseFilesPath() + '/' + nomeAnexo)
+        anexoNome = 'PORTFOLIO_G+ENGENHARIA_2026.pdf'
+      } catch (aErr) {
+        anexoErro = 'falha ao abrir anexo_portfolio (' + nomeAnexo + '): ' + aErr
+        try {
+          if (anexoReader) anexoReader.close()
+        } catch (_) {}
+        try {
+          if (anexoFs) anexoFs.close()
+        } catch (_) {}
+        anexoReader = null
+        anexoFs = null
       }
-    } catch (aErr) {
-      console.log('aviso anexo_portfolio (cron): ' + aErr)
     }
 
     // ---------- Envio ----------
     try {
       // mailer.Message da JSVM não tem replyTo (e não aceita atribuir depois de criar):
       // o remetente já é grupomais.sae@gmail.com, então as respostas voltam para ele.
-      // attachments deve nascer como mapa vazio NO construtor (undefined depois falha).
+      // O anexo deve estar NO CONSTRUTOR como mapa {nome: io.Reader}.
+      // Falha no anexo ABORTA ANTES do envio: nenhum e-mail do lote sai sem anexo.
+      if (anexoErro || !anexoReader) {
+        throw anexoErro || 'reader do anexo do portfólio indisponível'
+      }
+      const attachments = {}
+      attachments[anexoNome] = anexoReader
       const msg = new MailerMessage({
         from: { address: 'grupomais.sae@gmail.com', name: 'G+ Engenharia' },
         to: [{ address: emailEmpresa.trim(), name: nomeEmpresa }],
         subject: assunto,
         html: corpoHtml,
-        attachments: {},
+        attachments: attachments,
       })
-      if (anexoReader) {
-        try {
-          msg.attachments[anexoNome] = anexoReader.reader.open()
-        } catch (anexoErr) {
-          console.log('aviso anexo (abertura): ' + anexoErr)
-        }
-      }
       $app.newMailClient().send(msg)
     } catch (mailErr) {
+      try {
+        if (anexoReader) anexoReader.close()
+      } catch (_) {}
+      try {
+        if (anexoFs) anexoFs.close()
+      } catch (_) {}
+      const erroFinal = anexoErro ? anexoErro + ' | ' + mailErr : mailErr
       item.set('status', 'erro')
-      item.set('erro_detalhe', String(mailErr).substring(0, 300))
+      item.set('erro_detalhe', String(erroFinal).substring(0, 300))
       $app.save(item)
       try {
         const lote = $app.findRecordById('lotes_disparo', loteId)
         const erros = lote.get('erros') || []
-        erros.push({ empresa_id: empresaId, erro: String(mailErr).substring(0, 300) })
+        erros.push({ empresa_id: empresaId, erro: String(erroFinal).substring(0, 300) })
         lote.set('erros', erros)
         $app.save(lote)
       } catch (_) {}
+      // Registro em erros_sistema: anexo que não abre é defeito de configuração, não de dados da empresa
+      if (anexoErro) {
+        try {
+          const errosCol = $app.findCollectionByNameOrId('erros_sistema')
+          const eRec = new Record(errosCol)
+          eRec.set('rota', 'cron-disparo-lote-toque1')
+          eRec.set(
+            'mensagem',
+            'Toque 1 NÃO enviado — falha no anexo do portfólio (nenhum e-mail sai sem anexo): ' +
+              anexoErro,
+          )
+          eRec.set('hora', new Date().toISOString())
+          eRec.set('detalhes', {
+            lote_id: loteId,
+            empresa_id: empresaId,
+            empresa_nome: nomeEmpresa,
+            arquivo: nomeAnexo,
+            anexo_incluido: false,
+          })
+          $app.save(eRec)
+        } catch (esErr) {
+          console.log('Erro ao registrar erros_sistema (anexo): ' + esErr)
+        }
+      }
       return
     }
+
+    try {
+      if (anexoReader) anexoReader.close()
+    } catch (_) {}
+    try {
+      if (anexoFs) anexoFs.close()
+    } catch (_) {}
 
     // ---------- Pós-envio: toque, etapa, auditoria ----------
     try {

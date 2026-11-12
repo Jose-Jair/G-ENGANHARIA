@@ -202,9 +202,9 @@ onRecordCreateRequest((e) => {
       )
     }
 
-    // Se confirmado_duplicidade = true, guardamos o similar_id no evento para auditoria
-    e.set('contrato_duplicado_confirmado', true)
-    e.set('contrato_similar_id', conflito.id)
+    // Se confirmado_duplicidade = true, guardamos o similar_id no registro (evento não tem .set/.get na JSVM v0.23)
+    e.record.set('contrato_duplicado_confirmado', true)
+    e.record.set('contrato_similar_id', conflito.id)
   }
 
   e.next()
@@ -212,8 +212,8 @@ onRecordCreateRequest((e) => {
 
 onRecordCreate((e) => {
   try {
-    var duplicadoConfirmado = e.get('contrato_duplicado_confirmado')
-    var similarId = e.get('contrato_similar_id')
+    var duplicadoConfirmado = e.record.get('contrato_duplicado_confirmado')
+    var similarId = e.record.get('contrato_similar_id')
 
     if (duplicadoConfirmado) {
       var auditCol = $app.findCollectionByNameOrId('audit_logs')
@@ -224,9 +224,13 @@ onRecordCreate((e) => {
       var ip = ''
 
       try {
+        // IP real: requestInfo() não tem remoteIP na JSVM v0.23 (padrão do projeto: headers de proxy)
+        ip = e.request.getHeader('x-forwarded-for') || e.request.getHeader('x-real-ip') || ''
+      } catch (_) {}
+
+      try {
         var reqInfo = e.requestInfo()
         if (reqInfo) {
-          ip = reqInfo.remoteIP || ''
           if (reqInfo.auth) {
             userId = reqInfo.auth.id
             userEmail = reqInfo.auth.getString('email') || ''

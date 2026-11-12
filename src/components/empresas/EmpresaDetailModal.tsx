@@ -333,7 +333,7 @@ export function EmpresaDetailModal({
           `Curva ${curvaTeorica} pela regra oficial: ` +
             (statusEmp === 'inativa'
               ? 'empresa inativa = sempre Curva C'
-              : `score ${scoreEmp} e valor ativo ${formatCurrencyBR(valorAtivo)}`),
+              : `score ${scoreEmp} e valor ativo ${formatCurrencyBr(valorAtivo)}`),
         )
       } catch (e) {
         setCurva((empresa?.curva as CurvaABC) || 'C')
